@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Grunds — The District</title>
+<style>
+  body { margin:0; overflow:hidden; font-family: ui-monospace, Menlo, monospace; background:#0b0e14; }
+  #hud { position:fixed; top:12px; left:12px; color:#e8e2d0; z-index:10; }
+  #hud .clock { font-size:28px; font-weight:bold; letter-spacing:1px; }
+  #hud .line { font-size:13px; opacity:.85; margin-top:4px; }
+  #hud .till { color:#7dd87d; } #hud .balk { color:#e07a7a; } #hud .hint { color:#e8c46a; }
+  #levers { position:fixed; bottom:16px; left:12px; z-index:10; display:flex; gap:8px; }
+  button { font-family:inherit; font-size:14px; padding:10px 14px; border:1px solid #5a5240;
+    background:#1a1f2b; color:#e8e2d0; cursor:pointer; border-radius:4px; }
+  button:hover:enabled { background:#2a3040; }
+  button:disabled { opacity:.35; cursor:default; }
+  #speeds { position:fixed; bottom:16px; right:12px; z-index:10; display:flex; gap:6px; }
+  #toast { position:fixed; top:12px; right:12px; color:#e8c46a; font-size:13px; z-index:10;
+    text-align:right; white-space:pre-line; max-width:340px; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="clock" id="clock">06:00</div>
+  <div class="line">till <span class="till" id="till">£0.00</span> &nbsp; balked <span class="balk" id="balk">0</span></div>
+  <div class="line" id="status"></div>
+  <div class="line hint" id="hint"></div>
+</div>
+<div id="toast"></div>
+<div id="levers">
+  <button id="prebatch">Pre-batch matcha (−£4.20)</button>
+  <button id="reprice">Matcha £4.80 → £4.20</button>
+  <button id="reset">↺ reset day</button>
+</div>
+<div id="speeds">
+  <button data-s="60">1×</button><button data-s="300">5×</button><button data-s="1200">20×</button>
+</div>
+<script type="module">
+import * as THREE from './vendor/three.module.js';
+
+const COHORT_COLORS = { commuters:0x6ab0e8, creatives:0xb08ae8, students:0xe8b06a, elders:0x7dd87d, tourists:0xe87a9a };
+const ZONES = {
+  counter: { x:-6, z:-2, w:10, d:3, color:0x2b3040, label:'counter' },
+  register:{ x:6,  z:-2, w:4,  d:3, color:0x40382b, label:'register' },
+  retail:  { x:-4, z:6,  w:8,  d:4, color:0x27331f, label:'retail' },
+  tables:  { x:7,  z:6,  w:8,  d:6, color:0x1f2a33, label:'tables' },
+};
+const MATCHA_WAIT_MIN = 4;  // prep time without pre-batch
+const PRICE = { matchaFull: 4.80, matchaDeal: 4.20, other: 3.60 };
+
+let schedule=null, waveIdx=0, dayMin=6*60, speed=300;
+let till=0, balked=0, served=0, prebatched=false, repriced=false, batchUnits=0;
+let patrons=[], gossip=[];
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0e14);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, .1, 200);
+camera.position.set(0, 22, 20); camera.lookAt(0,0,2);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
+scene.add(new THREE.AmbientLight(0xffffff, .8));
+const dl = new THREE.DirectionalLight(0xffffff, .9); dl.position.set(10,20,10); scene.add(dl);
+
+const zoneMeshes = {};
+for (const [name,z] of Object.entries(ZONES)) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(z.w,.1,z.d), new THREE.MeshLambertMaterial({color:z.color}));
+  m.position.set(z.x,0,z.z); scene.add(m); zoneMeshes[name]=m;
+  const el = document.createElement('div');
+  el.style.cssText='position:fixed;color:#8a8570;font-size:11px;pointer-events:none';
+  el.textContent=z.label.toUpperCase(); document.body.appendChild(el);
+  z.labelEl=el;
+}
+function labelPos(){ for (const z of Object.values(ZONES)) {
+  const v = new THREE.Vector3(z.x,.5,z.z).project(camera);
+  z.labelEl.style.left=(v.x*.5+.5)*innerWidth-20+'px'; z.labelEl.style.top=(-v.y*.5+.5)*innerHeight+'px';
+}}
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+const patronGeo = new THREE.SphereGeometry(.28,10,8);
+function spawnPatron(cohort, zone){
+  const c = new THREE.Color(COHORT_COLORS[cohort]||0xaaaaaa);
+  const m = new THREE.Mesh(patronGeo, new THREE.MeshLambertMaterial({color:c}));
+  const Z = ZONES[zone];
+  m.position.set(Z.x+(Math.random()-.5)*Z.w*.8, .6, Z.z+(Math.random()-.5)*Z.d*.8);
+  m.userData={cohort, zone, waitMin:0, state:'shopping'};
+  scene.add(m); patrons.push(m);
+  if (patrons.length>260){ const old=patrons.shift(); scene.remove(old); }
+  return m;
+}
+function nearbyPatron(p){
+  let best=null,bd=1e9;
+  for (const q of patrons) if(q!==p&&q.userData.state==='served'){const d=q.position.distanceTo(p.position); if(d<bd){bd=d;best=q;}}
+  return best || patrons.find(q=>q!==p) || p;
+}
+function gossipBubble(from, text, negative){
+  const el=document.createElement('div');
+  el.style.cssText=`position:fixed;font-size:12px;padding:3px 7px;border-radius:8px;pointer-events:none;
+    background:${negative?'#3a1f1f':'#1f2a1f'};color:${negative?'#e07a7a':'#9ad89a'};
+    border:1px solid ${negative?'#5a2a2a':'#2a4a2a'}`;
+  el.textContent=text; document.body.appendChild(el);
+  gossip.push({el, start:from.position.clone(), t:0, target:nearbyPatron(from)});
+}
+function project(p){ const v=p.clone().project(camera); return [(v.x*.5+.5)*innerWidth,(-v.y*.5+.5)*innerHeight]; }
+
+// ---- day loop ---------------------------------------------------------------
+function tick(){
+  if (!running()||!schedule) return;
+  dayMin += 1;
+  // spawn wave
+  while (waveIdx<schedule.waves.length && schedule.waves[waveIdx].t<dayMin){
+    const w=schedule.waves[waveIdx++];
+    for (const s of w.spawns) for (let i=0;i<s.q;i++) spawnPatron(s.c,s.z);
+  }
+  // service
+  let servedNow=0;
+  for (const p of patrons){
+    if (p.userData.state!=='shopping') continue;
+    p.userData.waitMin++;
+    const isMatcha = p.userData.zone==='counter' && Math.random()<0.35; // matcha share at counter
+    const need = isMatcha ? (prebatched?1:MATCHA_WAIT_MIN) : 1;
+    if (p.userData.waitMin>=need && servedNow<QUEUE()){
+      if (isMatcha && !prebatched && p.userData.waitMin>3 && Math.random()<0.12){
+        p.userData.state='balked'; balked++;
+        if (Math.random()<0.3) gossipBubble(p,'matcha here is a WAIT…',true);
+        continue;
+      }
+      p.userData.state='served'; servedNow++;
+      till += isMatcha ? (repriced?PRICE.matchaDeal:PRICE.matchaFull) : PRICE.other;
+      if (isMatcha && prebatched) batchUnits=Math.max(0,batchUnits-1);
+      if (Math.random()<0.25){
+        p.position.set(ZONES.tables.x+(Math.random()-.5)*6,.6,ZONES.tables.z+(Math.random()-.5)*4);
+      }
+    }
+  }
+  if (prebatched && batchUnits<=0){ prebatched=false; toast('batch exhausted — back to made-to-order'); }
+  updateHUD();
+}
+function QUEUE(){ return 8; }
+function running(){ return dayMin < 21*60; }
+
+function updateHUD(){
+  const h=String(Math.floor(dayMin/60)).padStart(2,'0'), m=String(dayMin%60).padStart(2,'0');
+  document.getElementById('clock').textContent=`${h}:${m}`;
+  document.getElementById('till').textContent='£'+till.toFixed(2);
+  document.getElementById('balk').textContent=balked;
+  const q=patrons.filter(p=>p.userData.state==='shopping'&&p.userData.zone==='counter').length;
+  const heat=q>10?'#e07a7a':q>5?'#e8c46a':'#7dd87d';
+  document.getElementById('status').innerHTML=
+    `counter queue <span style="color:${heat}">${q}</span> · matcha stock ${prebatched?batchUnits:0} · served ${served}`;
+  zoneMeshes.counter.material.color.setHex(q>10?0x5a2a2a:q>5?0x4a4020:0x2b3040);
+  const hint=document.getElementById('hint');
+  if (dayMin>=12*60&&dayMin<14*60&&!prebatched)
+    hint.textContent='read: matcha rose 139→683/wk over 13 weeks. student wave lands 14:00.';
+  else if (prebatched) hint.textContent='pre-batched — the wave will hit a warm till.';
+  else hint.textContent='';
+  document.getElementById('prebatch').disabled=prebatched||dayMin>=16*60;
+  document.getElementById('reprice').disabled=repriced;
+}
+
+let toastTimer=null;
+function toast(t){
+  document.getElementById('toast').textContent=t;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{document.getElementById('toast').textContent='';},6000);
+}
+
+// levers
+document.getElementById('prebatch').onclick=()=>{ prebatched=true; batchUnits=40; till-=4.20; toast('PRE-BATCH: 40 matcha units ready (−£4.20)'); updateHUD(); };
+document.getElementById('reprice').onclick=()=>{ repriced=true; toast('Matcha repriced £4.80 → £4.20'); updateHUD(); };
+document.getElementById('reset').onclick=reset;
+document.querySelectorAll('#speeds button').forEach(b=>{
+  if (+b.dataset.s===300) b.classList.add('on');
+  b.onclick=()=>{ speed=+b.dataset.s;
+    document.querySelectorAll('#speeds button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); };
+});
+function reset(){
+  for (const p of patrons) scene.remove(p);
+  for (const g of gossip) g.el.remove();
+  patrons=[]; gossip=[]; waveIdx=0; dayMin=6*60; till=0; balked=0; served=0;
+  prebatched=false; repriced=false; batchUnits=0;
+  toast('day reset — 06:00');
+}
+
+// render loop: sim-minute pacing + animation
+let acc=0,last=performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt=now-last; last=now; acc+=dt;
+  const msPerMin=300/(speed/60);   // 60 (1×) → 300ms per sim-minute
+  while (acc>msPerMin){ acc-=msPerMin; tick(); }
+  for (const p of patrons){ p.position.y=.6+Math.sin((now/300)+p.position.x)*0.06; }
+  for (let i=gossip.length-1;i>=0;i--){
+    const g=gossip[i]; g.t+=0.02;
+    const tgt=g.target.position;
+    const pos=g.start.clone().lerp(tgt,Math.min(g.t,1)); pos.y=1.6+g.t;
+    const [x,y]=project(pos);
+    g.el.style.left=x+'px'; g.el.style.top=y+'px'; g.el.style.opacity=1-g.t;
+    if (g.t>=1){ g.el.remove(); gossip.splice(i,1); }
+  }
+  labelPos();
+  renderer.render(scene,camera);
+}
+fetch('/api/schedule').then(r=>r.json()).then(s=>{
+  schedule=s;
+  toast('THE DISTRICT — read the floor.\nmatcha wave lands 14:00.');
+  requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>
+
+

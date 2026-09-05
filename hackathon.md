@@ -12,9 +12,21 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-05T22:06:21Z
+- **Last updated:** 2026-09-05T22:35:00Z
 
 ## Log
+
+### 2026-09-05 - working tree
+Built the first playable vertical slice of the floor. `grunds/ingest.py` parses
+the 26.5k-row café export into a 5-minute wave schedule (173 ticks, 3,775 spawn
+buckets) tagged by zone and cohort, and extracts the planted signals (matcha
+139→683/wk, loaf 148→40 peak-to-end, 8.6% cake attach) — verified against the
+data. `grunds/spatial.py` serves the Three.js floor at localhost:8787 with a
+schedule API. `web/index.html` renders four zones with cohort-colored patrons,
+counter queue heat, the pre-batch and reprice levers, a till/balk scoreboard,
+a read hint at 12:00, gossip bubbles that drift to the nearest served patron,
+and a day reset. Three.js is vendored locally so the demo needs no internet.
+No Convex code yet.
 
 ### 2026-09-05 - 889f770
 Added the pre-commit tooling gate: gitleaks secrets scan with a custom ruleset

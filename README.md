@@ -188,10 +188,13 @@ grunds/
 ├── grunds/
 │   ├── __init__.py
 │   ├── ingest.py                # CSV parser + zone/cohort mapper + wave schedule
-│   ├── spatial.py               # Three.js floor: zones, entity spawner, gossip
+│   ├── spatial.py               # Three.js floor server (localhost:8787)
 │   ├── agent.py                 # patron choice loop + barista levers
 │   ├── precedent.py             # patron memory, opinions, friendship graph
 │   └── eval.py                  # demo-loop scoring
+├── web/
+│   ├── index.html               # the floor: zones, waves, levers, gossip
+│   └── vendor/three.module.js   # vendored Three.js (demo-reliable, no CDN)
 ├── benchmark_corpus.json        # UK café COGS benchmarks
 ├── locality_packs.json          # district locality data
 ├── cli.py
