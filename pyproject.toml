@@ -1,7 +1,7 @@
 [project]
 name = "grunds"
 version = "0.1.0"
-description = "Spatial intelligence for the café floor"
+description = "Grunds — The District: a live 3D coffee-district economy"
 requires-python = ">=3.11"
 dependencies = [
     "openpyxl",

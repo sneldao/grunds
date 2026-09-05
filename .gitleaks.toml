@@ -1,0 +1,23 @@
+# gitleaks config: default rules + Grunds extras.
+title = "grunds secret scan"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key-unquoted"
+description = "Generic API key / token / secret assignment (quoted or not)"
+regex = '''(?i)(api[_-]?key|secret|token|password|credential)[ \t]*[=:][ \t]*["']?[A-Za-z0-9+/_\-]{16,}["']?'''
+keywords = ["api", "key", "secret", "token", "password", "credential"]
+
+[[rules]]
+id = "openai-style-key"
+description = "OpenAI-style API key (sk- prefix)"
+regex = '''\bsk-(proj-|ant-)?[A-Za-z0-9_-]{20,}\b'''
+keywords = ["sk-"]
+
+[[rules]]
+id = "convex-deploy-key"
+description = "Convex deploy/admin key"
+regex = '''(?i)convex[^=\n]{0,20}(key|token)[^=\n]{0,10}=[^\s]{16,}'''
+keywords = ["convex"]

@@ -1,0 +1,44 @@
+#!/bin/sh
+# Grunds pre-commit hook: secrets scan + Python lint.
+# Versioned in githooks/ and enabled via `git config core.hooksPath githooks`.
+# Bypass for WIP: git commit --no-verify (use sparingly).
+
+set -u
+
+# --- Secrets scan (gitleaks, with fallback pattern scan) --------------------
+if command -v gitleaks >/dev/null 2>&1; then
+    echo "pre-commit: gitleaks scan on staged changes..."
+    if ! gitleaks protect --staged --redact -v; then
+        echo ""
+        echo "pre-commit: BLOCKED — probable secret in staged changes."
+        echo "  Remove the secret, or if this is a false positive, add an"
+        echo "  inline marker:  # gitleaks:allow"
+        exit 1
+    fi
+else
+    echo "pre-commit: gitleaks not found — using fallback secret scan."
+    if ! git diff --cached --diff-filter=ACM --name-only -z \
+        | xargs -0 -r python3 tools/secret_scan.py; then
+        echo ""
+        echo "pre-commit: BLOCKED — probable secret in staged changes."
+        exit 1
+    fi
+fi
+
+# --- Lint (ruff on staged Python files) -------------------------------------
+PY_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+if [ -n "$PY_FILES" ]; then
+    if command -v ruff >/dev/null 2>&1; then
+        echo "pre-commit: ruff check..."
+        if ! ruff check $PY_FILES; then
+            echo ""
+            echo "pre-commit: BLOCKED — lint errors above. Fix or add '# noqa'."
+            exit 1
+        fi
+    else
+        echo "pre-commit: WARNING — ruff not found, skipping lint."
+        echo "  Install: brew install ruff  (or: pip install ruff)"
+    fi
+fi
+
+exit 0
