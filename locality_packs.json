@@ -1,0 +1,190 @@
+{
+ "packs": [
+  {
+   "area": "Shoreditch EC2A",
+   "postcode_example": "EC2A",
+   "spots": [
+    {
+     "matcha_latte_price_gbp": 5.4,
+     "name": "Grind (Shoreditch)",
+     "url": "https://deliveroo.co.uk/menu/london/old-street/grind-shoreditch"
+    },
+    {
+     "matcha_latte_price_gbp": 4.5,
+     "name": "Gecko Coffeehouse",
+     "url": "https://geckocoffee.house/pages/menu"
+    },
+    {
+     "matcha_latte_price_gbp": 0,
+     "name": "Jujuhome Cha (Boxpark Shoreditch) (price unlisted)",
+     "url": "https://jujuhomestore.com/pages/menu"
+    },
+    {
+     "matcha_latte_price_gbp": 6.2,
+     "name": "Matcha Mochi Cafe (Classic Matcha Latte)",
+     "url": "https://www.fantuanorder.com/en-US/store/matcha-mochi-cafe/gb-4852994"
+    },
+    {
+     "matcha_latte_price_gbp": 4.09,
+     "name": "Black Sheep Coffee (Principal Place)",
+     "url": "https://deliveroo.co.uk/menu/london/shoreditch/black-sheep-coffee-principle-place"
+    }
+   ]
+  },
+  {
+   "area": "Soho W1D",
+   "postcode_example": "W1D",
+   "spots": [
+    {
+     "matcha_latte_price_gbp": 5.4,
+     "name": "Grind (Soho)",
+     "url": "https://deliveroo.co.uk/menu/london/soho/grind-soho"
+    },
+    {
+     "matcha_latte_price_gbp": 5.7,
+     "name": "Kova Patisserie (Soho)",
+     "url": "https://deliveroo.co.uk/menu/london/soho/kova-patisserie-soho-2"
+    },
+    {
+     "matcha_latte_price_gbp": 4.8,
+     "name": "TOKKIA (40 Berwick Street)",
+     "url": "https://cdn.shopify.com/s/files/1/1014/9412/8982/files/Tokkia_Menu_Berwick_July2026.pdf?v=1784900110"
+    },
+    {
+     "matcha_latte_price_gbp": 5.99,
+     "name": "No.79 Mousse & Hefaure (Soho)",
+     "url": "https://deliveroo.co.uk/menu/london/soho/no79-mousse-cafe"
+    },
+    {
+     "matcha_latte_price_gbp": 7.9,
+     "name": "heytea (Soho)",
+     "url": "https://deliveroo.co.uk/menu/london/soho/heytea-soho"
+    }
+   ]
+  },
+  {
+   "area": "Islington N1",
+   "postcode_example": "N1",
+   "spots": [
+    {
+     "matcha_latte_price_gbp": 4.09,
+     "name": "Black Sheep Coffee (Highbury & Islington)",
+     "url": "https://deliveroo.co.uk/menu/London/islington/black-sheep-coffee-highbury-and-islington"
+    },
+    {
+     "matcha_latte_price_gbp": 4.45,
+     "name": "Pret A Manger (Islington)",
+     "url": "https://deliveroo.co.uk/menu/london/islington/pret-a-manger-highbury-corner"
+    },
+    {
+     "matcha_latte_price_gbp": 3.8,
+     "name": "Katsute 100 (Upper Street)",
+     "url": "https://deliveroo.co.uk/menu/london/upper-street/katsute100"
+    },
+    {
+     "matcha_latte_price_gbp": 3.55,
+     "name": "Chapel Market Roastery (Angel)",
+     "url": "https://deliveroo.co.uk/menu/london/angel/chapel-market-roastery"
+    },
+    {
+     "matcha_latte_price_gbp": 0,
+     "name": "Caffein (Angel, Islington) (price unlisted)",
+     "url": "https://www.theupcoming.co.uk/2026/07/15/matcha-specialist-caffein-is-opening-in-angel-with-free-drinks-for-the-first-100-customers/"
+    }
+   ]
+  },
+  {
+   "area": "Hackney/Bethnal Green E2",
+   "postcode_example": "E2",
+   "spots": [
+    {
+     "matcha_latte_price_gbp": 4.8,
+     "name": "GAIL's Bakery (Hackney Castle)",
+     "url": "https://deliveroo.co.uk/menu/london/hackney/gails-hackney-castle"
+    },
+    {
+     "matcha_latte_price_gbp": 6.25,
+     "name": "The Spot Coffee (Lamb Lane, Hackney)",
+     "url": "https://deliveroo.co.uk/menu/London/hackney/the-spot-coffee-2-6-lamb-lane"
+    },
+    {
+     "matcha_latte_price_gbp": 4.75,
+     "name": "Matcha Mochi Cafe & Bar (Hoxton/E2)",
+     "url": "https://deliveroo.co.uk/menu/london/hoxton/matcha-mochi-cafe-and-bar"
+    },
+    {
+     "matcha_latte_price_gbp": 0,
+     "name": "JUJUHOME CHA (Bethnal Green Rd) (price unlisted)",
+     "url": "https://jujuhomestore.com/pages/menu"
+    },
+    {
+     "matcha_latte_price_gbp": 0,
+     "name": "Second Shot Coffee (Bethnal Green Rd) (price unlisted)",
+     "url": "https://www.tripadvisor.co.uk/ShowUserReviews-g186338-d10370512-r711055667-Second_Shot_Coffee-London_England.html"
+    }
+   ]
+  },
+  {
+   "area": "Peckham SE15",
+   "postcode_example": "SE15",
+   "spots": [
+    {
+     "matcha_latte_price_gbp": 4.8,
+     "name": "CUPP Bubble Tea (Queens Road)",
+     "url": "https://deliveroo.co.uk/menu/london/queens-road-peckham/cuup-bubble-tea-peckham"
+    },
+    {
+     "matcha_latte_price_gbp": 4.9,
+     "name": "139 Fika (Bellenden Road)",
+     "url": "https://139fika.com/wp-content/uploads/2025/06/139Fika_Menu_June2025.pdf"
+    },
+    {
+     "matcha_latte_price_gbp": 4.45,
+     "name": "Pret A Manger (Dulwich, SE15)",
+     "url": "https://deliveroo.co.uk/menu/london/peckham/647-pret-a-manger-dulwich"
+    },
+    {
+     "matcha_latte_price_gbp": 4.65,
+     "name": "Manayu (Denmark Hill)",
+     "url": "https://deliveroo.co.uk/menu/london/peckham/manayu-pec"
+    },
+    {
+     "matcha_latte_price_gbp": 0,
+     "name": "Cotton's Coffee (Choumert Road) (price unlisted)",
+     "url": "https://www.cottonscoffee.co.uk/"
+    }
+   ]
+  },
+  {
+   "area": "Brixton SW9",
+   "postcode_example": "SW9",
+   "spots": [
+    {
+     "matcha_latte_price_gbp": 4.1,
+     "name": "Sendero Specialty Coffee (Atlantic Road)",
+     "url": "https://deliveroo.co.uk/menu/london/brixton/sendero-specialty-coffee-1-atlantic-road"
+    },
+    {
+     "matcha_latte_price_gbp": 3.5,
+     "name": "Azmarino Coffee",
+     "url": "https://deliveroo.co.uk/menu/london/brixton/azmarino-coffee-brixton"
+    },
+    {
+     "matcha_latte_price_gbp": 4.45,
+     "name": "Pret A Manger (Brixton)",
+     "url": "https://deliveroo.co.uk/menu/london/brixton/477-pret-a-manger-brixton"
+    },
+    {
+     "matcha_latte_price_gbp": 5.4,
+     "name": "Grind Brixton (Grind)",
+     "url": "https://deliveroo.co.uk/menu/london/soho/grind-soho"
+    },
+    {
+     "matcha_latte_price_gbp": 4.59,
+     "name": "Black Sheep Coffee (Battersea)",
+     "url": "https://deliveroo.co.uk/menu/london/nine-elms/black-sheep-coffee-battersea"
+    }
+   ]
+  }
+ ]
+}

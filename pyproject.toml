@@ -1,0 +1,17 @@
+[project]
+name = "grunds"
+version = "0.1.0"
+description = "Spatial intelligence for the café floor"
+requires-python = ">=3.11"
+dependencies = [
+    "openpyxl",
+    "pandas",
+    "numpy",
+]
+
+[project.scripts]
+grunds = "cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.backends._legacy:_Backend"
