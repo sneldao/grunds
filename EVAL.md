@@ -11,15 +11,14 @@
 
 ## Datasets
 
-- `data/bank_clean.csv` + `data/gl_clean.csv` — no mismatches, dates aligned
-- `data/bank_messy.csv` + `data/gl_messy.csv` — planted offsets, partials, splits
+- `out/square_item_sales.csv` — 13-week deterministic café export (26.5k rows) from `transform.py`
+- Planted signals: matcha riser, banana loaf faller, 8.2% cake attach rate
 
 ## Reproduce
 
 ```bash
-python3 -m grunds eval --dataset clean
-python3 -m grunds eval --dataset messy
-python3 -m grunds eval --dataset messy --precedent --runs 3
+python3 transform.py
+python3 -m grunds eval
 ```
 
 Output: `out/eval_results.json` with per-run scores.
