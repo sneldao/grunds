@@ -12,9 +12,17 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-05T21:52:34Z
+- **Last updated:** 2026-09-05T21:58:00Z
 
 ## Log
+
+### 2026-09-05 - 889f770
+Added the pre-commit tooling gate: gitleaks secrets scan with a custom ruleset
+(`.gitleaks.toml`, default rules plus OpenAI-style and Convex-key patterns), ruff
+lint on staged Python files, and a dependency-free fallback scanner
+(`tools/secret_scan.py`) for machines without gitleaks. Verified the hook blocks a
+planted fake key and passes a clean commit. Started the hackathon build log
+(`hackathon.md`) and committed the project-local hackathon skill. No Convex code yet.
 
 ### 2026-09-05 - 595be8b
 Scaffolded the Grunds Python package with module stubs for ingest, spatial, agent,
