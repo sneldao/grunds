@@ -8,7 +8,7 @@ dataset. We take ONE location (a single busy cafe), shift the last 13 weeks to
 end on the most recent Saturday, rename items onto a matcha-cafe menu with GBP
 pricing, and emit a CSV in the shape of a Square "Item Sales" export.
 
-Planted signals (what the briefing is supposed to find):
+Planted signals (the narrative arc the game surfaces):
   1. RISER  - Iced Matcha Latte ramps week over week (summer).
   2. FALLER - Miso Banana Loaf decays ~45% over the last 5 weeks.
   3. ATTACH - matcha drinks add a Matcha Cake Slice only ~8% of the time.

@@ -1,13 +1,26 @@
 # Evaluation
 
-## Metrics
+How we score the demo loop — deterministic, reproducible, run-to-run.
+
+## Demo metrics
 
 | Metric | Definition | Target |
 |---|---|---|
-| Auto-match rate | % of transactions cleared without human input | >90% clean, >60% messy |
-| Precision | Correct matches / all auto-matches | >95% |
-| Recall | Correct matches / all true matches | >90% |
-| Precedent lift | Auto-match rate run N vs run 1 | +10pp after 3 runs |
+| Loop completeness | spawn → choose → buy → lever → visible payoff, no dead ends | all stages present |
+| Read legibility | player can state *why* the lever worked before seeing the result | demoable |
+| Wave fidelity | cohort wave shapes match `transform.py` hour-of-day profile | ±10% |
+| Signal payoff | matcha riser visible in zone heat + till delta after pre-batch lever | positive delta |
+| Gossip visibility | one bad review visibly propagates through ≥2 friendship hops | demoable |
+| Reset time | full reset to t=0 | <2s |
+| Fallback | recorded run of the exact demo path | exists |
+
+## Determinism checks
+
+| Check | Requirement |
+|---|---|
+| Same seed → same run | identical patron sequence, prices, outcomes |
+| Event fairness | no two catastrophic events in consecutive draws (pity timer) |
+| Economy baseline | 13-week revenue ≈ GBP 157k; attach rate 8.2% preserved from source data |
 
 ## Datasets
 

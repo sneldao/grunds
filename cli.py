@@ -3,11 +3,11 @@
 import argparse
 
 def main():
-    parser = argparse.ArgumentParser(prog="grunds", description="Spatial intelligence for the café floor")
+    parser = argparse.ArgumentParser(prog="grunds", description="Grunds — The District: a live 3D coffee economy")
     sub = parser.add_subparsers(dest="command")
-    sub.add_parser("run", help="Run ingestion + matching pipeline")
-    sub.add_parser("spatial", help="Launch 3D spatial view")
-    sub.add_parser("eval", help="Run evaluation harness")
+    sub.add_parser("run", help="Generate waves and run the day loop")
+    sub.add_parser("spatial", help="Launch the Three.js floor")
+    sub.add_parser("eval", help="Score the demo loop")
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
