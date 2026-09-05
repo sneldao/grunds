@@ -4,7 +4,7 @@
 - **Event:** Convex All Gas Hackathon
 - **What it does:** A live 3D coffee-district economy game where players run café stands and AI patrons with persistent memory buy based on cohorts, commodity events, and gossip.
 - **Live app:** not deployed
-- **Repo:** none (local; will be made public for submission)
+- **Repo:** https://github.com/sneldao/grunds
 - **Frontend:** Convex static hosting
 - **Convex deployment:** not deployed
 - **Components:** none
@@ -12,7 +12,7 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-05T21:58:00Z
+- **Last updated:** 2026-09-05T22:06:21Z
 
 ## Log
 
