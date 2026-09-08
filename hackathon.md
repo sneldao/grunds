@@ -12,9 +12,51 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-05T22:35:00Z
+- **Last updated:** 2026-09-08T15:46:01Z
 
 ## Log
+
+### 2026-09-08 - working tree
+Connected the floor into a 5-day campaign so the three nested clocks meet the
+3D street (was: an isolated single day). New web/js modules, all core-Three
+r160, no CDN/build: `exchange.js` (the Gamble — a seeded pity-timer event deck:
+frost on Minas Gerais, East Africa drought, clean harvest, matcha hype; never
+two catastrophes back-to-back), a bean benchmark whose day-over-day drift feeds
+cost-of-goods (anchored to benchmark_corpus.json ~30% COGS), and forward
+contracts + a supplier-debt clock with daily interest (`web/js/exchange.js`);
+`regulars.js` (persistent patron opinion → reputation → footfall/tips, the
+Regulars, `web/js/regulars.js`); `letter.js` (the Roaster's Letter, templated
+prose, reply-to-command — contract/hold/settle, `web/js/letter.js`). The
+between-days flow runs in `web/js/main.js`: each close shows a Z-read receipt,
+then the mailbox raises its flag and the letter arrives; the reply mutates the
+exchange and opens the next dawn through to a campaign verdict. The diorama
+also gained a custom shader sky dome (`web/js/sky.js`), procedural district
+facades whose windows light at dusk, a far skyline, an in-world commodity
+ticker board, a mailbox, weather mist after a frost, and a core-Three render-
+target bloom/vignette/grain post pipeline (`web/js/postfx.js`). Added `grunds/
+__main__.py` so `python3 -m grunds` works. New `web/test/campaign.mjs` runs
+the campaign headless (stubbed DOM/GL/audio) and asserts the payoff: a frost
+on the spot yields net ~£7,600 contracted vs ~£4,600 held; debt accrues
+interest across the run; settle clears it. No Convex code yet.
+
+### 2026-09-08 - working tree
+Rebuilt the floor as a living diorama (`web/js/` modules under the vendored
+Three.js r160, still no CDN/build step): dollhouse café with bar, espresso
+machine, pastry case and retail shelf; a street out front with the rival chain
+stand; a time-of-day lighting director keyed to the sim clock (dawn to blue
+hour, pendants/lampposts/signs take over at night). Patrons are instanced
+characters (8 draw calls for the whole crowd) with a real queue that snakes out
+the door; balked patrons visibly cross the road to the rival. Story layer:
+title screen with camera crane-in, chapter cards keyed to the real wave shapes,
+the 12:00 read as a roaster's-notebook card, and a closing-time receipt with a
+verdict. Procedural WebAudio (murmur scales with the crowd, espresso hiss, till
+chime, lo-fi pad), gesture-gated by the title screen. Economy is now
+prep-weighted so the levers are legible: made-to-order matcha costs 4
+prep-points vs 1 pre-batched, pre-batch is re-purchasable, and reprice rewrites
+the in-world chalkboard while pulling matcha demand. `web/test/smoke.mjs` runs
+two full days headless (stubbed DOM/GL/audio) and asserts the payoff: wave
+balks 165 to 52, till up ~11%. Added `grunds/__main__.py` so
+`python3 -m grunds spatial` works as documented. No Convex code yet.
 
 ### 2026-09-05 - working tree
 Built the first playable vertical slice of the floor. `grunds/ingest.py` parses

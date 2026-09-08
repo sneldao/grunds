@@ -169,9 +169,28 @@ transform.py          ← deterministic data engine (existing)
 
 ```bash
 python3 transform.py          # regenerate deterministic demand data
-python3 -m grunds ingest      # zone/cohort map + wave schedule (WIP)
-python3 -m grunds spatial     # launch the Three.js floor (WIP)
+python3 -m grunds run         # zone/cohort map + wave schedule
+python3 -m grunds spatial     # launch the Three.js floor at localhost:8787
+node web/test/smoke.mjs       # headless day sim — asserts the scramble levers + the queue
+node web/test/campaign.mjs    # headless 5-day campaign — asserts the Gamble hedge + debt clock
 ```
+
+The floor is a **connected 5-day campaign**, not a closed loop. The three nested clocks
+now meet the floor: the Exchange rolls a pity-timer event deck at each dawn (frost on
+Minas Gerais, East Africa drought, clean harvest, matcha hype) that moves the bean
+benchmark; your cost-of-goods (anchored to `benchmark_corpus.json` — ~30% COGS for a UK
+independent) eats the margin shown on an in-world **ticker board**; the **Roaster's
+Letter** arrives at each close as a reply-to-command (contract / hold / settle) you
+answer from the **mailbox** in the street; **persistent Regulars** carry opinion across
+days into a reputation meter that modulates footfall and tips. World events pass through
+commodity economics into patrons' pockets into your till — every link visible in 3D.
+
+The diorama: a shader **sky dome** (gradient + sun glow + procedural stars over the day
+arc), procedural **district facades** whose windows light up at dusk, a far skyline, a
+mailbox, a commodity ticker, and weather mist after a frost — rendered through a
+core-Three **post-FX** bloom/vignette/grain pipeline. Controls: drag to look, scroll to
+zoom, `1` pre-batch, `2` reprice, `M` sound, `R` reset, `C` camera. URL params: `?lite`
+(no shadows/post-FX, 1x pixels), `?speed=60|300|1200`, `?seed=N` (campaign seed).
 
 Repo structure:
 
@@ -187,16 +206,33 @@ grunds/
 │   └── square_item_sales.csv    # generated export
 ├── grunds/
 │   ├── __init__.py
+│   ├── __main__.py              # makes `python3 -m grunds` work
 │   ├── ingest.py                # CSV parser + zone/cohort mapper + wave schedule
 │   ├── spatial.py               # Three.js floor server (localhost:8787)
-│   ├── agent.py                 # patron choice loop + barista levers
-│   ├── precedent.py             # patron memory, opinions, friendship graph
+│   ├── agent.py                 # patron choice loop + barista levers (stub)
+│   ├── precedent.py             # patron memory, opinions, friendship graph (stub)
 │   └── eval.py                  # demo-loop scoring
 ├── web/
-│   ├── index.html               # the floor: zones, waves, levers, gossip
-│   └── vendor/three.module.js   # vendored Three.js (demo-reliable, no CDN)
-├── benchmark_corpus.json        # UK café COGS benchmarks
-├── locality_packs.json          # district locality data
+│   ├── index.html               # shell, HUD, story overlays (chapters, notebook, letter, receipt)
+│   ├── js/
+│   │   ├── main.js              # the campaign: loop, economy, story beats, the letter flow
+│   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist)
+│   │   ├── sky.js               # custom shader sky dome (gradient + sun + stars) — core-Three only
+│   │   ├── postfx.js            # core-Three render-target bloom + vignette + grain
+│   │   ├── patrons.js           # instanced characters, queue/balk/defect behaviour
+│   │   ├── exchange.js          # the Gamble: seeded pity-timer event deck, bean market, debt clock
+│   │   ├── regulars.js          # persistent opinion → reputation → footfall/tips (the Regulars)
+│   │   ├── letter.js           # the Roaster's Letter: templated prose, reply-to-command
+│   │   ├── fx.js                # steam/coins/dust, gossip bubbles, chapter cards, receipt
+│   │   ├── camera.js            # cinematic rig: title orbit, crane-in, beat push-ins
+│   │   ├── audio.js             # procedural WebAudio: murmur, hiss, till, pad
+│   │   ├── config.js            # palette, layout, cohorts, economy, campaign, events, regulars
+│   │   └── textures.js          # procedural canvas textures (wood, chalkboard, facade, awning)
+│   ├── test/smoke.mjs           # headless day integration test (no deps)
+│   ├── test/campaign.mjs        # headless 5-day campaign test: hedge + debt clock + settle
+│   └── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)
+├── benchmark_corpus.json        # UK café COGS benchmarks (anchors the Exchange math)
+├── locality_packs.json          # London district locality data (matcha price ranges)
 ├── cli.py
 └── tests/
 ```
