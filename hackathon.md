@@ -12,9 +12,33 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T16:30:00Z
+- **Last updated:** 2026-09-09T17:00:00Z
 
 ## Log
+
+### 2026-09-09 - feat/construction-final
+Closed the day-4 / day-5 construction story on three fronts:
+(1) `web/js/letter.js` adds `neighborhoodLine(s)` for days ≥ 4 —
+day 4 reads "Two of the storefronts across the road have a For Lease
+sign up. The street's moving."; day 5+ reads "Both storefronts are
+scaffolded now. The street is being remade — for or against you,
+that's the question." Inserted after `reputationLine` so the player
+reads market mood, then their performance, then the district's.
+(2) `web/js/world.js` adds a third scaffold on the back-right facade
+block (x: 17, z: 20.5) at (x=17, z=18.0). Smaller to fit a smaller
+facade: 4 posts, 3 cross-beam levels, X-brace diagonals, 4.4m × 1.4m
+tarp. New `W.setConstructionRight(d)` and `W.cTarpMatR` parallel to
+the existing left/center setters. The gentrification now reads from
+any camera angle on the wide shot.
+(3) `web/js/audio.js` adds `constructionHammer(on)` with a jittered
+0.6-0.9s rhythm. Each tap is a wooden tock (low bandpassed noise,
+80-120 Hz, ~80ms) + a metal click (high bandpassed noise, 1.8-2.2
+kHz, ~30ms). The saw provides the drone, the hammer provides the
+rhythm. `update()` drives the scheduler. New test
+`web/test/construction-final.mjs` (6 assertions) covers the letter
+function, the third scaffold, the audio method, the wiring, the
+noise buffer use, and the public API. All 11 headless tests pass.
++~180 / −3 across 5 files.
 
 ### 2026-09-09 - 952bd1b
 Squash-merged PR #8 ("Make day-5 construction feel active: drifting

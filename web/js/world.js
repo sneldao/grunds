@@ -339,6 +339,35 @@ export function buildWorld(scene, renderer, lite) {
     W.cTarpMatL.opacity = on ? 1.0 : 0.0;
   };
 
+  // ---- the day-5 back-row construction prop: third scaffold -----------------
+  // The back-right facade block (x: 17, z: 20.5, w: 6, h: 8, d: 5) is the
+  // highest block on the right side; the wide camera frames it well. We
+  // sit the prop at (x: 17, z: 18.0) — just in front of the face
+  // (z = 20.5 - 2.5 = 18). Same primitive pattern, smaller to fit a
+  // smaller facade: 4 posts, 3 cross-beam levels, X-brace diagonals,
+  // 4.4m × 1.4m tarp. The third scaffold makes the gentrification read
+  // from any camera angle on the wide shot.
+  const ctarR = tarp();
+  const ctarRTex = ctarR.draw();
+  W.cTarpMatR = new THREE.MeshStandardMaterial({ map: ctarRTex, emissive: 0x000000, transparent: true, opacity: 0, roughness: 0.95, side: THREE.DoubleSide });
+  const cgrpR = new THREE.Group(); cgrpR.position.set(17, 0, 18.0); cgrpR.visible = false; scene.add(cgrpR);
+  plane(cgrpR, 4.4, 1.4, W.cTarpMatR, 0, 1.5, 0, { ry: Math.PI });
+  const POSTR = [0.08, 4.5, 0.08];
+  const XR = [-2.2, 2.2], ZR = [-0.4, 0.4];
+  for (const x of XR) for (const z of ZR) box(cgrpR, POSTR[0], POSTR[1], POSTR[2], PAL.walnutDark, x, POSTR[1] / 2, z, { cast: true });
+  for (const yLevel of [0.4, 2.0, 3.8]) {
+    box(cgrpR, 4.6, 0.08, 0.08, PAL.walnutDark, 0, yLevel, -0.4, { cast: false });
+    box(cgrpR, 4.6, 0.08, 0.08, PAL.walnutDark, 0, yLevel,  0.4, { cast: false });
+  }
+  for (const side of [-1, 1]) {
+    box(cgrpR, 0.06, 3.8, 0.06, PAL.walnutDark, side * 1.2, 2.0, 0, { rz: Math.atan2(3.8, 2.4) * 0.5 * side, cast: false });
+  }
+  W.setConstructionRight = (day) => {
+    const on = dayHasConstruction(day);
+    cgrpR.visible = on;
+    W.cTarpMatR.opacity = on ? 1.0 : 0.0;
+  };
+
   // ---- the district: a street of facades + a far skyline ---------------------
   // Lit windows are emissive-map quads that glow at night (time-of-day drives them).
   W.winMats = [];
