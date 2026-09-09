@@ -14,6 +14,7 @@ import { AudioEngine } from './audio.js';
 import { Exchange } from './exchange.js';
 import { Regulars } from './regulars.js';
 import { composeLetter } from './letter.js';
+import { applyExpectation, priceForDay } from './gentrification.js';
 
 const urlParams = new URLSearchParams(location.search);
 const lite = urlParams.has('lite');
@@ -188,6 +189,10 @@ function applyReply(id) {
   else if (id === 'settle') { const r = exchange.settle(exchange.debt); settledPaid += r.paid; msg = 'DEBT cleared' + (r.paid ? ' (' + fmt(r.paid) + ')' : ''); }
   fx.toast(msg, id === 'contract' ? 'good' : '');
   $('letter').classList.remove('show');
+  // gentrification pressure first: cohort expectations drift by `day * delta`.
+  // Then resolveDay folds in the day's outcome and runs the friendship
+  // contagion, so the network sees the drift through the social layer.
+  applyExpectation(regulars, day);
   regulars.resolveDay({ served: served + servedRetail, balked, defections, priced: repriced });
   openDay(day + 1);
 }
@@ -202,7 +207,9 @@ function openDay(d) {
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; closed = false;
   world.setMatchaPrice('4.80', false);
   fx.receipt(null); fx.notebook(false);
-  const ev = exchange.openDay();             // roll the market + the event
+  const ev = exchange.openDay();             // drift first, then roll the market + the event
+  // chalkboard: matcha day-price reflects the gentrification curve (4.80 → 5.40)
+  if (exchange.matchaPrice) world.setMatchaPrice(exchange.matchaPrice.toFixed(2), repriced);
   if (d > 1 && exchange.debt > 0) exchange.debt += CAMPAIGN.debtInterest;   // the debt clock ticks at dawn
   world.setMail(false);
   world.setMist(ev.tier === 'cata' ? 1 : ev.tier === 'bad' ? 0.4 : 0);
@@ -217,11 +224,16 @@ function openDay(d) {
 }
 
 function updateTicker() {
+  // The day's matcha price is set by applyDrift() at dawn. ECON.matchaFull
+  // stays the static 4.80 baseline; the live `matchaPrice` reads from the
+  // gentrification curve.
+  const dayPrice = exchange.matchaPrice ?? priceForDay(day);
+  const tillPrice = repriced ? ECON.matchaDeal : dayPrice;
   world.ticker.draw({
     prev: exchange.history.length > 1 ? exchange.history[exchange.history.length - 2].index : exchange.beanIndex,
     index: exchange.beanIndex, cost: exchange.costPerCup,
     locked: exchange.contract ? exchange.contract.price * CAMPAIGN.beanBaseCost : null,
-    margin: exchange.margin(repriced ? ECON.matchaDeal : ECON.matchaFull),
+    margin: exchange.margin(tillPrice),
     day, total: CAMPAIGN.days, rep: regulars.reputation,
   });
 }
@@ -266,6 +278,15 @@ function updateHUD() {
   $('progress').style.width = ((dayMin - DAY_START) / (DAY_END - DAY_START) * 100) + '%';
   $('prebatch').disabled = (prebatched && ctx.batchUnits > 0) || dayMin >= 960 || closed;
   $('reprice').disabled = repriced || closed;
+  // pressure dial: the gentrification drift. beanIndex creep since the
+  // start of the campaign (1.00 → drift.maxIndex), and the day's matcha
+  // till price. Always visible — even day 1, so the player can see the
+  // clock at 0% and feel the clock ticking.
+  if ($('pressure')) {
+    const driftPct = Math.round((exchange.beanIndex - 1.0) * 100);
+    const dayPrice = exchange.matchaPrice ?? priceForDay(day);
+    $('pressure').innerHTML = `costs <b>+${driftPct}%</b> · matcha <b>£${dayPrice.toFixed(2)}</b> · day <b>${day}/${CAMPAIGN.days}</b>`;
+  }
   if (!closed) updateTicker();
 }
 
