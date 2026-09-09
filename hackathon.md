@@ -12,9 +12,17 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T13:00:00Z
+- **Last updated:** 2026-09-09T11:11:00Z
 
 ## Log
+
+### 2026-09-09 - ac25ff2
+Squash-merged PR #2 ("Wire Phase 0 CC0 Kenney props into the District
+floor") into main as a single commit. Diff: +388 / −47 across 24 files
+(16 of which are the binary assets). The District café interior now uses
+the Kenney props the README's "Phase 0 CC0 props (Kenney; see SOURCES.md)"
+line promised. All 4 headless tests on the merged main pass: smoke,
+campaign, campaign-tight, glb-substitution.
 
 ### 2026-09-09 - feat/phase-0-glb
 Wired the vendored Kenney CC0 GLBs into the District floor. Until now the 14
