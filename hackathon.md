@@ -12,9 +12,26 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T17:00:00Z
+- **Last updated:** 2026-09-09T17:15:00Z
 
 ## Log
+
+### 2026-09-09 - 1655cf6
+Squash-merged PR #9 ("Close the day-4/day-5 construction story:
+letter line + third scaffold + hammer") into main. Diff: +194 / −1
+across 6 files. The day-4/5 narrative is now complete on three
+fronts: (1) `letter.js` adds `neighborhoodLine(s)` for days >= 4 —
+day 4 reads "Two of the storefronts across the road have a For
+Lease sign up. The street's moving."; day 5+ reads "Both storefronts
+are scaffolded now. The street is being remade — for or against you,
+that's the question." (2) `world.js` adds a third scaffold on the
+back-right facade block (x=17, z=18.0) with a 4.4m × 1.4m tarp. (3)
+`audio.js` adds `constructionHammer(on)` with a jittered 0.6-0.9s
+rhythm — each tap is a wooden tock + a metal click. The day-5
+construction is now: visible (3 scaffolds + 3 tarps), audible (saw
++ hammer), animated (drifting dust), narrativized (letter), and
+numeric (HUD #pressure). All 11 headless tests pass on the merged
+main.
 
 ### 2026-09-09 - feat/construction-final
 Closed the day-4 / day-5 construction story on three fronts:
