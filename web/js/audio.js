@@ -7,6 +7,7 @@ export class AudioEngine {
     this.crowd = 0; this.rush = false;
     this._lastTill = 0; this._lastClink = 0; this._lastBalk = 0;
     this._chordI = 0; this._chordT = 0;
+    this._hammerOn = false; this._hammerT = 0; this._hammerNext = 0.7;
   }
 
   start() {
@@ -87,6 +88,16 @@ export class AudioEngine {
     }
     this._chordT += dt;
     if (this._chordT > 5.5) { this._chordT = 0; this._chordI = (this._chordI + 1) % this.chords.length; this._applyChord(this._chordI); }
+    // day-5 hammer: jittered 0.6-0.9s rhythm; each tick plays a wooden
+    // tock + a metal click. Idle when _hammerOn is false.
+    if (this._hammerOn) {
+      this._hammerT += dt;
+      if (this._hammerT >= this._hammerNext) {
+        this._hammerT = 0;
+        this._hammerNext = 0.6 + Math.random() * 0.3;
+        this._hammerTap();
+      }
+    }
   }
 
   _env(g, t, peak, decay) {
@@ -172,6 +183,45 @@ export class AudioEngine {
     } else if (this._saw) {
       this._saw.sawGain.gain.setTargetAtTime(0, t, 0.5);
     }
+  }
+  // Day-5 hammering — rhythmic "tock" pulses (a wooden strike + a higher
+  // metal click) every 0.6-0.9s, jittered so the rhythm feels like a
+  // worker, not a metronome. The saw provides the drone; the hammer
+  // provides the rhythm. update() drives the scheduler.
+  constructionHammer(on) {
+    this._hammerOn = !!on;
+    if (!this._hammerOn) {
+      this._hammerT = 0;
+      this._hammerNext = 0.6 + Math.random() * 0.3;
+    }
+  }
+  _hammerTap() {
+    if (!this.ctx || !this.noiseBuf) return;
+    const t = this.ctx.currentTime;
+    // wooden tock: low bandpassed noise burst, ~80ms
+    const src1 = this.ctx.createBufferSource(); src1.buffer = this.noiseBuf;
+    src1.playbackRate.value = 0.6 + Math.random() * 0.3;
+    const bp1 = this.ctx.createBiquadFilter(); bp1.type = 'bandpass';
+    bp1.frequency.value = 80 + Math.random() * 40; bp1.Q.value = 2.5;
+    const g1 = this.ctx.createGain();
+    const v1 = 0.04 + Math.random() * 0.02;
+    g1.gain.setValueAtTime(0, t);
+    g1.gain.linearRampToValueAtTime(v1, t + 0.005);
+    g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+    src1.connect(bp1); bp1.connect(g1); g1.connect(this.master);
+    src1.start(t); src1.stop(t + 0.12);
+    // metal click: high bandpassed noise, ~30ms — the hammer-on-nail top
+    const src2 = this.ctx.createBufferSource(); src2.buffer = this.noiseBuf;
+    src2.playbackRate.value = 1.4 + Math.random() * 0.4;
+    const bp2 = this.ctx.createBiquadFilter(); bp2.type = 'bandpass';
+    bp2.frequency.value = 1800 + Math.random() * 400; bp2.Q.value = 4;
+    const g2 = this.ctx.createGain();
+    const v2 = 0.012 + Math.random() * 0.006;
+    g2.gain.setValueAtTime(0, t);
+    g2.gain.linearRampToValueAtTime(v2, t + 0.002);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    src2.connect(bp2); bp2.connect(g2); g2.connect(this.master);
+    src2.start(t); src2.stop(t + 0.06);
   }
   toggleMute() {
     if (!this.ctx) return true;

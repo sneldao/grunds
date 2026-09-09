@@ -41,6 +41,17 @@ function driftLine(s) {
   if (pct >= 5)  return `Costs are creeping. ${pct}% up on day one. The elders are watching the chalkboard.`;
   return '';
 }
+function neighborhoodLine(s) {
+  // The Roaster's Letter: the verbal beat for the day-4 / day-5 visual
+  // changes. driftLine handles the bean-index creep; neighborhoodLine
+  // handles the *physical* building changes the player can see (the rent
+  // sign on day 3, the two scaffolds on day 5). Inserted after
+  // reputationLine so the player reads the market mood, then their own
+  // performance, then the district's.
+  if (s.day === 4) return `Two of the storefronts across the road have a For Lease sign up. The street's moving.`;
+  if (s.day >= 5) return `Both storefronts are scaffolded now. The street is being remade — for or against you, that's the question.`;
+  return '';
+}
 function greeting(e) {
   const t = e?.tier || 'calm';
   if (t === 'cata') return 'I’m writing before the market and I’m already sorry.';
@@ -66,6 +77,7 @@ export function composeLetter(s) {
       performance(s),
       debtLine(s),
       driftLine(s),
+      neighborhoodLine(s),
       reputationLine(s),
       '',
       'What do you want to do?',
