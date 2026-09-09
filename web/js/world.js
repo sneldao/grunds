@@ -2,6 +2,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { PAL, LAYOUT, COPY } from './config.js';
 import { woodFloor, pavement, road, awning, menuBoard, softSprite, shopSign } from './textures.js';
+import { GLBLoader } from './loader.js';
 
 const M = {}; // shared materials
 function mat(color, o = {}) {
@@ -33,6 +34,16 @@ function plane(parent, w, h, material, x, y, z, o = {}) {
 
 export function buildWorld(scene, renderer, lite) {
   const W = { lite };
+  const glb = GLBLoader();
+  const pending = [];                       // async GLB placements, awaited by W.ready
+  // Place a Kenney GLB: kick off the load, attach the resolved Group to
+  // `parent` at the given transform. Returns the promise for chaining.
+  function place(parent, url, opts = {}) {
+    const p = glb.loadGLB(url, opts).then((g) => { parent.add(g); return g; });
+    pending.push(p);
+    return p;
+  }
+  W._glbLoader = glb;                       // exposed for tests / disposal
   renderer.shadowMap.enabled = !lite;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -89,23 +100,26 @@ export function buildWorld(scene, renderer, lite) {
   // ---- the bar ------------------------------------------------------------
   const bar = new THREE.Group(); scene.add(bar);
   const C = LAYOUT.counter;
+  // Procedural walnut bar shell (replaced by Kenney kitchenBar.glb below)
+  // — kept as a thin back/side trim so the GLB doesn't sit on raw pavement.
   box(bar, C.w, 1.02, C.d, PAL.walnut, C.x, 0.51, C.z);
   box(bar, C.w + 0.3, 0.09, C.d + 0.3, 0x7a5a3a, C.x, 1.06, C.z, { rough: 0.5 });
-  box(bar, C.w - 0.4, 0.72, 0.06, PAL.walnutDark, C.x, 0.5, C.z + C.d / 2 + 0.04, { cast: false });
+  // brass foot rail stays procedural (the GLB doesn't include one)
   cyl(bar, 0.03, 0.03, C.w - 0.6, PAL.brass, C.x, 0.22, C.z + C.d / 2 + 0.22, { rz: Math.PI / 2, metal: 0.8, rough: 0.35, cast: false }); // foot rail
-  // espresso machine
-  const em = new THREE.Group(); em.position.set(-8.3, 1.1, -5.5); bar.add(em);
-  box(em, 1.5, 0.5, 0.62, PAL.steel, 0, 0.32, 0, { metal: 0.75, rough: 0.3 });
-  box(em, 1.5, 0.16, 0.62, 0x3a3d40, 0, 0.65, 0, { metal: 0.6, rough: 0.4 });
-  box(em, 1.34, 0.05, 0.5, PAL.brass, 0, 0.06, 0.06, { metal: 0.8, rough: 0.3 });
-  for (const gx of [-0.35, 0.35]) {
-    cyl(em, 0.09, 0.09, 0.12, 0x2a2c2e, gx, 0.02, 0.18, { metal: 0.7, rough: 0.35 });
-    cyl(em, 0.025, 0.025, 0.3, PAL.walnutDark, gx, -0.04, 0.3, { rx: Math.PI / 2.4 });
-  }
-  cyl(em, 0.02, 0.02, 0.34, PAL.steel, 0.72, 0.18, 0.2, { rx: 0.5, rz: 0.5, metal: 0.8, rough: 0.3 });
-  box(em, 0.05, 0.05, 0.02, 0x331111, 0.55, 0.42, 0.32, { em: 0xff3020, emi: 1.6, cast: false }); // power dot
+  // Kenney kitchenBar.glb sits on the bar top, facing the customer side.
+  // The bar is 9 m wide (C.w); the GLB is roughly 1 m in the kit. We scale
+  // it to match the bar width; the procedural walnut shell above keeps
+  // the bar visually continuous even if the GLB is a few cm short.
+  place(bar, 'kitchenBar.glb', { position: [C.x, 1.05, C.z], scale: 9, rotationY: 0 });
+  // Kenney kitchenCoffeeMachine.glb replaces the procedural espresso machine.
+  place(bar, 'kitchenCoffeeMachine.glb', { position: [-8.3, 1.05, -5.5], scale: 1.6, rotationY: 0 });
+  // grinder hopper + body (procedural; no matching Kenney GLB)
   cyl(bar, 0.16, 0.2, 0.5, 0x8a4f2e, -9.5, 1.35, -5.5, { rough: 0.5 });            // grinder hopper
   box(bar, 0.4, 0.5, 0.4, 0x3a3d40, -9.5, 1.28, -5.5, { metal: 0.5, rough: 0.5 });
+  // 3 bar stools at the customer-side of the bar (Kenney stoolBar.glb)
+  for (const dx of [-3, 0, 3]) {
+    place(scene, 'stoolBar.glb', { position: [C.x + dx, 0, C.z + C.d / 2 + 1.0], scale: 1.0, rotationY: Math.PI });
+  }
   // pastry case
   const pc = new THREE.Group(); pc.position.set(-4.3, 1.1, -5.4); bar.add(pc);
   box(pc, 1.7, 0.1, 0.8, PAL.walnutDark, 0, 0.05, 0);
@@ -113,15 +127,25 @@ export function buildWorld(scene, renderer, lite) {
   box(pc, 1.7, 0.62, 0.8, 0xffffff, 0, 0.42, 0, { mat: glassMat, cast: false });
   box(pc, 1.6, 0.03, 0.7, 0xd8d2c0, 0, 0.38, 0, { cast: false });
   const pastryCols = [0xd89a5a, 0xc46a7a, 0x9a6a3a, 0xe0c47a, 0x8a5a3a, 0xd87f9a];
+  // Pastry items: 3 croissants (procedural torus -> Kenney croissant.glb)
+  // and 3 cakes (procedural box -> Kenney cake.glb). The case frame stays
+  // procedural because the GLB kit has no display case.
   pastryCols.forEach((col, i) => {
     const px = -0.6 + (i % 3) * 0.6, py = i < 3 ? 0.16 : 0.46, pz = -0.15 + (i % 2) * 0.3;
-    if (i % 3 === 0) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.045, 6, 12), mat(col)); t.position.set(px, py, pz); t.rotation.x = Math.PI / 2; pc.add(t); }
-    else box(pc, 0.16, 0.09, 0.12, col, px, py, pz, { cast: false });
+    if (i % 3 === 0) {
+      // croissant.glb replaces the procedural torus donut
+      place(pc, 'croissant.glb', { position: [px, py, pz], scale: 0.7, rotationY: Math.PI / 4 });
+    } else {
+      // cake.glb replaces the procedural box pastry (the largest one in the case)
+      place(pc, 'cake.glb', { position: [px, py, pz], scale: 0.45, rotationY: 0 });
+    }
   });
   // till on its own little pay station at the end of the bar
+  // (Kenney kitchenBarEnd.glb replaces the procedural walnut stand; the
+  // brass screen and receipt roll stay procedural for screen readability)
   box(bar, 0.8, 1.02, 0.7, PAL.walnut, LAYOUT.register.x, 0.51, -5.4);
   box(bar, 0.9, 0.07, 0.8, 0x7a5a3a, LAYOUT.register.x, 1.06, -5.4, { rough: 0.5 });
-  box(bar, 0.5, 0.32, 0.42, 0x2a2c2e, LAYOUT.register.x, 1.26, -5.4, { metal: 0.4, rough: 0.5 });
+  place(bar, 'kitchenBarEnd.glb', { position: [LAYOUT.register.x, 0, -5.4], scale: 0.9, rotationY: Math.PI });
   W.tillScreen = plane(bar, 0.4, 0.26, new THREE.MeshStandardMaterial({ color: 0x111418, emissive: 0x86a860, emissiveIntensity: 0.7 }), LAYOUT.register.x, 1.5, -5.32, { rx: -0.25 });
   cyl(bar, 0.07, 0.07, 0.12, 0xf0ead8, LAYOUT.register.x + 0.45, 1.16, -5.45, { cast: false }); // receipt roll
 
@@ -139,36 +163,49 @@ export function buildWorld(scene, renderer, lite) {
       else box(cafe, 0.2, 0.3, 0.14, [0xb59a6a, 0x6a7a8a][i % 2], jx, sy + 0.19, -7.85, { cast: false });
     }
   }
-  // pendant lamps over the bar
+  // pendant lamps over the bar — Kenney lampRoundTable.glb replaces the
+  // cord+cone shade; the emissive bulb stays procedural so the time-of-day
+  // director (W.bulbMats) can still drive the glow.
   W.bulbMats = [];
   for (const px of [-8.5, -6, -3.5]) {
-    cyl(cafe, 0.012, 0.012, 1.1, 0x1a1a1a, px, 3.6, -5.2, { cast: false });
-    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.3, 18, 1, true), new THREE.MeshStandardMaterial({ color: PAL.awning, roughness: 0.6, side: THREE.DoubleSide }));
-    shade.position.set(px, 3.02, -5.2); cafe.add(shade);
+    // The cord is part of the GLB; we drop the procedural cord+shade.
+    // Scale 0.6 puts the lamp shade roughly at 2.95 m above the bar, matching
+    // the previous procedural shade position. raiseToY lifts the GLB's
+    // origin to the cord-hang point so it sits where the cord used to.
+    place(cafe, 'lampRoundTable.glb', { position: [px, 2.7, -5.2], scale: 0.6, rotationY: 0 });
     const bm = new THREE.MeshStandardMaterial({ color: 0xfff2d8, emissive: 0xffd9a0, emissiveIntensity: 1.4 });
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), bm); bulb.position.set(px, 2.9, -5.2); cafe.add(bulb);
     W.bulbMats.push(bm);
   }
 
   // ---- tables --------------------------------------------------------------
+  // A small Kenney sideTable.glb next to the table cluster — used for the
+  // server's pickup tray. (Procedural equivalent would be one more
+  // cylinder+leg; the GLB is a free win.)
+  place(scene, 'sideTable.glb', { position: [9.5, 0, -1], scale: 1.0, rotationY: 0 });
+  // Kenney tableRound.glb + chairModernCushion.glb replace the procedural
+  // 3-cylinder-per-table + 2-cylinder-per-chair construction. Seats[] is
+  // still emitted with the same shape so patrons.js's sit logic is
+  // unchanged. tableRound is roughly 1.0 m diameter in the kit, matching
+  // the procedural 0.68 m radius we used.
   const seats = [];
   for (const t of LAYOUT.tables) {
-    cyl(scene, 0.68, 0.68, 0.06, 0x7a5a3a, t.x, 0.76, t.z, { rough: 0.5, seg: 20 });
-    cyl(scene, 0.06, 0.08, 0.74, 0x2a2c2e, t.x, 0.38, t.z, { metal: 0.5 });
-    cyl(scene, 0.3, 0.34, 0.05, 0x2a2c2e, t.x, 0.03, t.z, { seg: 18 });
+    place(scene, 'tableRound.glb', { position: [t.x, 0, t.z], scale: 1.4, rotationY: 0 });
     const n = 3, baseA = Math.random() * Math.PI * 2;
     for (let s = 0; s < n; s++) {
       const a = baseA + (s / n) * Math.PI * 2, sx = t.x + Math.cos(a) * 1.05, sz = t.z + Math.sin(a) * 1.05;
-      cyl(scene, 0.21, 0.21, 0.06, PAL.walnut, sx, 0.47, sz, { seg: 12 });
-      cyl(scene, 0.04, 0.05, 0.45, 0x2a2c2e, sx, 0.23, sz);
+      place(scene, 'chairModernCushion.glb', { position: [sx, 0, sz], scale: 1.0, rotationY: a + Math.PI });
       seats.push({ x: sx, z: sz, face: Math.atan2(t.x - sx, t.z - sz), taken: null, table: t });
     }
   }
   W.seats = seats;
 
   // ---- retail shelf ---------------------------------------------------------
+  // Kenney bookcaseClosedDoors.glb replaces the procedural walnut backing
+  // box. The 3 shelf layers and 18 product items (loaves, coffee bags,
+  // jars) stay procedural because they are shop content, not furniture.
   const R = LAYOUT.retail;
-  box(scene, R.w, 2.7, R.d, PAL.walnut, R.x - 0.3, 1.35, R.z);
+  place(scene, 'bookcaseClosedDoors.glb', { position: [R.x - 0.3, 0, R.z], scale: [1.4, 2.7, 0.7], rotationY: 0 });
   for (let s = 0; s < 3; s++) {
     const sy = 0.6 + s * 0.75;
     box(scene, R.w + 0.3, 0.06, R.d, 0x7a5a3a, R.x - 0.15, sy, R.z, { cast: false });
@@ -203,9 +240,11 @@ export function buildWorld(scene, renderer, lite) {
   box(scene, 1.8, 0.08, 0.5, PAL.walnut, 5, 0.45, 7.4);                              // bench
   for (const bx of [4.3, 5.7]) box(scene, 0.1, 0.45, 0.5, 0x2a2c2e, bx, 0.22, 7.4);
   box(scene, 1.8, 0.5, 0.08, PAL.walnut, 5, 0.75, 7.62, { cast: false });
-  for (const px of [-7.8, -2.2]) {                                                    // planters flanking the door
-    box(scene, 0.7, 0.5, 0.7, PAL.wainscot, px, 0.25, 6.6);
-    const sh = new THREE.Mesh(new THREE.SphereGeometry(0.34, 8, 7), mat(0x4a6a3a)); sh.position.set(px, 0.72, 6.6); sh.castShadow = true; scene.add(sh);
+  // planters flanking the door — Kenney pottedPlant.glb replaces the
+  // procedural box+sphere pair. The pot is ~0.6 m tall in the kit, scale 0.6
+  // puts the foliage at the same 0.72 m height as the procedural version.
+  for (const px of [-7.8, -2.2]) {
+    place(scene, 'pottedPlant.glb', { position: [px, 0, 6.6], scale: 0.6, rotationY: 0 });
   }
 
   // ---- the rival: GLASSHOUSE across the road --------------------------------
@@ -375,6 +414,10 @@ export function buildWorld(scene, renderer, lite) {
     wide: new THREE.Vector3(0, 1, 3),
     rival: new THREE.Vector3(LAYOUT.rival.x, 1.6, LAYOUT.rival.z - 1),
   };
+  // All Kenney GLB placements are queued above; W.ready resolves once they
+  // are all in the scene. main.js awaits W.ready before enabling the title
+  // button so the user never sees a half-loaded floor.
+  W.ready = Promise.all(pending).then(() => W, (err) => { console.warn('world GLB load failed', err); return W; });
   return W;
 }
 
