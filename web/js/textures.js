@@ -120,3 +120,72 @@ export function shopSign(text, fg = '#efe6d3', bg = '#1d2a24', font = '600 44px 
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   return t;
 }
+
+// The rent-pressure sign — the gentrification drift made physical.
+// Three states:
+//   'let'   — day 1-2: faint cream "TO LET" (the storefront's been there a while)
+//   'lease' — day 3-4: red banner "FOR LEASE" (district is turning over)
+//   'sold'  — day 5: diagonal red "SOLD" stamp (turnover complete)
+//
+// Re-baked in-world by W.setRentPressure(day). The texture object stays
+// the same across bakes; only the canvas pixels change, so the world only
+// pays for one material.
+export function rentSign() {
+  const [c, g] = canvas(512, 384);
+  function draw(state) {
+    g.clearRect(0, 0, 512, 384);
+    if (state === 'let') {
+      // cream background, faint walnut "TO LET", brass corner detail
+      g.fillStyle = '#efe6d3'; g.fillRect(0, 0, 512, 384);
+      g.strokeStyle = 'rgba(74,52,35,.6)'; g.lineWidth = 5; g.strokeRect(8, 8, 496, 368);
+      g.fillStyle = 'rgba(201,162,39,.6)';   // brass corners
+      for (const [x, y] of [[18, 18], [478, 18], [18, 350], [478, 350]]) {
+        g.beginPath(); g.arc(x, y, 6, 0, Math.PI * 2); g.fill();
+      }
+      g.fillStyle = '#4a3423'; g.font = 'italic 600 84px Georgia, serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('TO LET', 256, 170);
+      g.font = '24px Georgia, serif';
+      g.fillText('enquiries next door', 256, 230);
+    } else if (state === 'lease') {
+      // white background, thick red banner across the top
+      g.fillStyle = '#fbf7ee'; g.fillRect(0, 0, 512, 384);
+      g.fillStyle = '#d0403a'; g.fillRect(0, 0, 512, 96);
+      g.fillStyle = '#fff'; g.font = '700 56px Georgia, serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('FOR LEASE', 256, 48);
+      g.fillStyle = '#2a2a2a'; g.font = '600 38px Georgia, serif';
+      g.fillText('RENTS UP 12%', 256, 180);
+      g.font = 'italic 24px Georgia, serif';
+      g.fillText('district turnover · apply within', 256, 226);
+    } else if (state === 'sold') {
+      // white background, large diagonal red SOLD stamp
+      g.fillStyle = '#fbf7ee'; g.fillRect(0, 0, 512, 384);
+      g.fillStyle = '#2a2a2a'; g.font = '600 38px Georgia, serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('NEW TENANT', 256, 100);
+      g.font = 'italic 22px Georgia, serif';
+      g.fillText('opening sept 15', 256, 138);
+      // the stamp — a tilted red box with white text
+      g.save();
+      g.translate(256, 256);
+      g.rotate(-Math.PI / 8);
+      g.fillStyle = 'rgba(208,64,58,.88)'; g.fillRect(-180, -52, 360, 104);
+      g.strokeStyle = 'rgba(208,64,58,1)'; g.lineWidth = 4; g.strokeRect(-180, -52, 360, 104);
+      g.fillStyle = '#fff'; g.font = '700 96px Georgia, serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('SOLD', 0, 4);
+      g.restore();
+    }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    return t;
+  }
+  return { draw, canvas: c };
+}
+
+// State ladder for the rent sign. Exposed for tests.
+export function stateForDay(d) {
+  if (d <= 2) return 'let';
+  if (d <= 4) return 'lease';
+  return 'sold';
+}

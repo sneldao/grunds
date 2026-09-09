@@ -12,9 +12,32 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T13:45:00Z
+- **Last updated:** 2026-09-09T14:15:00Z
 
 ## Log
+
+### 2026-09-09 - feat/rent-sign
+Made the gentrification drift visible on the floor. The numbers
+(`#pressure` HUD, the matcha price curve, the driftLine in the Roaster's
+Letter) were good but abstract — the player couldn't *see* the
+district being claimed. New `rentSign()` factory in `web/js/textures.js`
+(~70 lines) bakes one of three states onto a 512×384 canvas: 'let'
+(cream, "TO LET · enquiries next door" with brass corner detail) for
+day 1-2, 'lease' (white with a thick red "FOR LEASE" banner and
+"RENTS UP 12% · district turnover") for day 3-4, and 'sold' (white with
+a diagonal red SOLD stamp) for day 5. The texture re-bakes onto the
+shared canvas; the world only pays for one material. `stateForDay(d)`
+is the pure day→state mapping. `web/js/world.js` adds a two-post
+signboard on the right side of the street (x=6, z=16.5, between the
+rival and the big right-side facade block), facing the café across the
+road, and exposes `W.setRentPressure(d)` that re-bakes the texture and
+sets `needsUpdate = true`. `main.js` calls it once per dawn in
+`openDay` (right after `world.setMist`). The sign rotates through the
+three states as the campaign progresses — the player sees the
+district being claimed, not just the cost creep. New test
+`web/test/rent-sign.mjs` (4 assertions) covers the factory, the three
+drawable states, the day→state ladder, and the integration chain. All
+7 headless tests pass. +~210 / −5 across 4 files.
 
 ### 2026-09-09 - 60685bb
 Squash-merged PR #4 ("Wire gentrification drift: per-day cost creep,
