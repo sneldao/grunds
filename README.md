@@ -171,8 +171,17 @@ transform.py          ← deterministic data engine (existing)
 python3 transform.py          # regenerate deterministic demand data
 python3 -m grunds run         # zone/cohort map + wave schedule
 python3 -m grunds spatial     # launch the Three.js floor at localhost:8787
-node web/test/smoke.mjs       # headless day sim — asserts the scramble levers + the queue
-node web/test/campaign.mjs    # headless 5-day campaign — asserts the Gamble hedge + debt clock
+node web/test/smoke.mjs              # headless day sim — scramble levers + the queue
+node web/test/campaign.mjs           # 5-day campaign — the Gamble hedge + debt clock
+node web/test/campaign-tight.mjs      # per-regular opinion + cup-bounded contract expiry
+node web/test/regulars-graph.mjs      # friendship graph + opinion contagion
+node web/test/gentrification.mjs      # per-day cost creep + cohort expectations
+node web/test/rent-sign.mjs           # 'let' → 'lease' → 'sold' rent sign ladder
+node web/test/construction.mjs        # day-5 right scaffold + tarp
+node web/test/construction-left.mjs   # day-5 left scaffold (district-wide)
+node web/test/construction-active.mjs # day-5 drifting dust + low saw loop
+node web/test/construction-final.mjs  # day-4 letter line + back-row scaffold + hammer
+node web/test/glb-substitution.mjs    # Kenney GLB loader + substitution map
 ```
 
 The floor is a **connected 5-day campaign**, not a closed loop. The three nested clocks
@@ -216,26 +225,94 @@ grunds/
 │   ├── index.html               # shell, HUD, story overlays (chapters, notebook, letter, receipt)
 │   ├── js/
 │   │   ├── main.js              # the campaign: loop, economy, story beats, the letter flow
-│   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist)
+│   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist, scaffolds)
 │   │   ├── sky.js               # custom shader sky dome (gradient + sun + stars) — core-Three only
 │   │   ├── postfx.js            # core-Three render-target bloom + vignette + grain
-│   │   ├── patrons.js           # instanced characters, queue/balk/defect behaviour
+│   │   ├── patrons.js           # instanced characters, queue/balk/defect behaviour, named-Regular hat/bubble
 │   │   ├── exchange.js          # the Gamble: seeded pity-timer event deck, bean market, debt clock
-│   │   ├── regulars.js          # persistent opinion → reputation → footfall/tips (the Regulars)
-│   │   ├── letter.js           # the Roaster's Letter: templated prose, reply-to-command
-│   │   ├── fx.js                # steam/coins/dust, gossip bubbles, chapter cards, receipt
+│   │   ├── regulars.js          # persistent opinion + friendship graph + 5%/day contagion (the Regulars)
+│   │   ├── letter.js            # the Roaster's Letter: driftLine + neighborhoodLine + reply-to-command
+│   │   ├── fx.js                # steam/coins/dust/gossip bubbles/3D conversation lines/construction dust
+│   │   ├── gentrification.js    # per-day cost creep + matcha price curve + cohort expectation pressure
+│   │   ├── loader.js            # async GLB loader with cache + FIFO eviction + placeholder fallback
 │   │   ├── camera.js            # cinematic rig: title orbit, crane-in, beat push-ins
-│   │   ├── audio.js             # procedural WebAudio: murmur, hiss, till, pad
-│   │   ├── config.js            # palette, layout, cohorts, economy, campaign, events, regulars
-│   │   └── textures.js          # procedural canvas textures (wood, chalkboard, facade, awning)
-│   ├── test/smoke.mjs           # headless day integration test (no deps)
-│   ├── test/campaign.mjs        # headless 5-day campaign test: hedge + debt clock + settle
-│   └── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)
+│   │   ├── audio.js             # procedural WebAudio: murmur, hiss, till, pad, construction saw + hammer
+│   │   ├── config.js            # palette, layout, cohorts, economy, campaign, events, regulars, drift
+│   │   └── textures.js          # procedural canvas textures (wood, chalkboard, facade, awning, rent sign, tarp)
+│   ├── test/
+│   │   ├── smoke.mjs                  # headless day integration test
+│   │   ├── campaign.mjs               # 5-day campaign: hedge + debt clock + settle
+│   │   ├── campaign-tight.mjs         # per-regular opinion + cup-bounded contract expiry
+│   │   ├── regulars-graph.mjs         # friendship graph + opinion contagion
+│   │   ├── gentrification.mjs         # per-day cost creep + cohort expectations
+│   │   ├── rent-sign.mjs              # 'let' → 'lease' → 'sold' rent sign ladder
+│   │   ├── construction.mjs           # day-5 right scaffold + tarp
+│   │   ├── construction-left.mjs      # day-5 left scaffold
+│   │   ├── construction-active.mjs    # day-5 drifting dust + low saw loop
+│   │   ├── construction-final.mjs     # day-4 letter + back-row scaffold + hammer
+│   │   └── glb-substitution.mjs       # Kenney GLB loader + substitution map
+│   ├── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)
+│   └── assets/                  # Kenney CC0 GLB props + SOURCES.md
 ├── benchmark_corpus.json        # UK café COGS benchmarks (anchors the Exchange math)
 ├── locality_packs.json          # London district locality data (matcha price ranges)
 ├── cli.py
 └── tests/
 ```
+
+---
+
+## Recent progress (post-PR #1)
+
+After the connected-campaign PR #1 landed, the build log has been steadily
+catching up to the README's promises. Each item below shipped as its own
+squash-merge PR with a headless test gate.
+
+- **PR #2 — Phase 0 CC0 props (Kenney)**. The vendored Kenney GLBs that the
+  README always promised now sit on the floor: bar, espresso machine, till,
+  three tables, nine chairs, three lamps, two planters, retail shelf
+  backing, six pastry items, three bar stools, one side table. New
+  `web/js/loader.js` (async GLB loader with cache + FIFO eviction + magenta
+  placeholder fallback). `web/test/glb-substitution.mjs` (15 assertions).
+- **PR #3 — Regulars friendship graph**. Gossip is no longer random: it
+  routes through named friends when one is on the floor, and a dashed
+  `THREE.LineSegments` is drawn between gossiping regulars' heads. Each
+  `REGULAR_ROSTER` entry has a `friends` array (11 undirected edges,
+  diameter 2). `Regulars` now has a `friendships` Map, `pickFriendFor`,
+  `reachableIn`, and a 5%-per-day `opContagion` step that runs at end of
+  day. `web/test/regulars-graph.mjs` (8 assertions).
+- **PR #4 — Gentrification drift**. The README's "Inflation enters as a
+  *pressure clock*" is now real. New `web/js/gentrification.js`:
+  `applyDrift(ex, day)` raises `beanIndex` by +0.025/day (capped at 1.80)
+  and sets the day's matcha till price on a 4.80→5.40 curve;
+  `applyExpectation(regulars, day)` shifts each seen regular's `op` by
+  `day * delta` per cohort (elders -0.02, creatives -0.01, students +0.01,
+  tourists +0.01). HUD gets a new `#pressure` line "costs +X% · matcha £Y
+  · day Z/5". The Roaster's Letter gets a `driftLine` paragraph on days
+  ≥ 2. `exchange.openDay()` applies the drift *before* the event roll
+  (the drift is the baseline; the event is the deviation). New
+  `web/test/gentrification.mjs` (6 assertions).
+- **PRs #5–#9 — Day-5 visual + audible construction story** (5 PRs).
+  - A `W.setRentPressure(day)` exposes a rent sign on the right side of
+    the street: 'let' (day 1-2), 'lease' (day 3-4), 'sold' (day 5).
+  - Three procedural scaffolds materialize on day 5: right facade block
+    (x=11), left facade block (x=-10), back-right (x=17). Each carries
+    a red-and-white striped "UNDER CONSTRUCTION · SEPT 15" tarp.
+  - A `dustSite` particle pool in `fx.js` drifts 80 cream/warm-grey
+    particles between the scaffolds on day 5.
+  - `audio.js` adds a low procedural saw loop (drone) and a jittered
+    wooden tock + metal click (rhythm) on day 5.
+  - The Roaster's Letter gets a `neighborhoodLine` paragraph on days
+    ≥ 4 ("Both storefronts are scaffolded now. The street is being
+    remade — for or against you, that's the question.").
+  - 4 new tests: `rent-sign`, `construction`, `construction-left`,
+    `construction-active`, `construction-final` (19 assertions total).
+
+The day-5 narrative is now end-to-end: numbers (HUD `#pressure`),
+narrative (the Letter), physical (scaffolds + tarps), audible
+(saw + hammer), animated (drifting dust). Eleven headless tests run
+green on every merge.
+
+See `hackathon.md` for the build log.
 
 ---
 

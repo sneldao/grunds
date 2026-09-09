@@ -12,9 +12,53 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T17:15:00Z
+- **Last updated:** 2026-09-09T17:45:00Z
 
 ## Log
+
+### 2026-09-09 - 8e1dd63 (state at end of session)
+
+The session is paused for the day. Eleven headless tests pass on the
+merged main. The day-5 construction story is closed end-to-end across
+five PRs (#5–#9). Quick index of what shipped since the connected-campaign
+PR #1 merged:
+
+- **PR #2 — Phase 0 CC0 props (Kenney)**: vendored Kenney GLBs now
+  populate the District floor; `web/js/loader.js` (cache + FIFO + fallback);
+  `web/test/glb-substitution.mjs` (15 assertions).
+- **PR #3 — Regulars friendship graph**: 11 undirected edges, gossip
+  routes through named friends, 3D conversation lines; `web/test/regulars-graph.mjs`
+  (8 assertions).
+- **PR #4 — Gentrification drift**: per-day cost creep (+0.025), matcha
+  price curve (4.80→5.40), cohort expectation pressure, HUD #pressure
+  line, Roaster's Letter `driftLine`; `web/test/gentrification.mjs`
+  (6 assertions).
+- **PRs #5–#9 — Day-5 visual + audible construction**:
+  - `web/test/rent-sign.mjs` (4) — 'let' → 'lease' → 'sold'
+  - `web/test/construction.mjs` (4) — right facade block scaffold
+  - `web/test/construction-left.mjs` (4) — left facade block scaffold
+  - `web/test/construction-active.mjs` (5) — drifting dust + low saw loop
+  - `web/test/construction-final.mjs` (6) — day-4 `neighborhoodLine`,
+    back-row scaffold, jittered wooden tock + metal click
+- **Docs**: README "Recent progress" section + ARCHITECTURE phase column
+  updated to reflect what's now local (gentrification, friendship graph,
+  day-5 visuals).
+
+**Test gate**: 11 headless tests pass on every merge. To run them
+all: `for t in regulars-graph gentrification rent-sign construction
+construction-left construction-active construction-final smoke campaign
+campaign-tight glb-substitution; do node web/test/$t.mjs; done`.
+
+**Where to pick up next session**: the README's "Convex phase" section
+still lists items that haven't shipped (scheduled functions, live
+queries, AgentMail, OpenAI prose). The highest-leverage next step is
+the Convex phase itself: scaffold the Convex deployment, port the
+local-phase systems (`exchange`, `regulars`, the construction story) to
+TypeScript, and start wiring the multiplayer / persistence layer. Local
+features that are still on the wishlist and easy to ship: a "new
+tenant opens" final cutscene for day-5 evening, a day-4 dust preview
+before the day-5 full reveal, a fourth scaffold on the back-left
+facade. None are mechanically necessary; all are pure polish.
 
 ### 2026-09-09 - 1655cf6
 Squash-merged PR #9 ("Close the day-4/day-5 construction story:
