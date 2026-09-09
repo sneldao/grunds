@@ -12,9 +12,23 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T14:15:00Z
+- **Last updated:** 2026-09-09T14:30:00Z
 
 ## Log
+
+### 2026-09-09 - e4b252d
+Squash-merged PR #5 ("Add a visible rent-pressure sign on the district
+floor") into main as a single commit. Diff: +209 / −2 across 5 files.
+The gentrification drift now has a visual: a two-post signboard on the
+right side of the street (x=6, z=16.5, between the rival and the
+big right-side facade block) re-bakes one of three states per day —
+'let' (cream "TO LET · enquiries next door") for day 1-2, 'lease' (red
+"FOR LEASE" banner, "RENTS UP 12% · district turnover") for day 3-4,
+'sold' (diagonal red SOLD stamp) for day 5. The sign is the
+gentrification made physical — the player sees the district being
+claimed, not just the cost creep. All 7 headless tests pass on the
+merged main: regulars-graph, gentrification, rent-sign, smoke,
+campaign, campaign-tight, glb-substitution.
 
 ### 2026-09-09 - feat/rent-sign
 Made the gentrification drift visible on the floor. The numbers
