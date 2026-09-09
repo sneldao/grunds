@@ -1,7 +1,7 @@
 // The District — a dollhouse diorama. All primitives + canvas textures, no assets.
 import * as THREE from '../vendor/three.module.js';
 import { PAL, LAYOUT, COPY } from './config.js';
-import { woodFloor, pavement, road, awning, menuBoard, softSprite, shopSign } from './textures.js';
+import { woodFloor, pavement, road, awning, menuBoard, softSprite, shopSign, rentSign, stateForDay } from './textures.js';
 import { GLBLoader } from './loader.js';
 
 const M = {}; // shared materials
@@ -258,6 +258,28 @@ export function buildWorld(scene, renderer, lite) {
   const rvAwn = new THREE.MeshStandardMaterial({ map: awning('#27403c', '#dfe3e2'), roughness: 0.9, side: THREE.DoubleSide });
   plane(rv, 5, 1.6, rvAwn, 0, 2.9, -1.5, { rx: -Math.PI / 2 + 0.3 });
   box(rv, 0.9, 1.9, 0.14, 0x111418, -1.4, 1.15, -1.06, { em: 0xbfe8e2, emi: 0.5, cast: false }); // their lightbox menu
+
+  // ---- the rent-pressure sign: gentrification drift made physical ------------
+  // A two-post signboard on the right side of the street, in front of the
+  // big facade block. Three states: 'let' (day 1-2), 'lease' (day 3-4),
+  // 'sold' (day 5). The texture re-bakes; the panel material stays the
+  // same. The sign faces the café across the road (rotationY = π).
+  const rent = rentSign();
+  const rentTex = rent.draw(stateForDay(1));     // start at 'let' (day 1)
+  W.rentMat = new THREE.MeshStandardMaterial({ map: rentTex, emissive: 0xffe6c0, emissiveMap: rentTex, emissiveIntensity: 0.18, roughness: 0.85 });
+  const rentPost = new THREE.Group(); rentPost.position.set(6, 0, 16.5); scene.add(rentPost);
+  // two posts (left + right of the panel)
+  box(rentPost, 0.08, 1.7, 0.08, PAL.walnutDark, -0.7, 0.85, 0, { cast: true });
+  box(rentPost, 0.08, 1.7, 0.08, PAL.walnutDark,  0.7, 0.85, 0, { cast: true });
+  // the panel itself
+  plane(rentPost, 1.6, 1.2, W.rentMat, 0, 1.2, 0, { ry: Math.PI });
+  // a brass nameplate beneath
+  box(rentPost, 1.4, 0.05, 0.08, 0xc9a227, 0, 0.6, 0.02, { cast: false });
+  W.setRentPressure = (day) => {
+    const state = stateForDay(day);
+    rent.draw(state);                 // redraws onto the same canvas
+    rentTex.needsUpdate = true;       // GPU re-uploads the new pixels
+  };
 
   // ---- the district: a street of facades + a far skyline ---------------------
   // Lit windows are emissive-map quads that glow at night (time-of-day drives them).

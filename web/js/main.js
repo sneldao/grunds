@@ -213,6 +213,7 @@ function openDay(d) {
   if (d > 1 && exchange.debt > 0) exchange.debt += CAMPAIGN.debtInterest;   // the debt clock ticks at dawn
   world.setMail(false);
   world.setMist(ev.tier === 'cata' ? 1 : ev.tier === 'bad' ? 0.4 : 0);
+  world.setRentPressure(d);          // the gentrification sign: 'let' → 'lease' → 'sold'
   // Per-regular `seen` is now flipped on individually in patrons.spawn() via
   // regulars.markSeen(cohort). No more blanket "everyone was here" — opinion
   // moves only for regulars who actually showed up today.
