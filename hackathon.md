@@ -12,9 +12,23 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T16:15:00Z
+- **Last updated:** 2026-09-09T16:30:00Z
 
 ## Log
+
+### 2026-09-09 - 952bd1b
+Squash-merged PR #8 ("Make day-5 construction feel active: drifting
+dust + a low saw loop") into main. Diff: +158 / −1 across 5 files.
+The day-5 construction now feels alive. Drifting dust between the
+two scaffolds — new dustSite Pool in web/js/fx.js, 80 particles,
+additive cream/warm-grey tint, spawning 1-2 per ~0.12s when
+constructionActive is true. Plus a low procedural saw loop in
+web/js/audio.js — 78 Hz sawtooth with -8 cents detune through a
+220 Hz / Q=1.4 bandpass, ramped to gain 0.04 over ~1.5s. main.js
+wires both, gated on d >= 5, at every dawn. The gentrification is
+now visible (two scaffolds, two tarps, a rent sign), audible (the
+saw fades in on day 5), and animated (dust drifts between the
+scaffolds). All 10 headless tests pass on the merged main.
 
 ### 2026-09-09 - feat/construction-active
 Made the day-5 construction feel alive. The two scaffolds (PRs #6 and
