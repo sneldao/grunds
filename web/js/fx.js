@@ -58,6 +58,14 @@ export class FX {
     }
     this.layer = document.getElementById('bubbles');
 
+    // Construction-zone dust — drifts between the two day-5 scaffolds
+    // (x ∈ [-12, 12], z ∈ [15.5, 17]). Particles spawn only when
+    // `constructionActive` is true; particles in flight finish their life
+    // and fade out naturally. ~80 particles, cream/warm-grey additive.
+    this.dustSite = new Pool(scene, 80, { size: 0.18, blending: THREE.AdditiveBlending, tint: 0xe8d8b0 });
+    this.dustSiteAcc = 0;
+    this.constructionActive = false;   // set by main.js on day 5
+
     // 3D conversation lines — drawn between two patrons during a gossip hop.
     // One LineSegments with CAP segments; each slot is a 2-vertex line. When
     // idle, both vertices sit at y = -999 (off-screen) so we don't pay the
@@ -111,6 +119,32 @@ export class FX {
       p[i * 3 + 1] += Math.cos(now * 0.00016 + i * 1.3) * 0.0009;
     }
     this.dust.points.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // Construction-zone dust — slow drift between the two day-5 scaffolds.
+  // Spawn 1-2 particles every ~0.12s while `constructionActive`. The pool
+  // continues to age out existing particles when the flag flips off, so the
+  // dust naturally fades over ~2s rather than vanishing instantly.
+  constructionDust(dt) {
+    if (!this.constructionActive) return;
+    this.dustSiteAcc += dt;
+    if (this.dustSiteAcc < 0.12) return;
+    this.dustSiteAcc = 0;
+    const n = 1 + (Math.random() < 0.4 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      // x ∈ [-12, 12] covers both scaffolds; y ∈ [0.5, 3.5] is mid-height;
+      // z ∈ [15.5, 17] is in front of the facade block faces.
+      this.dustSite.spawn(
+        -12 + Math.random() * 24,
+        0.5 + Math.random() * 3.0,
+        15.5 + Math.random() * 1.5,
+        (Math.random() - 0.5) * 0.18,         // horizontal wander
+        0.05 + Math.random() * 0.15,           // gentle upward
+        (Math.random() - 0.5) * 0.10,
+        1.5 + Math.random() * 1.0,             // 1.5 - 2.5s life
+        0.4 + Math.random() * 0.4              // 0.4 - 0.8 brightness
+      );
+    }
   }
 
   // ---- gossip bubbles: comic speech that travels patron → patron ---------------
@@ -226,6 +260,8 @@ export class FX {
     this.coins.update(dt, -4.5, 0.99);
     this.huffs.update(dt, 0.4, 0.96);
     this.dustDrift(now);
+    this.constructionDust(dt);
+    this.dustSite.update(dt, 0.05, 0.99);   // gentle gravity + air drag
     this._updateConversations(dt);
     for (let i = this.bubbles.length - 1; i >= 0; i--) {
       const b = this.bubbles[i];

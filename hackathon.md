@@ -12,9 +12,31 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T15:45:00Z
+- **Last updated:** 2026-09-09T16:15:00Z
 
 ## Log
+
+### 2026-09-09 - feat/construction-active
+Made the day-5 construction feel alive. The two scaffolds (PRs #6 and
+#7) were static props; the gentrification read as "the building is
+being remade" but didn't *feel* active. Two layers: (1) a slow
+drifting dust between the two scaffolds — new `dustSite` Pool in
+`web/js/fx.js` (80 particles, additive cream/warm-grey tint, spawning
+1-2 per ~0.12s in the box x ∈ [-12, 12], y ∈ [0.5, 3.5], z ∈ [15.5, 17]
+when `constructionActive` is true). Particles in flight finish their
+natural life when the flag flips off, so the dust fades over ~2s
+rather than vanishing instantly. (2) a low procedural saw loop in
+`web/js/audio.js` — a 78 Hz sawtooth with -8 cents detune through a
+220 Hz / Q=1.4 bandpass, ramped to gain 0.04 over ~1.5s. The result
+is a distant "nrrrr" rather than a literal saw. The oscillator +
+filter are created on first call to on=true and re-used; on=false
+ramps the gain to zero. `main.js` wires both: at every dawn in
+`openDay`, sets `fx.constructionActive = (d >= 5)` and calls
+`audio.constructionSaw(d >= 5)`. New test
+`web/test/construction-active.mjs` (5 assertions): fx constructionDust
++ constructionActive + dustSite pool, audio constructionSaw with
+sawtooth + bandpass, main.js wiring, and public API smoke. All 10
+headless tests pass. +~120 / −2 across 4 files.
 
 ### 2026-09-09 - 333ef78
 Squash-merged PR #7 ("Add day-5 left-side construction prop") into

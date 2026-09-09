@@ -216,6 +216,9 @@ function openDay(d) {
   world.setRentPressure(d);          // the gentrification sign: 'let' → 'lease' → 'sold'
   world.setConstruction(d);          // the day-5 scaffold + tarp: the building is being remade
   world.setConstructionLeft(d);      // the day-5 mirror scaffold on the left: the whole district is turning over
+  const constructionOn = d >= 5;     // matches dayHasConstruction in world.js
+  fx.constructionActive = constructionOn;   // drifting dust between the scaffolds
+  audio.constructionSaw(constructionOn);    // a low procedural saw fading in/out
   // Per-regular `seen` is now flipped on individually in patrons.spawn() via
   // regulars.markSeen(cohort). No more blanket "everyone was here" — opinion
   // moves only for regulars who actually showed up today.

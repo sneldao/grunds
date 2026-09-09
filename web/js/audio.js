@@ -145,6 +145,34 @@ export class AudioEngine {
   }
   setCrowd(n) { this.crowd = n; }
   setRush(b) { this.rush = b; }
+  // Day-5 construction noise — a low, slightly detuned sawtooth through a
+  // narrow bandpass, ramped in/out over ~1.5s. The result is a distant
+  // "nrrrr" rather than a literal saw. The oscillator + filter are
+  // created on first call to on=true and re-used; on=false ramps the
+  // gain to zero but leaves the graph intact (cheap; no rebuild).
+  constructionSaw(on) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (on) {
+      if (!this._saw) {
+        const ctx = this.ctx;
+        const sawGain = ctx.createGain(); sawGain.gain.value = 0;
+        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+        bp.frequency.value = 220; bp.Q.value = 1.4;
+        const sawOsc = ctx.createOscillator(); sawOsc.type = 'sawtooth';
+        sawOsc.frequency.value = 78;                       // low G-ish
+        sawOsc.detune.value = -8;                          // slight detune for grit
+        const oscGain = ctx.createGain(); oscGain.gain.value = 0.6;
+        sawOsc.connect(oscGain); oscGain.connect(bp); bp.connect(sawGain);
+        sawGain.connect(this.master);
+        sawOsc.start();
+        this._saw = { sawGain, bp, sawOsc };
+      }
+      this._saw.sawGain.gain.setTargetAtTime(0.04, t, 0.5);
+    } else if (this._saw) {
+      this._saw.sawGain.gain.setTargetAtTime(0, t, 0.5);
+    }
+  }
   toggleMute() {
     if (!this.ctx) return true;
     this.muted = !this.muted;
