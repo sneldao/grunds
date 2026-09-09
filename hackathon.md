@@ -12,9 +12,26 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T15:15:00Z
+- **Last updated:** 2026-09-09T15:30:00Z
 
 ## Log
+
+### 2026-09-09 - feat/construction-left
+Mirrored the day-5 construction prop on the left side of the street.
+PR #6 added a scaffold + tarp on the right-side facade block at
+(x=11, z=16.4). The gentrification read on the right but the left
+side was untouched, so the district felt like *one* building was
+being remade rather than the whole street turning over. This commit
+adds a second, smaller scaffold in front of the closer left-side
+facade block (x: -10, z: 19) at (x=-10, z=15.9). Same tarp factory,
+same `dayHasConstruction(day)` gate, smaller dimensions to fit a
+smaller facade: 4 posts, 3 cross-beam levels, X-brace diagonals,
+5.2m × 1.6m tarp. `web/js/world.js` exposes `W.setConstructionLeft(d)`
+parallel to `W.setConstruction(d)`. `main.js` calls both at every
+dawn. New test `web/test/construction-left.mjs` (4 assertions)
+verifies the source-level wiring: `W.setConstructionLeft` defined,
+scaffold at x=-10, visibility/opacity toggled, and the call from
+`openDay`. All 9 headless tests pass. +~120 / −2 across 3 files.
 
 ### 2026-09-09 - 6d4c73d
 Squash-merged PR #6 ("Add day-5 construction prop: scaffold + tarp on

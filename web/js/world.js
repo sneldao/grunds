@@ -312,6 +312,33 @@ export function buildWorld(scene, renderer, lite) {
     W.cTarpMat.opacity = on ? 1.0 : 0.0;
   };
 
+  // ---- the day-5 left-side construction prop: mirror of the right -----------
+  // Lives in front of the closer left-side facade block (x: -10, z: 19, w: 7,
+  // h: 9, d: 6). The block's nearest face is at z = 19 - 3 = 16. We sit the
+  // prop at (x: -10, z: 15.9) — just in front of the face, mirroring the
+  // right side. Same shape, scaled smaller to fit a smaller facade: 4 posts,
+  // 3 cross-beam levels, X-brace diagonals, 5.2m × 1.6m tarp.
+  const ctarL = tarp();
+  const ctarLTex = ctarL.draw();
+  W.cTarpMatL = new THREE.MeshStandardMaterial({ map: ctarLTex, emissive: 0x000000, transparent: true, opacity: 0, roughness: 0.95, side: THREE.DoubleSide });
+  const cgrpL = new THREE.Group(); cgrpL.position.set(-10, 0, 15.9); cgrpL.visible = false; scene.add(cgrpL);
+  plane(cgrpL, 5.2, 1.6, W.cTarpMatL, 0, 1.6, 0, { ry: Math.PI });
+  const POSTL = [0.08, 5.0, 0.08];
+  const XL = [-2.6, 2.6], ZL = [-0.4, 0.4];
+  for (const x of XL) for (const z of ZL) box(cgrpL, POSTL[0], POSTL[1], POSTL[2], PAL.walnutDark, x, POSTL[1] / 2, z, { cast: true });
+  for (const yLevel of [0.4, 2.4, 4.5]) {
+    box(cgrpL, 5.4, 0.08, 0.08, PAL.walnutDark, 0, yLevel, -0.4, { cast: false });
+    box(cgrpL, 5.4, 0.08, 0.08, PAL.walnutDark, 0, yLevel,  0.4, { cast: false });
+  }
+  for (const side of [-1, 1]) {
+    box(cgrpL, 0.06, 4.4, 0.06, PAL.walnutDark, side * 1.4, 2.4, 0, { rz: Math.atan2(4.4, 2.8) * 0.5 * side, cast: false });
+  }
+  W.setConstructionLeft = (day) => {
+    const on = dayHasConstruction(day);
+    cgrpL.visible = on;
+    W.cTarpMatL.opacity = on ? 1.0 : 0.0;
+  };
+
   // ---- the district: a street of facades + a far skyline ---------------------
   // Lit windows are emissive-map quads that glow at night (time-of-day drives them).
   W.winMats = [];
