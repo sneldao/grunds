@@ -12,9 +12,19 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T12:30:00Z
+- **Last updated:** 2026-09-09T12:45:00Z
 
 ## Log
+
+### 2026-09-09 - 65f3898
+Squash-merged PR #3 ("Wire the Regulars friendship graph, routed gossip,
+and 3D conversation lines") into main as a single commit. Diff: +392 / −27
+across 6 files. The Regulars now have a real friendship graph: 11
+undirected edges across 8 named regulars, diameter 2. Gossip routes
+through named friends when one is on the floor, and 3D conversation
+lines are visible between gossiping regulars. All 5 headless tests pass
+on the merged main: regulars-graph, smoke, campaign, campaign-tight,
+glb-substitution.
 
 ### 2026-09-09 - feat/regulars-graph
 Wired the Regulars friendship graph promised by `README.md` ("word of mouth
