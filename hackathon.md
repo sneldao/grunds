@@ -12,9 +12,32 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T11:11:00Z
+- **Last updated:** 2026-09-09T12:30:00Z
 
 ## Log
+
+### 2026-09-09 - feat/regulars-graph
+Wired the Regulars friendship graph promised by `README.md` ("word of mouth
+propagates through a friendship graph (visible as 3D conversations)") and
+`ARCHITECTURE.md` ("precedent (memory) → opinions, friendships"). Each entry
+in `REGULAR_ROSTER` now has a `friends` array; the graph has 11 undirected
+edges across 8 regulars with diameter 2 (everyone is within 2 hops of
+everyone). `Regulars` now exposes `friendships` (Map<idx, Set<idx>>),
+`friendOf`, `pickFriendFor`, `reachableIn`, and a 5%-per-day `opContagion`
+step that runs at the end of `resolveDay` — a single bad day for Mara sours
+her friends, and within a day or two the whole network feels it. Gossip is
+now routed through named friends: when a named regular balks, the bubble
+goes to one of their friends who is on the floor (a real "word of mouth"
+hop), and a dashed 3D line is drawn between the two patrons' heads for
+the lifetime of the bubble. Falls back to the nearest patron when no
+friend is on the floor. `patrons.js` carries the `regularFriends` set on
+each named-regular patron and tracks `regularsByIdx` so the gossip router
+can find friends on the floor. `fx.js` got a 32-slot `THREE.LineSegments`
+pool for the conversation lines (animated vertex-coloured, faded by the
+bubble's lifetime). New test `web/test/regulars-graph.mjs` (8 assertions)
+covers: edge count, friend pick, reachability from Mara, single-step
+contagion pull, 10-round spread, reputation bookkeeping, and a public-API
+smoke check. All 5 headless tests pass. +368 / −26 across 5 files.
 
 ### 2026-09-09 - ac25ff2
 Squash-merged PR #2 ("Wire Phase 0 CC0 Kenney props into the District

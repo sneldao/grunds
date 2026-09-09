@@ -44,6 +44,10 @@ export class PatronSystem {
     const z = new THREE.Matrix4().makeScale(0, 0, 0);
     for (const part of Object.values(this.parts)) for (let i = 0; i < MAXP; i++) part.setMatrixAt(i, z);
     for (let i = MAXP - 1; i >= 0; i--) this.free.push(i);
+    // regularIdx -> Set<patron>: which live patrons represent a given named
+    // regular. The gossip router uses this to find a friend-of-friend who is
+    // currently on the floor.
+    this.regularsByIdx = new Map();
   }
 
   get count() { return MAXP - this.free.length; }
@@ -68,12 +72,22 @@ export class PatronSystem {
       flash: 0, colorDirty: true, queueRef: null, slotI: -1, walking: true,
       scale: 0.92 + Math.random() * 0.16,
       regularName: null, regularIdx: -1, greeted: false,
+      regularFriends: null,   // Set<string> of friend names, populated if named
     };
     // Is this spawn a named Regular? If so, mark seen, tag the patron, and
     // emit a one-line greeting when they actually join the queue.
     if (this.regulars && zone === 'counter') {
       const r = this.regulars.markSeen(cohort);
-      if (r.found) { p.regularName = r.name; p.regularIdx = r.idx; p.hasHat = true; }
+      if (r.found) {
+        p.regularName = r.name; p.regularIdx = r.idx; p.hasHat = true;
+        // copy the friend list onto the patron so the gossip router can route
+        // by name (without re-walking the Regulars graph on every bubble)
+        const reg = this.regulars.regulars[r.idx];
+        p.regularFriends = new Set(reg?.friends ?? []);
+        let set = this.regularsByIdx.get(r.idx);
+        if (!set) { set = new Set(); this.regularsByIdx.set(r.idx, set); }
+        set.add(p);
+      }
     }
     this.patrons.push(p);
     const door = V3(LAYOUT.door.x + (Math.random() - 0.5) * 2.2, 0, LAYOUT.door.z + 0.5);
@@ -234,6 +248,11 @@ export class PatronSystem {
     for (const part of Object.values(this.parts)) { part.setMatrixAt(p.idx, z); part.instanceMatrix.needsUpdate = true; }
     this.free.push(p.idx);
     const i = this.patrons.indexOf(p); if (i >= 0) this.patrons.splice(i, 1);
+    // unregister from the regularsByIdx map (if this patron was a named regular)
+    if (p.regularIdx >= 0) {
+      const set = this.regularsByIdx.get(p.regularIdx);
+      if (set) { set.delete(p); if (set.size === 0) this.regularsByIdx.delete(p.regularIdx); }
+    }
   }
 
   randomPatron(near) {

@@ -119,15 +119,22 @@ export const EVENTS = {
 // The Regulars — persistent named patrons whose opinion survives the reset.
 // Reputation = aggregate opinion (0..100) → meters tomorrow's footfall + tips.
 // See ARCHITECTURE.md "precedent (memory)" and "friendship graph".
+//
+// `friends` is the friendship graph: edges are bidirectional. The roster
+// clusters by cohort (commuters know commuters, creatives know creatives)
+// with a few cross-cohort links (the 14:00 matcha wave lets Pip know Tomas
+// and Yuki; elders Mara-via-Dev-via-Olu is the gossip chain that turns a
+// bad day into a sours-the-room). Edges are unweighted at this stage;
+// Regulars.opContagion applies a 5% pull along every edge.
 export const REGULAR_ROSTER = [
-  { name: 'Mara',   coh: 'commuters', quirk: 'same flat white, no time' },
-  { name: 'Tomas',  coh: 'creatives', quirk: 'one pour-over, three hours' },
-  { name: 'Pip',    coh: 'students',  quirk: 'the 14:00 matcha' },
-  { name: 'Olu',    coh: 'elders',    quirk: 'remembers every mistake' },
-  { name: 'Gwen',   coh: 'tourists', quirk: 'follows the lists, tips well' },
-  { name: 'Yuki',   coh: 'creatives', quirk: 'only drinks single-origin' },
-  { name: 'Dev',    coh: 'commuters', quirk: 'counts the queue out loud' },
-  { name: 'Esther', coh: 'elders',    quirk: 'has today’s loyalty stamp' },
+  { name: 'Mara',   coh: 'commuters', friends: ['Dev', 'Olu', 'Pip'],  quirk: 'same flat white, no time' },
+  { name: 'Tomas',  coh: 'creatives', friends: ['Yuki', 'Pip', 'Olu'], quirk: 'one pour-over, three hours' },
+  { name: 'Pip',    coh: 'students',  friends: ['Tomas', 'Yuki', 'Gwen', 'Mara'], quirk: 'the 14:00 matcha' },
+  { name: 'Olu',    coh: 'elders',    friends: ['Esther', 'Mara', 'Tomas'], quirk: 'remembers every mistake' },
+  { name: 'Gwen',   coh: 'tourists',  friends: ['Pip', 'Tomas', 'Dev'], quirk: 'follows the lists, tips well' },
+  { name: 'Yuki',   coh: 'creatives', friends: ['Tomas', 'Pip'],       quirk: 'only drinks single-origin' },
+  { name: 'Dev',    coh: 'commuters', friends: ['Mara', 'Gwen'],       quirk: 'counts the queue out loud' },
+  { name: 'Esther', coh: 'elders',    friends: ['Olu'],                quirk: 'has today’s loyalty stamp' },
 ];
 
 export const LETTER = {

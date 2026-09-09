@@ -57,6 +57,26 @@ export class FX {
       this.dust.mat.opacity = 0.5;
     }
     this.layer = document.getElementById('bubbles');
+
+    // 3D conversation lines — drawn between two patrons during a gossip hop.
+    // One LineSegments with CAP segments; each slot is a 2-vertex line. When
+    // idle, both vertices sit at y = -999 (off-screen) so we don't pay the
+    // raster cost of empty segments.
+    this.CONV_CAP = 32;
+    this.conversations = [];   // {a, b, t, dur, kind, slot}
+    const convPos = new Float32Array(this.CONV_CAP * 2 * 3);
+    convPos.fill(-999);
+    const convCol = new Float32Array(this.CONV_CAP * 2 * 3);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(convPos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(convCol, 3));
+    this.convMat = new THREE.LineBasicMaterial({
+      vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false,
+    });
+    this.convLines = new THREE.LineSegments(g, this.convMat);
+    this.convLines.frustumCulled = false;
+    scene.add(this.convLines);
+    this._convNextSlot = 0;
   }
 
   // steam rises from every fresh cup
@@ -103,6 +123,99 @@ export class FX {
     this.layer.appendChild(el);
     this.bubbles.push({ el, from: fromP, to, t: 0, kind, chained });
   }
+
+  // gossipBubbles: route the gossip through the friendship graph first.
+  // If `fromP` is a named Regular and one of their friends is currently on
+  // the floor (sitting or in queue), the bubble goes to that friend — the
+  // "word of mouth" hop. Otherwise we fall back to the nearest patron, the
+  // way the bubble system has always worked. The visual conversation line
+  // is drawn in 3D between the two patrons for the lifetime of the bubble.
+  // `chainDepth` bounds friend-graph hops; deep chains tunnel the network.
+  gossipBubbles(fromP, text, kind = 'bad', chainDepth = 0) {
+    if (!fromP) return;
+    const to = this.pickGossipTarget(fromP, kind, chainDepth) ?? this.patrons.randomPatron(fromP);
+    if (!to) return;
+    const el = document.createElement('div');
+    el.className = 'bubble ' + kind;
+    el.textContent = text;
+    this.layer.appendChild(el);
+    this.bubbles.push({ el, from: fromP, to, t: 0, kind, chained: chainDepth > 0 });
+    this.startConversation(fromP, to, kind);
+  }
+
+  // Pick the next-hop target for a bubble. Friend graph if `fromP` is a
+  // named regular and a friend is on the floor (within 2 hops). Returns
+  // the patron object or null.
+  pickGossipTarget(fromP, kind, chainDepth) {
+    if (!fromP.regularFriends || fromP.regularFriends.size === 0) return null;
+    if (chainDepth > 1) return null;        // bound the friend-graph tunnel
+    // gather candidate patrons whose regularName is one of fromP's friends
+    const cands = [];
+    for (const set of this.patrons.regularsByIdx.values()) {
+      for (const p of set) {
+        if (p === fromP) continue;
+        if (!fromP.regularFriends.has(p.regularName)) continue;
+        if (p.state !== 'sit' && p.state !== 'inQueue') continue;
+        cands.push(p);
+      }
+    }
+    if (cands.length === 0) return null;
+    return cands[(Math.random() * cands.length) | 0];
+  }
+
+  // ---- 3D conversation lines ----------------------------------------------------
+  // A conversation is a single dashed line between two patrons' heads,
+  // coloured by kind (red = bad, green = good), with a slight vertical arc.
+  // We use a fixed pool of CAP line segments and rotate through them.
+  startConversation(a, b, kind = 'bad', dur = 1.5) {
+    if (!a || !b) return;
+    // de-dupe: don't start a second conversation for the same pair while one
+    // is still in flight
+    for (const c of this.conversations) {
+      if ((c.a === a && c.b === b) || (c.a === b && c.b === a)) return;
+    }
+    const slot = this._convNextSlot;
+    this._convNextSlot = (this._convNextSlot + 1) % this.CONV_CAP;
+    this.conversations.push({ a, b, t: 0, dur, kind, slot });
+  }
+  _updateConversations(dt) {
+    const pos = this.convLines.geometry.attributes.position.array;
+    const col = this.convLines.geometry.attributes.color.array;
+    // zero everything (vertices fall to y = -999 when no conversation is using
+    // a slot, so the line is invisible)
+    for (let i = 0; i < this.CONV_CAP * 2 * 3; i++) pos[i] = -999;
+    const RED = [0.82, 0.31, 0.23], GREEN = [0.42, 0.71, 0.36];
+    for (let i = this.conversations.length - 1; i >= 0; i--) {
+      const c = this.conversations[i];
+      c.t += dt;
+      const k = Math.min(c.t / c.dur, 1);
+      if (!c.a.pos || !c.b.pos) { this.conversations.splice(i, 1); continue; }
+      // ease-in for the arc: appears to "rise" toward the other patron
+      const a = c.a.pos, b = c.b.pos;
+      const arc = Math.sin(k * Math.PI) * 0.35;
+      const x0 = a.x, y0 = 1.55, z0 = a.z;
+      const x1 = b.x, y1 = 1.55, z1 = b.z;
+      const xm = (x0 + x1) / 2, ym = Math.max(y0, y1) + arc, zm = (z0 + z1) / 2;
+      // approximate the arc as two segments (a→mid, mid→b) sharing slot's two
+      // vertices. For a single-segment line, just use endpoints with the arc
+      // height on the midpoint we can't render in a 2-vertex line — instead
+      // lift both endpoints by a fraction of the arc, so the line still arcs.
+      const lift = arc * 0.4;
+      const off = c.slot * 6;
+      pos[off + 0] = x0; pos[off + 1] = y0 + lift; pos[off + 2] = z0;
+      pos[off + 3] = x1; pos[off + 4] = y1 + lift; pos[off + 5] = z1;
+      const fade = k < 0.85 ? 1 : (1 - k) / 0.15;
+      const tint = c.kind === 'bad' ? RED : GREEN;
+      for (let v = 0; v < 2; v++) {
+        col[off + v * 3 + 0] = tint[0] * fade;
+        col[off + v * 3 + 1] = tint[1] * fade;
+        col[off + v * 3 + 2] = tint[2] * fade;
+      }
+      if (k >= 1) this.conversations.splice(i, 1);
+    }
+    this.convLines.geometry.attributes.position.needsUpdate = true;
+    this.convLines.geometry.attributes.color.needsUpdate = true;
+  }
   _project(v, camera) {
     const p = v.clone ? v.clone() : new THREE.Vector3(v.x, v.y, v.z);
     p.project(camera);
@@ -113,6 +226,7 @@ export class FX {
     this.coins.update(dt, -4.5, 0.99);
     this.huffs.update(dt, 0.4, 0.96);
     this.dustDrift(now);
+    this._updateConversations(dt);
     for (let i = this.bubbles.length - 1; i >= 0; i--) {
       const b = this.bubbles[i];
       b.t += dt / 1.5;
@@ -132,7 +246,7 @@ export class FX {
       }
     }
   }
-  reset() { for (const b of this.bubbles) b.el.remove(); this.bubbles = []; }
+  reset() { for (const b of this.bubbles) b.el.remove(); this.bubbles = []; this.conversations = []; }
 
   // ---- DOM story beats ----------------------------------------------------------
   card(k, sub) {
