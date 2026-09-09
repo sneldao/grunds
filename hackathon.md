@@ -12,9 +12,20 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T15:30:00Z
+- **Last updated:** 2026-09-09T15:45:00Z
 
 ## Log
+
+### 2026-09-09 - 333ef78
+Squash-merged PR #7 ("Add day-5 left-side construction prop") into
+main. Diff: +89 / −1 across 4 files. The day-5 gentrification now
+reads district-wide: a scaffold + tarp on the right-side facade
+block (PR #6, x=11, z=16.4) AND a matching, smaller scaffold on the
+left-side facade block (x=-10, z=15.9). Both invisible on days 1-4;
+both materialize on day 5 via parallel `W.setConstruction` /
+`W.setConstructionLeft` setters. The two-storefront-flip-in-one-week
+narrative is now visible from any camera angle. All 9 headless tests
+pass on the merged main.
 
 ### 2026-09-09 - feat/construction-left
 Mirrored the day-5 construction prop on the left side of the street.
