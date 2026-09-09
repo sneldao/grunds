@@ -189,3 +189,50 @@ export function stateForDay(d) {
   if (d <= 4) return 'lease';
   return 'sold';
 }
+
+// Construction tarp — the day-5 "SOLD" sign's physical complement. A bold
+// red-and-white striped tarp with "UNDER CONSTRUCTION · SEPT 15" text.
+// Re-baked once at startup; the world toggles the panel's opacity via
+// W.setConstruction(day), so the tarp only appears when the gentrification
+// is real (day 5, the day the building is being claimed).
+export function tarp() {
+  const [c, g] = canvas(512, 512);
+  function draw() {
+    g.clearRect(0, 0, 512, 512);
+    // off-white base
+    g.fillStyle = '#f4ead4'; g.fillRect(0, 0, 512, 512);
+    // diagonal hazard stripes (red on white) at the top and bottom
+    g.save();
+    for (const yBand of [[0, 64], [448, 512]]) {
+      g.beginPath(); g.rect(0, yBand[0], 512, yBand[1] - yBand[0]); g.clip();
+      g.translate(0, yBand[0]);
+      for (let x = -64; x < 512 + 64; x += 32) {
+        g.fillStyle = (x / 32) % 2 < 1 ? '#d0403a' : '#f4ead4';
+        g.save(); g.translate(x, 0); g.rotate(-Math.PI / 4);
+        g.fillRect(0, 0, 32, 96); g.restore();
+      }
+      g.restore();
+    }
+    g.restore();
+    // the message — bold sans, with a subtle drop shadow
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '900 64px Arial, sans-serif';
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillText('UNDER', 256 + 3, 196 + 3);
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillText('CONSTRUCTION', 256 + 3, 268 + 3);
+    g.fillStyle = '#1d2a24'; g.fillText('UNDER', 256, 196);
+    g.fillStyle = '#1d2a24'; g.fillText('CONSTRUCTION', 256, 268);
+    // date
+    g.font = '700 32px Arial, sans-serif';
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillText('·  SEPT 15  ·', 256 + 2, 350 + 2);
+    g.fillStyle = '#1d2a24'; g.fillText('·  SEPT 15  ·', 256, 350);
+    // canvas-weave texture (subtle dots, so it reads as fabric, not paint)
+    g.fillStyle = 'rgba(0,0,0,.04)';
+    for (let i = 0; i < 1200; i++) g.fillRect(Math.random() * 512, Math.random() * 512, 1, 1);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    return t;
+  }
+  return { draw, canvas: c };
+}
+
+// Whether the day-5 construction prop should be visible.
+export function dayHasConstruction(d) { return d >= 5; }

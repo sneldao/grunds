@@ -1,7 +1,7 @@
 // The District — a dollhouse diorama. All primitives + canvas textures, no assets.
 import * as THREE from '../vendor/three.module.js';
 import { PAL, LAYOUT, COPY } from './config.js';
-import { woodFloor, pavement, road, awning, menuBoard, softSprite, shopSign, rentSign, stateForDay } from './textures.js';
+import { woodFloor, pavement, road, awning, menuBoard, softSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction } from './textures.js';
 import { GLBLoader } from './loader.js';
 
 const M = {}; // shared materials
@@ -279,6 +279,37 @@ export function buildWorld(scene, renderer, lite) {
     const state = stateForDay(day);
     rent.draw(state);                 // redraws onto the same canvas
     rentTex.needsUpdate = true;       // GPU re-uploads the new pixels
+  };
+
+  // ---- the day-5 construction prop: scaffold + tarp on the sold storefront --
+  // Lives in front of the big right-side facade block (x: 11, z: 19.5, w: 8,
+  // h: 11, d: 6). The block's nearest face is at z = 19.5 - 3 = 16.5. We sit
+  // the prop at (x: 11, z: 16.4) — just in front of the face, ~5m to the
+  // right of the rent sign at x: 6. Scaffold straddles the face; the tarp
+  // covers the lower-middle of the block. Whole group is invisible on days
+  // 1-4; W.setConstruction(d) makes it visible on day 5.
+  const ctar = tarp();
+  const ctarTex = ctar.draw();
+  W.cTarpMat = new THREE.MeshStandardMaterial({ map: ctarTex, emissive: 0x000000, transparent: true, opacity: 0, roughness: 0.95, side: THREE.DoubleSide });
+  const cgrp = new THREE.Group(); cgrp.position.set(11, 0, 16.4); cgrp.visible = false; scene.add(cgrp);
+  // the tarp panel (centered, slightly smaller than the block face)
+  plane(cgrp, 6.0, 2.0, W.cTarpMat, 0, 2.0, 0, { ry: Math.PI });
+  // the scaffold — 4 vertical posts + horizontal cross-beams at 3 levels + 2 diagonals
+  const POST = [0.08, 6.5, 0.08];
+  const X = [-3.0, 3.0], Z = [-0.4, 0.4];
+  for (const x of X) for (const z of Z) box(cgrp, POST[0], POST[1], POST[2], PAL.walnutDark, x, POST[1] / 2, z, { cast: true });
+  for (const yLevel of [0.4, 3.0, 5.6]) {
+    box(cgrp, 6.2, 0.08, 0.08, PAL.walnutDark, 0, yLevel, -0.4, { cast: false });
+    box(cgrp, 6.2, 0.08, 0.08, PAL.walnutDark, 0, yLevel,  0.4, { cast: false });
+  }
+  // diagonals (X braces on the front face)
+  for (const side of [-1, 1]) {
+    box(cgrp, 0.06, 5.6, 0.06, PAL.walnutDark, side * 1.6, 2.8, 0, { rz: Math.atan2(5.6, 3.2) * 0.5 * side, cast: false });
+  }
+  W.setConstruction = (day) => {
+    const on = dayHasConstruction(day);
+    cgrp.visible = on;
+    W.cTarpMat.opacity = on ? 1.0 : 0.0;
   };
 
   // ---- the district: a street of facades + a far skyline ---------------------

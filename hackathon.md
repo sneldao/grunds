@@ -12,9 +12,27 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T14:30:00Z
+- **Last updated:** 2026-09-09T15:00:00Z
 
 ## Log
+
+### 2026-09-09 - feat/construction-prop
+Made the day-5 "SOLD" sign physical. The sign was good but the
+building looked the same — the gentrification was in the sign, not
+the structure. New `tarp()` factory in `web/js/textures.js` bakes
+a red-and-white striped construction tarp with "UNDER CONSTRUCTION ·
+SEPT 15" text onto a 512×512 canvas. `web/js/world.js` adds a
+two-level scaffold in front of the big right-side facade block
+(x=11, z=16.4, ~5m to the right of the rent sign at x=6):
+4 vertical posts (6.5m walnut-dark), horizontal cross-beams at 3
+levels, X-brace diagonals, and a 6m × 2m tarp panel covering the
+lower-middle of the block. The whole group is invisible on days
+1-4; `W.setConstruction(d)` makes it visible on day 5 (group
+.visible = true, tarp material opacity → 1.0). `main.js` calls
+it once per dawn in `openDay` (right after `setRentPressure`).
+New test `web/test/construction.mjs` (4 assertions) covers the
+tarp factory, the day-gated visibility ladder, and the integration
+chain. All 8 headless tests pass. +~160 / −3 across 4 files.
 
 ### 2026-09-09 - e4b252d
 Squash-merged PR #5 ("Add a visible rent-pressure sign on the district
