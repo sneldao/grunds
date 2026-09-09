@@ -2,212 +2,226 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Grunds — The District</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
 <style>
-  body { margin:0; overflow:hidden; font-family: ui-monospace, Menlo, monospace; background:#0b0e14; }
-  #hud { position:fixed; top:12px; left:12px; color:#e8e2d0; z-index:10; }
-  #hud .clock { font-size:28px; font-weight:bold; letter-spacing:1px; }
-  #hud .line { font-size:13px; opacity:.85; margin-top:4px; }
-  #hud .till { color:#7dd87d; } #hud .balk { color:#e07a7a; } #hud .hint { color:#e8c46a; }
-  #levers { position:fixed; bottom:16px; left:12px; z-index:10; display:flex; gap:8px; }
-  button { font-family:inherit; font-size:14px; padding:10px 14px; border:1px solid #5a5240;
-    background:#1a1f2b; color:#e8e2d0; cursor:pointer; border-radius:4px; }
-  button:hover:enabled { background:#2a3040; }
-  button:disabled { opacity:.35; cursor:default; }
-  #speeds { position:fixed; bottom:16px; right:12px; z-index:10; display:flex; gap:6px; }
-  #toast { position:fixed; top:12px; right:12px; color:#e8c46a; font-size:13px; z-index:10;
-    text-align:right; white-space:pre-line; max-width:340px; }
+  :root {
+    --ink: #171310; --paper: #efe6d3; --cream: #f6efe0;
+    --brass: #c9a227; --matcha: #86a860; --neg: #d0603b; --teal: #7fb3b0;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; overflow: hidden; background: #0b0e14; font-family: var(--mono); color: var(--paper); }
+  canvas { display: block; }
+
+  /* cinematic dressing: vignette + grain, never interactive */
+  body::before { content: ''; position: fixed; inset: 0; z-index: 5; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 42%, transparent 55%, rgba(8, 6, 4, .42) 100%); }
+  body::after { content: ''; position: fixed; inset: -60px; z-index: 5; pointer-events: none; opacity: .055;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation: grain 0.9s steps(3) infinite; }
+  @keyframes grain { 0%{transform:translate(0,0)} 33%{transform:translate(-18px,12px)} 66%{transform:translate(14px,-16px)} 100%{transform:translate(0,0)} }
+
+  /* ---- HUD ---- */
+  #hud { position: fixed; top: 18px; left: 20px; z-index: 10; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+  #clock { font-family: var(--serif); font-size: 44px; font-weight: 600; letter-spacing: 2px; color: var(--cream); line-height: 1; }
+  #hud .line { font-size: 13px; margin-top: 7px; opacity: .92; }
+  #hud b { font-weight: 600; }
+  #till { color: #9ad89a; font-size: 15px; }
+  #till.pulse { animation: pulse .3s ease; }
+  @keyframes pulse { 50% { text-shadow: 0 0 14px rgba(154,216,154,.9); } }
+  #balk { color: var(--neg); }
+  #status b.ok { color: #9ad89a; } #status b.warm { color: #e8c46a; } #status b.hot { color: var(--neg); }
+
+  /* ---- day progress ---- */
+  #progressbar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: rgba(239,230,211,.12); z-index: 10; }
+  #progress { height: 100%; width: 0; background: linear-gradient(90deg, #8fa3c8, #ffc27d, #fff4e0, #ffb45e, #7a6a8a); }
+  #progressbar i { position: absolute; top: 0; width: 1px; height: 5px; background: rgba(239,230,211,.4); }
+  #progressbar i.wave { background: var(--matcha); height: 7px; width: 2px; }
+
+  /* ---- story feed (toasts) ---- */
+  #feed { position: fixed; top: 16px; right: 18px; z-index: 10; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .note { font-size: 12.5px; padding: 7px 12px; border-radius: 3px; max-width: 340px; text-align: right;
+    background: rgba(23,19,16,.82); border: 1px solid rgba(239,230,211,.18); color: var(--paper);
+    backdrop-filter: blur(3px); transition: opacity .9s; }
+  .note.good { border-color: rgba(134,168,96,.55); color: #cfe0b8; }
+  .note.bad { border-color: rgba(208,96,59,.55); color: #e8b0a0; }
+  .note.warn { border-color: rgba(201,162,39,.55); color: #e8c46a; }
+  .note.fade { opacity: 0; }
+
+  /* ---- chapter cards ---- */
+  #chapter { position: fixed; top: 13%; left: 0; right: 0; z-index: 20; text-align: center; pointer-events: none; opacity: 0; }
+  #chapter.show { animation: chapter 3.6s ease forwards; }
+  @keyframes chapter { 0%{opacity:0; transform:translateY(10px)} 12%{opacity:1; transform:none} 80%{opacity:1} 100%{opacity:0} }
+  #chapter .ck { font-family: var(--serif); font-size: 34px; letter-spacing: .42em; text-indent: .42em; color: var(--cream); text-shadow: 0 2px 18px rgba(0,0,0,.7); }
+  #chapter .ck::before, #chapter .ck::after { content: '—'; color: var(--brass); margin: 0 .35em; letter-spacing: 0; text-indent: 0; }
+  #chapter .cs { font-size: 13px; letter-spacing: .12em; color: rgba(239,230,211,.85); margin-top: 8px; font-style: italic; font-family: var(--serif); }
+
+  /* ---- gossip bubbles ---- */
+  #bubbles { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+  .bubble { position: absolute; transform: translate(-50%, -100%); font-size: 12px; padding: 5px 10px;
+    border-radius: 10px; white-space: nowrap; font-family: var(--mono);
+    background: #f2ecdc; color: #2a241c; border: 1.5px solid #2a241c;
+    box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  .bubble::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -4px;
+    border: 4px solid transparent; border-top-color: #2a241c; }
+  .bubble.bad { background: #f6dcd2; border-color: #7a2e1a; color: #7a2e1a; }
+  .bubble.bad::after { border-top-color: #7a2e1a; }
+  .bubble.good { background: #e2ecd2; border-color: #3d5231; color: #3d5231; }
+  .bubble.good::after { border-top-color: #3d5231; }
+</style>
+<style>
+  /* ---- notebook (the read) ---- */
+  #notebook { position: fixed; right: 18px; bottom: 92px; z-index: 15; width: 300px;
+    background: linear-gradient(173deg, #f2ead6, #e4d8bc); color: #3a3226;
+    padding: 14px 18px 16px; border-radius: 2px; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    transform: rotate(1.2deg) translateY(18px); opacity: 0; pointer-events: none;
+    transition: opacity .6s ease, transform .6s cubic-bezier(.2,1.4,.4,1); }
+  #notebook.show { opacity: 1; transform: rotate(1.2deg) translateY(0); }
+  #notebook h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 13px; letter-spacing: .28em; color: #7a5a2a; }
+  #notebook p { margin: 0; font-size: 12.5px; line-height: 1.65; white-space: pre-line; }
+
+  /* ---- closing receipt ---- */
+  #receipt { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center;
+    background: rgba(10, 8, 6, .55); backdrop-filter: blur(4px);
+    opacity: 0; pointer-events: none; transition: opacity .8s ease .9s; }
+  #receipt.show { opacity: 1; pointer-events: auto; }
+  #receipt .paper { width: 320px; background: var(--cream); color: var(--ink); padding: 26px 26px 20px;
+    font-size: 13px; box-shadow: 0 24px 70px rgba(0,0,0,.6); transform: translateY(14px); transition: transform .8s cubic-bezier(.2,1.2,.4,1) .9s;
+    clip-path: polygon(0 8px, 4% 0, 8% 8px, 12% 0, 16% 8px, 20% 0, 24% 8px, 28% 0, 32% 8px, 36% 0, 40% 8px, 44% 0, 48% 8px, 52% 0, 56% 8px, 60% 0, 64% 8px, 68% 0, 72% 8px, 76% 0, 80% 8px, 84% 0, 88% 8px, 92% 0, 96% 8px, 100% 0, 100% 100%, 0 100%); }
+  #receipt.show .paper { transform: none; }
+  #receipt h2 { margin: 0; font-family: var(--serif); letter-spacing: .4em; text-indent: .4em; text-align: center; font-size: 22px; }
+  #receipt .rsub { text-align: center; font-size: 11px; opacity: .6; margin: 4px 0 16px; }
+  .rl { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed rgba(23,19,16,.18); }
+  .rl:last-of-type { border-bottom: 2px solid var(--ink); font-weight: 700; font-size: 15px; padding-top: 8px; }
+  #r-verdict { font-family: var(--serif); font-style: italic; font-size: 14.5px; line-height: 1.5; margin: 16px 0; }
+  #again { width: 100%; }
+
+  /* ---- the Roaster's Letter ---- */
+  #letter { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
+    background: rgba(10,8,6,.6); backdrop-filter: blur(5px); opacity: 0; pointer-events: none;
+    transition: opacity .7s ease; }
+  #letter.show { opacity: 1; pointer-events: auto; }
+  .l-paper { width: 440px; max-width: 92vw; background: linear-gradient(176deg,#f6efe0,#e8dcc2); color:#2a241c;
+    padding: 30px 32px 24px; box-shadow: 0 26px 70px rgba(0,0,0,.6); transform: translateY(16px) rotate(-.4deg);
+    transition: transform .7s cubic-bezier(.2,1.2,.4,1); border-top: 4px double #c9a227; }
+  #letter.show .l-paper { transform: translateY(0) rotate(-.4deg); }
+  .l-head { font-family: var(--serif); font-size: 13px; letter-spacing: .32em; color: #7a2a18; text-align: center; }
+  .l-kicker { text-align: center; font-size: 10.5px; letter-spacing: .18em; opacity: .55; margin: 4px 0 18px; text-transform: uppercase; }
+  #letter-body { font-family: var(--serif); font-size: 14.5px; line-height: 1.62; white-space: pre-wrap; margin: 0 0 8px; }
+  .l-sign { font-family: var(--serif); font-style: italic; font-size: 13px; opacity: .7; margin-bottom: 16px; text-align: right; }
+  .l-actions { display: flex; flex-direction: column; gap: 8px; }
+  .l-actions button { text-align: left; font-size: 13px; }
+
+  /* ---- controls ---- */
+  button { font-family: var(--mono); font-size: 13px; padding: 10px 14px; cursor: pointer;
+    background: rgba(23,19,16,.85); color: var(--paper); border: 1px solid rgba(201,162,39,.45);
+    border-radius: 4px; text-shadow: none; backdrop-filter: blur(3px); transition: background .15s, transform .1s; }
+  button:hover:enabled { background: rgba(52,42,28,.92); transform: translateY(-1px); }
+  button:disabled { opacity: .32; cursor: default; }
+  button kbd { font-size: 10px; border: 1px solid rgba(239,230,211,.35); border-radius: 3px; padding: 1px 4px; margin-left: 6px; opacity: .7; }
+  button small { display: block; font-size: 10px; opacity: .65; margin-top: 3px; }
+  #levers { position: fixed; bottom: 18px; left: 20px; z-index: 10; display: flex; gap: 8px; align-items: flex-end; }
+  #levers button { text-align: left; }
+  #prebatch:not(:disabled) { border-color: var(--matcha); box-shadow: 0 0 18px rgba(134,168,96,.25); }
+  #sys { position: fixed; bottom: 18px; right: 18px; z-index: 10; display: flex; gap: 6px; align-items: center; }
+  #speeds { display: flex; gap: 4px; }
+  #speeds button { padding: 10px 11px; }
+  #speeds button.on { background: rgba(201,162,39,.3); border-color: var(--brass); }
+
+  /* ---- title screen ---- */
+  #title { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
+    background: rgba(10, 8, 6, .45); backdrop-filter: blur(7px) saturate(1.1);
+    transition: opacity 1.3s ease; }
+  #title.gone { opacity: 0; pointer-events: none; }
+  .t-inner { text-align: center; max-width: 560px; padding: 0 24px; }
+  .t-kicker { font-size: 12px; letter-spacing: .5em; text-indent: .5em; color: var(--brass); text-transform: uppercase; }
+  #title h1 { font-family: var(--serif); font-size: clamp(64px, 12vw, 118px); margin: 10px 0 0; letter-spacing: .18em; text-indent: .18em;
+    color: var(--cream); text-shadow: 0 4px 40px rgba(0,0,0,.8); font-weight: 600; }
+  .t-sub { font-family: var(--serif); font-size: 17px; letter-spacing: .62em; text-indent: .62em; color: rgba(239,230,211,.8); margin-top: 2px; }
+  .t-tag { font-family: var(--serif); font-style: italic; font-size: 15.5px; line-height: 1.7; color: rgba(239,230,211,.85);
+    margin: 26px 0 30px; white-space: pre-line; }
+  #open { font-size: 15px; padding: 14px 26px; letter-spacing: .14em; border-width: 1.5px; }
+  #open:enabled { border-color: var(--brass); box-shadow: 0 0 30px rgba(201,162,39,.22); }
+  #open:enabled:hover { background: rgba(201,162,39,.2); }
+  .t-controls { font-size: 11px; opacity: .55; margin-top: 26px; letter-spacing: .04em; }
 </style>
 </head>
 <body>
-<div id="hud">
-  <div class="clock" id="clock">06:00</div>
-  <div class="line">till <span class="till" id="till">£0.00</span> &nbsp; balked <span class="balk" id="balk">0</span></div>
-  <div class="line" id="status"></div>
-  <div class="line hint" id="hint"></div>
-</div>
-<div id="toast"></div>
-<div id="levers">
-  <button id="prebatch">Pre-batch matcha (−£4.20)</button>
-  <button id="reprice">Matcha £4.80 → £4.20</button>
-  <button id="reset">↺ reset day</button>
-</div>
-<div id="speeds">
-  <button data-s="60">1×</button><button data-s="300">5×</button><button data-s="1200">20×</button>
-</div>
-<script type="module">
-import * as THREE from './vendor/three.module.js';
+  <div id="bubbles"></div>
 
-const COHORT_COLORS = { commuters:0x6ab0e8, creatives:0xb08ae8, students:0xe8b06a, elders:0x7dd87d, tourists:0xe87a9a };
-const ZONES = {
-  counter: { x:-6, z:-2, w:10, d:3, color:0x2b3040, label:'counter' },
-  register:{ x:6,  z:-2, w:4,  d:3, color:0x40382b, label:'register' },
-  retail:  { x:-4, z:6,  w:8,  d:4, color:0x27331f, label:'retail' },
-  tables:  { x:7,  z:6,  w:8,  d:6, color:0x1f2a33, label:'tables' },
-};
-const MATCHA_WAIT_MIN = 4;  // prep time without pre-batch
-const PRICE = { matchaFull: 4.80, matchaDeal: 4.20, other: 3.60 };
+  <header id="hud">
+    <div id="clock">06:00</div>
+    <div class="line" id="daytag">DAY 1/5 · REP —</div>
+    <div class="line">till <span id="till">£0.00</span> &nbsp;·&nbsp; balked <span id="balk">0</span></div>
+    <div class="line" id="status"></div>
+  </header>
 
-let schedule=null, waveIdx=0, dayMin=6*60, speed=300;
-let till=0, balked=0, served=0, prebatched=false, repriced=false, batchUnits=0;
-let patrons=[], gossip=[];
+  <div id="progressbar">
+    <div id="progress"></div>
+    <i style="left:6.7%"></i><i style="left:26.7%"></i><i style="left:40%"></i>
+    <i class="wave" style="left:53.3%"></i><i style="left:76.7%"></i><i style="left:95%"></i>
+  </div>
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0e14);
-const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, .1, 200);
-camera.position.set(0, 22, 20); camera.lookAt(0,0,2);
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
-scene.add(new THREE.AmbientLight(0xffffff, .8));
-const dl = new THREE.DirectionalLight(0xffffff, .9); dl.position.set(10,20,10); scene.add(dl);
+  <div id="feed"></div>
 
-const zoneMeshes = {};
-for (const [name,z] of Object.entries(ZONES)) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(z.w,.1,z.d), new THREE.MeshLambertMaterial({color:z.color}));
-  m.position.set(z.x,0,z.z); scene.add(m); zoneMeshes[name]=m;
-  const el = document.createElement('div');
-  el.style.cssText='position:fixed;color:#8a8570;font-size:11px;pointer-events:none';
-  el.textContent=z.label.toUpperCase(); document.body.appendChild(el);
-  z.labelEl=el;
-}
-function labelPos(){ for (const z of Object.values(ZONES)) {
-  const v = new THREE.Vector3(z.x,.5,z.z).project(camera);
-  z.labelEl.style.left=(v.x*.5+.5)*innerWidth-20+'px'; z.labelEl.style.top=(-v.y*.5+.5)*innerHeight+'px';
-}}
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+  <div id="chapter"><div class="ck"></div><div class="cs"></div></div>
 
-const patronGeo = new THREE.SphereGeometry(.28,10,8);
-function spawnPatron(cohort, zone){
-  const c = new THREE.Color(COHORT_COLORS[cohort]||0xaaaaaa);
-  const m = new THREE.Mesh(patronGeo, new THREE.MeshLambertMaterial({color:c}));
-  const Z = ZONES[zone];
-  m.position.set(Z.x+(Math.random()-.5)*Z.w*.8, .6, Z.z+(Math.random()-.5)*Z.d*.8);
-  m.userData={cohort, zone, waitMin:0, state:'shopping'};
-  scene.add(m); patrons.push(m);
-  if (patrons.length>260){ const old=patrons.shift(); scene.remove(old); }
-  return m;
-}
-function nearbyPatron(p){
-  let best=null,bd=1e9;
-  for (const q of patrons) if(q!==p&&q.userData.state==='served'){const d=q.position.distanceTo(p.position); if(d<bd){bd=d;best=q;}}
-  return best || patrons.find(q=>q!==p) || p;
-}
-function gossipBubble(from, text, negative){
-  const el=document.createElement('div');
-  el.style.cssText=`position:fixed;font-size:12px;padding:3px 7px;border-radius:8px;pointer-events:none;
-    background:${negative?'#3a1f1f':'#1f2a1f'};color:${negative?'#e07a7a':'#9ad89a'};
-    border:1px solid ${negative?'#5a2a2a':'#2a4a2a'}`;
-  el.textContent=text; document.body.appendChild(el);
-  gossip.push({el, start:from.position.clone(), t:0, target:nearbyPatron(from)});
-}
-function project(p){ const v=p.clone().project(camera); return [(v.x*.5+.5)*innerWidth,(-v.y*.5+.5)*innerHeight]; }
+  <aside id="notebook">
+    <h3>ROASTER’S NOTEBOOK</h3>
+    <p>Matcha: 139 → 683 a week in thirteen weeks.
+The student wave lands at <em>14:00</em>.
+Made to order, a matcha takes 4 minutes.
+<em>Pre-batch</em> and the wave hits a warm till.</p>
+  </aside>
 
-// ---- day loop ---------------------------------------------------------------
-function tick(){
-  if (!running()||!schedule) return;
-  dayMin += 1;
-  // spawn wave
-  while (waveIdx<schedule.waves.length && schedule.waves[waveIdx].t<dayMin){
-    const w=schedule.waves[waveIdx++];
-    for (const s of w.spawns) for (let i=0;i<s.q;i++) spawnPatron(s.c,s.z);
-  }
-  // service
-  let servedNow=0;
-  for (const p of patrons){
-    if (p.userData.state!=='shopping') continue;
-    p.userData.waitMin++;
-    const isMatcha = p.userData.zone==='counter' && Math.random()<0.35; // matcha share at counter
-    const need = isMatcha ? (prebatched?1:MATCHA_WAIT_MIN) : 1;
-    if (p.userData.waitMin>=need && servedNow<QUEUE()){
-      if (isMatcha && !prebatched && p.userData.waitMin>3 && Math.random()<0.12){
-        p.userData.state='balked'; balked++;
-        if (Math.random()<0.3) gossipBubble(p,'matcha here is a WAIT…',true);
-        continue;
-      }
-      p.userData.state='served'; servedNow++;
-      till += isMatcha ? (repriced?PRICE.matchaDeal:PRICE.matchaFull) : PRICE.other;
-      if (isMatcha && prebatched) batchUnits=Math.max(0,batchUnits-1);
-      if (Math.random()<0.25){
-        p.position.set(ZONES.tables.x+(Math.random()-.5)*6,.6,ZONES.tables.z+(Math.random()-.5)*4);
-      }
-    }
-  }
-  if (prebatched && batchUnits<=0){ prebatched=false; toast('batch exhausted — back to made-to-order'); }
-  updateHUD();
-}
-function QUEUE(){ return 8; }
-function running(){ return dayMin < 21*60; }
+  <div id="receipt">
+    <div class="paper">
+      <h2>GRUNDS</h2>
+      <div class="rsub">end of day · Z-read</div>
+      <div id="r-lines"></div>
+      <p id="r-verdict"></p>
+      <button id="again">↺ open again tomorrow</button>
+    </div>
+  </div>
 
-function updateHUD(){
-  const h=String(Math.floor(dayMin/60)).padStart(2,'0'), m=String(dayMin%60).padStart(2,'0');
-  document.getElementById('clock').textContent=`${h}:${m}`;
-  document.getElementById('till').textContent='£'+till.toFixed(2);
-  document.getElementById('balk').textContent=balked;
-  const q=patrons.filter(p=>p.userData.state==='shopping'&&p.userData.zone==='counter').length;
-  const heat=q>10?'#e07a7a':q>5?'#e8c46a':'#7dd87d';
-  document.getElementById('status').innerHTML=
-    `counter queue <span style="color:${heat}">${q}</span> · matcha stock ${prebatched?batchUnits:0} · served ${served}`;
-  zoneMeshes.counter.material.color.setHex(q>10?0x5a2a2a:q>5?0x4a4020:0x2b3040);
-  const hint=document.getElementById('hint');
-  if (dayMin>=12*60&&dayMin<14*60&&!prebatched)
-    hint.textContent='read: matcha rose 139→683/wk over 13 weeks. student wave lands 14:00.';
-  else if (prebatched) hint.textContent='pre-batched — the wave will hit a warm till.';
-  else hint.textContent='';
-  document.getElementById('prebatch').disabled=prebatched||dayMin>=16*60;
-  document.getElementById('reprice').disabled=repriced;
-}
+  <!-- The Roaster's Letter — the inbox between days. Reply-to-command. -->
+  <div id="letter">
+    <div class="l-paper">
+      <div class="l-head" id="letter-head"></div>
+      <div class="l-kicker">a letter arrives · the roaster writes</div>
+      <pre id="letter-body"></pre>
+      <div class="l-sign" id="letter-sign"></div>
+      <div id="letter-actions" class="l-actions"></div>
+    </div>
+  </div>
 
-let toastTimer=null;
-function toast(t){
-  document.getElementById('toast').textContent=t;
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>{document.getElementById('toast').textContent='';},6000);
-}
+  <div id="levers">
+    <button id="prebatch">Pre-batch matcha <kbd>1</kbd><small>−£4.20 · 40 units · before 16:00</small></button>
+    <button id="reprice">Reprice matcha <kbd>2</kbd><small>£4.80 → £4.20 · the chalkboard changes</small></button>
+    <button id="reset">↺ day <kbd>R</kbd></button>
+  </div>
 
-// levers
-document.getElementById('prebatch').onclick=()=>{ prebatched=true; batchUnits=40; till-=4.20; toast('PRE-BATCH: 40 matcha units ready (−£4.20)'); updateHUD(); };
-document.getElementById('reprice').onclick=()=>{ repriced=true; toast('Matcha repriced £4.80 → £4.20'); updateHUD(); };
-document.getElementById('reset').onclick=reset;
-document.querySelectorAll('#speeds button').forEach(b=>{
-  if (+b.dataset.s===300) b.classList.add('on');
-  b.onclick=()=>{ speed=+b.dataset.s;
-    document.querySelectorAll('#speeds button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on'); };
-});
-function reset(){
-  for (const p of patrons) scene.remove(p);
-  for (const g of gossip) g.el.remove();
-  patrons=[]; gossip=[]; waveIdx=0; dayMin=6*60; till=0; balked=0; served=0;
-  prebatched=false; repriced=false; batchUnits=0;
-  toast('day reset — 06:00');
-}
+  <div id="sys">
+    <div id="speeds"><button data-s="60">1×</button><button data-s="300">5×</button><button data-s="1200">20×</button></div>
+    <button id="camreset">camera <kbd>C</kbd></button>
+    <button id="mute">sound on</button>
+  </div>
 
-// render loop: sim-minute pacing + animation
-let acc=0,last=performance.now();
-function loop(now){
-  requestAnimationFrame(loop);
-  const dt=now-last; last=now; acc+=dt;
-  const msPerMin=300/(speed/60);   // 60 (1×) → 300ms per sim-minute
-  while (acc>msPerMin){ acc-=msPerMin; tick(); }
-  for (const p of patrons){ p.position.y=.6+Math.sin((now/300)+p.position.x)*0.06; }
-  for (let i=gossip.length-1;i>=0;i--){
-    const g=gossip[i]; g.t+=0.02;
-    const tgt=g.target.position;
-    const pos=g.start.clone().lerp(tgt,Math.min(g.t,1)); pos.y=1.6+g.t;
-    const [x,y]=project(pos);
-    g.el.style.left=x+'px'; g.el.style.top=y+'px'; g.el.style.opacity=1-g.t;
-    if (g.t>=1){ g.el.remove(); gossip.splice(i,1); }
-  }
-  labelPos();
-  renderer.render(scene,camera);
-}
-fetch('/api/schedule').then(r=>r.json()).then(s=>{
-  schedule=s;
-  toast('THE DISTRICT — read the floor.\nmatcha wave lands 14:00.');
-  requestAnimationFrame(loop);
-});
-</script>
+  <div id="title">
+    <div class="t-inner">
+      <div class="t-kicker">a day on the floor</div>
+      <h1>GRUNDS</h1>
+      <div class="t-sub">THE DISTRICT</div>
+      <p class="t-tag">You can’t control demand. You can only be ready for it —
+faster than the café across the street.</p>
+      <button id="open" disabled>loading the day…</button>
+      <p class="t-controls">drag to look · scroll to zoom · 1 pre-batch · 2 reprice · M sound · R reset</p>
+    </div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
 </body>
 </html>
-
-
