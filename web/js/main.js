@@ -214,6 +214,7 @@ function openDay(d) {
   world.setMail(false);
   world.setMist(ev.tier === 'cata' ? 1 : ev.tier === 'bad' ? 0.4 : 0);
   world.setRentPressure(d);          // the gentrification sign: 'let' → 'lease' → 'sold'
+  world.setConstruction(d);          // the day-5 scaffold + tarp: the building is being remade
   // Per-regular `seen` is now flipped on individually in patrons.spawn() via
   // regulars.markSeen(cohort). No more blanket "everyone was here" — opinion
   // moves only for regulars who actually showed up today.
