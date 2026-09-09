@@ -3,6 +3,12 @@
 All files CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/).
 No attribution required. Do not commit other packs' files here without listing them.
 
+**As of 2026-09-09 every asset in this directory is loaded by `web/js/world.js`
+via the vendored GLTFLoader (see `web/js/loader.js`).** The food kit GLBs
+(`croissant.glb`, `cake.glb`, `mug.glb`, `cup-coffee.glb`) reference
+`Textures/colormap.png` via a relative path; the loader registers `assets/` as
+the root so the texture resolves.
+
 - Kenney Furniture Kit (140 files) — https://kenney.nl/assets/furniture-kit
   - kitchenBar.glb, kitchenBarEnd.glb, kitchenCoffeeMachine.glb
   - tableRound.glb, chairModernCushion.glb, stoolBar.glb

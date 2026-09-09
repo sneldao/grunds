@@ -12,9 +12,60 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T10:38:00Z
+- **Last updated:** 2026-09-09T13:00:00Z
 
 ## Log
+
+### 2026-09-09 - feat/phase-0-glb
+Wired the vendored Kenney CC0 GLBs into the District floor. Until now the 14
+GLBs in `web/assets/` were sitting untracked and the `web/vendor/README.md`
+admitted "nothing in web/index.html or web/js/*.js currently imports
+GLTFLoader" — the README's "Phase 0 CC0 props (Kenney; see SOURCES.md)" claim
+was a placeholder, not a delivery. This commit chain makes it real.
+
+New `web/js/loader.js` (~80 lines): a small async helper that wraps the
+vendored GLTFLoader, with a per-URL parse cache (FIFO at 32 entries), a
+graceful placeholder fallback for failed parses, and a `dispose()` path for
+the cache. Cloning a parsed Group is cheap; per-instance position/scale/
+rotation don't bleed between uses.
+
+New `web/test/glb-substitution.mjs` (~95 lines, 15 assertions): pins the
+loader's contract — parse returns a Group, the cache stores 1 entry after 10
+calls, position/rotationY/scale apply correctly, unknown URLs return a
+placeholder without throwing, dispose clears the cache, and `web/js/world.js`
+still imports and runs (regression guard).
+
+`web/js/world.js` substitutions (procedural mesh -> Kenney GLB):
+  - bar shell, espresso machine, till -> kitchenBar / kitchenCoffeeMachine /
+    kitchenBarEnd
+  - 3 tables + 9 chairs -> tableRound + chairModernCushion (3 chairs per
+    table, oriented toward the table)
+  - 3 pendant lamps -> lampRoundTable (emissive bulb kept procedural so
+    W.bulbMats still drives the time-of-day glow)
+  - 2 door planters -> pottedPlant
+  - retail shelf backing -> bookcaseClosedDoors (3 shelf layers + 18 product
+    items stay procedural; the kit has no display case)
+  - 3 pastry items -> croissant, 3 -> cake (case frame stays procedural)
+  - 3 new bar stools at the counter (stoolBar), 1 new side stand (sideTable)
+
+Untouched (no matching Kenney GLB, or text content that needs the procedural
+path): facades, far skyline, street trees, benches, street lamps, rival
+café, menu board, sign, awning, all the procedural shapes used by the time-
+of-day director (bulbs, pendants, lamp glows, mist, stars, moon).
+
+`web/js/world.js` `buildWorld` is still synchronous. It returns the world
+shell immediately with whatever has been placed, and exposes `W.ready` — a
+Promise that resolves once every queued GLB placement is in the scene. The
+title-screen flow in `main.js` now waits on `W.ready` before enabling the
+"Open the District" button, so the user never sees a half-loaded floor.
+
+The vendored GLTFLoader and BufferGeometryUtils had bare `import ... from
+'three'` / `'../utils/...'` import paths (Three's example build assumes an
+npm install). These were retargeted to the local `three.module.js` so
+Node-based headless tests can import the loader without npm.
+
+All 4 headless tests pass on the wired tree: `smoke.mjs`, `campaign.mjs`,
+`campaign-tight.mjs`, `glb-substitution.mjs`. No Convex code yet.
 
 ### 2026-09-09 - b9f3b8d
 Squash-merged PR #1 ("The connected district: a 5-day campaign where the

@@ -324,8 +324,13 @@ addEventListener('resize', () => {
 // ---- boot -------------------------------------------------------------------------
 fetch('/api/schedule').then(r => r.json()).then(s => {
   schedule = s;
-  $('open').disabled = false;
-  $('open').textContent = COPY.open + ' — a week on the floor';
+  // Wait for the Kenney GLBs to be placed before enabling Open. If a GLB
+  // fails, the loader's graceful fallback returns a placeholder so the user
+  // still sees a floor — they just don't see it half-loaded.
+  Promise.resolve(world.ready).then(() => {
+    $('open').disabled = false;
+    $('open').textContent = COPY.open + ' — a week on the floor';
+  });
 }).catch(() => {
   $('open').textContent = 'schedule missing — run: python3 -m grunds spatial';
 });
