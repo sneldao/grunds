@@ -10,8 +10,11 @@ const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const RED = new THREE.Color(0xd0503a);
 
 export class PatronSystem {
-  constructor(scene, world) {
+  constructor(scene, world, regulars = null, exchange = null, fx = null) {
     this.world = world;
+    this.regulars = regulars;     // for named-patron flagging
+    this.exchange = exchange;     // for contract unit consumption
+    this.fx = fx;                 // for greeting bubbles on join
     this.patrons = [];
     this.free = [];
     this.counterQ = []; this.registerQ = []; this.rivalQ = [];
@@ -64,7 +67,14 @@ export class PatronSystem {
       legs: new THREE.Color(LEGS[(Math.random() * LEGS.length) | 0]),
       flash: 0, colorDirty: true, queueRef: null, slotI: -1, walking: true,
       scale: 0.92 + Math.random() * 0.16,
+      regularName: null, regularIdx: -1, greeted: false,
     };
+    // Is this spawn a named Regular? If so, mark seen, tag the patron, and
+    // emit a one-line greeting when they actually join the queue.
+    if (this.regulars && zone === 'counter') {
+      const r = this.regulars.markSeen(cohort);
+      if (r.found) { p.regularName = r.name; p.regularIdx = r.idx; p.hasHat = true; }
+    }
     this.patrons.push(p);
     const door = V3(LAYOUT.door.x + (Math.random() - 0.5) * 2.2, 0, LAYOUT.door.z + 0.5);
     if (zone === 'counter') {
@@ -115,6 +125,7 @@ export class PatronSystem {
       if (p.wantsMatcha && ctx.prebatched) ctx.batchUnits = Math.max(0, ctx.batchUnits - 1);
       p.hasCup = true; p.cupGreen = p.wantsMatcha; p.colorDirty = true;
       ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: p.wantsMatcha ? (ctx.repriced ? ECON.matchaDeal : ECON.matchaFull) : ECON.other });
+      if (this.exchange) this.exchange.consume(1);   // burn one contract unit per cup
       this._afterServe(p);
     }
     this._layoutQ(this.counterQ, counterSlot);
@@ -135,6 +146,9 @@ export class PatronSystem {
             V3(LAYOUT.crossX, 0, LAYOUT.pavementZ),
             V3(LAYOUT.crossX, 0, 14.6),
           ];
+          // they walked out before being served — don't credit them with having been "seen"
+          if (p.regularIdx >= 0 && this.regulars) this.regulars.unsee(p.regularIdx);
+          p.regularName = null; p.regularIdx = -1;
           ev.push({ type: 'defect', p });
         } else this._leave(p);
       }
@@ -232,7 +246,11 @@ export class PatronSystem {
 
 
   _paint(p) {
-    const hat = this._c.copy(p.torso).lerp(new THREE.Color(0xffffff), 0.15);
+    // A named Regular gets a brass band on the hat (cohort colour) so they're
+    // visibly a regular on the floor, not just a cohort-coloured patron.
+    const hat = p.regularName
+      ? this._c.copy(new THREE.Color(0xc9a227)).lerp(new THREE.Color(COHORTS[p.cohort]?.color ?? 0xffffff), 0.45)
+      : this._c.copy(p.torso).lerp(new THREE.Color(0xffffff), 0.15);
     this.parts.torso.setColorAt(p.idx, p.torso);
     this.parts.head.setColorAt(p.idx, p.skin);
     this.parts.legL.setColorAt(p.idx, p.legs); this.parts.legR.setColorAt(p.idx, p.legs);
@@ -269,7 +287,13 @@ export class PatronSystem {
           let diff = want - p.face;
           while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI;
           p.face += diff * Math.min(1, dt * 6);
-          if (p.state === 'toQueue') { p.state = 'inQueue'; p.waitMin = 0; }
+          if (p.state === 'toQueue') {
+            p.state = 'inQueue'; p.waitMin = 0;
+            if (p.regularName && !p.greeted && this.fx) {
+              this.fx.bubble(p, `hi, ${p.regularName}`, 'good');
+              p.greeted = true;
+            }
+          }
           else if (p.state === 'toRegister') { p.state = 'inRegisterQ'; p.waitMin = 0; }
         }
       } else if (p.path.length) {

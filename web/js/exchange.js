@@ -52,9 +52,18 @@ export class Exchange {
     this.event = { id, ...def, day: this.day };
     this.beanIndex = Math.max(0.6, Math.min(2.6, this.beanIndex + def.dIndex));
     this.lastTier = def.tier;
-    // tick down a live contract
-    if (this.contract) { this.contract.units -= 36; if (this.contract.units <= 0) this.contract = null; }
+    // a contract is now consumed cup-by-cup (Exchange.consume), not dawn-by-dawn
     return this.event;
+  }
+
+  // Burn contract units against actual serves. Called per cup. Clears the
+  // contract exactly when its quota is filled, so a 40-unit contract lives
+  // as long as the player keeps selling under it.
+  consume(n = 1) {
+    if (!this.contract) return false;
+    this.contract.units = Math.max(0, this.contract.units - n);
+    if (this.contract.units === 0) this.contract = null;
+    return true;
   }
 
   // Day open: roll + record. Called once per new dawn.

@@ -92,7 +92,7 @@ export const CAMPAIGN = {
   days: 5,
   beanBaseCost: 1.30,       // £ per drink at index 1.0 (≈27% of £4.80)
   contractFee: 22.0,       // lock the price: £22 supplier credit (the debt clock)
-  contractUnits: 40,       // a contract covers ~40 units of made drinks
+  contractUnits: 2400,     // a contract covers one full day's made drinks at the counter
   wastePct: 0.06,          // 6% of sales lost to waste (Business Waste / Notions)
   debtInterest: 4.0,      // the Drug Wars debt clock: £ per day on outstanding supplier credit
   startReputation: 62,     // 0..100 — the regulars' aggregate opinion

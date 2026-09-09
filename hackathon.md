@@ -12,9 +12,30 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-08T15:46:01Z
+- **Last updated:** 2026-09-09T12:00:00Z
 
 ## Log
+
+### 2026-09-09 - working tree
+Review-driven fix on the campaign branch. The PR review found two real bugs:
+(1) `regulars.markSeen` was defined but never called, so named Regulars (Mara,
+Tomas, Pip, …) had no per-individual effect on opinion — every regular's `op`
+was updated every day from the floor's aggregate, and the README's "named
+patrons carry opinion across resets" claim was a lie; (2) `exchange.contract
+.units` was decremented 36 per dawn, so a single 40-unit contract expired
+unilaterally on day 2 regardless of how many cups were actually sold — the
+40-unit number was decorative. Fixed both: `markSeen` is now invoked from
+`patrons.spawn(cohort, …)` and returns `{idx, name, coh}` so a named regular
+gets a brass-cohort-band hat on the floor plus a one-line greeting bubble
+when they join the queue; defectors to the rival are `unsee()`'d so they
+don't earn opinion they never received. `exchange.consume(n)` now decrements
+`contract.units` per actual cup served (and clears the contract at zero), and
+`CAMPAIGN.contractUnits` is bumped from 40 to 2400 (one day's counter volume
+in the deterministic data) so the hedge is real. New `web/test/campaign-tight
+.mjs` pins all four behaviours with deterministic assertions: per-individual
+opinion, cup-bounded contract expiry, settle-survives-dawn (interest guard
+works on zero), and the campaign lands in a verdict band. `campaign.mjs` and
+`smoke.mjs` are still green. No Convex code yet.
 
 ### 2026-09-08 - working tree
 Connected the floor into a 5-day campaign so the three nested clocks meet the

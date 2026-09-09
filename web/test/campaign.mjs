@@ -78,6 +78,9 @@ for (let d = 1; d <= CAMPAIGN.days; d++) {
 const end = G.stats();
 console.log('FLOW   5 days done | final debt', end.debt.toFixed(0), '| netWorth', end.netWorth.toFixed(0));
 if (!end.campaignDone) fails.push('campaign never closed');
+// Smoke check only: this only proves the interest clock advanced at dawn.
+// The rigorous "interest does not accrue on a settled-zero balance" check
+// lives in campaign-tight.mjs.
 if (!(end.debt > CAMPAIGN.contractFee)) fails.push('debt interest never accrued: ' + end.debt);
 
 // === CONNECTION 3: settle clears the debt ===

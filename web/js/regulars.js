@@ -24,14 +24,23 @@ export class Regulars {
   get footfallMul() { return 1 + (this.reputation - 62) * 0.006; }   // ~±23% at the rails
   get tipMul() { return 1 + (this.reputation - 62) * 0.01; }
 
-  // Mark a regular as present today (called when their spawn bucket fires).
-  // Returns the index so the patron system can flag the mesh.
+  // Mark a regular as present today (called when a patron of this cohort
+  // spawns into the queue). Returns {idx, name, coh, found} so the patron
+  // system can flag the mesh with a brass-band hat and a one-line greeting.
+  // A chance to be a real, named regular (not just cohort colour) per cohort.
   markSeen(cohort) {
     const cands = this.regulars.filter(r => !r.seen && r.coh === cohort);
-    if (!cands.length) return -1;
+    if (!cands.length) return { found: false };
     const r = cands[(Math.random() * cands.length) | 0];
     r.seen = true;
-    return r.i;
+    return { found: true, idx: r.i, name: r.name, coh: r.coh };
+  }
+
+  // Reverse a seen-mark when a patron defects to the rival before being served
+  // (they didn't actually get the day's service — shouldn't earn opinion).
+  unsee(idx) {
+    const r = this.regulars[idx];
+    if (r) r.seen = false;
   }
 
   // Resolve a day: fold the floor's outcomes into opinion. Brought to the

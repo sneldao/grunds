@@ -33,14 +33,16 @@ const world = buildWorld(scene, renderer, lite);
 const sky = buildSky(scene);                          // shader sky dome owns the backdrop
 world.useSky = true; scene.background = null;
 const postfx = buildPostFX(renderer, scene, camera, { lite: lite || headless });
-const patrons = new PatronSystem(scene, world);
-const fx = new FX(scene, patrons, lite);
 const rig = new CameraRig(camera, renderer.domElement);
 const audio = new AudioEngine();
 
 // ---- the connected campaign: the Gamble + the Regulars -----------------------
 const exchange = new Exchange(urlParams.get('seed') ? +urlParams.get('seed') : 7);
 const regulars = new Regulars();
+
+const fx = new FX(scene, null, lite);   // patrons wired in just below
+const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
+fx.patrons = patrons;
 
 // ---- game state ---------------------------------------------------------------
 const DAY_START = 360, DAY_END = 1260;
@@ -204,7 +206,9 @@ function openDay(d) {
   if (d > 1 && exchange.debt > 0) exchange.debt += CAMPAIGN.debtInterest;   // the debt clock ticks at dawn
   world.setMail(false);
   world.setMist(ev.tier === 'cata' ? 1 : ev.tier === 'bad' ? 0.4 : 0);
-  for (const r of regulars.regulars) r.seen = true;   // the regulars take their corners
+  // Per-regular `seen` is now flipped on individually in patrons.spawn() via
+  // regulars.markSeen(cohort). No more blanket "everyone was here" — opinion
+  // moves only for regulars who actually showed up today.
   rig.resetView();
   updateTicker();
   fx.toast('DAY ' + day + '/' + CAMPAIGN.days + ' — ' + (ev.head || 'a new day'), ev.tier === 'cata' ? 'bad' : ev.tier === 'good' ? 'good' : '');
