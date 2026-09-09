@@ -16,6 +16,7 @@ PATTERNS = [
     (r"ghp_[a-zA-Z0-9]{36}", "GitHub token"),
     (r"(?i)xox[baprs]-[a-zA-Z0-9-]{10,}", "Slack token"),
     (r"(?i)(api[_-]?key|secret|password|token)\s*[=:]\s*['\"][A-Za-z0-9+/=_-]{16,}['\"]", "hardcoded credential"),
+    (r"(?i)\bmint[_-]?api[_-]?key\b\s*[=:]\s*\S{8,}", "Mint API key"),
     (r"eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.", "JWT"),
 ]
 

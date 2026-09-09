@@ -21,3 +21,9 @@ id = "convex-deploy-key"
 description = "Convex deploy/admin key"
 regex = '''(?i)convex[^=\n]{0,20}(key|token)[^=\n]{0,10}=[^\s]{16,}'''
 keywords = ["convex"]
+
+[[rules]]
+id = "mint-api-key"
+description = "Mint API key assignment"
+regex = '''(?i)mint[^=\n]{0,20}(api[_-]?key)[^=\n]{0,10}=[^\s"']{8,}'''
+keywords = ["mint"]
