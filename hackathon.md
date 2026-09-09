@@ -12,9 +12,17 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T12:00:00Z
+- **Last updated:** 2026-09-09T10:38:00Z
 
 ## Log
+
+### 2026-09-09 - b9f3b8d
+Squash-merged PR #1 ("The connected district: a 5-day campaign where the
+Gamble meets the floor") into main as a single commit. Diff: +3046 / −211
+across 20 files. The PR combined the original feat/connected-district branch
+with the review-driven fix from this session. Headless tests on the merged
+main: `web/test/smoke.mjs`, `web/test/campaign.mjs`, and `web/test/
+campaign-tight.mjs` all pass. The District is now live on main.
 
 ### 2026-09-09 - working tree
 Review-driven fix on the campaign branch. The PR review found two real bugs:
