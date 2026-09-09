@@ -12,9 +12,24 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T13:30:00Z
+- **Last updated:** 2026-09-09T13:45:00Z
 
 ## Log
+
+### 2026-09-09 - 60685bb
+Squash-merged PR #4 ("Wire gentrification drift: per-day cost creep,
+reputation pressure, and the matcha price curve") into main as a single
+commit. Diff: +262 / −5 across 8 files. The README's "Inflation enters
+as a pressure clock" and ARCHITECTURE's "gentrification drift" line are
+now real: every dawn the bean index creeps +0.025 (capped at 1.80),
+the matcha till price walks 4.80→5.40 over 5 days, and cohort
+expectation pressure (elders -0.02, creatives -0.01, students +0.01,
+tourists +0.01) pulls seen regulars' op by `day * delta` before the
+friendship contagion. The HUD has a #pressure line that reads
+"costs +X% · matcha £Y · day Z/5". The Roaster's Letter gets a
+driftLine paragraph for days ≥ 2. All 6 headless tests pass on the
+merged main: regulars-graph, gentrification, smoke, campaign,
+campaign-tight, glb-substitution.
 
 ### 2026-09-09 - feat/gentrification-drift
 Wired the gentrification drift promised by README.md ("Inflation enters as
