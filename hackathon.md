@@ -12,9 +12,24 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T15:00:00Z
+- **Last updated:** 2026-09-09T15:15:00Z
 
 ## Log
+
+### 2026-09-09 - 6d4c73d
+Squash-merged PR #6 ("Add day-5 construction prop: scaffold + tarp on
+the sold storefront") into main as a single commit. Diff: +173 / −2
+across 5 files. The day-5 "SOLD" sign now has a physical complement:
+a two-level scaffold (4 vertical posts, 3 horizontal cross-beam levels,
+X-brace diagonals) in front of the big right-side facade block at
+x=11, z=16.4, ~5m to the right of the rent sign. A 6m × 2m red-and-
+white striped construction tarp covers the lower-middle of the block,
+reading "UNDER CONSTRUCTION · SEPT 15". The whole prop group is
+invisible on days 1-4; W.setConstruction(d) toggles visibility on
+day 5. The gentrification is now visceral — the player sees the
+*building* being remade, not just a sign. All 8 headless tests pass
+on the merged main: regulars-graph, gentrification, rent-sign,
+construction, smoke, campaign, campaign-tight, glb-substitution.
 
 ### 2026-09-09 - feat/construction-prop
 Made the day-5 "SOLD" sign physical. The sign was good but the
