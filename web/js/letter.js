@@ -29,6 +29,18 @@ function reputationLine(s) {
   if (s.reputation >= 45) return 'The regulars are cool. A cold market and a cool room is a bad combination.';
   return 'The regulars have given up on you. I’d move fast.';
 }
+function driftLine(s) {
+  // The district is gentrifying. The board is creeping up regardless of
+  // today's event. Day 1 is the baseline; by day 5 the costs are 12% up
+  // and willingness-to-pay has walked to £5.40. Visible in the body so
+  // the player can feel the clock, not just the number on the ticker.
+  if (s.day <= 1) return '';
+  const pct = Math.round((s.index - 1) * 100);
+  if (s.day === 2) return `The district is moving. The board is up ${pct}% on Monday. Hold or hedge — your call.`;
+  if (pct >= 10) return `Costs are up ${pct}% on opening day. The list knows — they’re already at the door.`;
+  if (pct >= 5)  return `Costs are creeping. ${pct}% up on day one. The elders are watching the chalkboard.`;
+  return '';
+}
 function greeting(e) {
   const t = e?.tier || 'calm';
   if (t === 'cata') return 'I’m writing before the market and I’m already sorry.';
@@ -53,6 +65,7 @@ export function composeLetter(s) {
       `At this price you're laying down a forty-run for ${gbp(s.cost * 40)}.`,
       performance(s),
       debtLine(s),
+      driftLine(s),
       reputationLine(s),
       '',
       'What do you want to do?',

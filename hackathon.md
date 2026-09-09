@@ -12,9 +12,35 @@
 - **Auth:** none
 - **AI models:** none
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T12:45:00Z
+- **Last updated:** 2026-09-09T13:30:00Z
 
 ## Log
+
+### 2026-09-09 - feat/gentrification-drift
+Wired the gentrification drift promised by README.md ("Inflation enters as
+a *pressure clock*, not a stat screen: the district gentrifies — rents and
+bean costs creep, willingness-to-pay rises but expectations rise faster")
+and ARCHITECTURE.md ("exchange ... gentrification drift"). New module
+`web/js/gentrification.js` (~75 lines) exports three pure, deterministic
+functions: `applyDrift(exchange, day)` raises `beanIndex` by `+0.025/day`
+(capped at 1.80) and sets the day's matcha till price from a 4.80→5.40
+curve; `applyExpectation(regulars, day)` shifts each *seen* regular's `op`
+by `day * CAMPAIGN.expectation[coh]` (elders -0.02, creatives -0.01,
+commuters 0, students +0.01, tourists +0.01); `priceForDay(day)` is the
+pure price-curve lookup. `exchange.openDay()` now calls `applyDrift` *before*
+the event roll, so the drift is the baseline and the event is the
+deviation (a frost on a drifting index is a bigger shock). `main.js`
+calls `applyExpectation(regulars, day)` before `regulars.resolveDay` so
+the friendship contagion sees the gentrification pressure and can spread
+it. The HUD has a new `#pressure` line: "costs +X% · matcha £Y · day Z/5".
+The Roaster's Letter gets a `driftLine(s)` paragraph for days ≥ 2 so the
+pressure shows up in prose ("Costs are creeping. 5% up on day one. The
+elders are watching the chalkboard."). New test
+`web/test/gentrification.mjs` (6 assertions): per-day drift math, price
+curve monotonicity, cohort expectation deltas, maxIndex cap,
+determinism across two seeded exchanges, and a wire check that
+`openDay()` actually applies the drift on top of the event delta. All 6
+headless tests pass. +~280 / −~15 across 6 files.
 
 ### 2026-09-09 - 65f3898
 Squash-merged PR #3 ("Wire the Regulars friendship graph, routed gossip,

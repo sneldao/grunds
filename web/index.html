@@ -34,6 +34,8 @@
   @keyframes pulse { 50% { text-shadow: 0 0 14px rgba(154,216,154,.9); } }
   #balk { color: var(--neg); }
   #status b.ok { color: #9ad89a; } #status b.warm { color: #e8c46a; } #status b.hot { color: var(--neg); }
+  #pressure { font-size: 12px; margin-top: 5px; opacity: .82; letter-spacing: .5px; }
+  #pressure b { color: #e8c46a; font-weight: 600; }
 
   /* ---- day progress ---- */
   #progressbar { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: rgba(239,230,211,.12); z-index: 10; }
@@ -157,6 +159,7 @@
     <div class="line" id="daytag">DAY 1/5 · REP —</div>
     <div class="line">till <span id="till">£0.00</span> &nbsp;·&nbsp; balked <span id="balk">0</span></div>
     <div class="line" id="status"></div>
+    <div class="line" id="pressure"></div>
   </header>
 
   <div id="progressbar">

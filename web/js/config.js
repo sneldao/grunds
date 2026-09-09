@@ -96,6 +96,28 @@ export const CAMPAIGN = {
   wastePct: 0.06,          // 6% of sales lost to waste (Business Waste / Notions)
   debtInterest: 4.0,      // the Drug Wars debt clock: £ per day on outstanding supplier credit
   startReputation: 62,     // 0..100 — the regulars' aggregate opinion
+  // Gentrification drift — the README's "pressure clock": costs creep, regular
+  // expectations rise faster, willingness-to-pay rises (so the lever choice
+  // matters: hold the price and lose regulars, or raise and lose the chain
+  // customer). The drift is the *baseline*; the event deck still adds its
+  // own ±swings on top, so a frost day on a drifting index is a bigger shock.
+  drift: {
+    perDay: 0.025,          // +2.5% to beanIndex every dawn, regardless of event
+    maxIndex: 1.80,         // hard ceiling; event-deck spikes ride on top
+    priceFloor: 4.80,       // matcha day-1 till price
+    priceCeiling: 5.40,     // matcha day-5 till price (player can hold below)
+    priceDays: 5,           // how many days the curve spans
+  },
+  // Cohort expectation pressure — applied at end of day, scales with the
+  // day index (so day 5 elders feel 5x day 1's pressure). Compounds with
+  // the friendship contagion; elders souring sours the network.
+  expectation: {
+    elders:    -0.02,       // they remember the price was lower yesterday
+    creatives: -0.01,       // they want the new thing
+    commuters:  0.00,       // price-comparators; their op is the player's problem
+    students:  +0.01,       // they like the deal pull
+    tourists:  +0.01,       // they're new in, they tip well
+  },
 };
 
 // The event deck — Drug Wars blood. Pity timer: never two catastrophes in a row,

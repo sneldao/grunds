@@ -3,6 +3,7 @@
 // is measured against the market's cost basis; worlds events pass through
 // commodity economics into your margin and (via the Regulars) into the floor.
 import { CAMPAIGN, EVENTS } from './config.js';
+import { applyDrift, priceForDay } from './gentrification.js';
 
 // A tiny seeded PRNG so a campaign is reproducible per seed (per EVAL.md
 // "same seed → same run").
@@ -66,12 +67,16 @@ export class Exchange {
     return true;
   }
 
-  // Day open: roll + record. Called once per new dawn.
+  // Day open: drift first (the baseline pressure), then roll the event on
+  // top. The drift is the *baseline* cost creep; the event is the *deviation*.
+  // That ordering matters: a frost on a drifting index is a bigger shock than
+  // a frost on a fresh one.
   openDay() {
     this.day++;
+    applyDrift(this, this.day);
     this.roll();
     const cost = this.costPerCup;
-    const m = this.margin(4.80);
+    const m = this.margin(this.matchaPrice ?? priceForDay(this.day));
     this.history.push({ day: this.day, id: this.event.id, index: this.beanIndex, cost, margin: m });
     return this.event;
   }
