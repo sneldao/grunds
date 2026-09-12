@@ -364,8 +364,16 @@ The Convex phase shipped as working backend + hosting, not a plan:
   clock, the Letter answers to `1`/`2`/`3`, a day-1 13:00 coach nudges the
   levers before the student wave, beat cameras hold still at 20×, and the
   rival lives — their sign burns with their queue, the camera shows first
-  blood, their sales ring coins. Loop tests are RNG-seeded, so the
-  12-test gate is deterministic — green 3× straight.
+  blood, their sales ring coins. The week closes in three beats: a
+  CLOSING TIME card at 20:40, the day-5 Z-read, then a SOLD finale — the
+  camera visits the sold storefronts before the verdict receipt lands.
+  GLASSHOUSE keeps staff silhouettes moving behind glass that runs pale
+  by day and amber after dark; new weeks open with a crane swoop home.
+  HUD text renders at ~5Hz so 20× stays smooth. The verdict receipt carries
+  a seed-challenge share button (badge + stats + X intent via the
+  collaborator's share module). Mix runs through a bus compressor; phones
+  get a small-screen layout with touch-safe drags. Loop tests are RNG-seeded, so the
+  14-test gate is deterministic.
 - Still to do: nightly cron wiring, full live-query sync (mirror today),
   Convex Auth, OpenAI + AgentMail keys, prod deploy, video + social.
 

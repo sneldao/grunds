@@ -12,7 +12,7 @@
 - **Auth:** none
 - **AI models:** gpt-4o-mini (key-gated action stub, falls back offline)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-12T13:57:59Z
+- **Last updated:** 2026-09-12T17:34:56Z
 
 ## Log
 
@@ -159,6 +159,39 @@ at their counter. Caught live: heat 22 → glow 1.45, beat active
 mid-swing toward the rival, zero page errors. (Also noticed an
 unreferenced `web/js/billing.js` RevenueCat stub — no secrets, left
 alone.) Gate 12/12, site re-uploaded (39 files).
+
+Fourth craft pass — the week lands: a CLOSING TIME card at 20:40 pulls
+wide before the Z-read; the day-5 finale stages SOLD (camera visits the
+sold storefronts road-side via a theta swivel in `rig.focus`/`queueFocus`,
+card names the new tenant, verdict receipt lands 5s later); GLASSHOUSE
+gets warm windows with a barista + guest silhouette drifting behind the
+glass (`world.updateRival`, driven every frame). Verified full week in
+browser: 4 letters → Z-read → SOLD → "A good week on the floor" verdict,
+zero errors; rival front-on framing confirmed (sign, TEAL awning, TO LET
+next door, defectors queued). Note: a parallel worker added
+`convex/linkup.ts`, `convex/nebius.ts`, `web/js/behavioral.js`,
+`web/js/share.js` — unreferenced by my code, no secrets, left untouched;
+their backend modules push clean alongside. Gate 12/12, site re-uploaded
+(41 files, incl. the inert modules).
+
+Fifth craft pass — light, return, and smoothness: GLASSHOUSE glass now
+runs a day/night curve (pale reflective `aeb6b5` at 10:00, lamplit amber
+`ffb45e` at 20:40, verified live); restarting from the verdict cranes
+home with a "new week" toast instead of snapping (verified: day 1,
+crane mode, receipt hidden); HUD text + ticker redraw at ~5Hz in the
+browser (headless bypasses, so sim assertions stay per-tick). That last
+one fixed a real find: 20× play was choking on 66 DOM writes/s (wave
+window crawled at +6/5s, now steady +100/5s). Gate 14/14 (incl. the
+collaborator's behavioral + share suites), site re-uploaded.
+
+Sixth craft pass — share, mix, mobile: the verdict receipt grew a
+"challenge a friend" button wired to the collaborator's share module
+(badge from campaign totals + `?seed=` X intent); mix bus gained a
+DynamicsCompressor (guarded for older WebAudio — the unguarded first
+cut broke all three loop tests, since the stubs lack it); phones get a
+≤640px layout (HUD, lever bar, notebook, letter), `touch-action: none`
+drags, and width-aware bubble clamping (verified 10/10 on-screen at
+390px). Gate 14/14, site re-uploaded (41 files).
 
 ### 2026-09-09 - 8e1dd63 (state at end of session)
 
