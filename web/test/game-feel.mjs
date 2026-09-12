@@ -24,8 +24,8 @@ ok(/_pushBubble/.test(fx), 'fx.js has no shared _pushBubble path (bubble + gossi
 console.log('CAP     bubbles bounded at 10, oldest-first eviction');
 
 // 2) Viewport clamp: bubbles never hang off-canvas.
-ok(/innerWidth - 70/.test(fx), 'fx.js does not clamp bubbles to viewport width');
-ok(/Math\.max\(70/.test(fx), 'fx.js does not clamp bubbles to the left edge');
+ok(/w \/ 2 \+ 6/.test(fx), 'fx.js does not width-clamp bubbles to the viewport');
+ok(/textContent\.length \* 7\.8/.test(fx), 'fx.js does not estimate bubble width for clamping');
 console.log('CLAMP   bubbles clamped to the viewport');
 
 // 3) Sign-aware numbers: no "up -6%" in the letter, no "+-6%" on the HUD.
@@ -93,7 +93,47 @@ ok(/_rivalHeat \* 0\.05/.test(world), 'rival sign does not burn with heat');
 ok(/world\.setRivalHeat\(patrons\.rivalQ\.length\)/.test(main), 'main.js does not feed rival queue heat');
 ok(/defections === 1 && speed <= 300/.test(main), 'first defection does not show the enemy');
 ok(/queueFocus\(world\.focus\.rival/.test(main), 'rival focus stomps beats instead of queueing');
+ok(/Math\.PI/.test(main), 'street-side beats do not swing road-side');
 ok(/queueFocus\(point/.test(readFileSync(join(ROOT, 'web/js/camera.js'), 'utf8')), 'camera rig has no queueFocus');
+
+// 12) Finale, closing beat, rival silhouettes.
+const config = readFileSync(join(ROOT, 'web/js/config.js'), 'utf8');
+ok(/CLOSING TIME/.test(config) && /t: 1240/.test(config), 'no closing-time chapter at 1240');
+ok(/SOLD', 'a new tenant opens across the road'/.test(main), 'finale has no SOLD card');
+ok(/world\.focus\.newbuild/.test(main), 'finale does not visit the sold storefronts');
+ok(/setTimeout\(\(\) => \{\s*\n?\s*fx\.receipt/.test(main), 'verdict receipt is not staged after the finale beat');
+ok(/newbuild: new THREE\.Vector3/.test(world), 'world has no newbuild focus point');
+ok(/updateRival/.test(world), 'world has no updateRival');
+ok(/world\.updateRival\(dt, now\)/.test(main), 'main loop does not drive rival silhouettes');
+ok(/rvBarista/.test(world) && /rvGuest/.test(world), 'rival windows have no staff silhouettes');
+console.log('FINALE  SOLD card → verdict; CLOSING TIME at 1240; rival staff behind glass');
+
+// 13) Rival glass follows the streetlights; finale restarts take a bow.
+ok(/RV_DAY/.test(world) && /RV_NIGHT/.test(world), 'rival glass has no day/night anchors');
+ok(/rvWinMat\.color\.lerpColors\(RV_DAY, RV_NIGHT/.test(world), 'glass curve is not driven by streetlight factor');
+ok(/W\.rivalWinMat = rvWinMat/.test(world), 'rival glass material is not exposed');
+ok(/wasFinale/.test(main), 'reset does not distinguish finale restarts');
+ok(/rig\.crane\(\);.*new week on the floor/s.test(main), 'finale restart has no crane send-off');
+console.log('GLASS   pale panes by day, amber by night; new weeks open with a crane');
+
+// 14) HUD text is throttled at speed (headless bypasses for assertions).
+ok(/lastHudText/.test(main), 'HUD has no text throttle');
+ok(/!headless/.test(main), 'throttle does not bypass headless test assertions');
+console.log('HUD     text+ticker at ~5Hz in browser, per-tick headless');
+
+// 15) Finale shares the seed; mix bus is glued; small screens hold up.
+ok(/shareWeek/.test(index), 'receipt has no share-week button');
+ok(/\$\('shareWeek'\)\.style\.display = ''/.test(main), 'finale does not reveal the share button');
+ok(/calculateCampaignBadge\(\{ netWorth: net/.test(main), 'share badge is not computed from campaign totals');
+ok(/seed: SEED/.test(main), 'share link does not carry the campaign seed');
+ok(/openShareToX/.test(main), 'finale does not open the X intent');
+ok(/DynamicsCompressor/.test(readFileSync(join(ROOT, 'web/js/audio.js'), 'utf8')), 'mix has no bus compressor');
+ok(/if \(ctx\.createDynamicsCompressor\)/.test(readFileSync(join(ROOT, 'web/js/audio.js'), 'utf8')), 'compressor is not guarded for older WebAudio');
+ok(/if \(!this\.ctx\) return this\.muted/.test(readFileSync(join(ROOT, 'web/js/audio.js'), 'utf8')), 'pre-start mute still flips the label');
+ok(/touch-action: none/.test(index), 'canvas has no touch-action guard');
+ok(/@media \(max-width: 640px\)/.test(index), 'no small-screen layout pass');
+ok(/#sys \{ top: 132px/.test(index), 'sys row overlaps the HUD clock on phones');
+console.log('SHARE   seed challenge on the verdict; MIX glued; MOBILE holds 390px');
 ok(/rivalServed.*coinBurst/.test(main), 'rival sales have no coin payoff');
 console.log('RIVAL   sign burns with their line, camera shows first blood, coins on their sales');
 

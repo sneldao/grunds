@@ -65,6 +65,7 @@ export const CHAPTERS = [
   { t: 840,  k: 'THE MATCHA WAVE',  sub: 'students · 14:00 · you either batched or you didn’t', beat: 'counter', wave: true },
   { t: 1050, k: 'THE GOLDEN HOUR',  sub: 'tourists spend, regulars judge', beat: 'tables' },
   { t: 1215, k: 'LAST ORDERS',      sub: 'count the till — the chain across the road already has', beat: 'wide' },
+  { t: 1240, k: 'CLOSING TIME',     sub: 'last cups out — the till is the truth', beat: 'wide' },
 ];
 
 export const COPY = {

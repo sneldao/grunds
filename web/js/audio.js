@@ -13,7 +13,18 @@ export class AudioEngine {
   start() {
     if (this.ctx) { this.ctx.resume(); return; }
     const ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    this.master = ctx.createGain(); this.master.gain.value = 0.9; this.master.connect(ctx.destination);
+    this.master = ctx.createGain(); this.master.gain.value = 0.9;
+    // Mix bus glue: a gentle compressor so the till + murmur + saw stack
+    // never clips on a busy day-5, and quiet details stay audible.
+    // Guarded — older WebAudio implementations skip straight to destination.
+    if (ctx.createDynamicsCompressor) {
+      this.comp = ctx.createDynamicsCompressor();
+      this.comp.threshold.value = -18; this.comp.knee.value = 12;
+      this.comp.ratio.value = 4; this.comp.attack.value = 0.004; this.comp.release.value = 0.24;
+      this.master.connect(this.comp); this.comp.connect(ctx.destination);
+    } else {
+      this.master.connect(ctx.destination);
+    }
 
     // --- lo-fi pad: three triangles gliding through a slow progression ---
     this.padGain = ctx.createGain(); this.padGain.gain.value = 0.0;
@@ -224,7 +235,7 @@ export class AudioEngine {
     src2.start(t); src2.stop(t + 0.06);
   }
   toggleMute() {
-    if (!this.ctx) return true;
+    if (!this.ctx) return this.muted;   // pre-start: report, don't flip the label
     this.muted = !this.muted;
     this.master.gain.setTargetAtTime(this.muted ? 0 : 0.9, this.ctx.currentTime, 0.1);
     return this.muted;

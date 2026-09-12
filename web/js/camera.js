@@ -33,13 +33,13 @@ export class CameraRig {
 
   crane() { this.mode = 'crane'; this.craneT = 0; this._from = { target: this.target.clone(), theta: this.theta, phi: this.phi, r: this.r }; }
 
-  focus(point, r = 12, secs = 4) {
-    this.beat = { point: point.clone(), r, until: performance.now() / 1000 + secs, blend: 0 };
+  focus(point, r = 12, secs = 4, theta = null) {
+    this.beat = { point: point.clone(), r, until: performance.now() / 1000 + secs, blend: 0, theta };
   }
   // queueFocus: a focus that waits for the current beat to finish (expiring
   // after ttl seconds) instead of stomping it. News beats chapters.
-  queueFocus(point, r = 12, secs = 4, ttl = 12) {
-    this.queued = { point: point.clone(), r, secs, until: performance.now() / 1000 + ttl };
+  queueFocus(point, r = 12, secs = 4, ttl = 12, theta = null) {
+    this.queued = { point: point.clone(), r, secs, until: performance.now() / 1000 + ttl, theta };
   }
   shake(mag = 0.35) { this.shakeT = 1; this.shakeMag = mag; }
   resetView() { this.beat = null; this.home = { ...HOME, target: HOME.target.clone() }; }
@@ -67,13 +67,20 @@ export class CameraRig {
         const e = this.beat.blend * this.beat.blend * (3 - 2 * this.beat.blend);
         this.target.lerp(this.beat.point, e * 0.12);
         this.r += (this.beat.r - this.r) * e * 0.12;
+        // Street-side beats (rival, newbuild) also swing the orbit so the
+        // camera looks at the storefront, not the back wall.
+        if (this.beat.theta !== null && this.beat.theta !== undefined) {
+          let diff = this.beat.theta - this.theta;
+          while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI;
+          this.theta += diff * e * 0.12;
+        }
         if (t > this.beat.until) this.beat = null;
       } else if (idle) {
         // a queued news-focus promotes once the camera is free and idle —
         // never while the user is driving (it just expires).
         if (!this.beat && this.queued) {
           const q = this.queued; this.queued = null;
-          if (t <= q.until) this.focus(q.point, q.r, q.secs);
+          if (t <= q.until) this.focus(q.point, q.r, q.secs, q.theta);
         }
         this.target.lerp(this.home.target, dt * 0.4);
         this.r += (this.home.r - this.r) * dt * 0.25;

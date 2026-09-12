@@ -180,6 +180,9 @@ export class FX {
     const el = document.createElement('div');
     el.className = 'bubble ' + kind;
     el.textContent = text;
+    // Park center-screen until the first update() projects it — otherwise a
+    // fresh bubble flashes at the layer's top-left for a frame.
+    el.style.left = '50%'; el.style.top = '40%';
     this.layer.appendChild(el);
     this.bubbles.push({ el, from: fromP, to, t: 0, kind, chained });
   }
@@ -278,8 +281,12 @@ export class FX {
       const pos = new THREE.Vector3(a.x + (c.x - a.x) * t, 1.7 + Math.sin(t * Math.PI) * 0.8, a.z + (c.z - a.z) * t);
       const [px, py, vis] = this._project(pos, camera);
       // clamp to the viewport: bubbles are translate(-50%,-100%) anchored,
-      // so keep ~70px of horizontal margin and keep them below the top edge.
-      b.el.style.left = Math.max(70, Math.min(innerWidth - 70, px)) + 'px';
+      // so center them within their own estimated width (~6.5px/char +
+      // padding). Fixed 70px margins strand wide bubbles off-screen on
+      // phones; width-aware clamp holds everywhere. 7.8px/char matches the
+      // 13px mono bubble font; +28 covers padding and border.
+      const w = b.el.textContent.length * 7.8 + 28;
+      b.el.style.left = Math.max(w / 2 + 6, Math.min(innerWidth - w / 2 - 6, px)) + 'px';
       b.el.style.top = Math.max(30, Math.min(innerHeight - 10, py)) + 'px';
       b.el.style.opacity = vis ? String(t < 0.85 ? 1 : (1 - t) / 0.15) : '0';
       if (b.t >= 1) {

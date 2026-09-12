@@ -16,6 +16,7 @@ import { Regulars } from './regulars.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay } from './gentrification.js';
 import { initSync } from './convexSync.js';
+import { calculateCampaignBadge, openShareToX } from './share.js';
 
 const urlParams = new URLSearchParams(location.search);
 const lite = urlParams.has('lite');
@@ -95,7 +96,7 @@ function tick() {
     } else if (e.type === 'defect') {
       defections++;
       if (defections === 1) fx.toast('they’re crossing the road to ' + COPY.rivalName + '…', 'bad');
-      if (defections === 1 && speed <= 300) rig.queueFocus(world.focus.rival, 14, 4);   // show the enemy scoring, once the camera is free
+      if (defections === 1 && speed <= 300) rig.queueFocus(world.focus.rival, 13, 4, 12, Math.PI);   // swing road-side: show the enemy scoring, once the camera is free
       if (defections === 12) fx.toast(COPY.rivalName + '’s line is out the door.', 'bad');
     } else if (e.type === 'rivalServed') { rivalServed++; fx.coinBurst(LAYOUT.rival.x, 1.7, 15.2, 3); }
   }
@@ -144,6 +145,7 @@ function closeDay() {
   closed = true;
   audio.closing();
   if ($('again')) $('again').style.display = 'none';   // mid-campaign: the letter drives the next day, not this button
+  if ($('shareWeek')) $('shareWeek').style.display = 'none';
   cRev += till; cCost += cogs; cBalked += balked; cServed += served + servedRetail; cDef += defections;
   const net = till - cogs;                   // today's operating profit — debt is a *campaign* figure below
   rig.focus(world.focus.wide, 27, 6);
@@ -278,21 +280,49 @@ function campaignClose() {
   else if (net > 600) v = VERDICTS.held;
   else if (net > 0) v = VERDICTS.scarped;
   else v = VERDICTS.lost;
-  fx.receipt({
-    lines: [
-      ['revenue (5 days)', fmt(cRev)], ['bean cost', fmt(cCost)], ['final debt', fmt(exchange.debt)], ['—', '—'],
-      ['cups poured', cServed], ['walked to ' + COPY.rivalName, cDef], ['—', '—'],
-      ['NET WORTH', fmt(net)],
-    ],
-    verdict: v,
-  });
-  if ($('again')) { $('again').style.display = ''; $('again').textContent = '↺ run another week'; }
-  rig.focus(world.focus.wide, 27, 9999);
+  const lines = [
+    ['revenue (5 days)', fmt(cRev)], ['bean cost', fmt(cCost)], ['final debt', fmt(exchange.debt)], ['—', '—'],
+    ['cups poured', cServed], ['walked to ' + COPY.rivalName, cDef], ['—', '—'],
+    ['NET WORTH', fmt(net)],
+  ];
+  // Finale: the street turns over on camera before the verdict lands. The
+  // camera visits the sold storefronts, the card names it, then the receipt.
+  rig.focus(world.focus.newbuild, 17, 7, Math.PI);
+  fx.card('SOLD', 'a new tenant opens across the road');
+  fx.toast('opening soon — for or against you, that\'s the question', 'warn');
+  setTimeout(() => {
+    fx.receipt({ lines, verdict: v });
+    if ($('again')) { $('again').style.display = ''; $('again').textContent = '↺ run another week'; }
+    // Challenge link: the week was a seed — share it so a friend plays the
+    // same market, same waves, same regulars.
+    if ($('shareWeek')) {
+      $('shareWeek').style.display = '';
+      $('shareWeek').onclick = () => openShareToX({
+        day: CAMPAIGN.days, maxDays: CAMPAIGN.days, till: net, reputation: rep,
+        verdict: v, seed: SEED,
+        badge: calculateCampaignBadge({ netWorth: net, reputation: rep, served: cServed, balked: cBalked, debt: exchange.debt }),
+      });
+    }
+  }, 5200);
 }
 
 // ---- HUD -----------------------------------------------------------------------
 const fmt = n => '£' + n.toFixed(2);
+let lastHudText = 0;
 function updateHUD() {
+  // Cheap per-tick state: progress bar + lever availability stay live so
+  // inputs never feel stale, even at 20×.
+  $('progress').style.width = ((dayMin - DAY_START) / (DAY_END - DAY_START) * 100) + '%';
+  $('prebatch').disabled = (prebatched && ctx.batchUnits > 0) || dayMin >= 960 || closed;
+  $('reprice').disabled = repriced || closed;
+  // Text + ticker redraws are the bottleneck at high speed (66 DOM writes/s
+  // at 20×), so they run at ~5Hz wall-clock in the browser. Headless tests
+  // bypass the throttle — they read DOM text as sim assertions.
+  if (!headless) {
+    const nowMs = performance.now();
+    if (nowMs - lastHudText < 200) return;
+    lastHudText = nowMs;
+  }
   const h = String(Math.floor(dayMin / 60)).padStart(2, '0'), m = String(dayMin % 60).padStart(2, '0');
   $('clock').textContent = (paused ? '❚❚ ' : '') + `${h}:${m}`;
   world.setRivalHeat(patrons.rivalQ.length);   // their sign burns as their line grows
@@ -304,9 +334,6 @@ function updateHUD() {
   $('status').innerHTML =
     `queue <b class="${heat}">${q}</b> · matcha <b>${ctx.prebatched ? ctx.batchUnits : '—'}</b> · poured <b>${served}</b>` +
     (defections ? ` · <b class="hot">${defections} → ${COPY.rivalName.toLowerCase()}</b>` : '');
-  $('progress').style.width = ((dayMin - DAY_START) / (DAY_END - DAY_START) * 100) + '%';
-  $('prebatch').disabled = (prebatched && ctx.batchUnits > 0) || dayMin >= 960 || closed;
-  $('reprice').disabled = repriced || closed;
   // pressure dial: the gentrification drift. beanIndex creep since the
   // start of the campaign (1.00 → drift.maxIndex), and the day's matcha
   // till price. Always visible — even day 1, so the player can see the
@@ -340,12 +367,17 @@ function doReprice() {
 }
 function reset() {
   // full campaign restart: the market and the regulars rewind to their start state
+  const wasFinale = campaignDone;   // restarting from the verdict gets a send-off
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = [];
   for (const r of regulars.regulars) { r.op = 0.15; r.seen = false; r.served = 0; r.balked = 0; }
   cRev = cCost = cBalked = cServed = cDef = settledPaid = 0; campaignDone = false; paused = false;
   if ($('pause')) $('pause').textContent = 'pause';
   $('receipt').classList.remove('show'); $('letter').classList.remove('show');
   openDay(1);
+  if (wasFinale) {
+    rig.crane();   // swoop home from the sold street into the new week
+    fx.toast('a new week on the floor — same street, new regulars', '');
+  }
 }
 // Space pauses the floor mid-day (rendering + camera keep breathing; the
 // sim clock stops). The letter/receipt phases are already still.
@@ -354,6 +386,7 @@ function togglePause() {
   paused = !paused;
   if ($('pause')) $('pause').textContent = paused ? 'resume' : 'pause';
   fx.toast(paused ? 'paused — space to resume' : 'back on the floor', '');
+  lastHudText = 0;   // force the ❚❚ marker through the text throttle
   updateHUD();
   return paused;
 }
@@ -430,6 +463,7 @@ function loop(now) {
   sky.update(dayMin);
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
   patrons.update(dt, WALK_MUL[speed] || 2, now);
+  world.updateRival(dt, now);   // their staff keeps moving behind the glass
   fx.steamFrom(dt);
   fx.update(dt, camera, now);
   rig.update(dt, now);

@@ -16,6 +16,8 @@ import type * as firecrawl from "../firecrawl.js";
 import type * as gameConfig from "../gameConfig.js";
 import type * as http from "../http.js";
 import type * as letters from "../letters.js";
+import type * as linkup from "../linkup.js";
+import type * as nebius from "../nebius.js";
 import type * as openai from "../openai.js";
 import type * as regulars from "../regulars.js";
 import type * as stands from "../stands.js";
@@ -35,6 +37,8 @@ declare const fullApi: ApiFromModules<{
   gameConfig: typeof gameConfig;
   http: typeof http;
   letters: typeof letters;
+  linkup: typeof linkup;
+  nebius: typeof nebius;
   openai: typeof openai;
   regulars: typeof regulars;
   stands: typeof stands;

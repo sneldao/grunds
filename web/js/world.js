@@ -259,6 +259,30 @@ export function buildWorld(scene, renderer, lite) {
   plane(rv, 5, 1.6, rvAwn, 0, 2.9, -1.5, { rx: -Math.PI / 2 + 0.3 });
   box(rv, 0.9, 1.9, 0.14, 0x111418, -1.4, 1.15, -1.06, { em: 0xbfe8e2, emi: 0.5, cast: false }); // their lightbox menu
 
+  // ---- rival life: warm windows with staff silhouettes ----------------------
+  // GLASSHOUSE reads as *open* — two glowing front windows with a barista
+  // and a customer swaying inside. Flat dark boxes against warm quads: a
+  // silhouette, not a simulation. W.updateRival(dt, now) drifts them; the
+  // main loop calls it every frame next to patrons.update.
+  const rvWinMat = new THREE.MeshBasicMaterial({ color: 0xffb45e });
+  W.rivalWinMat = rvWinMat;   // exposed for the day/night curve + tests
+  const RV_DAY = new THREE.Color(0x9fb6bd), RV_NIGHT = new THREE.Color(0xffb45e);
+  plane(rv, 1.1, 0.95, rvWinMat, -1.05, 1.25, -1.06, { ry: Math.PI });
+  plane(rv, 1.1, 0.95, rvWinMat, 1.05, 1.25, -1.06, { ry: Math.PI });
+  const rvSilMat = new THREE.MeshBasicMaterial({ color: 0x14181c });
+  const rvBarista = new THREE.Group(); rvBarista.position.set(-0.5, 0, -0.8); rv.add(rvBarista);
+  box(rvBarista, 0.34, 0.7, 0.24, 0x14181c, 0, 0.95, 0, { cast: false, mat: rvSilMat });
+  box(rvBarista, 0.22, 0.24, 0.22, 0x14181c, 0, 1.42, 0, { cast: false, mat: rvSilMat });
+  const rvGuest = new THREE.Group(); rvGuest.position.set(1.2, 0, -0.8); rv.add(rvGuest);
+  box(rvGuest, 0.3, 0.62, 0.22, 0x14181c, 0, 0.86, 0, { cast: false, mat: rvSilMat });
+  box(rvGuest, 0.2, 0.22, 0.2, 0x14181c, 0, 1.28, 0, { cast: false, mat: rvSilMat });
+  W.updateRival = (dt, now) => {
+    const t = now / 1000;
+    rvBarista.position.x = -0.5 + Math.sin(t * 0.9) * 0.3;          // working the bar
+    rvBarista.position.y = Math.abs(Math.sin(t * 1.7)) * 0.03;
+    rvGuest.position.x = 1.2 + Math.sin(t * 0.5 + 2) * 0.18;        // lingering
+  };
+
   // ---- the rent-pressure sign: gentrification drift made physical ------------
   // A two-post signboard on the right side of the street, in front of the
   // big facade block. Three states: 'let' (day 1-2), 'lease' (day 3-4),
@@ -514,6 +538,9 @@ export function buildWorld(scene, renderer, lite) {
     for (const sm of W.lampGlows) sm.opacity = street * 0.5;
     W.signMat.emissiveIntensity = 0.25 + street * 0.9;
     W.rivalSignMat.emissiveIntensity = 0.2 + street * 1.1 + Math.min(0.6, W._rivalHeat * 0.05);
+    // Their glass follows the streetlights: pale reflective panes by day,
+    // lamplit amber after dark. The silhouettes read against both.
+    rvWinMat.color.lerpColors(RV_DAY, RV_NIGHT, THREE.MathUtils.clamp(street, 0.12, 1));
     const night = THREE.MathUtils.clamp((t - 1150) / 80, 0, 1);
     const duskish = THREE.MathUtils.clamp(1 - Math.abs((t - 720) / 480), 0, 1) * 0.4; // a little window-glow at golden hour too
     if (!W.useSky) { W.starMat.opacity = night * 0.9; W.moonMat.opacity = night; W.moonMat.emissiveIntensity = night * 0.9; }
@@ -528,6 +555,7 @@ export function buildWorld(scene, renderer, lite) {
     tables: new THREE.Vector3(6, 1, 1.5),
     wide: new THREE.Vector3(0, 1, 3),
     rival: new THREE.Vector3(LAYOUT.rival.x, 1.6, LAYOUT.rival.z - 1),
+    newbuild: new THREE.Vector3(8, 2.2, 16),   // the sold storefronts, day-5 finale
   };
   // All Kenney GLB placements are queued above; W.ready resolves once they
   // are all in the scene. main.js awaits W.ready before enabling the title
