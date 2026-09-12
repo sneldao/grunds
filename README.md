@@ -190,6 +190,7 @@ node web/test/construction-active.mjs # day-5 drifting dust + low saw loop
 node web/test/construction-final.mjs  # day-4 letter line + back-row scaffold + hammer
 node web/test/glb-substitution.mjs    # Kenney GLB loader + substitution map
 node web/test/game-feel.mjs           # bubbles bounded/clamped, signed numbers, pause, letter keys
+node web/test/behavioral.mjs          # decoy anchoring, pastry/cacao attachments, tip jar social proof
 ```
 
 The floor is a **connected 5-day campaign**, not a closed loop. The three nested clocks

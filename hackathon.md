@@ -16,6 +16,19 @@
 
 ## Log
 
+### 2026-09-12 - behavioral economics & specialty craft slice
+Built and verified the full end-to-end slice for behavioral economics & craft layers:
+- **Chalkboard Decoy Pricing & Anchoring (`web/js/behavioral.js`)**: Introduced the
+  Gesha Reserve Lot #4 (£7.80) to anchor price perceptions, reducing perceived
+  price resistance for Creatives (-35%) and Students (-25%) on standard Matcha drinks.
+- **Bean-to-Bar Chocolate & Pastry Basket Attachment**: Time-of-day weighted cross-selling
+  (All-Butter Croissant £2.80 in the morning, Miso Banana Loaf £3.20, and 72% Single-Origin
+  Cacao Slabs £3.60 in the afternoon) tailored to cohort affinities (Creatives & Tourists).
+- **Tip Jar Social Proof**: Visibility feedback loop where accumulated tip levels
+  reinforce tipping probability from patrons.
+- **Headless Test Suite**: Added `web/test/behavioral.mjs` verifying anchoring curves,
+  basket attachment distributions, and tipping mechanics. All 13 tests green.
+
 ### 2026-09-12 - sponsor challenge integrations
 Added high-impact sponsor integrations focused on elevating game design:
 - **Linkup (Deep Research)**: `convex/linkup.ts` queries live global coffee commodity
