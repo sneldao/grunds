@@ -16,6 +16,17 @@
 
 ## Log
 
+### 2026-09-12 - viral hooks, share cards, and campaign badges
+Added subtle, meaningful social and engagement dynamics:
+- **Z-Read Social Share Cards (`web/js/share.js`)**: Formats clean, aesthetic text/link
+  summaries with 1-click share to X, featuring the day's till, reputation, roaster's verdict,
+  and replayable seed URL (`?seed=N`).
+- **Campaign Mastery Badges**: Performance-based awards (*Master Roaster*, *Matcha Strategist*,
+  *Debt Free*, *Community Anchor*, *District Survivor*) based on net worth, debt clearance,
+  and balk ratios.
+- **Headless Test Suite (`web/test/share.mjs`)**: Verified badge evaluations, text formatters,
+  and URL intent encodings. All 14 tests pass green.
+
 ### 2026-09-12 - behavioral economics & specialty craft slice
 Built and verified the full end-to-end slice for behavioral economics & craft layers:
 - **Chalkboard Decoy Pricing & Anchoring (`web/js/behavioral.js`)**: Introduced the
