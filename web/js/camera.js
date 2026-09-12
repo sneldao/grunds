@@ -36,6 +36,11 @@ export class CameraRig {
   focus(point, r = 12, secs = 4) {
     this.beat = { point: point.clone(), r, until: performance.now() / 1000 + secs, blend: 0 };
   }
+  // queueFocus: a focus that waits for the current beat to finish (expiring
+  // after ttl seconds) instead of stomping it. News beats chapters.
+  queueFocus(point, r = 12, secs = 4, ttl = 12) {
+    this.queued = { point: point.clone(), r, secs, until: performance.now() / 1000 + ttl };
+  }
   shake(mag = 0.35) { this.shakeT = 1; this.shakeMag = mag; }
   resetView() { this.beat = null; this.home = { ...HOME, target: HOME.target.clone() }; }
 
@@ -64,6 +69,12 @@ export class CameraRig {
         this.r += (this.beat.r - this.r) * e * 0.12;
         if (t > this.beat.until) this.beat = null;
       } else if (idle) {
+        // a queued news-focus promotes once the camera is free and idle —
+        // never while the user is driving (it just expires).
+        if (!this.beat && this.queued) {
+          const q = this.queued; this.queued = null;
+          if (t <= q.until) this.focus(q.point, q.r, q.secs);
+        }
         this.target.lerp(this.home.target, dt * 0.4);
         this.r += (this.home.r - this.r) * dt * 0.25;
         this.theta += Math.sin(t * 0.00013 * 1000) * 0.00012; // barely-there drift

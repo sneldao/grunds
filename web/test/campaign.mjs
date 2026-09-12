@@ -39,6 +39,12 @@ class ACS {
   resume() {}
 }
 globalThis.AudioContext = ACS;
+// Deterministic gate: seed Math.random so the full-loop run is reproducible
+// (EVAL.md "same seed → same run"). The sim draws spawn jitter, matcha
+// cravings, and balks from Math.random; unseeded, rail-adjacent assertions
+// flake ~1 run in 5.
+let _rs = 123456789;
+Math.random = () => { _rs = (_rs * 1664525 + 1013904223) >>> 0; return _rs / 4294967296; };
 const wait = r => new Promise(r);
 
 let now = 1000;

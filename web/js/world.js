@@ -474,6 +474,12 @@ export function buildWorld(scene, renderer, lite) {
   const moon = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 12), W.moonMat); moon.position.set(-20, 17, -10); scene.add(moon);
 
 
+  // Rival heat: how busy GLASSHOUSE looks. main.js feeds the rival queue
+  // length every HUD update; the sign burns brighter as their line grows —
+  // winning, visibly, when your regulars cross the road.
+  W._rivalHeat = 0;
+  W.setRivalHeat = (n) => { W._rivalHeat = Math.max(0, n || 0); };
+
   // ---- time-of-day director ---------------------------------------------------
   // t = minutes since midnight. Light tells the story of the day.
   const K = [
@@ -507,7 +513,7 @@ export function buildWorld(scene, renderer, lite) {
     for (const lm of W.lampMats) lm.emissiveIntensity = street * 2.4;
     for (const sm of W.lampGlows) sm.opacity = street * 0.5;
     W.signMat.emissiveIntensity = 0.25 + street * 0.9;
-    W.rivalSignMat.emissiveIntensity = 0.2 + street * 1.1;
+    W.rivalSignMat.emissiveIntensity = 0.2 + street * 1.1 + Math.min(0.6, W._rivalHeat * 0.05);
     const night = THREE.MathUtils.clamp((t - 1150) / 80, 0, 1);
     const duskish = THREE.MathUtils.clamp(1 - Math.abs((t - 720) / 480), 0, 1) * 0.4; // a little window-glow at golden hour too
     if (!W.useSky) { W.starMat.opacity = night * 0.9; W.moonMat.opacity = night; W.moonMat.emissiveIntensity = night * 0.9; }

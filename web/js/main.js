@@ -15,6 +15,7 @@ import { Exchange } from './exchange.js';
 import { Regulars } from './regulars.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay } from './gentrification.js';
+import { initSync } from './convexSync.js';
 
 const urlParams = new URLSearchParams(location.search);
 const lite = urlParams.has('lite');
@@ -40,6 +41,10 @@ const audio = new AudioEngine();
 // ---- the connected campaign: the Gamble + the Regulars -----------------------
 const exchange = new Exchange(urlParams.get('seed') ? +urlParams.get('seed') : 7);
 const regulars = new Regulars();
+// Optional Convex mirror: offline-first, fire-and-forget. Configure with
+// ?convex=https://<deploy>.convex.site — the floor never blocks on it.
+const sync = initSync();
+const SEED = urlParams.get('seed') ? +urlParams.get('seed') : 7;
 
 const fx = new FX(scene, null, lite);   // patrons wired in just below
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
@@ -48,10 +53,11 @@ fx.patrons = patrons;
 // ---- game state ---------------------------------------------------------------
 const DAY_START = 360, DAY_END = 1260;
 let schedule = null, waveIdx = 0, chapterIdx = 0;
-let day = 0, dayMin = DAY_START, speed = [60, 300, 1200].includes(urlSpeed) ? urlSpeed : 300, started = false, closed = false;
+let day = 0, dayMin = DAY_START, speed = [60, 300, 1200].includes(urlSpeed) ? urlSpeed : 300, started = false, closed = false, paused = false;
 let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0, rivalServed = 0;
 let prebatched = false, repriced = false, batchUnits = 0;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
+let coached = false;   // day-1 lever hint, once per campaign
 // campaign accumulators (persist across the 5 days)
 let cRev = 0, cCost = 0, cBalked = 0, cServed = 0, cDef = 0, settledPaid = 0, campaignDone = false;
 const ctx = { prebatched: false, repriced: false, batchUnits: 0 };
@@ -89,8 +95,9 @@ function tick() {
     } else if (e.type === 'defect') {
       defections++;
       if (defections === 1) fx.toast('they’re crossing the road to ' + COPY.rivalName + '…', 'bad');
+      if (defections === 1 && speed <= 300) rig.queueFocus(world.focus.rival, 14, 4);   // show the enemy scoring, once the camera is free
       if (defections === 12) fx.toast(COPY.rivalName + '’s line is out the door.', 'bad');
-    } else if (e.type === 'rivalServed') rivalServed++;
+    } else if (e.type === 'rivalServed') { rivalServed++; fx.coinBurst(LAYOUT.rival.x, 1.7, 15.2, 3); }
   }
   if (sales) {
     audio.sale(sales);
@@ -111,7 +118,9 @@ function beats() {
   while (chapterIdx < CHAPTERS.length && dayMin >= CHAPTERS[chapterIdx].t) {
     const ch = CHAPTERS[chapterIdx++];
     fx.card(ch.k, ch.sub); audio.card();
-    if (ch.beat) rig.focus(world.focus[ch.beat] || world.focus.wide, ch.beat === 'wide' ? 26 : 13, 5);
+    // Beat push-ins only at readable speeds — at 20× the chapters fly by and
+    // the camera would whip around every few seconds. Cards still show.
+    if (ch.beat && speed <= 300) rig.focus(world.focus[ch.beat] || world.focus.wide, ch.beat === 'wide' ? 26 : 13, 5);
     if (ch.notebook) fx.notebook(true);
     if (ch.wave) {
       rig.shake(0.3);
@@ -120,6 +129,14 @@ function beats() {
     }
   }
   if (dayMin >= 840) fx.notebook(prebatched ? false : dayMin < 900);
+  // Day-1 coach: one hour before the student wave, nudge the levers — but
+  // only if the player hasn't acted yet. The noon notebook did the reading;
+  // this is the doing. Once per campaign, never a nag.
+  if (day === 1 && !coached && dayMin >= 780 && !prebatched && !repriced) {
+    coached = true;
+    fx.toast('students land at 14:00 — batch matcha (1) or cut the price (2)', 'warn');
+    audio.card();
+  }
 }
 
 function closeDay() {
@@ -200,6 +217,7 @@ function applyReply(id) {
 // ---- dawns -------------------------------------------------------------------
 function openDay(d) {
   day = d;
+  coached = d !== 1;   // the lever hint only coaches day 1, once per campaign
   patrons.reset(); fx.reset();
   waveIdx = 0; chapterIdx = 0; dayMin = DAY_START;
   till = 0; cogs = 0; balked = 0; served = 0; servedRetail = 0; defections = 0; rivalServed = 0;
@@ -226,6 +244,8 @@ function openDay(d) {
   // moves only for regulars who actually showed up today.
   rig.resetView();
   updateTicker();
+  // Mirror the dawn to Convex when configured (fire-and-forget, never blocks).
+  sync.mirror({ seed: SEED, day: d, beanIndex: exchange.beanIndex, matchaPrice: exchange.matchaPrice, till: cRev + till, reputation: regulars.reputation, debt: exchange.debt });
   fx.toast('DAY ' + day + '/' + CAMPAIGN.days + ' — ' + (ev.head || 'a new day'), ev.tier === 'cata' ? 'bad' : ev.tier === 'good' ? 'good' : '');
   fx.card('DAY ' + day, ev.line || (ev.head || 'the district stirs'));
   updateHUD();
@@ -274,7 +294,8 @@ function campaignClose() {
 const fmt = n => '£' + n.toFixed(2);
 function updateHUD() {
   const h = String(Math.floor(dayMin / 60)).padStart(2, '0'), m = String(dayMin % 60).padStart(2, '0');
-  $('clock').textContent = `${h}:${m}`;
+  $('clock').textContent = (paused ? '❚❚ ' : '') + `${h}:${m}`;
+  world.setRivalHeat(patrons.rivalQ.length);   // their sign burns as their line grows
   if ($('daytag')) $('daytag').textContent = 'DAY ' + day + '/' + CAMPAIGN.days + '  ·  REP ' + regulars.reputation;
   $('till').textContent = fmt(till);
   $('balk').textContent = balked;
@@ -292,8 +313,9 @@ function updateHUD() {
   // clock at 0% and feel the clock ticking.
   if ($('pressure')) {
     const driftPct = Math.round((exchange.beanIndex - 1.0) * 100);
+    const driftTxt = (driftPct >= 0 ? '+' : '') + driftPct + '%';
     const dayPrice = exchange.matchaPrice ?? priceForDay(day);
-    $('pressure').innerHTML = `costs <b>+${driftPct}%</b> · matcha <b>£${dayPrice.toFixed(2)}</b> · day <b>${day}/${CAMPAIGN.days}</b>`;
+    $('pressure').innerHTML = `costs <b>${driftTxt}</b> · matcha <b>£${dayPrice.toFixed(2)}</b> · day <b>${day}/${CAMPAIGN.days}</b>`;
   }
   if (!closed) updateTicker();
 }
@@ -320,12 +342,24 @@ function reset() {
   // full campaign restart: the market and the regulars rewind to their start state
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = [];
   for (const r of regulars.regulars) { r.op = 0.15; r.seen = false; r.served = 0; r.balked = 0; }
-  cRev = cCost = cBalked = cServed = cDef = settledPaid = 0; campaignDone = false;
+  cRev = cCost = cBalked = cServed = cDef = settledPaid = 0; campaignDone = false; paused = false;
+  if ($('pause')) $('pause').textContent = 'pause';
   $('receipt').classList.remove('show'); $('letter').classList.remove('show');
   openDay(1);
 }
+// Space pauses the floor mid-day (rendering + camera keep breathing; the
+// sim clock stops). The letter/receipt phases are already still.
+function togglePause() {
+  if (!started || closed || campaignDone) return paused;
+  paused = !paused;
+  if ($('pause')) $('pause').textContent = paused ? 'resume' : 'pause';
+  fx.toast(paused ? 'paused — space to resume' : 'back on the floor', '');
+  updateHUD();
+  return paused;
+}
 $('prebatch').onclick = doPrebatch;
 $('reprice').onclick = doReprice;
+$('pause').onclick = () => togglePause();
 $('reset').onclick = reset;
 $('again').onclick = reset;
 $('mute').onclick = () => { $('mute').textContent = audio.toggleMute() ? 'sound off' : 'sound on'; };
@@ -339,8 +373,18 @@ document.querySelectorAll('#speeds button').forEach(b => {
   };
 });
 addEventListener('keydown', e => {
+  // the letter answers to 1/2/3 (skipping disabled actions) while it's open
+  if ($('letter').classList.contains('show')) {
+    if (e.key === '1' || e.key === '2' || e.key === '3') {
+      const btns = [...document.querySelectorAll('#letter-actions button')];
+      const b = btns[+e.key - 1];
+      if (b && !b.disabled) b.click();
+      return;
+    }
+  }
   if (e.key === '1') doPrebatch();
   else if (e.key === '2') doReprice();
+  else if (e.key === ' ' && started && !closed) { e.preventDefault(); togglePause(); }
   else if (e.key === 'r' || e.key === 'R') reset();
   else if (e.key === 'm' || e.key === 'M') $('mute').click();
   else if (e.key === 'c' || e.key === 'C') rig.resetView();
@@ -351,7 +395,7 @@ addEventListener('resize', () => {
 });
 
 // ---- boot -------------------------------------------------------------------------
-fetch('/api/schedule').then(r => r.json()).then(s => {
+fetch('./api/schedule.json').then(r => r.json()).then(s => {
   schedule = s;
   // Wait for the Kenney GLBs to be placed before enabling Open. If a GLB
   // fails, the loader's graceful fallback returns a placeholder so the user
@@ -377,7 +421,7 @@ let acc = 0, last = performance.now();
 function loop(now) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
-  if (started && !closed && schedule) {
+  if (started && !closed && !paused && schedule) {
     acc += dt * 1000;
     const msPerMin = 300 / (speed / 60);
     while (acc > msPerMin) { acc -= msPerMin; tick(); }
@@ -394,12 +438,13 @@ function loop(now) {
   audio.update(dt);
   if (!headless) postfx.render(now);   // headless harness skips GL
 }
-window.__grunds = {
+  window.__grunds = {
   stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count,
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - settledPaid - exchange.debt, rep: regulars.reputation, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null }),
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
-  exc: exchange, reg: regulars,
-  openDay, applyReply, reset,
+  exc: exchange, reg: regulars, sync, world, rig,
+  openDay, applyReply, reset, togglePause,
+  get paused() { return paused; },
 };
 updateHUD();
 requestAnimationFrame(loop);

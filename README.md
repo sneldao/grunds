@@ -84,10 +84,11 @@ Same world, multiplayer and persistent:
 - **Convex**: tables for stands, patrons, opinions, contracts; scheduled functions
   spawn waves and roll events; live queries move the whole district in real time
 - **Firecrawl**: nightly crawls of commodity news + real café menus/prices seed the
-  Exchange and market realism
+  Exchange and market realism — **live since Sept 12** (Brazil drought → deck weights)
 - **AgentMail**: the Roaster's Letter — in-character briefings with reply-to-command
 - **OpenAI**: patron personas that explain their choices in speech bubbles
 - Deployed on `convex.site`, public repo, `hackathon.md` build log from day one
+  — **live since Sept 12** at https://striped-anaconda-746.convex.site
 
 Prior work disclosed honestly in the build log: "a deterministic café dataset engine
 and briefing design (prototype); this build: a live, real-time product on Convex."
@@ -130,13 +131,19 @@ Keep one reliable path, visible reset controls, and a fallback recording.
 5. Gossip stub: one visible bad-review propagation
 6. Demo polish: reset button, fallback recording, 2-min script locked
 
-**Convex phase (by Sept 22)**
-1. Fresh repo, `npm create convex`, port signals/zone logic to TypeScript
-2. The Exchange: scheduled functions + Firecrawl news→event deck (with pity timers)
-3. The Regulars: persistent patron memory + gossip propagation graph
-4. The Roaster's Letter: AgentMail inbox, reply-to-command mutations
-5. All 5 cohorts, supplier credit clock, gentrification drift, cupping events
-6. Deploy convex.site, public repo, `hackathon.md`, video, X post
+**Convex phase (by Sept 22)** — status Sept 12:
+1. ~~Fresh repo, `npm create convex`, port signals/zone logic to TypeScript~~ — done:
+   `convex/` holds schema, exchange, regulars, letters, apiCache + OpenAI/Firecrawl/
+   AgentMail actions, verified end-to-end on a cloud dev deployment
+2. ~~The Exchange: scheduled functions + Firecrawl news→event deck (with pity timers)~~ —
+   deck + pity timers live server-side; Firecrawl pull live with 6h cache; nightly cron next
+3. ~~The Regulars: persistent patron memory + gossip propagation graph~~ — done server-side
+4. The Roaster's Letter: AgentMail inbox, reply-to-command mutations — webhook live,
+   inbox keys pending
+5. All 5 cohorts, supplier credit clock, gentrification drift, cupping events — drift +
+   credit live; OpenAI persona prose stubbed until key lands
+6. ~~Deploy convex.site, public repo, `hackathon.md`, video, X post~~ — site + repo + log
+   live; video + social still to do
 
 ## Architecture
 
@@ -182,6 +189,7 @@ node web/test/construction-left.mjs   # day-5 left scaffold (district-wide)
 node web/test/construction-active.mjs # day-5 drifting dust + low saw loop
 node web/test/construction-final.mjs  # day-4 letter line + back-row scaffold + hammer
 node web/test/glb-substitution.mjs    # Kenney GLB loader + substitution map
+node web/test/game-feel.mjs           # bubbles bounded/clamped, signed numbers, pause, letter keys
 ```
 
 The floor is a **connected 5-day campaign**, not a closed loop. The three nested clocks
@@ -198,7 +206,8 @@ The diorama: a shader **sky dome** (gradient + sun glow + procedural stars over 
 arc), procedural **district facades** whose windows light up at dusk, a far skyline, a
 mailbox, a commodity ticker, and weather mist after a frost — rendered through a
 core-Three **post-FX** bloom/vignette/grain pipeline. Controls: drag to look, scroll to
-zoom, `1` pre-batch, `2` reprice, `M` sound, `R` reset, `C` camera. URL params: `?lite`
+zoom, `1` pre-batch, `2` reprice, `space` pause, `M` sound, `R` reset, `C` camera.
+The Roaster's Letter answers to `1`/`2`/`3`. URL params: `?lite`
 (no shadows/post-FX, 1x pixels), `?speed=60|300|1200`, `?seed=N` (campaign seed).
 
 Repo structure:
@@ -209,6 +218,20 @@ grunds/
 ├── ARCHITECTURE.md
 ├── EVAL.md
 ├── pyproject.toml
+├── package.json                 # convex + static-hosting (npm run typecheck/build:dist/deploy:site)
+├── tsconfig.json
+├── convex/                      # live backend (cloud dev deployment, verified end-to-end)
+│   ├── schema.ts                # campaigns, marketEvents, regulars, friendships, letters, stands, apiCache
+│   ├── gameConfig.ts            # drift, event deck, roster, seeded RNG (ported from web/js/config.js)
+│   ├── exchange.ts              # dawns, contracts, debt — drift-then-pity-roll
+│   ├── regulars.ts              # seen-marks, expectation pressure, 5% contagion
+│   ├── letters.ts               # templated Letter preview + archive
+│   ├── apiCache.ts              # TTL response cache (Firecrawl 6h, OpenAI 7d)
+│   ├── openai.ts                # enhanceLetter + personaLine (gpt-4o-mini, key-gated)
+│   ├── firecrawl.ts             # commodity-news → deck weights (live)
+│   ├── agentmail.ts + http.ts   # signed webhook → reply-to-command; /sync/* bridge; static catch-all
+│   └── convex.config.ts         # registers @convex-dev/static-hosting
+├── tools/build-dist.sh          # web/ → dist/ + schedule snapshot for site upload
 ├── data/
 │   └── coffee_shop_sales.xlsx   # source (deterministic via transform.py)
 ├── out/
@@ -224,7 +247,8 @@ grunds/
 ├── web/
 │   ├── index.html               # shell, HUD, story overlays (chapters, notebook, letter, receipt)
 │   ├── js/
-│   │   ├── main.js              # the campaign: loop, economy, story beats, the letter flow
+│   │   ├── main.js              # the campaign: loop, economy, story beats, the letter flow, pause, letter keys
+│   │   ├── convexSync.js        # optional dawn-mirror to Convex (auto on *.convex.site, ?convex= override)
 │   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist, scaffolds)
 │   │   ├── sky.js               # custom shader sky dome (gradient + sun + stars) — core-Three only
 │   │   ├── postfx.js            # core-Three render-target bloom + vignette + grain
@@ -250,7 +274,8 @@ grunds/
 │   │   ├── construction-left.mjs      # day-5 left scaffold
 │   │   ├── construction-active.mjs    # day-5 drifting dust + low saw loop
 │   │   ├── construction-final.mjs     # day-4 letter + back-row scaffold + hammer
-│   │   └── glb-substitution.mjs       # Kenney GLB loader + substitution map
+│   │   ├── glb-substitution.mjs       # Kenney GLB loader + substitution map
+│   │   └── game-feel.mjs              # bubbles bounded/clamped, signed numbers, pause, letter keys
 │   ├── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)
 │   └── assets/                  # Kenney CC0 GLB props + SOURCES.md
 ├── benchmark_corpus.json        # UK café COGS benchmarks (anchors the Exchange math)
@@ -311,6 +336,36 @@ The day-5 narrative is now end-to-end: numbers (HUD `#pressure`),
 narrative (the Letter), physical (scaffolds + tarps), audible
 (saw + hammer), animated (drifting dust). Eleven headless tests run
 green on every merge.
+
+## Live on Convex (Sept 12)
+
+The Convex phase shipped as working backend + hosting, not a plan:
+
+- **Linkup**: Deep Research integration (`convex/linkup.ts`) querying global coffee commodity intelligence (weather disruptions, harvest reports, shipping bottlenecks) to dynamically bias the morning event deck with cited source URLs.
+- **Nebius**: Applied AI integration (`convex/nebius.ts`) via Token Factory (`meta-llama/Meta-Llama-3.1-70B-Instruct`) for in-character prose generation and responsive patron reaction lines with latency and token telemetry.
+- **RevenueCat**: Subscriptions / Web Test Store integration (`web/js/billing.js`) providing sandbox entitlement management for the "Commodity Trader / Futures Pass".
+- **Backend** (`convex/`): schema for campaigns, market events, regulars,
+  friendships, letters, stands, and an API-response cache; queries +
+  mutations for the Exchange (drift-then-pity-roll dawns, contracts,
+  debt), the Regulars (seen-marks, expectation pressure, 5% contagion),
+  and the Letter (templated preview + archive); actions for OpenAI prose
+  (`gpt-4o-mini`, key-gated with 7-day input-hash cache) and Firecrawl
+  news→deck seeding (**live**: Brazil drought → `drought_ea` ×1.4, 6h
+  cache ≈ 1 search per campaign); a signed AgentMail webhook with
+  reply-to-command mutation (inbox keys pending).
+- **Hosting**: the floor deploys via `@convex-dev/static-hosting` to
+  https://striped-anaconda-746.convex.site (38 files, no bundler — `web/`
+  *is* the dist plus a schedule snapshot). The game auto-mirrors each
+  dawn to Convex when hosted there (HUD badge flips `● LIVE`).
+- **Game feel**: bubbles capped at 10 and clamped on-screen, sign-aware
+  numbers ("down 6%", never "up -6%"), `space` or button pauses the sim
+  clock, the Letter answers to `1`/`2`/`3`, a day-1 13:00 coach nudges the
+  levers before the student wave, beat cameras hold still at 20×, and the
+  rival lives — their sign burns with their queue, the camera shows first
+  blood, their sales ring coins. Loop tests are RNG-seeded, so the
+  12-test gate is deterministic — green 3× straight.
+- Still to do: nightly cron wiring, full live-query sync (mirror today),
+  Convex Auth, OpenAI + AgentMail keys, prod deploy, video + social.
 
 See `hackathon.md` for the build log.
 

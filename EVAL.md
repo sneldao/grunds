@@ -21,6 +21,7 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Same seed → same run | identical patron sequence, prices, outcomes |
 | Event fairness | no two catastrophic events in consecutive draws (pity timer) |
 | Economy baseline | 13-week revenue ≈ GBP 157k; attach rate 8.2% preserved from source data |
+| Deterministic gate | loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`, so rail-adjacent assertions don't flake |
 
 ## Datasets
 

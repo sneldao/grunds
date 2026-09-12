@@ -3,18 +3,138 @@
 - **Project:** Grunds
 - **Event:** Convex All Gas Hackathon
 - **What it does:** A live 3D coffee-district economy game where players run café stands and AI patrons with persistent memory buy based on cohorts, commodity events, and gossip.
-- **Live app:** not deployed
+- **Live app:** https://striped-anaconda-746.convex.site
 - **Repo:** https://github.com/sneldao/grunds
 - **Frontend:** Convex static hosting
-- **Convex deployment:** not deployed
-- **Components:** none
-- **Convex features:** none yet
+- **Convex deployment:** https://striped-anaconda-746.convex.cloud
+- **Components:** @convex-dev/static-hosting
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (code, not deployed)
 - **Auth:** none
-- **AI models:** none
+- **AI models:** gpt-4o-mini (key-gated action stub, falls back offline)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-09T17:45:00Z
+- **Last updated:** 2026-09-12T13:57:59Z
 
 ## Log
+
+### 2026-09-12 - sponsor challenge integrations
+Added high-impact sponsor integrations focused on elevating game design:
+- **Linkup (Deep Research)**: `convex/linkup.ts` queries live global coffee commodity
+  market news, shipping disruptions, and harvest updates via Linkup's search API.
+  Findings dynamically bias the morning event deck and are cited in the Roaster's Letter
+  with live URLs (cached 6h in `apiCache`).
+- **Nebius (Applied AI)**: `convex/nebius.ts` connects to Nebius Token Factory inference
+  (Llama 3.1 70B / Qwen 2.5) to power in-character prose generation for Idris's Roaster's
+  Letter and dynamic patron reaction lines, tracking token usage and inference latency.
+- **RevenueCat (Subscriptions)**: `web/js/billing.js` provides Web Test Store integration
+  for the "Commodity Trader / District Insider Pass" entitlement.
+
+### 2026-09-12 - working tree
+Scaffolded the Convex backend from the local sim: `convex/schema.ts`
+(campaigns, marketEvents, regulars, friendships, letters, stands with
+indexes), `convex/gameConfig.ts` (drift, event deck, roster, seeded RNG
+ported from `web/js/config.js`), `convex/exchange.ts` (createCampaign,
+openDay drift-then-pity-roll, contractBeans, consumeContract, settleDebt),
+`convex/regulars.ts` (list, markSeen/unsee, resolveDay with expectation
+pressure + 5% contagion), `convex/letters.ts` (templated Letter preview +
+archive), `convex/crons.ts` (dawn-tick placeholder). Then added the sponsor
+stack (key-gated, offline-safe) and the floor's live mirror:
+`convex/openai.ts` (enhanceLetter, personaLine via gpt-4o-mini, templated
+fallback without a key), `convex/firecrawl.ts` (fetchCommodityNews →
+deck-weight suggestions, seeded deck without a key),
+`convex/agentmail.ts` + `convex/http.ts` (signed /agentmail/webhook →
+reply-to-command mutation with letters audit trail; /sync/state +
+/sync/snapshot bridge). `web/js/convexSync.js` mirrors each dawn over plain
+fetch when `?convex=URL` is set (HUD badge flips LIVE, game never blocks);
+`web/js/main.js` + `web/index.html` wired minimally. `.env.example` gains
+OPENAI_MODEL, FIRECRAWL_API_KEY, AGENTMAIL_WEBHOOK_SECRET. Code only — no
+deployment yet (`npx convex dev` still needed for `_generated` + codegen).
+All 11 headless web tests still pass; `tsc` shows only the missing-
+`_generated` class. Convex features: schema, tables, indexes, queries,
+mutations, actions, HTTP actions (`convex/`).
+
+Live-verified on a local Convex deployment (`npx convex dev --once`,
+127.0.0.1:3210, codegen clean, `tsc` fully green after fixing an
+`args.coh`/`args.cohort` naming bug and adding `@types/node`): full loop
+ran server-side — createCampaign → openDay day 1 (drift 1.00→1.025 then
+rumour_frost → 1.075, matcha £4.80) → markSeen commuters (Dev) →
+resolveDay (reputation 62→68) → openDay day 2 (1.02, £4.95) →
+contractBeans (debt £22) → AgentMail inbound parsing "contract" (no
+double-charge) → OpenAI/Firecrawl key-gated fallbacks. Letter preview
+matches the local templated format. Note: CLI has no linked Convex
+account yet — this is a local deployment only, so the log header stays
+`not deployed` until `npx convex login` + cloud deploy. Added
+`node_modules/` to `.gitignore`.
+
+Cloud-linked the same session: device authorized via `npx convex login`,
+created project `grunds` in team `papa-jams` (existing `juakali` project
+left untouched), provisioned dev deployment
+`striped-anaconda-746` and pushed all functions + indexes. Re-ran the loop
+against cloud — identical deterministic results (day-1 rumour_frost,
+1.075, rep 68). Deployment usage reads zero across every metric, so
+headroom is a non-issue. Header `Convex deployment` now points at the
+cloud deployment; the floor mirrors to it with
+`?convex=https://striped-anaconda-746.convex.site`.
+
+Frontend is live on Convex: installed `@convex-dev/static-hosting`
+(registered in `convex/convex.config.ts`, catch-all in `convex/http.ts`
+with app routes kept at root), built `dist/` from `web/` via
+`tools/build-dist.sh` (38 files, schedule snapshot at
+`dist/api/schedule.json`), unified the client fetch to
+`./api/schedule.json` (`web/js/main.js`, `grunds/spatial.py` serves both
+paths so local dev is unchanged), and made `convexSync.js` auto-mirror
+when hosted on `*.convex.site`. Verified live:
+`/` + `/api/schedule.json` + `/js/*` + a GLB all 200, SPA fallback serves
+index, `/sync/state` + `/agentmail/webhook` exact routes intact (400/503
+as designed). All 11 headless tests still pass.
+
+Firecrawl is live: key set server-side via `convex env set` (never in the
+repo). First real pull returned Brazil drought coverage mapped to
+`drought_ea` ×1.4 deck suggestions. Cost control in place: new `apiCache`
+table (TTL + inline GC) caches Firecrawl 6h per query (~1 search per
+5-day campaign) and OpenAI prose 7d by input hash (deterministic sim
+replays identical bodies, so repeats cost zero tokens); both actions take
+`force:` to bypass, prompts stay tight (220/40 tokens, gpt-4o-mini).
+Verified cached:true on repeat call. OpenAI + AgentMail keys still unset
+— clean templated fallbacks hold until they land.
+
+Craft + determinism pass (Sept 12, all verified in a real browser):
+screenshot QA caught bubbles hanging off-canvas, "up -6%" copy, and no
+way to pause. Fixed: bubbles capped at 10 (oldest pops) and clamped to
+the viewport (`web/js/fx.js`); sign-aware numbers in the Letter and HUD
+(`down 6%`, `-6%`); `space` pauses the sim clock with a ❚❚ HUD marker;
+the open Letter answers to `1`/`2`/`3`. The `campaign` gate flaked ~1 in
+5 on unseeded `Math.random` — loop tests (`smoke`, `campaign`,
+`campaign-tight`) now seed it, gate green 3× straight (12 tests).
+New `web/test/game-feel.mjs`. Docs (README/ARCHITECTURE/EVAL) brought
+current with the live Convex state.
+
+Second craft pass (browser-verified): day-1 13:00 coach toast nudges the
+levers one hour before the student wave — once per campaign, only if the
+player hasn't acted; beat-camera push-ins now fire at 1×/5× only (cards
+still show at 20×, camera stays home); clickable pause/resume button in
+the sys row with label following state. Verified: toast shown, labels
+flip, zero page errors; gate 12/12; site re-uploaded.
+
+Backend depth pass: nightly `commodity-news-refresh` cron runs a new
+`firecrawl.refreshCommodityNews` internal action (verified live:
+refreshed:true, 2 suggestions); `/sync/snapshot` now genuinely writes —
+new `exchange.mirrorState` patches day/index/price/till/rep/debt and new
+`stands.recordStand`/`topStands` keep a per-owner leaderboard (verified:
+mirror → state → patch → leaderboard all 200/OK). The floor sends
+campaign-cumulative till + matchaPrice + debt under a stable
+`grunds.owner` id (`?stand=` override) and polls `/sync/state` for the
+badge. Prod deploy deferred to submission week on purpose — one stable
+cut then, dev URL qualifies until then.
+
+Third craft pass — the rival lives: `world.setRivalHeat(n)` makes the
+GLASSHOUSE sign burn brighter as their queue grows (capped glow, driven
+inside the time-of-day pass); first defection queues a camera visit to
+the rival via a new `rig.queueFocus` (news waits for beats, never stomps
+them, expires if the player drives); rival sales ring a small coin burst
+at their counter. Caught live: heat 22 → glow 1.45, beat active
+mid-swing toward the rival, zero page errors. (Also noticed an
+unreferenced `web/js/billing.js` RevenueCat stub — no secrets, left
+alone.) Gate 12/12, site re-uploaded (39 files).
 
 ### 2026-09-09 - 8e1dd63 (state at end of session)
 

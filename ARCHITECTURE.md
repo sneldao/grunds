@@ -75,23 +75,41 @@ stores per-patron opinion state.
    expectation pressure) *before* the event roll, and settles contracts and
    supplier debt from the Roaster's Letter
 
-## Convex phase deployment shape
+## Convex deployment (live since Sept 12)
 
-The local phase has shipped: the friendship graph (`precedent`), the
-gentrification drift (`exchange`), the day-5 visual + audible construction
-story, and the Kenney CC0 props. What's still on the Convex side:
+Backend and hosting are deployed to a cloud dev deployment; the local
+simulator (`web/js/*`) remains the deterministic reference and the
+headless gate pins both.
 
-- Tables: `stands`, `patrons`, `opinions`, `friendships`, `contracts`,
-  `events`, `prices`, `construction_props`
-- Scheduled functions: wave spawning, nightly Exchange rolls (with
-  Firecrawl news seed), per-day gentrification drift tick
-- Live queries: the whole district syncs to every client in real time
-- AgentMail: Roaster's Letter inbox; reply-to-command mutates
-  `contracts`/`stands` (the local phase already handles this client-side
-  via the in-world mailbox)
-- OpenAI: patron persona prose (speech bubbles), generated server-side in
-  actions (the local phase uses templated prose)
-- Frontend on `convex.site`; `hackathon.md` build log in the public repo
+Shipped (`convex/`, verified end-to-end against cloud):
+
+- Tables: `campaigns`, `marketEvents`, `regulars`, `friendships`,
+  `letters`, `stands`, `apiCache` — all indexed.
+- Dawn tick: `exchange.openDay` applies gentrification drift (per-day cost
+  creep + matcha curve) *before* the pity-timer event roll — same ordering
+  as the local `Exchange`. Deterministic per seed+day.
+- Regulars: `markSeen`/`unsee`, `resolveDay` (expectation pressure, outcome
+  delta, 5% friendship contagion), reputation meter.
+- Roaster's Letter: templated preview + archive; OpenAI rewrite behind
+  `OPENAI_API_KEY` with a 7-day input-hash cache (repeats cost zero tokens).
+- Firecrawl: `fetchCommodityNews` maps live headlines to deck-weight
+  suggestions with a 6h cache (~1 search per campaign).
+- AgentMail: signed `/agentmail/webhook` → reply-to-command mutation with
+  a `letters` audit trail (inbox keys pending).
+- Hosting: `@convex-dev/static-hosting` serves the floor from
+  `https://striped-anaconda-746.convex.site` (38 files, SPA fallback);
+  app routes stay at root. The floor mirrors each dawn into the campaign
+  row plus a per-owner `stands` row (stable `grunds.owner` id,
+  `?stand=` override), polls server state for the badge, and the
+  dashboard + `topStands` leaderboard read live games.
+- Scheduled: `commodity-news-refresh` cron runs
+  `firecrawl.refreshCommodityNews` daily at 06:00 UTC so the deck seed
+  never goes stale.
+
+Still pending: per-campaign dawn cron (intentionally skipped — no
+active-campaign pointer, ticks stay player-driven), Convex Auth (not
+required by the hackathon), OpenAI + AgentMail keys, production deploy
+(iterating on dev until submission week), video + social.
 
 ## Audit trail
 

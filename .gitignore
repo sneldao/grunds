@@ -10,5 +10,7 @@ venv/
 *.egg-info/
 dist/
 build/
+node_modules/
+dist/
 .out/*.csv
 !data/

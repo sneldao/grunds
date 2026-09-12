@@ -50,6 +50,10 @@ class ACS {
   resume(){}
 }
 globalThis.AudioContext = ACS;
+// Deterministic gate: seed Math.random so the full-loop run is reproducible
+// (EVAL.md "same seed → same run"). See campaign.mjs for why.
+let _rs = 987654321;
+Math.random = () => { _rs = (_rs * 1664525 + 1013904223) >>> 0; return _rs / 4294967296; };
 const wait = r => new Promise(r);
 let now = 1000;
 function runFrames(n) { for (let f = 0; f < n; f++) { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); } }

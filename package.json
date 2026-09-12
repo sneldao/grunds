@@ -1,0 +1,23 @@
+{
+  "name": "grunds",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Grunds — The District: Convex backend + Three.js floor",
+  "scripts": {
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy",
+    "typecheck": "tsc --noEmit",
+    "build:dist": "sh tools/build-dist.sh",
+    "upload:site": "npx @convex-dev/static-hosting upload -d dist",
+    "deploy:site": "npm run build:dist && npx convex dev --once && npx @convex-dev/static-hosting upload -d dist"
+  },
+  "dependencies": {
+    "@convex-dev/static-hosting": "^0.2.1",
+    "convex": "^1.26.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "typescript": "^5.6.0"
+  }
+}

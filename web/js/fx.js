@@ -148,14 +148,13 @@ export class FX {
   }
 
   // ---- gossip bubbles: comic speech that travels patron → patron ---------------
+  // Capped at BUBBLE_CAP live bubbles (oldest pops first) so a rough wave at
+  // 20× never floods the DOM; positions are clamped to the viewport in
+  // update() so edge-of-screen patrons don't hang text off-canvas.
   bubble(fromP, text, kind = 'bad', chained = false) {
     const to = this.patrons.randomPatron(fromP);
     if (!to) return;
-    const el = document.createElement('div');
-    el.className = 'bubble ' + kind;
-    el.textContent = text;
-    this.layer.appendChild(el);
-    this.bubbles.push({ el, from: fromP, to, t: 0, kind, chained });
+    this._pushBubble(fromP, to, text, kind, chained);
   }
 
   // gossipBubbles: route the gossip through the friendship graph first.
@@ -169,12 +168,20 @@ export class FX {
     if (!fromP) return;
     const to = this.pickGossipTarget(fromP, kind, chainDepth) ?? this.patrons.randomPatron(fromP);
     if (!to) return;
+    this._pushBubble(fromP, to, text, kind, chainDepth > 0);
+    this.startConversation(fromP, to, kind);
+  }
+
+  _pushBubble(fromP, to, text, kind, chained) {
+    if (this.bubbles.length >= 10) {
+      const old = this.bubbles.shift();
+      old.el.remove();
+    }
     const el = document.createElement('div');
     el.className = 'bubble ' + kind;
     el.textContent = text;
     this.layer.appendChild(el);
-    this.bubbles.push({ el, from: fromP, to, t: 0, kind, chained: chainDepth > 0 });
-    this.startConversation(fromP, to, kind);
+    this.bubbles.push({ el, from: fromP, to, t: 0, kind, chained });
   }
 
   // Pick the next-hop target for a bubble. Friend graph if `fromP` is a
@@ -269,8 +276,11 @@ export class FX {
       const t = Math.min(b.t, 1);
       const a = b.from.pos, c = b.to.pos;
       const pos = new THREE.Vector3(a.x + (c.x - a.x) * t, 1.7 + Math.sin(t * Math.PI) * 0.8, a.z + (c.z - a.z) * t);
-      const [x, y, vis] = this._project(pos, camera);
-      b.el.style.left = x + 'px'; b.el.style.top = y + 'px';
+      const [px, py, vis] = this._project(pos, camera);
+      // clamp to the viewport: bubbles are translate(-50%,-100%) anchored,
+      // so keep ~70px of horizontal margin and keep them below the top edge.
+      b.el.style.left = Math.max(70, Math.min(innerWidth - 70, px)) + 'px';
+      b.el.style.top = Math.max(30, Math.min(innerHeight - 10, py)) + 'px';
       b.el.style.opacity = vis ? String(t < 0.85 ? 1 : (1 - t) / 0.15) : '0';
       if (b.t >= 1) {
         b.el.remove(); this.bubbles.splice(i, 1);

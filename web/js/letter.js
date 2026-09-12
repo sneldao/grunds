@@ -30,15 +30,15 @@ function reputationLine(s) {
   return 'The regulars have given up on you. I’d move fast.';
 }
 function driftLine(s) {
-  // The district is gentrifying. The board is creeping up regardless of
-  // today's event. Day 1 is the baseline; by day 5 the costs are 12% up
-  // and willingness-to-pay has walked to £5.40. Visible in the body so
-  // the player can feel the clock, not just the number on the ticker.
+  // The district is gentrifying. The board creeps regardless of today's
+  // event — sign-aware, so a harvest-led dip reads "down", never "up -6%".
   if (s.day <= 1) return '';
   const pct = Math.round((s.index - 1) * 100);
-  if (s.day === 2) return `The district is moving. The board is up ${pct}% on Monday. Hold or hedge — your call.`;
+  const dir = pct >= 0 ? `up ${pct}%` : `down ${-pct}%`;
+  if (s.day === 2) return `The district is moving. The board is ${dir} on Monday. Hold or hedge — your call.`;
   if (pct >= 10) return `Costs are up ${pct}% on opening day. The list knows — they’re already at the door.`;
   if (pct >= 5)  return `Costs are creeping. ${pct}% up on day one. The elders are watching the chalkboard.`;
+  if (pct <= -5) return `Costs eased ${-pct}% on day one. Enjoy it — the street never stays cheap.`;
   return '';
 }
 function neighborhoodLine(s) {

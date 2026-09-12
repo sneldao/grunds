@@ -68,6 +68,10 @@ class AudioContextStub {
 globalThis.AudioContext = AudioContextStub;
 
 globalThis.__headless = true;
+// Deterministic gate: seed Math.random so the full-loop run is reproducible
+// (EVAL.md "same seed → same run"). See campaign.mjs for why.
+let _rs = 555555555;
+Math.random = () => { _rs = (_rs * 1664525 + 1013904223) >>> 0; return _rs / 4294967296; };
 // silence THREE's warnings about the fake GL context (they are 99% of runtime)
 const _warn = console.warn, _err = console.error;
 console.warn = (...a) => { if (!String(a[0]).startsWith('THREE.')) _warn(...a); };

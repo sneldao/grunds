@@ -34,7 +34,7 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(WEB), **kwargs)
 
     def do_GET(self):  # noqa: N802
-        if self.path == "/api/schedule":
+        if self.path in ("/api/schedule", "/api/schedule.json"):
             _api_schedule(self)
             return
         super().do_GET()
