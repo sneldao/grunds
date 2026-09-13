@@ -18,7 +18,7 @@ transform.py ──→ square_item_sales.csv ──→ ingest ──→ spatial 
 | System | Responsibility | Phase |
 |---|---|---|
 | `ingest` | Parse Square CSV, map each row to (zone, time, item, cohort); emit wave schedules | today |
-| `spatial` | Three.js floor: zones, queue heat, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), 3-step tutorial + calm-open throttling, goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), wave debrief (fanfare/coin rain/crane) + forecast + wire/desk paywall, living plant (HSL health + wilt), god rays + mist, till drawer + stretching shadow, cat Miso, hover story card + photo mode, GLB cross-fade + shadow budget | today |
+| `spatial` | Three.js floor: **1024 honey-oak floor + slab pavement + aggregate road** (all `anisotropy 8`), **brick facades** (two-tone + mortar, white frames + sill, cornice + shopfront), **9-block skyline**, **512×320 brass-collar ticker**, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), 3-step tutorial + calm-open throttling (reactive `#goal` + 3 just-in-time nudges), goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), wave debrief (fanfare/coin rain/crane) + forecast + wire/desk paywall, living plant (HSL health + wilt), god rays + **motes** + mist, till drawer + stretching shadow, **bollards + street decal**, cat Miso, hover story card + photo mode, scuff decal + awning tie-downs, GLB cross-fade + shadow budget + bounce hemi | today |
 | `agent` | Patron decision loop (price/queue/rep) + barista levers (pre-batch/reprice + queue-drain prediction + chalk dust/screech) + named-Regular hat/bubble + wave + friend-graph gossip routing (throttled in calm open) + sitter sip at `dwell==4` + hover→story card (36px probe) + click-to-wave (+0.06 op) + cat spawn/sit/scatter + plant health + till slide | today |
 | `precedent` | Patron memory: opinions persist; gossip via named-friend graph; 5%/day `opContagion` (Map<i→op> + `Number.isFinite` guard for sparse rosters); local `analytics.js` (tutorial/lever/balk/debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`) + `desk.js` (The Wire — gated briefing) + `billing.js` (RevenueCat Web Billing → Test Store) | today |
 | `exchange` | Event deck (frost/harvest/hype, pity timers + Linkup `marketShift` bias clamped 0.2–3×); gentrification drift (per-day cost creep + matcha 4.80→5.40); forward contracts; supplier debt clock; hidden `geshaUnlocked` (`GRUNDS` → £7.80 wink, persists as toast) | today |
@@ -65,19 +65,26 @@ stores per-patron opinion state.
    - Cohort by hour: 7–9 commuters · 10–14 creatives · 14–18 students (5 cohorts
      in the local phase, the Convex phase adds 5th + 6th cohorts on the agent)
 3. `spatial` spawns entities per transaction time; gossip bubbles + 3D
-   conversation lines render the friendship graph; Kenney CC0 props (cross-fade
-   `opacity 0→1`, headless-aware) place the café; day-5 scaffolds/tarps/dust
-   render gentrification; the floor opens at 1× through a 3-step tutorial
-   with a 3.4s paused crane settle, a goal-first HUD (brass goal strip, queue
-   health bar heartbeat at >10 / purr at ≤5, `tabular-nums` till, batch countdown),
-   pulse-until-used levers, a flashing chalkboard (desaturate + wobble +
-   chalk dust on reprice) and calm-open throttling; at 17:00 a wave debrief
-   (fanfare/coin rain/crane on `saved≥6`, rain on flop) and at 17:30 a Day-2
-   forecast teach and tease the replay; glass `mistMat` + `godRay` quote the
-   event tier, a till drawer slides + shadow stretches on every sale, a living
-   plant (HSL) and a street cat (Miso, once/day 09:30, sits if `<4` / scatters
-   if `>10`) make the shop alive; hover→story card + click-to-wave and
-   `P` photo mode (golden hour + vignette + shutter) are delight affordances
+   conversation lines render the friendship graph; **honey-oak floor + slab
+   pavement + aggregate road + awning eyelets** (`1024`, `anisotropy 8`,
+   grain/knots/bevel/bollards + `THE DISTRICT` decal + scuff) + **brick
+   facades** (two-tone, mortar, framed windows, cornice + brass shopfront) +
+   **512×320 brass-collar ticker** place the district; Kenney CC0 props
+   (cross-fade `opacity 0→1`, headless-aware) place the café; day-5
+   scaffolds/tarps/dust render gentrification; the floor opens at 1×
+   through a 3-step tutorial with a 3.4s paused crane settle, a **reactive
+   `#goal` strip + 3 just-in-time nudges** (queue≥4, first balk, 13:20 price,
+   each once/campaign), a queue health bar (heartbeat at >10 / purr at ≤5,
+   `tabular-nums` till, batch countdown, pulse-until-used levers), a flashing
+   chalkboard (desaturate + wobble + chalk dust on reprice) and calm-open
+   throttling; at 17:00 a wave debrief (fanfare/coin rain/crane on
+   `saved≥6`, rain on flop) and at 17:30 a Day-2 forecast teach and tease
+   the replay; **mist + `godRay` + warm `motes` (180, amber, drift + cycle)**
+   quote the event tier (frost `0.22` cold / harvest `0.14` warm), a till
+   drawer slides + shadow stretches on every sale, a living plant (HSL) and a
+   street cat (Miso, once/day 09:30, sits if `<4` / scatters if `>10`) make
+   the shop alive; hover→story card + click-to-wave and `P` photo mode
+   (golden hour + vignette + shutter) are delight affordances
 4. `agent` patrons pick stands (price/queue/rep); named Regulars get a
    brass-band hat + greeting; the player pulls levers (pre-batch/reprice,
    with predicted queue drain, chalk dust + screech on reprice) against the
@@ -133,8 +140,8 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   a `letters` audit trail (inbox keys pending).
 - Hosting: `@convex-dev/static-hosting` serves the floor from
   `https://striped-anaconda-746.convex.site` (43 files Sept 13, SPA fallback — adds `desk.js` + rebuilt `dist`);
-  performance: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms, shadow budget at `queue>40`, GLB cross-fade, `tabular-nums` till + staggered/typewriter receipt, `P` photo + `GRUNDS` secret;
-  delight wiring: `world.setPlantHealth`/`setGodRay`/`spawnCat`/`updateCat`/`popTillDrawer`/`_updateDelight`/`jeerRival`, `audio.tick`/`waveFanfare`/`waveRain`/`chalkScreech`/`purr`/`meow`/`shutter`, `fx.chalkDust`/`coinRain`/`victoryBurst` + receipt stagger, `main` haptics + hover card + Idris quips + rival jeer + desk/billing + `requestAnimationFrame(loop)` re-arm discipline;
+  performance: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms, shadow budget at `queue>40`, GLB cross-fade, `tabular-nums` till + staggered/typewriter receipt, `P` photo + `GRUNDS` secret, **bounce hemi 0.22 lifts the bar**;
+  delight wiring: `world.setPlantHealth`/`setGodRay`/`setMotes`/`spawnCat`/`updateCat`/`popTillDrawer`/`_updateDelight(now, dt)`/`jeerRival`, `audio.tick`/`waveFanfare`/`waveRain`/`chalkScreech`/`purr`/`meow`/`shutter`, `fx.chalkDust`/`coinRain`/`victoryBurst` + receipt stagger, `main` reactive `#goal` + nudges + haptics + hover card + Idris quips + rival jeer + desk/billing + `requestAnimationFrame(loop)` re-arm discipline;
   app routes stay at root (`/sync/*`, `/ai/*`, `/agentmail/*`). The floor
   mirrors each dawn into the campaign row plus a per-owner `stands` row
   (stable `grunds.owner` id, `?stand=` override), polls server state for the

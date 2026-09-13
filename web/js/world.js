@@ -47,38 +47,47 @@ export function buildWorld(scene, renderer, lite) {
   renderer.shadowMap.enabled = !lite;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.toneMappingExposure = 1.18;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   scene.background = new THREE.Color(0x26304d);
-  scene.fog = new THREE.Fog(0x1f2740, 34, 95);
+  scene.fog = new THREE.Fog(0x1f2740, 32, 92);
 
   // ---- lights -------------------------------------------------------------
-  const hemi = new THREE.HemisphereLight(0xbdd0e0, 0x3a2f26, 0.3); scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xffffff, 1);
+  const hemi = new THREE.HemisphereLight(0xc8d8ea, 0x4a3f32, 0.42); scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xfff6e8, 1.25);
   sun.castShadow = !lite;
   sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 });
-  sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02;
+  sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.018;
   scene.add(sun); scene.add(sun.target);
+  // bounce — cheap fill that lifts the underside of the bar + tables
+  const bounce = new THREE.HemisphereLight(0x4a3f32, 0x0a0a0a, 0.22); scene.add(bounce);
   const pendants = [];
   for (const px of [-8.5, -6, -3.5]) {
-    const p = new THREE.PointLight(0xffd9a0, 6, 9, 2); p.position.set(px, 2.15, -5.2); scene.add(p); pendants.push(p);
+    const p = new THREE.PointLight(0xffd2a0, 7, 10, 2); p.position.set(px, 2.15, -5.2); scene.add(p); pendants.push(p);
   }
-  const tableLight = new THREE.PointLight(0xffd9a0, 4, 10, 2); tableLight.position.set(6, 2.4, 1.4); scene.add(tableLight); pendants.push(tableLight);
+  const tableLight = new THREE.PointLight(0xffd2a0, 5, 10, 2); tableLight.position.set(6, 2.4, 1.4); scene.add(tableLight); pendants.push(tableLight);
   W.lights = { hemi, sun, pendants };
 
   // ---- ground block -------------------------------------------------------
   const g = new THREE.Group(); scene.add(g);
   box(g, 44, 1, 34, PAL.curb, 0, -0.52, 4, { cast: false });                       // city block base
-  const woodMat = new THREE.MeshStandardMaterial({ map: woodFloor(), roughness: 0.7 });
+  const woodTex = woodFloor();
+  const woodMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.62, metalness: 0.02 });
   plane(g, LAYOUT.floor.w, LAYOUT.floor.d, woodMat, LAYOUT.floor.x, 0.01, LAYOUT.floor.z, { rx: -Math.PI / 2 });
-  const paveMat = new THREE.MeshStandardMaterial({ map: pavement(), roughness: 0.95 });
+  // scuff decal — one darkened plank where the barista stands
+  const scuffGeo = new THREE.PlaneGeometry(1.4, 0.9);
+  const scuffMat = new THREE.MeshStandardMaterial({ color: 0x3a2818, transparent: true, opacity: 0.14, roughness: 0.85, depthWrite: false });
+  const scuff = new THREE.Mesh(scuffGeo, scuffMat); scuff.rotation.x = -Math.PI / 2; scuff.position.set(-6.2, 0.02, -1.8); g.add(scuff);
+  const paveTex = pavement();
+  const paveMat = new THREE.MeshStandardMaterial({ map: paveTex, roughness: 0.92, metalness: 0.01 });
   plane(g, 44, 3.6, paveMat, 0, 0.02, LAYOUT.pavementZ, { rx: -Math.PI / 2 });
   plane(g, 44, 2.6, paveMat, 0, 0.02, 15.2, { rx: -Math.PI / 2 });
-  const roadMat = new THREE.MeshStandardMaterial({ map: road(), roughness: 0.95 });
+  const roadTex = road();
+  const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.92, metalness: 0.02 });
   plane(g, 44, LAYOUT.roadZ1 - LAYOUT.roadZ0, roadMat, 0, 0.015, (LAYOUT.roadZ0 + LAYOUT.roadZ1) / 2, { rx: -Math.PI / 2 });
-  for (let i = 0; i < 5; i++) box(g, 0.55, 0.02, 3.4, 0xd8d2c0, LAYOUT.crossX - 1 + i * 0.55, 0.03, 11.7, { cast: false, op: 0.85 }); // zebra crossing
+  for (let i = 0; i < 5; i++) box(g, 0.62, 0.03, 3.4, 0xd8d2c0, LAYOUT.crossX - 1 + i * 0.60, 0.03, 11.7, { cast: false, op: 0.88 }); // zebra crossing — slightly wider + decal-friendly
 
   // ---- café shell ---------------------------------------------------------
   const cafe = new THREE.Group(); scene.add(cafe);
@@ -93,8 +102,14 @@ export function buildWorld(scene, renderer, lite) {
   const signTex = shopSign('G R U N D S');
   const signMat = new THREE.MeshStandardMaterial({ map: signTex, emissive: 0xffc98a, emissiveMap: signTex, emissiveIntensity: 0.4, roughness: 0.8 });
   plane(cafe, 6.4, 1.2, signMat, 0, 4.6, 6.42); box(cafe, 6.6, 1.35, 0.18, PAL.walnutDark, 0, 4.6, 6.32, { cast: false });
-  const awnMat = new THREE.MeshStandardMaterial({ map: awning(), roughness: 0.9, side: THREE.DoubleSide });
+  const awnTex = awning();
+  const awnMat = new THREE.MeshStandardMaterial({ map: awnTex, roughness: 0.88, metalness: 0.01, side: THREE.DoubleSide });
   plane(cafe, 13, 2.6, awnMat, -2, 3.15, 7.1, { rx: -Math.PI / 2 + 0.32 });
+  // awning tie-downs — tiny brass dots where the awning meets the fascia
+  for (const px of [-6.8, -3.9, -1.0, 1.8]) {
+    const td = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mat(0xc9a227, { metal: 0.6, rough: 0.35, cast: false }));
+    td.position.set(px, 3.52, 6.18); cafe.add(td);
+  }
   W.signMat = signMat;
 
   // ---- the bar ------------------------------------------------------------
@@ -184,14 +199,12 @@ export function buildWorld(scene, renderer, lite) {
   // director (W.bulbMats) can still drive the glow.
   W.bulbMats = [];
   for (const px of [-8.5, -6, -3.5]) {
-    // The cord is part of the GLB; we drop the procedural cord+shade.
-    // Scale 0.6 puts the lamp shade roughly at 2.95 m above the bar, matching
-    // the previous procedural shade position. raiseToY lifts the GLB's
-    // origin to the cord-hang point so it sits where the cord used to.
     place(cafe, 'lampRoundTable.glb', { position: [px, 2.7, -5.2], scale: 0.6, rotationY: 0 });
-    const bm = new THREE.MeshStandardMaterial({ color: 0xfff2d8, emissive: 0xffd9a0, emissiveIntensity: 1.4 });
+    const bm = new THREE.MeshStandardMaterial({ color: 0xfff2d8, emissive: 0xffd2a0, emissiveIntensity: 1.55 });
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), bm); bulb.position.set(px, 2.9, -5.2); cafe.add(bulb);
     W.bulbMats.push(bm);
+    // cord — thin brass tube from fascia to shade
+    cyl(cafe, 0.012, 0.012, 0.65, 0xc9a227, px, 3.3, -5.2, { metal: 0.45, rough: 0.45, cast: false });
   }
 
   // ---- tables --------------------------------------------------------------
@@ -493,21 +506,53 @@ export function buildWorld(scene, renderer, lite) {
   // Lit windows are emissive-map quads that glow at night (time-of-day drives them).
   W.winMats = [];
   function facade(col, wcol) {
-    const c = document.createElement('canvas'); c.width = 256; c.height = 512;
+    const c = document.createElement('canvas'); c.width = 512; c.height = 512;
     const g = c.getContext('2d');
-    g.fillStyle = col; g.fillRect(0, 0, 256, 512);
-    for (let i = 0; i < 1600; i++) { g.fillStyle = `rgba(0,0,0,${Math.random()*0.06})`; g.fillRect(Math.random()*256, Math.random()*512, 2, 2); }
-    const c2 = document.createElement('canvas'); c2.width = 256; c2.height = 512;
-    const g2 = c2.getContext('2d'); g2.fillStyle = '#000'; g2.fillRect(0, 0, 256, 512);
-    const cols = 6, rows = 16;
-    for (let r = 0; r < rows; r++) for (let cI = 0; cI < cols; cI++) {
-      const x = 14 + cI * 38, y = 16 + r * 30, lit = Math.random() < 0.5;
-      g.strokeStyle = 'rgba(20,18,14,.5)'; g.strokeRect(x, y, 26, 22);
-      if (lit) { g2.fillStyle = wcol; g2.fillRect(x, y, 26, 22); }
+    // brick base — two-tone bricks + mortar
+    g.fillStyle = col; g.fillRect(0, 0, 512, 512);
+    const mortar = 'rgba(32,28,26,.55)';
+    const brickH = 24, brickW = 64, rows = 20, cols = 8;
+    for (let r = 0; r < rows; r++) {
+      const off = (r % 2) * (brickW / 2);
+      const y = r * (brickH + 2);
+      for (let ci = 0; ci < cols; ci++) {
+        const x = ci * brickW - off;
+        const shade = ((ci * 37 + r * 53) % 20) - 10;
+        const rr = parseInt(col.slice(1, 3), 16) + shade, gg = parseInt(col.slice(3, 5), 16) + shade, bb = parseInt(col.slice(5, 7), 16) + shade;
+        g.fillStyle = `rgb(${rr},${gg},${bb})`; g.fillRect(x + 1, y + 1, brickW - 3, brickH - 2);
+        // brick highlight top edge + shadow bottom
+        g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(x + 1, y + 1, brickW - 3, 2);
+        g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(x + 1, y + brickH - 2, brickW - 3, 2);
+      }
+      g.fillStyle = mortar; g.fillRect(0, y + brickH - 2, 512, 2);
     }
+    // micro grain over brick
+    g.fillStyle = 'rgba(0,0,0,.04)'; for (let i = 0; i < 900; i++) g.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
+    // windows cut into the brick — with white frame + sill shadow
+    const c2 = document.createElement('canvas'); c2.width = 512; c2.height = 512;
+    const g2 = c2.getContext('2d'); g2.fillStyle = '#000'; g2.fillRect(0, 0, 512, 512);
+    const wCols = 6, wRows = 9, wx0 = 30, wy0 = 28, ww = 52, wh = 36, xg = 68, yg = 52;
+    for (let r = 0; r < wRows; r++) for (let ci = 0; ci < wCols; ci++) {
+      const x = wx0 + ci * xg, y = wy0 + r * yg;
+      const lit = Math.random() < 0.46;
+      // window recess shadow
+      g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(x + 2, y + 2, ww + 2, wh + 2);
+      // white frame
+      g.fillStyle = '#e8e0d0'; g.fillRect(x, y, ww, wh);
+      // glass inset
+      g.fillStyle = lit ? wcol : 'rgba(22,26,34,.92)'; g.fillRect(x + 3, y + 3, ww - 6, wh - 6);
+      // glass specular streak
+      if (lit) { g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(x + 5, y + 5, ww - 24, 4); }
+      // sill shadow under window
+      g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(x - 1, y + wh, ww + 2, 4);
+      // emissive map — only lit glass glows
+      if (lit) { g2.fillStyle = wcol; g2.fillRect(x + 3, y + 3, ww - 6, wh - 6); }
+    }
+    // cornice shadow at top
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, 0, 512, 10);
     const tF = new THREE.CanvasTexture(c); tF.colorSpace = THREE.SRGBColorSpace; tF.wrapS = tF.wrapT = THREE.RepeatWrapping;
     const tE = new THREE.CanvasTexture(c2); tE.colorSpace = THREE.SRGBColorSpace; tE.wrapS = tE.wrapT = THREE.RepeatWrapping; tE.repeat.copy(tF.repeat);
-    const m = new THREE.MeshStandardMaterial({ map: tF, emissive: 0xffd089, emissiveMap: tE, emissiveIntensity: 0, roughness: 0.92 });
+    const m = new THREE.MeshStandardMaterial({ map: tF, emissive: 0xffd089, emissiveMap: tE, emissiveIntensity: 0, roughness: 0.88, metalness: 0.01 });
     W.winMats.push(m); return m;
   }
   const blocks = [
@@ -517,42 +562,78 @@ export function buildWorld(scene, renderer, lite) {
     { x: 17, z: 20.5, w: 6, h: 8, d: 5, col: '#494d50', wc: '#ffe0a0' },
   ];
   for (const b of blocks) {
-    const m = facade(b.col, b.wc); const rep = Math.max(2, Math.round(b.h / 4));
-    m.map.repeat.set(1, rep); m.emissiveMap.repeat.set(1, rep);
-    box(scene, b.w, b.h, b.d, 0xffffff, b.x, b.h / 2, b.z, { mat: m, cast: true, rough: 0.95 });
-    box(scene, b.w, 0.3, b.d, 0x2a2824, b.x, b.h, b.z, { cast: false });
+    const m = facade(b.col, b.wc); const rep = 1;
+    m.map.repeat.set(1, 1); m.emissiveMap.repeat.set(1, 1);
+    box(scene, b.w, b.h, b.d, 0xffffff, b.x, b.h / 2, b.z, { mat: m, cast: true, rough: 0.88 });
+    // cornice cap
+    box(scene, b.w + 0.3, 0.42, b.d + 0.3, 0x2a2824, b.x, b.h + 0.06, b.z, { cast: false });
+    // ground-floor shopfront band — darker, with a thin brass line
+    box(scene, b.w + 0.02, 1.4, b.d + 0.06, 0x3a352e, b.x, 0.7, b.z, { cast: false });
+    box(scene, b.w + 0.04, 0.04, b.d + 0.08, 0xc9a227, b.x, 1.42, b.z, { cast: false });
   }
-  for (let i = 0; i < 7; i++) {        // far skyline behind the café for depth
-    const x = -22 + i * 7 + (i % 2) * 1.5, h = 14 + ((i * 37) % 12), z = -24 - (i % 3) * 3;
-    box(scene, 5, h, 5, 0xffffff, x, h / 2, z, { mat: mat(0x3a3d44, { rough: 0.98 }), cast: false, rough: 0.98 });
+  for (let i = 0; i < 9; i++) {        // far skyline — more depth, some windows on
+    const x = -26 + i * 6 + (i % 3) * 1.2, h = 13 + ((i * 37) % 13), z = -25 - (i % 3) * 2.5;
+    const dcol = i % 2 ? 0x3a3d44 : 0x4a4a52;
+    const sm = mat(dcol, { rough: 0.92, metal: 0.02 });
+    box(scene, 4.2, h, 4.2, 0xffffff, x, h / 2, z, { mat: sm, cast: false, rough: 0.92 });
+    // tiny skyline windows
+    if (i % 2 === 0) {
+      const wm = new THREE.MeshStandardMaterial({ color: 0xffe7b0, emissive: 0xffd089, emissiveIntensity: 0.35, transparent: true, opacity: 0.92 });
+      const q = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.9), wm); q.position.set(x, h * 0.55, z + 2.12); q.rotation.y = 0; scene.add(q);
+    }
   }
 
 
   // ---- the commodity ticker: the floorplan is the chart, Extended ------------
+  // curb + bollards along the pavement edge — micro detail that sells scale
+  for (const x of [-13, -9, -5, -1, 3, 7, 11]) {
+    cyl(scene, 0.06, 0.06, 0.42, 0x22262a, x, 0.21, 5.55, { metal: 0.35, cast: false });
+    cyl(scene, 0.045, 0.045, 0.08, 0xc9a227, x, 0.44, 5.55, { metal: 0.45, cast: false });
+  }
+  // street decal — faint district name at the zebra
+  const decalTex = (() => { const [dc, dg] = [document.createElement('canvas'), null]; dc.width = 512; dc.height = 64;
+    const gg = dc.getContext('2d'); gg.fillStyle = 'rgba(0,0,0,0)'; gg.clearRect(0, 0, 512, 64);
+    gg.fillStyle = 'rgba(232,220,170,.18)'; gg.font = '700 22px ui-monospace, monospace'; gg.textAlign = 'center'; gg.fillText('—  THE DISTRICT  —', 256, 38); gg.fillStyle = 'rgba(232,220,170,.08)'; gg.fillRect(0, 48, 512, 1);
+    const tt = new THREE.CanvasTexture(dc); tt.colorSpace = THREE.SRGBColorSpace; return tt; })();
+  const decalMat = new THREE.MeshStandardMaterial({ map: decalTex, transparent: true, opacity: 0.9, roughness: 0.98, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+  const decal = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.52), decalMat); decal.rotation.x = -Math.PI / 2; decal.position.set(LAYOUT.crossX, 0.031, 13.4); scene.add(decal);
+
   W.ticker = (function () {
-    const c = document.createElement('canvas'); c.width = 384; c.height = 256;
-    W.tickerMat = new THREE.MeshStandardMaterial({ emissive: 0x141822, emissiveIntensity: 0.85, roughness: 0.55 });
+    const c = document.createElement('canvas'); c.width = 512; c.height = 320;
+    W.tickerMat = new THREE.MeshStandardMaterial({ emissive: 0x141822, emissiveIntensity: 0.9, roughness: 0.5, metalness: 0.04 });
     const post = new THREE.Group(); post.position.set(13.6, 0, 6.2); scene.add(post);
     cyl(post, 0.07, 0.09, 2.4, 0x22262a, 0, 1.2, 0, { metal: 0.5 });
-    plane(post, 1.9, 1.28, W.tickerMat, 0, 2.55, 0, { ry: -0.6 });
-    box(post, 1.9, 1.3, 0.12, 0x111418, 0, 2.55, 0.05, { cast: false });
+    // brass collar at top of post
+    cyl(post, 0.10, 0.10, 0.04, 0xc9a227, 0, 2.36, 0, { metal: 0.55, cast: false });
+    plane(post, 2.1, 1.45, W.tickerMat, 0, 2.60, 0, { ry: -0.6 });
+    box(post, 2.1, 1.47, 0.12, 0x111418, 0, 2.60, 0.05, { cast: false });
+    // brass screws on ticker frame
+    for (const sx of [-0.92, 0.92]) for (const sy of [-0.62, 0.62]) {
+      const scr = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 4), mat(0xc9a227, { metal: 0.5, cast: false }));
+      scr.position.set(sx, 2.60 + sy, 0.12); post.add(scr);
+    }
     const draw = (s) => {
-      const g = c.getContext('2d'); g.clearRect(0, 0, 384, 256);
-      g.fillStyle = '#0c0f14'; g.fillRect(0, 0, 384, 256);
-      g.strokeStyle = '#c9a227'; g.lineWidth = 3; g.strokeRect(3, 3, 378, 250);
-      g.fillStyle = '#c9a227'; g.font = '600 22px Georgia, serif'; g.textAlign = 'center'; g.fillText('ROASTER\u2019S TICKER', 192, 34);
+      const g = c.getContext('2d'); g.clearRect(0, 0, 512, 320);
+      g.fillStyle = '#0c0f14'; g.fillRect(0, 0, 512, 320);
+      // linen grain
+      g.fillStyle = 'rgba(255,255,255,.015)'; for (let i = 0; i < 900; i++) g.fillRect(Math.random() * 512, Math.random() * 320, 1, 1);
+      g.strokeStyle = '#c9a227'; g.lineWidth = 3.5; g.strokeRect(8, 8, 496, 304);
+      g.strokeStyle = 'rgba(201,162,39,.28)'; g.lineWidth = 1; g.strokeRect(12, 12, 488, 296);
+      g.fillStyle = '#c9a227'; g.font = '600 24px Georgia, serif'; g.textAlign = 'center'; g.fillText('ROASTER\u2019S  TICKER', 256, 46);
+      g.fillStyle = 'rgba(201,162,39,.45)'; g.font = '10px ui-monospace, monospace'; g.letterSpacing = '0.2em'; g.fillText('—  THE DISTRICT  —', 256, 62);
       const up = s.index >= (s.prev ?? s.index);
       const row = (label, val, col, y) => {
-        g.fillStyle = '#9a9486'; g.font = '14px ui-monospace, monospace'; g.textAlign = 'left'; g.fillText(label, 22, y);
-        g.fillStyle = col || '#efe6d3'; g.font = '700 22px ui-monospace, monospace'; g.textAlign = 'right'; g.fillText(val, 362, y);
+        g.fillStyle = '#9a9486'; g.font = '13px ui-monospace, monospace'; g.textAlign = 'left'; g.fillText(label, 28, y);
+        g.fillStyle = 'rgba(201,162,39,.18)'; g.fillRect(28, y + 6, 456, 1);
+        g.fillStyle = col || '#efe6d3'; g.font = '700 24px ui-monospace, monospace'; g.textAlign = 'right'; g.fillText(val, 484, y);
       };
       const arrow = up ? '\u25B2' : '\u25BC';
-      row('BEAN ' + arrow, '\u00a3' + s.cost.toFixed(2) + '/cup', up ? '#9ad89a' : '#e07a7a', 78);
-      row('LOCKED', s.locked != null ? '\u00a3' + s.locked.toFixed(2) + '/cup' : '\u2014', s.locked != null ? '#7fb3b0' : '#5a544a', 122);
-      row('MARGIN', '\u00a3' + s.margin.toFixed(2) + '/cup', '#e8c46a', 166);
-      g.fillStyle = '#efe6d3'; g.font = '13px ui-monospace, monospace'; g.textAlign = 'center';
-      g.fillText('DAY ' + s.day + '/' + s.total + '   \u00b7   REP ' + s.rep, 192, 210);
-      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      row('BEAN  ' + arrow, '\u00a3' + s.cost.toFixed(2) + '/cup', up ? '#9ad89a' : '#e07a7a', 108);
+      row('LOCKED', s.locked != null ? '\u00a3' + s.locked.toFixed(2) + '/cup' : '\u2014', s.locked != null ? '#7fb3b0' : '#6a6460', 158);
+      row('MARGIN', '\u00a3' + s.margin.toFixed(2) + '/cup', '#e8c46a', 208);
+      g.fillStyle = 'rgba(239,230,211,.72)'; g.font = '13px ui-monospace, monospace'; g.textAlign = 'center';
+      g.fillText('DAY ' + s.day + '/' + s.total + '   \u00b7   REP ' + s.rep, 256, 268);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
       W.tickerMat.map = t; W.tickerMat.emissiveMap = t; W.tickerMat.needsUpdate = true;
     };
     return { draw };
@@ -572,13 +653,22 @@ export function buildWorld(scene, renderer, lite) {
   })();
   W.setMail = (up) => { W.mailFlag.rotation.z = up ? W.mailUp : W.mailDown; };
 
-  // ---- weather: low mist that thickens after a frost --------------------------
+  // ---- weather: low mist that thickens after a frost + warm dust motes -----
   W.mistMat = new THREE.PointsMaterial({ color: 0x9a9ea6, size: 0.5, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true, fog: true });
   const mistN = 120, mp = new Float32Array(mistN * 3);
   for (let i = 0; i < mistN; i++) { mp[i*3] = -14 + Math.random()*34; mp[i*3+1] = 0.2 + Math.random()*1.6; mp[i*3+2] = 8 + Math.random()*14; }
   const mistGeo = new THREE.BufferGeometry(); mistGeo.setAttribute('position', new THREE.BufferAttribute(mp, 3));
   W.mist = new THREE.Points(mistGeo, W.mistMat); scene.add(W.mist);
-  W.setMist = (a) => { W.mistMat.opacity = Math.max(0, a) * 0.4; };
+  W.setMist = (a) => { W.mistMat.opacity = Math.max(0, a) * 0.42; };
+  // dust motes — warm, slow, only visible in shafts
+  W.moteMat = new THREE.PointsMaterial({ color: 0xffe9a0, size: 0.065, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true, fog: true, blending: THREE.AdditiveBlending });
+  const moteN = 180, moteP = new Float32Array(moteN * 3);
+  for (let i = 0; i < moteN; i++) { moteP[i*3] = -10 + Math.random()*20; moteP[i*3+1] = 0.6 + Math.random()*3.2; moteP[i*3+2] = -2 + Math.random()*10; }
+  const moteGeo = new THREE.BufferGeometry(); moteGeo.setAttribute('position', new THREE.BufferAttribute(moteP, 3));
+  W.motes = new THREE.Points(moteGeo, W.moteMat); scene.add(W.motes);
+  W._motePhase = 0;
+  W._moteTarget = 0;
+  W.setMotes = (a) => { W._moteTarget = Math.max(0, Math.min(0.42, a * 0.95)); };
 
 
   // ---- sky extras -------------------------------------------------------------
@@ -622,7 +712,23 @@ export function buildWorld(scene, renderer, lite) {
   W._tillShadow = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.3), W._tillShadowMat);
   W._tillShadow.rotation.x = -Math.PI / 2; W._tillShadow.position.set(LAYOUT.register.x, 0.02, -5.05);
   scene.add(W._tillShadow);
-  W._updateDelight = (now) => {
+  W._updateDelight = (now, dt) => {
+    const d = typeof dt === 'number' && isFinite(dt) ? dt : 0.016;
+    // motes drift + fade toward target (driven by godRay/weather)
+    if (W.moteMat) {
+      W.moteMat.opacity += (W._moteTarget - W.moteMat.opacity) * Math.min(1, d * 1.2);
+      if (W.moteMat.opacity > 0.008 && W.motes && W.motes.geometry) {
+        W._motePhase += d * 0.18;
+        const attr = W.motes.geometry.attributes.position;
+        const arr = attr.array;
+        for (let i = 0; i < arr.length; i += 3) {
+          arr[i + 1] += Math.sin(W._motePhase + i * 0.08) * d * 0.04;
+          if (arr[i + 1] > 4.2) arr[i + 1] -= 3.6;
+          if (arr[i + 1] < 0.4) arr[i + 1] += 3.6;
+        }
+        attr.needsUpdate = true;
+      }
+    }
     if (W.tillDrawer) {
       const opening = now < W.tillDrawerOpenUntil;
       const targetZ = opening ? W.tillDrawerBaseZ + 0.38 : W.tillDrawerBaseZ;

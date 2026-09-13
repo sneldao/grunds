@@ -207,11 +207,10 @@ days into a reputation meter that modulates footfall and tips. World events pass
 commodity economics into patrons' pockets into your till — every link visible in 3D.
 
 The diorama: a shader **sky dome** (gradient + sun glow + procedural stars over the day
-arc), procedural **district facades** whose windows light up at dusk, a far skyline, a
-mailbox, a commodity ticker, weather mist and **sun-shaft god rays after a frost or harvest**, and a
+arc), **brick district facades** (two-tone bricks + mortar, framed windows, cornice + brass shopfront) whose windows light up at dusk, a 9-block far skyline, a
+mailbox, a **512×320 brass-collar ticker** with linen grain, weather mist + **warm dust motes (180, amber) in sun-shaft god rays after a frost or harvest**, **7 bollards** + a *THE DISTRICT* street decal, and a
 street **cat Miso** that walks once a day — rendered through a
-core-Three **post-FX** bloom/vignette/grain pipeline (auto-disabled on low-RAM/low-core + dynamic shadow budget at `queue>40` + GLB cross-fade-in). Controls: drag to look, scroll to
-zoom, `1` pre-batch, `2` reprice, `space` pause, `M` sound, `R` reset, `C` camera, `P` photo — title prints the live set.
+core-Three **post-FX** bloom/vignette/grain pipeline (auto-disabled on low-RAM/low-core + dynamic shadow budget at `queue>40` + GLB cross-fade-in). Controls: `1` pre-batch, `2` reprice, `space` pause — title prints the live set.
 The Roaster's Letter answers to `1`/`2`/`3`; hidden delight: type `GRUNDS` for Gwen's gesha reserve. URL params: `?lite`
 (no shadows/post-FX, 1× pixels, now also auto on ≤4 cores / ≤4GB), `?speed=60|300|1200` (default 1×; headless stays 5×),
 `?seed=N` (campaign seed), `?skipTutorial`/`?notutorial` (bypass 3-step onboarding).
@@ -352,11 +351,11 @@ squash-merge PR with a headless test gate.
     ≥ 4 ("Both storefronts are scaffolded now. The street is being
     remade — for or against you, that's the question.").
   - 4 new tests: `rent-sign`, `construction`, `construction-left`,
-    `construction-active`, `construction-final` (19 assertions total).
+    `construction-active`, `construction-final` (19 assertions total, canvases now 1024 including `setLineDash` stubs).
 
 The day-5 narrative is now end-to-end: numbers (HUD `#pressure` + goal +
 queue bar + batch countdown + `tabular-nums` till), narrative (the Letter + 14:00 wave debrief +
-Day-2 forecast + The Wire desk), physical (scaffolds + tarps + chalkboard flash + till drawer + stretching shadow + arcing coins + sipping sitters), audible
+Day-2 forecast + The Wire desk), physical (honey-oak floor + slab pavement + aggregate road + awning eyelets + facades/cornice/shopfront + bollards/decal + scaffolds/tarps + chalkboard flash + till drawer + shadow + arcing coins + sipping sitters + motes/god rays), audible
 (saw + hammer + till/coins + 90Hz clock tick at 1× + chalk screech + fanfare/rain + 38Hz purr + meow + shutter), animated (drifting dust + 3D conversation
 lines + cat Miso + living plant + god rays + rival lean/jeer + photo vignette). Onboarding lands at 1× with a 3-step tutorial + calm-open throttling;
 `analytics.js` measures every balk and first lever for the playtest. Performance is intent: auto- + dynamic-`lite` (no shadows/post-FX on weak devices, shadow budget at `queue>40`), GLB cross-fade, `tabular-nums` + staggered receipt typewriter. **16/16**

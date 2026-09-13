@@ -84,6 +84,9 @@ let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0
 let prebatched = false, repriced = false, batchUnits = 0;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let coached = false;   // day-1 lever hint, once per campaign
+// just-in-time nudges: each fires once per campaign, only when its
+// condition is on screen — teach at the moment of need, not at boot
+let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false;
 let waveDebriefShown = false;  // 14:00 wave payoff card, once per day
 let forecastShown = false;     // day-2 forecast tease, once per campaign (day 1 evening)
 let pendingGossip = null;      // a named regular's Nebius take on the market, one per day
@@ -141,6 +144,11 @@ function tick() {
       const calmWindow = day === 1 && dayMin < CALM_UNTIL_MIN;
       const gossipChance = calmWindow ? 0.10 : (speed >= 1200 ? 0.14 : 0.35);
       if (Math.random() < gossipChance) fx.bubble(e.p, COPY.gossipBad[(Math.random() * COPY.gossipBad.length) | 0], 'bad');
+      // first walk-out names the remedy, not just the failure
+      if (!nudgedBalk) {
+        nudgedBalk = true;
+        fx.toast('they walked — the queue’s the enemy · 1 batches, 2 cuts the price', 'warn');
+      }
     } else if (e.type === 'defect') {
       defections++;
       if (defections === 1) fx.toast('they’re crossing the road to ' + COPY.rivalName + '…', 'bad');
@@ -252,6 +260,17 @@ function beats() {
     fx.toast('students land at 14:00 — batch matcha (1) or cut the price (2)', 'warn');
     audio.card();
     $('prebatch').classList.add('attention');
+    $('reprice').classList.add('attention');
+  }
+  // contextual nudges — bound to the state on screen, any day, once each
+  if (!nudgedQueue && patrons.queueLength >= 4 && !prebatched && dayMin < 840) {
+    nudgedQueue = true;
+    fx.toast('the queue’s building — 1 to batch before they walk', 'warn');
+    $('prebatch').classList.add('attention');
+  }
+  if (!nudgedPrice && dayMin >= 800 && dayMin < 840 && !repriced) {
+    nudgedPrice = true;
+    fx.toast('the wave lands at 14:00 — 2 drops matcha to £4.20', 'warn');
     $('reprice').classList.add('attention');
   }
 }
@@ -382,7 +401,7 @@ function openDay(d) {
   till = 0; cogs = 0; balked = 0; served = 0; servedRetail = 0; defections = 0; rivalServed = 0;
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; waveDebriefShown = false; closed = false;
-  if (d === 1) forecastShown = false;
+  if (d === 1) { forecastShown = false; nudgedQueue = nudgedBalk = nudgedPrice = false; }
   world.setMatchaPrice('4.80', false);
   fx.receipt(null); fx.notebook(false);
   // the wire tilts the deck: live Linkup research multiplies event weights
@@ -416,11 +435,13 @@ function openDay(d) {
   if (d > 1 && exchange.debt > 0) exchange.debt += CAMPAIGN.debtInterest;   // the debt clock ticks at dawn
   world.setMail(false);
   world.setMist(ev.tier === 'cata' ? 1 : ev.tier === 'bad' ? 0.4 : 0);
-  // weather as mood: tie sky/mist/god-rays to the event tier
+  // weather as mood: tie sky/mist/god-rays/motes to the event tier
   try {
     const frosty = ev.tier === 'cata' || ev.id === 'rumour_frost';
     const harvest = ev.tier === 'good';
-    world.setGodRay(frosty ? 0.22 : harvest ? 0.14 : 0);
+    const shaft = frosty ? 0.22 : harvest ? 0.14 : 0;
+    world.setGodRay(shaft);
+    if (world.setMotes) world.setMotes(shaft);
     world.mistMat.color.setHex(frosty ? 0xc2c9d1 : harvest ? 0xffe9a8 : 0x9a9ea6);
   } catch {}
   world.setRentPressure(d);          // the gentrification sign: 'let' → 'lease' → 'sold'
@@ -581,7 +602,13 @@ function updateHUD() {
       const acts = [prebatched ? 'batched ' + ctx.batchUnits : 'not batched', repriced ? 'price cut' : 'full price'];
       $('goal').innerHTML = `Day ${day}/${CAMPAIGN.days} — <b>${qq} in line</b> · ${acts.join(' · ')} <span class="dim">— 14:00 rush at ${qq <= 5 ? 'safe' : 'danger'}</span>`;
     } else {
-      $('goal').innerHTML = `☕ Keep the <b>queue under 5</b> · 14:00 the student rush hits. <b>Hit 1 to batch before noon</b> or watch them walk to <b>GLASSHOUSE</b>.`;
+      // reactive directive: the strip answers "what should I do right now?"
+      const now = qq >= 6
+        ? `<b>queue’s building — 1 to batch</b>`
+        : qq >= 3
+          ? `watch the queue · <b>1</b> batches before the rush`
+          : `keep the <b>queue under 5</b>`;
+      $('goal').innerHTML = `☕ ${now} · next: <b>14:00 rush</b> <span class="dim">— walk-outs feed GLASSHOUSE</span>`;
     }
   }
   // Text + ticker redraws are the bottleneck at high speed (66 DOM writes/s
@@ -926,7 +953,7 @@ function loop(now) {
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
   patrons.update(dt, WALK_MUL[speed] || 2, now);
   world.updateRival(dt, now);
-  try { world.updateCat(dt, patrons.queueLength); world._updateDelight(now); } catch {}
+  try { world.updateCat(dt, patrons.queueLength); world._updateDelight(now, dt); } catch {}
   fx.steamFrom(dt);
   fx.update(dt, camera, now);
   rig.update(dt, now);

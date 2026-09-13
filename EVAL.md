@@ -9,14 +9,14 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Loop completeness | spawn → choose → buy → lever → visible payoff, no dead ends | all stages present |
 | Read legibility | player can state *why* the lever worked before seeing the result | demoable |
 | Wave fidelity | cohort wave shapes match `transform.py` hour-of-day profile | ±10% |
-| Calm open | day-1 opens at 1× with tutorial + throttled demand; first 12 sim-min demand ×0.5, 07–10 ×0.52, gossip 10%; auto-`lite` on ≤4 cores/GB, dynamic `lite` after 3×>32ms, shadow budget `queue>40` | 1× + tutorial + throttling + perf |
-| Goal legibility | goal strip + queue bar + batch countdown visible before 14:00; levers pulse until first use | brass goal + health bar |
+| Calm open | day-1 opens at 1× with 3-step tutorial + reactive `#goal` + 3 just-in-time nudges (queue≥4 / first balk / 13:20 price, each once/campaign); first 12 sim-min ×0.5, 07–10 ×0.52, gossip 10%; controls line 8→3; auto-`lite` on ≤4 cores/GB, dynamic `lite` after 3×>32ms, shadow budget `queue>40` | 1× + tutorial + nudges + perf |
+| Goal legibility | **reactive goal strip** answers “what now” live (`queue≥6` → *build—batch now* / `≥3` → *watch* / calm → *hold under 5 · 14:00 rush*) + queue bar + batch countdown visible before 14:00; levers pulse until first use; **3 nudges** teach at the moment of need | brass goal + nudges + health bar |
 | Lever prediction | pressing 1 shows predicted `12 → ~6 by 14:00` + chalkboard flash (desaturate + wobble); 2 puffs chalk dust + `screech` | toast + glow + dust |
 | Wave payoff | 14:00 debrief at 17:00: `balk/served` vs `saved ~£` vs GLASSHOUSE; `saved≥6` → fanfare + coin rain + crane + haptics, flop → rain; receipt prints line-by-line + typewrites verdict; Day-2 forecast on receipt + toast | debrief (juice) + forecast |
 | Signal payoff | matcha riser in zone heat + till (now `tabular-nums`); pre-batch lever pays in balk delta + coin burst | positive delta |
 | Gossip visibility | one bad review via ≥2 friendship hops (3D lines); warm gossip + hover story card (op ♥, friends) + click-to-wave | demoable |
 | Playtest instrumentation | `analytics.js` records tutorial/lever/balk/debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`; The Wire desk gated on `commodity_insider` | localStorage + `__grunds.analytics.summary()` |
-| Delight / craft | till drawer slides + shadow stretch, arcing coins + spin, sitters sip, cat Miso, plant health, god rays, rival lean/jeer, haptics, 90Hz tick at 1×, purr at ≤5, photo + `GRUNDS` | aggregate feel |
+| Delight / craft | **1024 textures** (wood/pavement/road/awning 1024 + grain/knots/bevel), **brick facades + cornice + shopfront + bollards/decal**, **ticker 512×320 + brass collar**, till drawer + shadow, arcing coins + spin, sitters sip, cat Miso, plant health, **god rays + warm motes (180, amber, drift + cycle)**, rival lean/jeer, haptics, 90Hz tick at 1×, purr at ≤5, photo + `GRUNDS` | aggregate feel |
 | The Wire (paywall) | `⚡ the wire ↗` HUD when intel lands + Letter desklink; desk shows tilts + cited sources; modal 3 perks £4.99/mo; restore + localStorage gate | gated + headless `desk.mjs` |
 | Share framing | finale X intent leads with `Held the line — 320 served, 12 walked` not just `£42` | outcome line |
 | A11y | `prefers-reduced-motion` kills breath/grain/pulse/`heartbeat`/`purr` + vignette; pad pre-warm so Day 1 isn't silent; haptics on balk/wave | reduced-motion + touch + haptics |

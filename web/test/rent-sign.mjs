@@ -1,6 +1,6 @@
 // Headless test that PROVES the rent-pressure sign:
 //   1. rentSign() returns a factory with a draw() function and a canvas
-//      object (512x384).
+//      object (1024x768).
 //   2. draw('let'), draw('lease'), draw('sold') are each callable and each
 //      return a texture with a non-null image. The draw() function
 //      intentionally re-bakes onto the shared canvas, so the texture
@@ -48,9 +48,9 @@ const fails = [];
 // 1) rentSign returns a factory with draw() and a canvas
 const rs = rentSign();
 if (typeof rs.draw !== 'function') fails.push('rentSign().draw is not a function');
-if (!(rs.canvas && rs.canvas.width === 512 && rs.canvas.height === 384))
+if (!(rs.canvas && rs.canvas.width === 1024 && rs.canvas.height === 768))
   fails.push(`rentSign().canvas shape wrong: ${rs.canvas?.width}x${rs.canvas?.height}`);
-console.log('API     rentSign().draw is fn | canvas 512x384');
+console.log('API     rentSign().draw is fn | canvas 1024x768');
 
 // 2) Each state is callable and returns a texture with a non-null image.
 //    We test that draw() does not throw and that the returned texture's

@@ -21,6 +21,7 @@ function makeCtx() {
     lineWidth: 1,
     fillRect() {}, strokeRect() {}, fillText() {}, strokeText() {},
     beginPath() {}, rect() {}, moveTo() {}, lineTo() {}, bezierCurveTo() {}, stroke() {}, fill() {}, arc() {},
+    setLineDash() {},
     save() {}, restore() {}, translate() {}, rotate() {}, scale() {}, clip() {},
     clearRect() {},
     createLinearGradient() { return { addColorStop() {} }; },
@@ -36,9 +37,9 @@ const fails = [];
 // 1) tarp() returns a factory with draw() and a canvas
 const t = tarp();
 if (typeof t.draw !== 'function') fails.push('tarp().draw is not a function');
-if (!(t.canvas && t.canvas.width === 512 && t.canvas.height === 512))
+if (!(t.canvas && t.canvas.width === 1024 && t.canvas.height === 1024))
   fails.push(`tarp().canvas shape wrong: ${t.canvas?.width}x${t.canvas?.height}`);
-console.log('API     tarp().draw is fn | canvas 512x512');
+console.log('API     tarp().draw is fn | canvas 1024x1024');
 
 // 2) draw() returns a texture with a non-null image
 const tex = t.draw();

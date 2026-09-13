@@ -12,7 +12,7 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini (key-gated action stub, falls back offline)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-13T22:16:00Z
+- **Last updated:** 2026-09-14T00:00:00Z
 
 ## Log
 
@@ -166,6 +166,37 @@ plumbing:
   RAINS`) — the ×1.5 stops being abstract.
 - Gate 16/16 (desk test updated for the new upsell copy), functions
   pushed, site re-uploaded.
+
+### 2026-09-14 - AAA street craft: the district becomes a place
+The last fidelity pass — the street already read clearly and felt alive; this pass makes it *photographable*. Every texture re-authored at 1024, every light re-hung, every facade corniced, every shaft dusty. Pure world-tooling, no new levers or currencies.
+- **Textures re-authored (procedural, no fetch, all `anisotropy 8`):** `woodFloor` 512→1024 — honey-oak planks with vertical gradient + bevel + 8 grain ribbons + knots + end-grain + varnish sheen (`repeat 2.2×1.6`); `pavement` — slab grid + grout chamfer + aggregate + cracks + coffee ring + AO dots + leaf decal (`8×1.6`); `road` — dual-layer aggregate + oil stain + patch + manhole + worn dashed centre + tyre tracks (`6×1`); `awning` 16 stripes with weave + stitch + scalloped brass eyelets + AO. `menuBoard`/`shopSign`/`rentSign`/`tarp` all re-drawn at 1024 with grain, brass, stitch, grommets, emboss.
+- **Light & ground kit:** exposure `1.12→1.18`, `fog 34/95→32/92`, bias tuned; new **bounce hemi** `0.22` lifts the bar underside, `hemi 0.30→0.42` + sun `0xfff6e8 1.25`; floor gains a scuff decal at the barista stand, pavement/road now carry their textures, zebra widened, awning gains 4 brass tie-downs, lamp cords + `bulb emi 1.55`.
+- **Facades & skyline:** `facade()` now lays **two-tone bricks + mortar + highlight/shadow + micro-grain**, every window cut with **white frame + recess shadow + specular streak + sill shadow** (emissive map unchanged), cornice shadow; each block gains a **cornice cap + ground-floor shopfront band + brass rule**; far skyline 7→9 blocks with alternating material + tiny signed windows. *Caught a real crash:* `y` was block-scoped outside its row loop → `buildWorld` threw for every player — fixed by hoisting `y` to the row loop.
+- **Ticker & street kit:** ticker `384×256→512×320`, linen grain, double rule, row rules, letter-spaced header, brass collar + 4 screws, `aniso 8`; **7 bollards + brass caps** along the pavement, **THE DISTRICT street decal** at the zebra, curb.
+- **Weather as mood, now four-way:** `mist 0.4→0.42` + **warm dust motes (additive 180, `0.065`, amber)** drifting in shafts via `world.setMotes(shaft)` — frost `0.22` grey-blue cold, harvest `0.14` warm. Motes drift + cycle in `world._updateDelight(now, dt)` (lerped opacity + vertical sine recycle).
+- **Onboarding trim in the same pass:** controls line `8→3` (`1 batch · 2 price · space pause`), **reactive `#goal`** (`queue≥6` → *build—batch now* / `≥3` → *watch the queue* / calm → *hold under 5 · 14:00 rush → GLASSHOUSE*), **3 just-in-time nudges** (queue≥4-unbatched → batch, first balk → *the queue’s the enemy · 1/2*, 13:20–14:00 unrepriced → price) — each once/campaign, condition-bound not timed. Also refreshed two stale test stubs (`rentSign 1024×768`, `tarp 1024²`, `setLineDash`). Gate **16/16**, `tsc` clean, `dist` 43.
+
+### 2026-09-13 - Onboarding fix: teach at the moment of need
+Playtesters reported not knowing what to do mid-game and finding the
+controls line intimidating. Applied progressive disclosure + contextual
+nudges instead of upfront instruction:
+- **Controls line trimmed** 8 items → 3: `1 batch · 2 price · space
+  pause`. Camera/photo/letter keys are discoverable or contextual.
+- **Reactive goal strip:** `#goal` now answers "what should I do now"
+  from live state — `queue's building — 1 to batch` at ≥6 queued,
+  `watch the queue · 1 batches before the rush` at ≥3, `keep the queue
+  under 5` when calm; always names the next beat (14:00 rush) and the
+  stakes (walk-outs feed GLASSHOUSE).
+- **Three just-in-time nudges** (once per campaign, condition-bound, not
+  timed): queue ≥4 unbatched → batch hint + lever pulse; first balk →
+  "they walked — the queue's the enemy · 1 batches, 2 cuts the price"
+  (feedback names the remedy); 13:20–14:00 unrepriced → price hint +
+  lever pulse.
+- **Caught a real crash in the same pass:** `world.js facade()` used
+  block-scoped `y` outside its loop → `buildWorld` would throw for every
+  player. Fixed hoisting `y` to the row loop. Also refreshed two stale
+  test stubs (rentSign/tarp canvases were upgraded to 1024² in the
+  delight pass; `setLineDash` added to the ctx stub). Gate 16/16.
 
 ### 2026-09-12 - viral hooks, share cards, and campaign badges
 Added subtle, meaningful social and engagement dynamics:
