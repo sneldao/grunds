@@ -153,8 +153,16 @@ export function buildWorld(scene, renderer, lite) {
   // ---- menu board + back bar ----------------------------------------------
   const board = menuBoard();
   W.menuTexture = board.draw('4.80', false);
+  W.menuMat = new THREE.MeshStandardMaterial({ map: W.menuTexture, roughness: 0.9, emissive: 0xffffff, emissiveIntensity: 0 });
   W.setMatchaPrice = (p, struck) => { board.draw(p, struck); W.menuTexture.needsUpdate = true; };
-  plane(cafe, 3.6, 2.7, new THREE.MeshStandardMaterial({ map: W.menuTexture, roughness: 0.9 }), -5.5, 2.75, -7.95);
+  W.flashChalk = (kind) => {
+    if (!W.menuMat) return;
+    const flashCol = kind === 'reprice' ? 0xc9a227 : 0x86a860;
+    W.menuMat.emissive.setHex(flashCol);
+    W.menuMat.emissiveIntensity = 0.55;
+    setTimeout(() => { W.menuMat.emissiveIntensity = 0; }, 650);
+  };
+  plane(cafe, 3.6, 2.7, W.menuMat, -5.5, 2.75, -7.95);
   for (const sy of [1.9, 2.5]) {
     box(cafe, 7, 0.07, 0.5, PAL.walnut, -1.2, sy, -7.85, { cast: false });
     for (let i = 0; i < 7; i++) {

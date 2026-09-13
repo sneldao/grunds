@@ -52,6 +52,16 @@ function neighborhoodLine(s) {
   if (s.day >= 5) return `Both storefronts are scaffolded now. The street is being remade — for or against you, that's the question.`;
   return '';
 }
+function intelLine(s) {
+  // Linkup deep research — the roaster cites the wire when it answered.
+  // s.intel = { sources: [{title, url}], marketShift: [...] } from the live
+  // fetch; absent offline, so the line simply doesn't print.
+  const src = s.intel && s.intel.sources && s.intel.sources[0];
+  if (!src || !src.title) return '';
+  let host = '';
+  try { host = new URL(src.url).hostname.replace(/^www\./, ''); } catch { host = ''; }
+  return `Off the wire — ${String(src.title).slice(0, 90)}${host ? ` (${host})` : ''}.`;
+}
 function greeting(e) {
   const t = e?.tier || 'calm';
   if (t === 'cata') return 'I’m writing before the market and I’m already sorry.';
@@ -77,6 +87,7 @@ export function composeLetter(s) {
       performance(s),
       debtLine(s),
       driftLine(s),
+      intelLine(s),
       neighborhoodLine(s),
       reputationLine(s),
       '',

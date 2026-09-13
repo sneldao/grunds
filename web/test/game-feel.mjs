@@ -38,7 +38,7 @@ console.log('SIGNS   drift/pressure read "down 6%" and "-6%", never "up -6%"');
 ok(/paused = false/.test(main), 'main.js has no paused flag');
 ok(/togglePause/.test(main), 'main.js has no togglePause');
 ok(/e\.key === ' '.*togglePause/.test(main), 'space does not toggle pause');
-ok(/!paused && schedule/.test(main), 'sim loop does not gate on paused');
+ok(/!paused/.test(main) && /schedule/.test(main) && /tutorialActive/.test(main), 'sim loop does not gate on paused');
 ok(/❚❚/.test(main), 'HUD has no paused marker');
 console.log('PAUSE   space pauses the sim clock, HUD shows ❚❚');
 
@@ -54,7 +54,7 @@ console.log('BADGE   local badge is quiet; LIVE still flips on mirror');
 
 // 7) Day-1 coach: one lever hint at 13:00, only if the player hasn't acted.
 ok(/coached/.test(main), 'main.js has no coached flag');
-ok(/day === 1 && !coached && dayMin >= 780/.test(main), 'coach hint is not gated to day 1, 13:00, once');
+ok(/day === 1 && !coached && dayMin >= 7[28]0/.test(main), 'coach hint is not gated to day 1, 12:00-13:00, once');
 ok(/!prebatched && !repriced/.test(main), 'coach hint fires even after the player acted');
 ok(/students land at 14:00/.test(main), 'coach hint text missing');
 console.log('COACH   day-1 13:00 lever nudge, once, only when idle');

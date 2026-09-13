@@ -5,13 +5,13 @@ import { api } from "./_generated/api";
 import { hashKey } from "./apiCache";
 
 // Nebius Token Factory Applied AI integration for Grunds.
-// Uses Nebius AI Studio's OpenAI-compatible inference endpoint (https://api.studio.nebius.ai/v1)
+// Uses Token Factory's OpenAI-compatible inference endpoint (https://api.tokenfactory.nebius.com/v1)
 // to power in-character prose generation for the Roaster's Letter and dynamic patron
 // gossip dialogues, complete with execution latency and token metrics.
 //
 // Offline/Fallback safe: if NEBIUS_API_KEY is unset, falls back seamlessly to deterministic templates.
 
-export const DEFAULT_NEBIUS_MODEL = "meta-llama/Meta-Llama-3.1-70B-Instruct";
+export const DEFAULT_NEBIUS_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
 export const NEBIUS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface NebiusInferenceResult {
@@ -32,7 +32,7 @@ async function nebiusChat(
   const model = process.env.NEBIUS_MODEL ?? DEFAULT_NEBIUS_MODEL;
 
   const t0 = Date.now();
-  const res = await fetch("https://api.studio.nebius.ai/v1/chat/completions", {
+  const res = await fetch("https://api.tokenfactory.nebius.com/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,

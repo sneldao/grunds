@@ -109,10 +109,55 @@ export const syncSnapshot = httpAction(async (ctx, req) => {
   }
 });
 
+export const syncStands = httpAction(async (ctx, req) => {
+  const id = new URL(req.url).searchParams.get("campaignId");
+  if (!id) return json({ error: "campaignId required" }, 400);
+  try {
+    const stands = await ctx.runQuery(api.stands.topStands, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      campaignId: id as any,
+      limit: 8,
+    });
+    return json({ stands });
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
+export const aiLetter = httpAction(async (ctx, req) => {
+  let payload: { body?: string };
+  try {
+    payload = (await req.json()) as typeof payload;
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  if (!payload.body) return json({ error: "body required" }, 400);
+  try {
+    const result = await ctx.runAction(api.nebius.enhanceLetterNebius, {
+      body: payload.body.slice(0, 4000),
+    });
+    return json(result);
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
+export const aiResearch = httpAction(async (ctx) => {
+  try {
+    const result = await ctx.runAction(api.linkup.searchCommodityIntelligence, {});
+    return json(result);
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
 const http = httpRouter();
 http.route({ path: "/agentmail/webhook", method: "POST", handler: agentmailWebhook });
 http.route({ path: "/sync/state", method: "GET", handler: syncState });
 http.route({ path: "/sync/snapshot", method: "POST", handler: syncSnapshot });
+http.route({ path: "/sync/stands", method: "GET", handler: syncStands });
+http.route({ path: "/ai/letter", method: "POST", handler: aiLetter });
+http.route({ path: "/ai/research", method: "GET", handler: aiResearch });
 
 // Static floor (uploaded dist/): exact routes above win, everything else
 // falls back to index.html. App URLs stay at root — no /api prefix move.

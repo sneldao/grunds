@@ -13,4 +13,11 @@ crons.daily(
   {},
 );
 
+crons.daily(
+  "linkup-intel-refresh",
+  { hourUTC: 6, minuteUTC: 15 },
+  internal.linkup.refreshLinkupIntelligence,
+  {},
+);
+
 export default crons;

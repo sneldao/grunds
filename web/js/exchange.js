@@ -38,7 +38,9 @@ export class Exchange {
 
   // Roll a new event with the pity timer: no two catastrophes in a row, and a
   // catastrophe is always followed by a benign draw (docs: fairest losses win).
-  roll() {
+  // `bias` (optional, {eventId: mul}) is live market intel — news tilts the
+  // deck, clamped so a wire report can never fix the outcome.
+  roll(bias) {
     const pool = [];
     for (const [id, e] of Object.entries(EVENTS)) {
       let w = e.weight;
@@ -46,6 +48,7 @@ export class Exchange {
       if (e.tier === 'cata' && this.lastTier === 'cata') w = 0;
       // after a catastrophe, bias toward recovery (good/calm/stable up)
       if (this.lastTier === 'cata' && e.tier !== 'good' && e.tier !== 'calm') w *= 0.35;
+      if (bias && bias[id]) w *= Math.min(3, Math.max(0.2, bias[id]));
       for (let i = 0; i < Math.round(w); i++) pool.push(id);
     }
     const id = pool[(this.rng() * pool.length) | 0];
@@ -71,10 +74,10 @@ export class Exchange {
   // top. The drift is the *baseline* cost creep; the event is the *deviation*.
   // That ordering matters: a frost on a drifting index is a bigger shock than
   // a frost on a fresh one.
-  openDay() {
+  openDay(bias) {
     this.day++;
     applyDrift(this, this.day);
-    this.roll();
+    this.roll(bias);
     const cost = this.costPerCup;
     const m = this.margin(this.matchaPrice ?? priceForDay(this.day));
     this.history.push({ day: this.day, id: this.event.id, index: this.beanIndex, cost, margin: m });

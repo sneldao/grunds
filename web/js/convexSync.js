@@ -76,5 +76,31 @@ export function initSync() {
   }
   if (live && typeof setInterval !== 'undefined') setInterval(poll, 15000);
 
-  return { live, url, owner, mirror, poll, get campaignId() { return campaignId; } };
+  // District leaderboard: every mirrored stand races the same week. Fetched
+  // on demand (dawn, day close, finale) — the 15s poll stays badge-cheap.
+  async function stands() {
+    if (!live || !campaignId) return null;
+    try {
+      const r = await fetch(url + '/sync/stands?campaignId=' + encodeURIComponent(campaignId));
+      const data = await r.json();
+      return data && Array.isArray(data.stands) ? data.stands : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Linkup deep research: one fetch per session, server-cached 6h. Returns
+  // { summary, sources, marketShift } or null — the deck stays seeded without it.
+  async function intel() {
+    if (!live) return null;
+    try {
+      const r = await fetch(url + '/ai/research');
+      const data = await r.json();
+      return data && !data.fallback ? data : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return { live, url, owner, mirror, poll, stands, intel, get campaignId() { return campaignId; } };
 }

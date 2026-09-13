@@ -190,6 +190,7 @@ node web/test/construction-active.mjs # day-5 drifting dust + low saw loop
 node web/test/construction-final.mjs  # day-4 letter line + back-row scaffold + hammer
 node web/test/glb-substitution.mjs    # Kenney GLB loader + substitution map
 node web/test/game-feel.mjs           # bubbles bounded/clamped, signed numbers, pause, letter keys
+node web/test/intel.mjs               # Linkup deck bias (clamped), pity under bias, citations
 node web/test/behavioral.mjs          # decoy anchoring, pastry/cacao attachments, tip jar social proof
 node web/test/share.mjs               # Z-read share cards, campaign badges, replayable seed links
 ```
@@ -210,7 +211,19 @@ mailbox, a commodity ticker, and weather mist after a frost — rendered through
 core-Three **post-FX** bloom/vignette/grain pipeline. Controls: drag to look, scroll to
 zoom, `1` pre-batch, `2` reprice, `space` pause, `M` sound, `R` reset, `C` camera.
 The Roaster's Letter answers to `1`/`2`/`3`. URL params: `?lite`
-(no shadows/post-FX, 1x pixels), `?speed=60|300|1200`, `?seed=N` (campaign seed).
+(no shadows/post-FX, 1x pixels), `?speed=60|300|1200` (default 1×; headless stays 5×),
+`?seed=N` (campaign seed), `?skipTutorial`/`?notutorial` (bypass 3-step onboarding).
+
+Onboarding: new players land at 1× through a 3-step tutorial (Read 14:00 / Lever 1+2 /
+Keep 5 vs GLASSHOUSE, `Enter`/`Space`/`Esc`) then a 3.4s paused crane settle; day-1
+mornings are half-demand and gossip-throttled so eyes settle before the queue reads.
+The HUD is goal-first: a brass goal strip, a queue health bar (ok/warm/hot + "queue
+7/12 — watch it"), and a batch countdown; levers pulse until first use and the
+chalkboard flashes on press. At 17:00 a **14:00 wave debrief** card shows saved cups
+and `~£` vs GLASSHOUSE; at 17:30 a **Day-2 forecast** toast + receipt stripe preview
+the next day's board to earn the replay. A local `analytics.js` tracks
+`tutorial_step/skip/complete`, `first_lever_at_min`, every balk, debrief and forecast
+for the 5-question playtest (`__grunds.analytics.summary()`).
 
 Repo structure:
 
@@ -250,18 +263,19 @@ grunds/
 │   ├── index.html               # shell, HUD, story overlays (chapters, notebook, letter, receipt)
 │   ├── js/
 │   │   ├── main.js              # the campaign: loop, economy, story beats, the letter flow, pause, letter keys
-│   │   ├── convexSync.js        # optional dawn-mirror to Convex (auto on *.convex.site, ?convex= override)
-│   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist, scaffolds)
+│   │   ├── convexSync.js        # optional dawn-mirror to Convex (auto on *.convex.site, ?convex= override) + Linkup intel fetch
+│   │   ├── analytics.js         # local playtest analytics (tutorial/lever/balk/debrief/forecast) + localStorage + console
+│   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist, scaffolds) + chalkboard flash
 │   │   ├── sky.js               # custom shader sky dome (gradient + sun + stars) — core-Three only
 │   │   ├── postfx.js            # core-Three render-target bloom + vignette + grain
 │   │   ├── patrons.js           # instanced characters, queue/balk/defect behaviour, named-Regular hat/bubble
-│   │   ├── exchange.js          # the Gamble: seeded pity-timer event deck, bean market, debt clock
+│   │   ├── exchange.js          # the Gamble: seeded pity-timer event deck + optional bias (Linkup), bean market, debt clock
 │   │   ├── regulars.js          # persistent opinion + friendship graph + 5%/day contagion (the Regulars)
-│   │   ├── letter.js            # the Roaster's Letter: driftLine + neighborhoodLine + reply-to-command
-│   │   ├── fx.js                # steam/coins/dust/gossip bubbles/3D conversation lines/construction dust
+│   │   ├── letter.js            # the Roaster's Letter: driftLine + neighborhoodLine + intelLine + reply-to-command
+│   │   ├── fx.js                # steam/coins/dust/gossip bubbles/3D conversation lines/construction dust + debrief card + forecast slot
 │   │   ├── gentrification.js    # per-day cost creep + matcha price curve + cohort expectation pressure
 │   │   ├── loader.js            # async GLB loader with cache + FIFO eviction + placeholder fallback
-│   │   ├── camera.js            # cinematic rig: title orbit, crane-in, beat push-ins
+│   │   ├── camera.js            # cinematic rig: title orbit, crane-in, beat push-ins, calm-gated + reduced-motion breath
 │   │   ├── audio.js             # procedural WebAudio: murmur, hiss, till, pad, construction saw + hammer
 │   │   ├── config.js            # palette, layout, cohorts, economy, campaign, events, regulars, drift
 │   │   └── textures.js          # procedural canvas textures (wood, chalkboard, facade, awning, rent sign, tarp)
@@ -277,7 +291,10 @@ grunds/
 │   │   ├── construction-active.mjs    # day-5 drifting dust + low saw loop
 │   │   ├── construction-final.mjs     # day-4 letter + back-row scaffold + hammer
 │   │   ├── glb-substitution.mjs       # Kenney GLB loader + substitution map
-│   │   └── game-feel.mjs              # bubbles bounded/clamped, signed numbers, pause, letter keys
+│   │   ├── game-feel.mjs              # bubbles bounded/clamped, signed numbers, pause, letter keys
+│   ├── intel.mjs                  # Linkup deck bias (clamped), pity under bias, citations
+│   ├── behavioral.mjs             # decoy anchoring, pastry/cacao attachments, tip jar social proof
+│   └── share.mjs                  # Z-read share cards, campaign badges, replayable seed links + outcome framing
 │   ├── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)
 │   └── assets/                  # Kenney CC0 GLB props + SOURCES.md
 ├── benchmark_corpus.json        # UK café COGS benchmarks (anchors the Exchange math)
@@ -334,18 +351,22 @@ squash-merge PR with a headless test gate.
   - 4 new tests: `rent-sign`, `construction`, `construction-left`,
     `construction-active`, `construction-final` (19 assertions total).
 
-The day-5 narrative is now end-to-end: numbers (HUD `#pressure`),
-narrative (the Letter), physical (scaffolds + tarps), audible
-(saw + hammer), animated (drifting dust). Eleven headless tests run
-green on every merge.
+The day-5 narrative is now end-to-end: numbers (HUD `#pressure` + goal +
+queue bar + batch countdown), narrative (the Letter + 14:00 wave debrief +
+Day-2 forecast), physical (scaffolds + tarps + chalkboard flash), audible
+(saw + hammer + till/coins), animated (drifting dust + 3D conversation
+lines). Onboarding lands at 1× with a 3-step tutorial + calm-open throttling;
+`analytics.js` measures every balk and first lever for the playtest. Fifteen
+headless tests run green on every merge.
 
-## Live on Convex (Sept 12)
+## Live on Convex (Sept 12–13)
 
 The Convex phase shipped as working backend + hosting, not a plan:
 
-- **Linkup**: Deep Research integration (`convex/linkup.ts`) querying global coffee commodity intelligence (weather disruptions, harvest reports, shipping bottlenecks) to dynamically bias the morning event deck with cited source URLs.
-- **Nebius**: Applied AI integration (`convex/nebius.ts`) via Token Factory (`meta-llama/Meta-Llama-3.1-70B-Instruct`) for in-character prose generation and responsive patron reaction lines with latency and token telemetry.
+- **Linkup**: Deep Research integration (`convex/linkup.ts`) querying global coffee commodity intelligence (weather disruptions, harvest reports, shipping bottlenecks) to dynamically bias the morning event deck with cited source URLs — nightly `linkup-intel-refresh` cron (06:15 UTC) keeps the 6h cache warm; the floor fetches once per session via `convexSync.intel()` and threads `marketShift` (clamped 0.2–3×) through the pity-timer roll on both client and server (`exchange.openDay(bias)`), cited in the Letter via `intelLine` and surfaced as a day-1 toast.
+- **Nebius**: Applied AI integration (`convex/nebius.ts`) via Token Factory (`meta-llama/Llama-3.3-70B-Instruct`, was 3.1 — host moved to `api.tokenfactory.nebius.com`) for in-character prose generation and responsive patron reaction lines with latency and token telemetry; new `POST /ai/letter` (`convex/http.ts`) serves `enhanceLetterNebius` (7-day hash cache), consumed fire-and-forget from `main.js` `showLetter()` (templated letter swaps to LLM prose with `— Idris · Llama-3.3-70B · {latency}ms`).
 - **RevenueCat**: Subscriptions / Web Test Store integration (`web/js/billing.js`) providing sandbox entitlement management for the "Commodity Trader / Futures Pass".
+- **District leaderboard + research bridge**: new `GET /sync/stands`, `GET /ai/research`, `POST /ai/letter` in `convex/http.ts`; nightly `commodity-news-refresh` + `linkup-intel-refresh` crons; local `apiCache` table backs both.
 - **Backend** (`convex/`): schema for campaigns, market events, regulars,
   friendships, letters, stands, and an API-response cache; queries +
   mutations for the Exchange (drift-then-pity-roll dawns, contracts,
@@ -361,21 +382,34 @@ The Convex phase shipped as working backend + hosting, not a plan:
   dawn to Convex when hosted there (HUD badge flips `● LIVE`).
 - **Game feel**: bubbles capped at 10 and clamped on-screen, sign-aware
   numbers ("down 6%", never "up -6%"), `space` or button pauses the sim
-  clock, the Letter answers to `1`/`2`/`3`, a day-1 13:00 coach nudges the
-  levers before the student wave, beat cameras hold still at 20×, and the
-  rival lives — their sign burns with their queue, the camera shows first
-  blood, their sales ring coins. The week closes in three beats: a
-  CLOSING TIME card at 20:40, the day-5 Z-read, then a SOLD finale — the
+  clock, the Letter answers to `1`/`2`/`3`, a day-1 12:00 coach nudges the
+  levers before the student wave (was 13:00), beat cameras hold still at 20×
+  and breath is calm-gated 7s + `prefers-reduced-motion`-aware, and the rival
+  lives — their sign burns with their queue, the camera shows first blood,
+  their sales ring coins. The day opens at **1×** with a **3-step tutorial**
+  (Read 14:00 / Lever 1+2 / Keep 5, `Enter`/`Space`/`Esc` + Skip, `?skipTutorial`
+  bypass) and a 3.4s paused crane settle; day-1 mornings are half-demand and
+  gossip-throttled. The HUD is **goal-first** (brass goal strip + queue health
+  bar + batch countdown), levers pulse until first use and the chalkboard
+  flashes on press with a predicted queue delta ("12 → ~6 by 14:00"). At 17:00
+  a 14:00 wave debrief card teaches the payoff (`saved ~£XX` vs GLASSHOUSE);
+  at 17:30 and on the day-1 Z-read a Day-2 forecast earns the replay. The
+  week closes in three beats: a CLOSING TIME card at 20:40, the day-5 Z-read
+  (with a district leaderboard block when live), then a SOLD finale — the
   camera visits the sold storefronts before the verdict receipt lands.
-  GLASSHOUSE keeps staff silhouettes moving behind glass that runs pale
-  by day and amber after dark; new weeks open with a crane swoop home.
-  HUD text renders at ~5Hz so 20× stays smooth. The verdict receipt carries
-  a seed-challenge share button (badge + stats + X intent via the
-  collaborator's share module). Mix runs through a bus compressor; phones
-  get a small-screen layout with touch-safe drags. Loop tests are RNG-seeded, so the
-  14-test gate is deterministic.
-- Still to do: nightly cron wiring, full live-query sync (mirror today),
-  Convex Auth, OpenAI + AgentMail keys, prod deploy, video + social.
+  GLASSHOUSE keeps staff silhouettes moving behind glass that runs pale by
+  day and amber after dark; new weeks open with a crane swoop home. HUD text
+  renders at ~5Hz so 20× stays smooth. The verdict receipt carries a
+  seed-challenge share button with outcome framing ("Held the line — 320
+  served, 12 walked" beats "£42"). Mix runs through a bus compressor (older
+  WebAudio guarded); phones get a ≤640px layout with `touch-action: none`
+  and width-aware bubble clamping; grain/pulse/breath respect
+  `prefers-reduced-motion`. Local `analytics.js` tracks tutorial steps,
+  first lever, every balk, debrief and forecast for the playtest
+  (`__grunds.analytics.summary()` + boot 5-question script). Loop tests are
+  RNG-seeded, so the 15-test gate is deterministic.
+- Still to do: full live-query sync (mirror today), Convex Auth, OpenAI +
+  AgentMail keys, prod deploy, video + social.
 
 See `hackathon.md` for the build log.
 

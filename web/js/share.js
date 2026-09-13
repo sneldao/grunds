@@ -36,14 +36,26 @@ export function formatShareText({
   verdict = '',
   seed = 42,
   badge = null,
+  balked = null,
+  served = null,
+  beatGlasshouse = null,
 } = {}) {
   const tillStr = typeof till === 'number' ? `£${till.toFixed(2)}` : till;
   const badgeLine = badge ? `\n🏆 Badge: ${badge.icon} ${badge.title}` : '';
   const cleanVerdict = verdict ? `\n"${verdict.replace(/\n/g, ' ')}"` : '';
-
+  // Virality framing: lead with outcomes the player caused (balks saved +
+  // beating GLASSHOUSE), not just profit. "I saved 14 from walking" beats "£42".
+  let outcomeLine = '';
+  if (typeof balked === 'number' && typeof served === 'number') {
+    const total = served + balked;
+    const balkPct = total ? Math.round((balked / total) * 100) : 0;
+    if (balkPct <= 6 && served > 0) outcomeLine = `\nHeld the line — ${served} served, ${balked} walked (${balkPct}%)`;
+    else if (beatGlasshouse) outcomeLine = `\nBeat GLASSHOUSE — ${served} served, only ${balked} walked`;
+    else outcomeLine = `\n${served} served · ${balked} walked to GLASSHOUSE`;
+  }
   return (
     `☕ Grunds — The District (Day ${day}/${maxDays} · Seed #${seed})\n` +
-    `Till: ${tillStr} · Rep: ${reputation}/100${badgeLine}${cleanVerdict}\n` +
+    `Till: ${tillStr} · Rep: ${reputation}/100${outcomeLine}${badgeLine}${cleanVerdict}\n` +
     `Play the seed: ${BASE_URL}?seed=${seed}`
   );
 }

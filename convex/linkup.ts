@@ -12,6 +12,8 @@ import { hashKey } from "./apiCache";
 // Cost control: responses cached 6h by query in apiCache table.
 
 export const LINKUP_TTL_MS = 6 * 60 * 60 * 1000;
+export const LINKUP_RESEARCH_QUERY =
+  "global arabica coffee commodity prices drought harvest news";
 
 export interface CommodityResearchResult {
   fallback: boolean;
@@ -33,7 +35,7 @@ const RESEARCH_KEYWORDS: { pattern: RegExp; eventId: string; weightMul: number; 
 export const searchCommodityIntelligence = action({
   args: { query: v.optional(v.string()), force: v.optional(v.boolean()) },
   handler: async (ctx, args): Promise<CommodityResearchResult> => {
-    const query = args.query ?? "global arabica coffee commodity prices drought harvest news";
+    const query = args.query ?? LINKUP_RESEARCH_QUERY;
     const cacheKey = `linkup:research:v1:${hashKey(query)}`;
 
     if (!args.force) {

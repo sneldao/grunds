@@ -17,6 +17,7 @@ import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay } from './gentrification.js';
 import { initSync } from './convexSync.js';
 import { calculateCampaignBadge, openShareToX } from './share.js';
+import { createAnalytics } from './analytics.js';
 
 const urlParams = new URLSearchParams(location.search);
 const lite = urlParams.has('lite');
@@ -46,33 +47,49 @@ const regulars = new Regulars();
 // ?convex=https://<deploy>.convex.site — the floor never blocks on it.
 const sync = initSync();
 const SEED = urlParams.get('seed') ? +urlParams.get('seed') : 7;
+// Linkup market intel: fetched once per session (server-cached 6h). Tilts the
+// dawn deck via exchange.openDay(bias) and is cited in the roaster's letter.
+let marketIntel = null;
+if (sync.live && sync.intel) sync.intel().then(r => { marketIntel = r; });
 
 const fx = new FX(scene, null, lite);   // patrons wired in just below
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
 fx.patrons = patrons;
+const analytics = createAnalytics();
+// expose playtest script on boot — QA can copy/paste from console
+try { console.log(analytics.playtestScript()); } catch {}
 
 // ---- game state ---------------------------------------------------------------
 const DAY_START = 360, DAY_END = 1260;
 let schedule = null, waveIdx = 0, chapterIdx = 0;
-let day = 0, dayMin = DAY_START, speed = [60, 300, 1200].includes(urlSpeed) ? urlSpeed : 300, started = false, closed = false, paused = false;
+let day = 0, dayMin = DAY_START, speed = [60, 300, 1200].includes(urlSpeed) ? urlSpeed : 60, started = false, closed = false, paused = false;
+// calm-open state: first 12 sim-min are thinned + tutorial gates the clock
+let tutorialActive = false, tutStep = 0;
+let batchPulseUntil = 0;
+const wantTutorial = !headless && !urlParams.has('skipTutorial') && !urlParams.has('notutorial');
 let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0, rivalServed = 0;
 let prebatched = false, repriced = false, batchUnits = 0;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let coached = false;   // day-1 lever hint, once per campaign
+let waveDebriefShown = false;  // 14:00 wave payoff card, once per day
+let forecastShown = false;     // day-2 forecast tease, once per campaign (day 1 evening)
 // campaign accumulators (persist across the 5 days)
 let cRev = 0, cCost = 0, cBalked = 0, cServed = 0, cDef = 0, settledPaid = 0, campaignDone = false;
 const ctx = { prebatched: false, repriced: false, batchUnits: 0 };
-const WALK_MUL = { 60: 1, 300: 4, 1200: 7 };
+const WALK_MUL = { 60: 1, 300: 3, 1200: 6 };
+// settle window: day 1, first 12 sim-min feel uncrowded even after the sim starts
+const CALM_UNTIL_MIN = DAY_START + 12;
 
 // ---- the day ------------------------------------------------------------------
 function tick() {
   if (dayMin >= DAY_END) { closeDay(); return; }
   dayMin++;
-  // spawn the wave
+  // spawn the wave — day-1 mornings are half-demand so newcomers can read the floor
   while (waveIdx < schedule.waves.length && schedule.waves[waveIdx].t < dayMin) {
     const w = schedule.waves[waveIdx++];
-    // the Gamble feeds the floor: a hype event pulls demand; reputation pulls footfall
-    const mul = (exchange.event?.demand || 1) * regulars.footfallMul;
+    const morningCalm = (day === 1 && w.t < 600) ? 0.52 : 1;
+    const settleThin = (day === 1 && dayMin < CALM_UNTIL_MIN) ? 0.5 : 1;
+    const mul = (exchange.event?.demand || 1) * regulars.footfallMul * morningCalm * settleThin;
     for (const s of w.spawns) {
       const n = Math.max(1, Math.round(s.q * ECON.spawnScale * mul));
       for (let i = 0; i < n; i++) patrons.spawn(s.c, s.z, speed > 60);
@@ -92,7 +109,16 @@ function tick() {
       if (dayMin >= 840 && dayMin <= 1020) { waveBalked++; if (prebatched) prebatchHelped = false; }
       audio.balk();
       fx.huff(e.p.pos.x, 1.5, e.p.pos.z);
-      if (Math.random() < 0.35) fx.bubble(e.p, COPY.gossipBad[(Math.random() * COPY.gossipBad.length) | 0], 'bad');
+      // analytics: every balk is a teaching moment — day-1 balks are the signal
+      try {
+        const payload = { day, dayMin, queue: patrons.queueLength, wave: dayMin >= 840 && dayMin <= 1020 ? 1 : 0 };
+        analytics.track(day === 1 ? 'day1_balk' : 'balk', payload);
+      } catch {}
+
+      // gossip is throttled early: settled openings are unreadable when everyone talks
+      const calmWindow = day === 1 && dayMin < CALM_UNTIL_MIN;
+      const gossipChance = calmWindow ? 0.10 : (speed >= 1200 ? 0.14 : 0.35);
+      if (Math.random() < gossipChance) fx.bubble(e.p, COPY.gossipBad[(Math.random() * COPY.gossipBad.length) | 0], 'bad');
     } else if (e.type === 'defect') {
       defections++;
       if (defections === 1) fx.toast('they’re crossing the road to ' + COPY.rivalName + '…', 'bad');
@@ -130,13 +156,51 @@ function beats() {
     }
   }
   if (dayMin >= 840) fx.notebook(prebatched ? false : dayMin < 900);
-  // Day-1 coach: one hour before the student wave, nudge the levers — but
-  // only if the player hasn't acted yet. The noon notebook did the reading;
-  // this is the doing. Once per campaign, never a nag.
-  if (day === 1 && !coached && dayMin >= 780 && !prebatched && !repriced) {
+  // notebook: pinned open from the first minute of day 1, so newcomers
+  // meet the read before the rush. Beats still re-open it at noon.
+  if (day === 1 && dayMin === DAY_START + 1) fx.notebook(true);
+  // Day-2 forecast tease: ~17:30 day 1, once per campaign. Gives a reason to replay.
+  if (day === 1 && !forecastShown && dayMin >= 1050 && !closed) {
+    forecastShown = true;
+    const nextPrice = (priceForDay(2) ?? 0).toFixed(2);
+    const nextIdx = (1 + CAMPAIGN.drift.perDay * 2).toFixed(2);
+    const fore = exchange.event?.id === 'rumour_frost' || exchange.event?.id === 'frost_minas'
+      ? 'Forecast Day 2: cold front building — bean ' + nextIdx + ' · matcha £' + nextPrice + '. Contract now? (you\'ll choose at closing)'
+      : 'Forecast Day 2: costs up to ' + nextIdx + ' · matcha £' + nextPrice + '. Lock the price before closing?';
+    fx.toast(fore, 'warn');
+    try { analytics.track('forecast_shown', { day, dayMin, event: exchange.event?.id || null, nextPrice, nextIdx }); } catch {}
+  }
+  // 14:00 wave debrief: 5s card at 17:00 — teaches causality for Day 2
+  if (!waveDebriefShown && dayMin >= 1020 && !closed) {
+    waveDebriefShown = true;
+    const estBalkNoBatchWave = Math.max(0, Math.round(waveBalked + (prebatched || repriced ? 12 : 0)));
+    const saved = Math.max(0, estBalkNoBatchWave - waveBalked);
+    const savedTill = saved * (repriced ? ECON.matchaDeal : ECON.matchaFull);
+    const verdict = prebatched || repriced
+      ? (waveBalked <= 6 ? 'You held the line.' : waveBalked <= 14 ? 'The notebook paid off.' : 'Tough wave — batch earlier tomorrow.')
+      : 'No batch, no deal — the wave ate you. Try 1 before noon tomorrow.';
+    const estLine = prebatched || repriced
+      ? `With your prep: balk ${waveBalked} · served ${waveServed}`
+      : `No prep: balk ${waveBalked} · served ${waveServed}`;
+    const counterfactual = prebatched || repriced
+      ? `Without it: ~${estBalkNoBatchWave} would have walked · saved ~${fmt(savedTill)}`
+      : `With a 40-unit batch: ~${Math.max(1, Math.round(waveServed * 0.7))} more served`;
+    fx.debriefCard({
+      k: '14:00 — THE WAVE',
+      sub: verdict,
+      lines: [estLine, counterfactual],
+    });
+    if (saved > 0) fx.toast(`Wave debrief: saved ${saved} cups · ~${fmt(savedTill)} not lost to GLASSHOUSE`, saved >= 6 ? 'good' : 'warn');
+    try { analytics.track('wave_debrief_shown', { day, dayMin, waveBalked, waveServed, saved, savedTill, prebatched, repriced, verdict }); } catch {}
+  }
+  // Day-1 coach: moves earlier (12:00) — halfway between noon reading
+  // and 14:00 action. Only if the player hasn't acted yet, once per campaign.
+  if (day === 1 && !coached && dayMin >= 720 && !prebatched && !repriced) {
     coached = true;
     fx.toast('students land at 14:00 — batch matcha (1) or cut the price (2)', 'warn');
     audio.card();
+    $('prebatch').classList.add('attention');
+    $('reprice').classList.add('attention');
   }
 }
 
@@ -158,6 +222,13 @@ function closeDay() {
   else if (ratio < 0.2) verdict = 'You fed the chain across the road.';
   else verdict = 'The wave ate you alive.';
   if (prebatchHelped && waveBalked < 80) verdict += ' The notebook paid off.';
+  // Day-1 receipt gets the Day-2 forecast stripe — the preview that makes you replay.
+  let forecast = null;
+  if (day === 1 && day < CAMPAIGN.days) {
+    const np = priceForDay(2).toFixed(2);
+    const ni = (1 + CAMPAIGN.drift.perDay * 2).toFixed(2);
+    forecast = `Day 2 forecast: rumour of frost · board ${ni} · matcha £${np} — you'll choose contract at closing`;
+  }
   fx.receipt({
     lines: [
       ['revenue', fmt(till)], ['bean cost', fmt(cogs)], ['debt', fmt(exchange.debt)],
@@ -165,7 +236,9 @@ function closeDay() {
       ['NET TODAY', fmt(net)],
     ],
     verdict,
+    forecast,
   });
+  refreshStands();
   // the between-days phase: the roaster writes. The mailbox flag goes up.
   setTimeout(showLetter, 4200);
 }
@@ -183,6 +256,7 @@ function showLetter() {
     reputation: regulars.reputation,
     debt: exchange.debt,
     contract: exchange.contract ? exchange.contract.price : null,
+    intel: marketIntel,
   };
   const L = composeLetter(snap);
   $('letter-head').textContent = L.head;
@@ -198,6 +272,24 @@ function showLetter() {
   });
   $('receipt').classList.remove('show');
   $('letter').classList.add('show');
+  // Nebius polish: the templated letter is the source of truth; if the live
+  // backend answers, Idris's rewrite lands over it. Fire-and-forget.
+  if (sync.live) {
+    const head = L.head;
+    fetch(sync.url + '/ai/letter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: L.body }),
+    }).then(r => (r.ok ? r.json() : null)).then(data => {
+      if (!data || data.fallback || !data.text) return;
+      if (!$('letter').classList.contains('show')) return;
+      if ($('letter-head').textContent !== head) return;   // a newer letter opened
+      $('letter-body').textContent = data.text;
+      $('letter-sign').textContent =
+        '— Idris · ' + String(data.model).split('/').pop() +
+        (data.latencyMs ? ' · ' + data.latencyMs + 'ms' : ' · cached');
+    }).catch(() => {});
+  }
 }
 
 function applyReply(id) {
@@ -224,10 +316,19 @@ function openDay(d) {
   waveIdx = 0; chapterIdx = 0; dayMin = DAY_START;
   till = 0; cogs = 0; balked = 0; served = 0; servedRetail = 0; defections = 0; rivalServed = 0;
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; patrons.repriced = false;
-  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; closed = false;
+  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; waveDebriefShown = false; closed = false;
+  if (d === 1) forecastShown = false;
   world.setMatchaPrice('4.80', false);
   fx.receipt(null); fx.notebook(false);
-  const ev = exchange.openDay();             // drift first, then roll the market + the event
+  // the wire tilts the deck: live Linkup research multiplies event weights
+  // (clamped inside roll), never replaces the seeded draw
+  const intelBias = marketIntel && Array.isArray(marketIntel.marketShift)
+    ? Object.fromEntries(marketIntel.marketShift.map(s => [s.eventId, s.weightMul]))
+    : null;
+  const ev = exchange.openDay(intelBias);    // drift first, then roll the market + the event
+  if (d === 1 && marketIntel && marketIntel.marketShift && marketIntel.marketShift.length) {
+    fx.toast('market intel · ' + String(marketIntel.marketShift[0].reason).slice(0, 90), 'warn');
+  }
   // chalkboard: matcha day-price reflects the gentrification curve (4.80 → 5.40)
   if (exchange.matchaPrice) world.setMatchaPrice(exchange.matchaPrice.toFixed(2), repriced);
   if (d > 1 && exchange.debt > 0) exchange.debt += CAMPAIGN.debtInterest;   // the debt clock ticks at dawn
@@ -247,7 +348,7 @@ function openDay(d) {
   rig.resetView();
   updateTicker();
   // Mirror the dawn to Convex when configured (fire-and-forget, never blocks).
-  sync.mirror({ seed: SEED, day: d, beanIndex: exchange.beanIndex, matchaPrice: exchange.matchaPrice, till: cRev + till, reputation: regulars.reputation, debt: exchange.debt });
+  sync.mirror({ seed: SEED, day: d, beanIndex: exchange.beanIndex, matchaPrice: exchange.matchaPrice, till: cRev + till, reputation: regulars.reputation, debt: exchange.debt }).then(refreshStands);
   fx.toast('DAY ' + day + '/' + CAMPAIGN.days + ' — ' + (ev.head || 'a new day'), ev.tier === 'cata' ? 'bad' : ev.tier === 'good' ? 'good' : '');
   fx.card('DAY ' + day, ev.line || (ev.head || 'the district stirs'));
   updateHUD();
@@ -292,6 +393,7 @@ function campaignClose() {
   fx.toast('opening soon — for or against you, that\'s the question', 'warn');
   setTimeout(() => {
     fx.receipt({ lines, verdict: v });
+    refreshStands();
     if ($('again')) { $('again').style.display = ''; $('again').textContent = '↺ run another week'; }
     // Challenge link: the week was a seed — share it so a friend plays the
     // same market, same waves, same regulars.
@@ -300,6 +402,8 @@ function campaignClose() {
       $('shareWeek').onclick = () => openShareToX({
         day: CAMPAIGN.days, maxDays: CAMPAIGN.days, till: net, reputation: rep,
         verdict: v, seed: SEED,
+        served: cServed, balked: cBalked,
+        beatGlasshouse: cDef < cServed * 0.12,
         badge: calculateCampaignBadge({ netWorth: net, reputation: rep, served: cServed, balked: cBalked, debt: exchange.debt }),
       });
     }
@@ -308,13 +412,79 @@ function campaignClose() {
 
 // ---- HUD -----------------------------------------------------------------------
 const fmt = n => '£' + n.toFixed(2);
+const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : n + 'th');
+
+// District leaderboard — every mirrored stand races the same week on Convex.
+// Paints a compact HUD line during play and a standings block on the receipt.
+function refreshStands() {
+  if (!sync.live || !sync.stands) return;
+  sync.stands().then(rows => {
+    if (!rows || !rows.length) return;
+    const me = sync.owner;
+    const rank = rows.findIndex(r => r.ownerName === me) + 1;
+    const d = $('district');
+    d.textContent = '';
+    const b = document.createElement('b');
+    b.textContent = '1st ' + rows[0].ownerName + ' ' + fmt(rows[0].till);
+    d.append('district · ', b,
+      rank ? ' · you ' + ordinal(rank) + ' of ' + rows.length
+           : ' · ' + rows.length + ' stands racing');
+    const box = $('r-stands');
+    box.textContent = '';
+    const h = document.createElement('h4');
+    h.textContent = 'district standings · live on convex';
+    box.appendChild(h);
+    rows.slice(0, 5).forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'rl' + (r.ownerName === me ? ' me' : '');
+      const s1 = document.createElement('span'); s1.textContent = (i + 1) + '. ' + r.ownerName;
+      const s2 = document.createElement('span'); s2.textContent = fmt(r.till);
+      row.append(s1, s2);
+      box.appendChild(row);
+    });
+    box.classList.add('show');
+  }).catch(() => {});
+}
+
 let lastHudText = 0;
 function updateHUD() {
-  // Cheap per-tick state: progress bar + lever availability stay live so
-  // inputs never feel stale, even at 20×.
+  // Cheap per-tick state: progress bar + lever availability + queue bar +
+  // batch countdown stay live so inputs never feel stale, even at 20×.
   $('progress').style.width = ((dayMin - DAY_START) / (DAY_END - DAY_START) * 100) + '%';
   $('prebatch').disabled = (prebatched && ctx.batchUnits > 0) || dayMin >= 960 || closed;
   $('reprice').disabled = repriced || closed;
+  // queue health bar: under 5 = ok → 5–10 = warm → 10+ = hot
+  const qq = patrons.queueLength;
+  const qHeat = qq > 10 ? 'hot' : qq > 5 ? 'warm' : 'ok';
+  const qPct = Math.min(100, Math.round(qq / 12 * 100));
+  if ($('queuefill')) { $('queuefill').style.width = qPct + '%'; $('queuefill').className = qHeat; }
+  if ($('qlabel')) $('qlabel').textContent = `queue ${qq} / 12 ` + (qq <= 5 ? '— calm' : qq <= 10 ? '— watch it' : '— they\u2019ll walk');
+  // batch countdown: big number when batched, — otherwise
+  if ($('batchcount')) {
+    const bc = ctx.prebatched ? String(ctx.batchUnits) : '—';
+    const el = $('batchcount');
+    if (el.textContent !== bc) {
+      el.textContent = bc;
+      if (ctx.prebatched) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+    } else if (!ctx.prebatched) { el.textContent = '—'; }
+  }
+  // lever attention: pulse until first use on day 1
+  if (day === 1) {
+    if (!prebatched) $('prebatch').classList.add('attention'); else $('prebatch').classList.remove('attention');
+    if (!repriced) $('reprice').classList.add('attention'); else $('reprice').classList.remove('attention');
+  } else {
+    $('prebatch').classList.remove('attention');
+    $('reprice').classList.remove('attention');
+  }
+  // goal strip: swap from instruction to live status once the player acts
+  if ($('goal')) {
+    if (prebatched || repriced || dayMin >= 840) {
+      const acts = [prebatched ? 'batched ' + ctx.batchUnits : 'not batched', repriced ? 'price cut' : 'full price'];
+      $('goal').innerHTML = `Day ${day}/${CAMPAIGN.days} — <b>${qq} in line</b> · ${acts.join(' · ')} <span class="dim">— 14:00 rush at ${qq <= 5 ? 'safe' : 'danger'}</span>`;
+    } else {
+      $('goal').innerHTML = `☕ Keep the <b>queue under 5</b> · 14:00 the student rush hits. <b>Hit 1 to batch before noon</b> or watch them walk to <b>GLASSHOUSE</b>.`;
+    }
+  }
   // Text + ticker redraws are the bottleneck at high speed (66 DOM writes/s
   // at 20×), so they run at ~5Hz wall-clock in the browser. Headless tests
   // bypass the throttle — they read DOM text as sim assertions.
@@ -352,18 +522,48 @@ function doPrebatch() {
   if (closed || dayMin >= 960) return;
   if (prebatched && ctx.batchUnits > 0) return;          // already warming
   const topUp = prebatched || ctx.batchUnits > 0;
+  const queueBefore = patrons.queueLength;
+  const priceBefore = repriced ? ECON.matchaDeal : (exchange.matchaPrice ?? priceForDay(day));
   prebatched = true; ctx.prebatched = true; ctx.batchUnits = ECON.batchUnits;
   till -= ECON.batchCost;
   fx.notebook(false);
   fx.toast(topUp ? `PRE-BATCH topped up: ${ECON.batchUnits} units (−${fmt(ECON.batchCost)})` : `PRE-BATCH: ${ECON.batchUnits} matcha units ready (−${fmt(ECON.batchCost)})`, 'good');
-  audio.clink(); updateHUD();
+  audio.clink();
+  world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced);
+  world.flashChalk('batch');
+  // prediction: queue drain preview — lifts the goal bar from instruction to live status
+  if (queueBefore > 3) {
+    const estAfter = Math.max(0, Math.round(queueBefore * 0.52));
+    fx.toast(`Chalkboard: ${queueBefore} in line → ~${estAfter} by 14:00 with 40 warm cups`, 'good');
+    $('goal').innerHTML = `Day ${day}/${CAMPAIGN.days} — <b>${queueBefore} in line → ~${estAfter} at 14:00</b> · batched ${ctx.batchUnits} <span class="dim">— they’ll sit, not walk</span>`;
+  }
+  batchPulseUntil = performance.now() + 650;
+  $('prebatch').classList.remove('attention'); $('reprice').classList.remove('attention');
+  // analytics: lever attribution
+  try {
+    const payload = { day, dayMin, queue: queueBefore, till, price: priceBefore, topUp };
+    const isFirst = !analytics.firstLeverAt;
+    if (isFirst) { analytics.firstLeverAt = { lever: 'batch', day, dayMin, wallMs: Date.now() }; analytics.track('first_lever_at_min', { lever: 'batch', day, dayMin, wallMs: Date.now(), queue: queueBefore }); }
+    analytics.track('lever_batch', { day, dayMin, queue: queueBefore, ...payload });
+  } catch {}
+  updateHUD();
 }
 function doReprice() {
   if (repriced || closed) return;
+  const queueBefore = patrons.queueLength;
   repriced = true; ctx.repriced = true; patrons.repriced = true;
   world.setMatchaPrice('4.20', true);   // the chalkboard changes in-world
+  world.flashChalk('reprice');
   fx.toast('the chalkboard changes — matcha £4.20 today', 'good');
-  audio.clink(); updateHUD();
+  if (queueBefore > 2) fx.toast(`New price holds the line — fewer walks at 14:00`, 'good');
+  audio.clink();
+  $('prebatch').classList.remove('attention'); $('reprice').classList.remove('attention');
+  try {
+    const isFirst = !analytics.firstLeverAt;
+    if (isFirst) { analytics.firstLeverAt = { lever: 'reprice', day, dayMin, wallMs: Date.now() }; analytics.track('first_lever_at_min', { lever: 'reprice', day, dayMin, wallMs: Date.now(), queue: queueBefore }); }
+    analytics.track('lever_reprice', { day, dayMin, queue: queueBefore, till });
+  } catch {}
+  updateHUD();
 }
 function reset() {
   // full campaign restart: the market and the regulars rewind to their start state
@@ -397,8 +597,9 @@ $('reset').onclick = reset;
 $('again').onclick = reset;
 $('mute').onclick = () => { $('mute').textContent = audio.toggleMute() ? 'sound off' : 'sound on'; };
 $('camreset').onclick = () => rig.resetView();
+const defaultSpeedBtn = headless ? '300' : '60';
 document.querySelectorAll('#speeds button').forEach(b => {
-  if (+b.dataset.s === 300) b.classList.add('on');
+  if (b.dataset.s === defaultSpeedBtn) b.classList.add('on');
   b.onclick = () => {
     speed = +b.dataset.s;
     document.querySelectorAll('#speeds button').forEach(x => x.classList.remove('on'));
@@ -440,13 +641,74 @@ fetch('./api/schedule.json').then(r => r.json()).then(s => {
 }).catch(() => {
   $('open').textContent = 'schedule missing — run: python3 -m grunds spatial';
 });
+// ---- tutorial: 3 steps, then the floor runs. Headless + ?skipTutorial bypass it.
+const TUT_STEPS = [
+  { k: '1 of 3 — THE READ', t: 'WATCH THE CLOCK', b: 'At <b>14:00 every day</b> students flood in for matcha. 139 &rarr; 683 a week — the fastest item on the floor. Made to order, a matcha takes <b>4 minutes</b>.' },
+  { k: '2 of 3 — THE LEVER', t: 'BE READY', b: 'Before noon, hit <b>1 to pre-batch 40 cups (&pound;4.20)</b> or <b>2 to cut matcha to &pound;4.20</b>. The chalkboard changes. The queue doesn&apos;t.' },
+  { k: '3 of 3 — THE PAYOFF', t: 'KEEP FIVE', b: 'Keep the queue <b>under 5</b>. Over that, they walk to <b>GLASSHOUSE</b> across the road. Under, they sit — and your till sings.' },
+];
+function showTutStep(n) {
+  tutStep = n;
+  $('tstep').textContent = TUT_STEPS[n].k;
+  $('ttitle').textContent = TUT_STEPS[n].t;
+  $('tbody').innerHTML = TUT_STEPS[n].b;
+  $('tnext').textContent = n < TUT_STEPS.length - 1 ? 'Next \u2192' : 'Start the day \u25B6';
+  try { analytics.track('tutorial_step', { step: n + 1, total: TUT_STEPS.length, title: TUT_STEPS[n].t }); } catch {}
+}
+function openTutorial() {
+  tutorialActive = true;
+  showTutStep(0);
+  $('tutorial').classList.add('show');
+  $('tutorial').setAttribute('aria-hidden', 'false');
+}
+function closeTutorial() {
+  tutorialActive = false;
+  $('tutorial').classList.remove('show');
+  $('tutorial').setAttribute('aria-hidden', 'true');
+}
+function dismissTutorialAndStart(fromSkip = false) {
+  const fromStep = tutStep + 1;
+  closeTutorial();
+  try {
+    if (fromSkip) analytics.track('tutorial_skip', { fromStep });
+    else if (fromStep === TUT_STEPS.length) analytics.track('tutorial_complete', { steps: TUT_STEPS.length });
+    else analytics.track('tutorial_skip', { fromStep });
+  } catch {}
+  // give the eye time to settle: 3.5s at wall speed before the first tick
+  started = true;
+  paused = true;
+  if ($('pause')) $('pause').textContent = 'resume';
+  audio.start();
+  openDay(1);
+  rig.crane();
+  fx.card('DAY 1', 'a quiet street — watch the queue, hit 1 before noon');
+  // unpause into the calm open after the crane settles
+  setTimeout(() => { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }, 3400);
+}
+$('tnext').onclick = () => {
+  if (tutStep < TUT_STEPS.length - 1) showTutStep(tutStep + 1);
+  else dismissTutorialAndStart(false);
+};
+$('tskip').onclick = () => dismissTutorialAndStart(true);
+$('tclose').onclick = () => dismissTutorialAndStart(true);
+addEventListener('keydown', e => {
+  if (!tutorialActive) return;
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('tnext').click(); }
+  else if (e.key === 'Escape') { e.preventDefault(); dismissTutorialAndStart(true); }
+});
+
 $('open').onclick = () => {
   if (!schedule) return;
-  started = true;
   $('title').classList.add('gone');
-  audio.start();
-  openDay(1); rig.crane();
   setTimeout(() => $('title').remove(), 1400);
+  if (headless || !wantTutorial) {
+    started = true;
+    audio.start();
+    openDay(1); rig.crane();
+  } else {
+    // open the 3-step tutorial over the diorama; it owns the first 3.5s
+    openTutorial();
+  }
 };
 
 // ---- loop ---------------------------------------------------------------------------
@@ -454,7 +716,7 @@ let acc = 0, last = performance.now();
 function loop(now) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
-  if (started && !closed && !paused && schedule) {
+  if (started && !closed && !paused && !tutorialActive && schedule) {
     acc += dt * 1000;
     const msPerMin = 300 / (speed / 60);
     while (acc > msPerMin) { acc -= msPerMin; tick(); }
@@ -476,10 +738,13 @@ function loop(now) {
   stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count,
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - settledPaid - exchange.debt, rep: regulars.reputation, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null }),
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
-  exc: exchange, reg: regulars, sync, world, rig,
+  exc: exchange, reg: regulars, sync, world, rig, analytics,
   openDay, applyReply, reset, togglePause,
   get paused() { return paused; },
 };
+// Playtest helper — paste __grunds.analytics.summary() after Day 1 in console
+try { window.__grunds.analytics = analytics; } catch {}
+
 updateHUD();
 requestAnimationFrame(loop);
 

@@ -301,6 +301,19 @@ export class FX {
   }
   reset() { for (const b of this.bubbles) b.el.remove(); this.bubbles = []; this.conversations = []; }
 
+  // ---- 14:00 debrief card — 5s café card that teaches the wave's causality ----
+  debriefCard({ k, sub, lines }) {
+    const el = document.getElementById('chapter');
+    // reuse the chapter card DOM but give it a longer life + extra lines
+    el.querySelector('.ck').textContent = k;
+    // join sub + lines so the card reads as a mini-report, not just a chapter
+    const cs = el.querySelector('.cs');
+    cs.innerHTML = sub + (lines && lines.length ? '<br><span style="opacity:.9;font-size:11px;letter-spacing:.06em">' + lines.join(' · ') + '</span>' : '');
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    // the card's CSS anim is 3.6s; keep it visible ~5s by re-adding the class once
+    setTimeout(() => { el.classList.remove('show'); void el.offsetWidth; }, 3800);
+  }
+
   // ---- DOM story beats ----------------------------------------------------------
   card(k, sub) {
     const el = document.getElementById('chapter');
@@ -323,6 +336,12 @@ export class FX {
     document.getElementById('r-lines').innerHTML = stats.lines.map(l =>
       `<div class="rl"><span>${l[0]}</span><span>${l[1]}</span></div>`).join('');
     document.getElementById('r-verdict').textContent = stats.verdict;
+    // optional forecast stripe: injected by main.js closeDay() on day 1
+    const fc = document.getElementById('r-forecast');
+    if (fc) {
+      if (stats.forecast) { fc.textContent = stats.forecast; fc.style.display = ''; }
+      else { fc.textContent = ''; fc.style.display = 'none'; }
+    }
     el.classList.add('show');
   }
 }

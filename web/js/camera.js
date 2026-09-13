@@ -31,7 +31,7 @@ export class CameraRig {
     }, { passive: true });
   }
 
-  crane() { this.mode = 'crane'; this.craneT = 0; this._from = { target: this.target.clone(), theta: this.theta, phi: this.phi, r: this.r }; }
+  crane() { this.mode = 'crane'; this.craneT = 0; this._from = { target: this.target.clone(), theta: this.theta, phi: this.phi, r: this.r }; this._calm = performance.now(); }
 
   focus(point, r = 12, secs = 4, theta = null) {
     this.beat = { point: point.clone(), r, until: performance.now() / 1000 + secs, blend: 0, theta };
@@ -87,13 +87,19 @@ export class CameraRig {
         this.theta += Math.sin(t * 0.00013 * 1000) * 0.00012; // barely-there drift
       }
     }
-    // spherical placement + handheld breath
+    // spherical placement + gentle breath (muted in calm openings so the
+    // street settles before crowds arrive — reads as curated, not chaotic).
+    // Respects prefers-reduced-motion: breath scales to 0 when the user
+    // prefers less motion (accessibility).
+    const calmFactor = this._calm ? Math.min(1, Math.max(0, (performance.now() - this._calm) / 7000)) : 1;
+    const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1;
+    const breathScale = (0.25 + 0.75 * calmFactor) * reduceMotion;
     const sp = Math.sin(this.phi), cp = Math.cos(this.phi);
     const px = this.target.x + this.r * sp * Math.sin(this.theta);
     const py = this.target.y + this.r * cp;
     const pz = this.target.z + this.r * sp * Math.cos(this.theta);
-    const n1 = Math.sin(t * 0.9) * 0.045 + Math.sin(t * 2.3) * 0.02;
-    const n2 = Math.cos(t * 1.1) * 0.045 + Math.sin(t * 1.7) * 0.02;
+    const n1 = (Math.sin(t * 0.9) * 0.035 + Math.sin(t * 2.3) * 0.015) * breathScale;
+    const n2 = (Math.cos(t * 1.1) * 0.035 + Math.sin(t * 1.7) * 0.015) * breathScale;
     let sx = 0, sy = 0, sz = 0;
     if (this.shakeT > 0) {
       this.shakeT = Math.max(0, this.shakeT - dt * 1.4);

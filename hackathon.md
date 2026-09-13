@@ -8,13 +8,79 @@
 - **Frontend:** Convex static hosting
 - **Convex deployment:** https://striped-anaconda-746.convex.cloud
 - **Components:** @convex-dev/static-hosting
-- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (code, not deployed)
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /sync/*, /agentmail/webhook), crons, static hosting
 - **Auth:** none
-- **AI models:** gpt-4o-mini (key-gated action stub, falls back offline)
+- **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini (key-gated action stub, falls back offline)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-12T17:34:56Z
+- **Last updated:** 2026-09-13T20:03:53Z
 
 ## Log
+
+### 2026-09-13 - Calm open, tutorial, payoff legibility, analytics & polish
+P0 design fix for "looks crazy on launch / don't know what to do" — pacing, onboarding, and payoff all made legible, plus the measurement and replay hooks that prove it:
+- **Calm open (pacing):** default speed **1× (60)** for new players (`?speed=300/1200` still honored, headless stays at 5×); day-1 first 12 sim-min demand ×0.5 + morning (<10:00) ×0.52 so the queue trickles while eyes settle; gossip throttled to 10% in the calm window (35%→14% at 20× otherwise); `WALK_MUL` eased to 1/3/6; camera breath muted 7s after `crane()` (`_calm` factor 0.25→1) — street reads as curated, not handheld.
+- **3-step tutorial (paused start):** `OPEN` → 3-step card overlay (Read 14:00 / Lever 1+2 / Keep 5 vs GLASSHOUSE, `Enter`/`Space`/`Esc` + Skip) → 3.4s paused crane settle before first tick; bypassed via `?skipTutorial`/`?notutorial`/headless; bypassed sim still gates on `!tutorialActive`.
+- **Goal-first HUD:** new brass `#goal` strip ("Keep the queue under 5 · 14:00… Hit 1 to batch"), `#queuebar` health bar (ok/warm/hot + "queue 7/12 — watch it"), `#batchcount` pulse on change; levers pulse `attention` until first use on day 1; chalkboard flashes brass/matcha via new `world.flashChalk(kind)` + `W.menuMat` emissive.
+- **Lever prediction on press:** `doPrebatch()` shows `Chalkboard: 12 → ~6 by 14:00 with 40 warm cups` and flips the goal bar to live status; `doReprice()` toasts "New price holds the line" — `-£4.20` now reads as investment.
+- **14:00 wave debrief (payoff):** new `fx.debriefCard()` at 17:00 (dayMin≥1020, once/day) — `14:00 — THE WAVE` with `balk / served` vs counterfactual `Without it: ~Z would have walked · saved ~£XX` and a verdict (`You held the line.` / `Try 1 before noon tomorrow`); also toasts saved cups.
+- **Day-2 forecast (replay hook):** toast at 17:30 day 1 (`Forecast Day 2: … board 1.05 · matcha £4.95 — you'll choose at closing`) + brass `#r-forecast` stripe on the day-1 Z-read receipt — preview is truthful (`priceForDay(2)`, `drift.perDay`).
+- **Notebook earlier + coach earlier:** notebook pinned at 06:01 day 1 (read arrives before the rush); day-1 coach moved to **12:00** (was 13:00), halfway between noon reading and 14:00 wave.
+- **Analytics (playtest measurement):** new `web/js/analytics.js` — offline-first, localStorage, `__grunds.analytics.summary()`; events `tutorial_step/skip/complete`, `first_lever_at_min`, `lever_batch/reprice`, `day1_balk`/`balk` (throttled in console), `wave_debrief_shown`, `forecast_shown`; boot prints 5-question script (`time-to-first-lever <90s`, `% who press 1/2 before 14:00`, `can they say win condition`).
+- **Share virality framing:** `share.js` now leads with outcomes the player caused (`Held the line — 320 served, 12 walked (4%)` / `Beat GLASSHOUSE`) not just `£42`; `campaignClose()` passes `served`,`balked`,`beatGlasshouse`.
+- **Mobile + a11y:** `touch-action:none` already; `index.html` adds `@media (prefers-reduced-motion: reduce)` killing grain/pulse; `camera.js` breath scales to 0 under `prefers-reduced-motion`; distal HUD `#district` + receipt `#r-stands` leaderboard surface (`refreshStands()` after each dawn/close/finale); `__grunds.analytics` exposed for console QA.
+- **Convex parity:** `convex/exchange.ts` `openDay(bias)` + `convex/linkup.ts` `LINKUP_RESEARCH_QUERY` export; server `openDay` reads cached Linkup `marketShift` (clamped 0.2–3×) inside the pity-timer roll; `convex/http.ts` adds `/sync/stands`, `/ai/letter`, `/ai/research`; `convex/crons.ts` adds `linkup-intel-refresh` 06:15 UTC; `convex/nebius.ts` host migrated to `api.tokenfactory.nebius.com` + model `Llama-3.3-70B`.
+- **Tests/build:** `web/test/intel.mjs` (bias frequency + pity under bias + citation + route/cron/consumer wiring); `game-feel` coach gate widened to 720|780; loop gate now checks `tutorialActive`; gate **15/15**, `tsc` clean, `dist` 42 files.
+
+### 2026-09-13 - Nebius Token Factory goes live
+Wired the Applied AI integration end-to-end ahead of the Burning Token
+submission (Applied AI · Nebius challenge):
+- Migrated `convex/nebius.ts` off the retired AI Studio host to Token Factory
+  (`api.tokenfactory.nebius.com/v1`) and onto a current model
+  (`meta-llama/Llama-3.3-70B-Instruct`); key set via `convex env set`, never
+  in the repo.
+- New `POST /ai/letter` HTTP route (`convex/http.ts`) runs
+  `nebius.enhanceLetterNebius` — the Roaster's Letter now gets an
+  in-character LLM rewrite with token/latency metrics, cached 7d by input
+  hash so replays cost zero.
+- `web/js/main.js` `showLetter()` renders the templated letter instantly,
+  then swaps in the enhanced prose when the live call returns, signing it
+  `— Idris · Llama-3.3-70B · {latency}ms`. Fire-and-forget; offline-safe.
+- Verified live: `fallback:false`, 207 tokens, ~12.7s cold (cached after).
+  Gate 14/14, site re-uploaded.
+
+### 2026-09-13 - district leaderboard surfaces in the UI
+Made the Convex multiplayer visible to anyone playing (Multiplayer · Convex
+challenge):
+- New `GET /sync/stands?campaignId=` route (`convex/http.ts`) serves
+  `stands.topStands` (limit 8) over the same plain-fetch bridge — no client
+  lib needed on the static floor.
+- `web/js/convexSync.js` gains `stands()`; `web/js/main.js` `refreshStands()`
+  runs after each dawn mirror, at day close, and at the week finale.
+- HUD gains a `district` line — `1st <owner> £till · you Nth of M` — and the
+  Z-read receipt gains a "district standings · live on convex" block with
+  the player's row marked "— you". Owner names render via DOM text (no
+  innerHTML) since `?stand=` is user input.
+- Verified live: two owners mirrored into one campaign return sorted by
+  till over `/sync/stands`. Gate 14/14, site re-uploaded.
+
+### 2026-09-13 - Linkup research drives the market deck
+Wired Deep Research end-to-end so findings do work, not just sit in a
+module (Deep Research · Linkup challenge):
+- `GET /ai/research` (`convex/http.ts`) serves `linkup.searchCommodityIntelligence`
+  over the plain-fetch bridge; nightly `linkup-intel-refresh` cron keeps the
+  6h cache warm alongside the Firecrawl tick.
+- Server-side: `exchange.openDay` reads the cached `marketShift` payload and
+  multiplies event weights (clamped 0.2–3×) inside the seeded pity-timer
+  roll — a frost report genuinely makes frost more likely.
+- Client-side: `convexSync.intel()` fetches once per session;
+  `web/js/exchange.js` `roll(bias)` applies the same clamped multiplier to
+  the floor's own deck, so the played game reacts to live news too.
+- The roaster's letter cites the wire — `intelLine` prints
+  "Off the wire — <headline> (<domain>)" when sources arrive; a day-1 toast
+  names the top market shift.
+- New `web/test/intel.mjs`: biased-deck frequency, pity timer under bias,
+  citation presence/absence, and route/cron/consumer wiring. Gate 15/15.
+  Awaiting `LINKUP_API_KEY` — falls back to the seeded deck until it lands.
 
 ### 2026-09-12 - viral hooks, share cards, and campaign badges
 Added subtle, meaningful social and engagement dynamics:

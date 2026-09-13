@@ -8,6 +8,8 @@ import {
   priceForDay,
   seededRandom,
 } from "./gameConfig";
+import { hashKey } from "./apiCache";
+import { LINKUP_RESEARCH_QUERY } from "./linkup";
 
 // The Exchange on Convex — the Gamble clock, server-side.
 // Ports web/js/exchange.js + gentrification.js: drift first (baseline creep),
@@ -100,6 +102,26 @@ export const openDay = mutation({
     const beanAfterDrift = Math.min(DRIFT.maxIndex, c.beanIndex + DRIFT.perDay);
     const matchaPrice = priceForDay(day);
 
+    // Linkup deep research: the nightly refresh caches a marketShift payload;
+    // a live report tilts the deck (clamped) without replacing the seeded roll.
+    let shifts: { eventId: string; weightMul: number }[] = [];
+    const intel = await ctx.db
+      .query("apiCache")
+      .withIndex("by_key", (q) =>
+        q.eq("key", `linkup:research:v1:${hashKey(LINKUP_RESEARCH_QUERY)}`),
+      )
+      .unique();
+    if (intel && intel.expiresAt > Date.now()) {
+      try {
+        const parsed = JSON.parse(intel.value) as {
+          marketShift?: { eventId: string; weightMul: number }[];
+        };
+        shifts = parsed.marketShift ?? [];
+      } catch {
+        shifts = [];
+      }
+    }
+
     // Weighted pool with the pity timer: no two catastrophes in a row;
     // after a catastrophe, bias toward recovery (good/calm only).
     const pool: string[] = [];
@@ -107,6 +129,9 @@ export const openDay = mutation({
       let w = e.weight;
       if (e.tier === "cata" && c.lastTier === "cata") w = 0;
       if (c.lastTier === "cata" && e.tier !== "good" && e.tier !== "calm") w *= 0.35;
+      for (const s of shifts) {
+        if (s.eventId === id) w *= Math.min(3, Math.max(0.2, s.weightMul));
+      }
       for (let i = 0; i < Math.round(w); i++) pool.push(id);
     }
     const rng = seededRandom(c.seed * 100003 + day * 917);
