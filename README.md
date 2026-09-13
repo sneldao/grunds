@@ -193,6 +193,7 @@ node web/test/game-feel.mjs           # bubbles bounded/clamped, signed numbers,
 node web/test/intel.mjs               # Linkup deck bias (clamped), pity under bias, citations
 node web/test/behavioral.mjs          # decoy anchoring, pastry/cacao attachments, tip jar social proof
 node web/test/share.mjs               # Z-read share cards, campaign badges, replayable seed links
+node web/test/desk.mjs                # District Insider Pass: entitlement gates the wire, purchase/restore flows
 ```
 
 The floor is a **connected 5-day campaign**, not a closed loop. The three nested clocks
@@ -207,21 +208,23 @@ commodity economics into patrons' pockets into your till — every link visible 
 
 The diorama: a shader **sky dome** (gradient + sun glow + procedural stars over the day
 arc), procedural **district facades** whose windows light up at dusk, a far skyline, a
-mailbox, a commodity ticker, and weather mist after a frost — rendered through a
-core-Three **post-FX** bloom/vignette/grain pipeline. Controls: drag to look, scroll to
-zoom, `1` pre-batch, `2` reprice, `space` pause, `M` sound, `R` reset, `C` camera.
-The Roaster's Letter answers to `1`/`2`/`3`. URL params: `?lite`
-(no shadows/post-FX, 1x pixels), `?speed=60|300|1200` (default 1×; headless stays 5×),
+mailbox, a commodity ticker, weather mist and **sun-shaft god rays after a frost or harvest**, and a
+street **cat Miso** that walks once a day — rendered through a
+core-Three **post-FX** bloom/vignette/grain pipeline (auto-disabled on low-RAM/low-core + dynamic shadow budget at `queue>40` + GLB cross-fade-in). Controls: drag to look, scroll to
+zoom, `1` pre-batch, `2` reprice, `space` pause, `M` sound, `R` reset, `C` camera, `P` photo — title prints the live set.
+The Roaster's Letter answers to `1`/`2`/`3`; hidden delight: type `GRUNDS` for Gwen's gesha reserve. URL params: `?lite`
+(no shadows/post-FX, 1× pixels, now also auto on ≤4 cores / ≤4GB), `?speed=60|300|1200` (default 1×; headless stays 5×),
 `?seed=N` (campaign seed), `?skipTutorial`/`?notutorial` (bypass 3-step onboarding).
 
 Onboarding: new players land at 1× through a 3-step tutorial (Read 14:00 / Lever 1+2 /
 Keep 5 vs GLASSHOUSE, `Enter`/`Space`/`Esc`) then a 3.4s paused crane settle; day-1
 mornings are half-demand and gossip-throttled so eyes settle before the queue reads.
 The HUD is goal-first: a brass goal strip, a queue health bar (ok/warm/hot + "queue
-7/12 — watch it"), and a batch countdown; levers pulse until first use and the
-chalkboard flashes on press. At 17:00 a **14:00 wave debrief** card shows saved cups
-and `~£` vs GLASSHOUSE; at 17:30 a **Day-2 forecast** toast + receipt stripe preview
-the next day's board to earn the replay. A local `analytics.js` tracks
+7/12 — watch it", **heartbeat at >10 and purr glow at ≤5**), and a batch countdown; levers pulse until first use and the
+chalkboard flashes on press (with a chalk-dust puff and `screech` on reprice). At 17:00 a **14:00 wave debrief** card shows saved cups
+and `~£` vs GLASSHOUSE — a real save pops fanfare + a 3.5s counter crane + coin rain;
+an flop falls as a soft rain. At 17:30 and on day-1 close a **Day-2 forecast**
+toast + receipt stripe preview the next day's board to earn the replay. A local `analytics.js` tracks
 `tutorial_step/skip/complete`, `first_lever_at_min`, every balk, debrief and forecast
 for the 5-question playtest (`__grunds.analytics.summary()`).
 
@@ -352,12 +355,12 @@ squash-merge PR with a headless test gate.
     `construction-active`, `construction-final` (19 assertions total).
 
 The day-5 narrative is now end-to-end: numbers (HUD `#pressure` + goal +
-queue bar + batch countdown), narrative (the Letter + 14:00 wave debrief +
-Day-2 forecast), physical (scaffolds + tarps + chalkboard flash), audible
-(saw + hammer + till/coins), animated (drifting dust + 3D conversation
-lines). Onboarding lands at 1× with a 3-step tutorial + calm-open throttling;
-`analytics.js` measures every balk and first lever for the playtest. Fifteen
-headless tests run green on every merge.
+queue bar + batch countdown + `tabular-nums` till), narrative (the Letter + 14:00 wave debrief +
+Day-2 forecast + The Wire desk), physical (scaffolds + tarps + chalkboard flash + till drawer + stretching shadow + arcing coins + sipping sitters), audible
+(saw + hammer + till/coins + 90Hz clock tick at 1× + chalk screech + fanfare/rain + 38Hz purr + meow + shutter), animated (drifting dust + 3D conversation
+lines + cat Miso + living plant + god rays + rival lean/jeer + photo vignette). Onboarding lands at 1× with a 3-step tutorial + calm-open throttling;
+`analytics.js` measures every balk and first lever for the playtest. Performance is intent: auto- + dynamic-`lite` (no shadows/post-FX on weak devices, shadow budget at `queue>40`), GLB cross-fade, `tabular-nums` + staggered receipt typewriter. **16/16**
+headless tests run green on every merge (new `desk.mjs`).
 
 ## Live on Convex (Sept 12–13)
 
@@ -365,7 +368,7 @@ The Convex phase shipped as working backend + hosting, not a plan:
 
 - **Linkup**: Deep Research integration (`convex/linkup.ts`) querying global coffee commodity intelligence (weather disruptions, harvest reports, shipping bottlenecks) to dynamically bias the morning event deck with cited source URLs — nightly `linkup-intel-refresh` cron (06:15 UTC) keeps the 6h cache warm; the floor fetches once per session via `convexSync.intel()` and threads `marketShift` (clamped 0.2–3×) through the pity-timer roll on both client and server (`exchange.openDay(bias)`), cited in the Letter via `intelLine` and surfaced as a day-1 toast.
 - **Nebius**: Applied AI integration (`convex/nebius.ts`) via Token Factory (`meta-llama/Llama-3.3-70B-Instruct`, was 3.1 — host moved to `api.tokenfactory.nebius.com`) for in-character prose generation and responsive patron reaction lines with latency and token telemetry; new `POST /ai/letter` (`convex/http.ts`) serves `enhanceLetterNebius` (7-day hash cache), consumed fire-and-forget from `main.js` `showLetter()` (templated letter swaps to LLM prose with `— Idris · Llama-3.3-70B · {latency}ms`).
-- **RevenueCat**: Subscriptions / Web Test Store integration (`web/js/billing.js`) providing sandbox entitlement management for the "Commodity Trader / Futures Pass".
+- **RevenueCat**: Subscriptions / Web Test Store + live Web Billing (`web/js/billing.js` → `@revenuecat/purchases-js` CDN 1.47.3 when `?rc=`/localStorage/`RC_API_KEY`) — gates **The Wire** research desk (`web/js/desk.js`): free players keep the toast + one letter citation, subscribers get the full deck tilts + every cited source + tomorrow's roll reasoning. HUD gains `⚡ the wire ↗` when intel lands; the Letter grows a paywalled desklink where the choice happens. Modal: 3 perks, £4.99/mo, restore + dismiss + mode badge. Analytics: `paywall_shown` / `desk_opened` / `purchase_success`. Gate adds `desk.mjs`.
 - **District leaderboard + research bridge**: new `GET /sync/stands`, `GET /ai/research`, `POST /ai/letter` in `convex/http.ts`; nightly `commodity-news-refresh` + `linkup-intel-refresh` crons; local `apiCache` table backs both.
 - **Backend** (`convex/`): schema for campaigns, market events, regulars,
   friendships, letters, stands, and an API-response cache; queries +
@@ -381,35 +384,36 @@ The Convex phase shipped as working backend + hosting, not a plan:
   *is* the dist plus a schedule snapshot). The game auto-mirrors each
   dawn to Convex when hosted there (HUD badge flips `● LIVE`).
 - **Game feel**: bubbles capped at 10 and clamped on-screen, sign-aware
-  numbers ("down 6%", never "up -6%"), `space` or button pauses the sim
-  clock, the Letter answers to `1`/`2`/`3`, a day-1 12:00 coach nudges the
+  numbers ("down 6%", never "up -6%" — now `tabular-nums` so the till never jitters), `space` or button pauses the sim
+  clock, the Letter answers to `1`/`2`/`3`; `P`/`📷` freezes a golden-hour photo (canvas 720×405 with vignette + caption, `audio.shutter()`); type `GRUNDS` for Gwen's £7.80 gesha wink. A day-1 12:00 coach nudges the
   levers before the student wave (was 13:00), beat cameras hold still at 20×
   and breath is calm-gated 7s + `prefers-reduced-motion`-aware, and the rival
-  lives — their sign burns with their queue, the camera shows first blood,
+  lives — their sign burns with their queue, **leans -0.08rad at heat>6 and jeers at 5 defections via `world.jeerRival()`**, the camera shows first blood,
   their sales ring coins. The day opens at **1×** with a **3-step tutorial**
   (Read 14:00 / Lever 1+2 / Keep 5, `Enter`/`Space`/`Esc` + Skip, `?skipTutorial`
   bypass) and a 3.4s paused crane settle; day-1 mornings are half-demand and
   gossip-throttled. The HUD is **goal-first** (brass goal strip + queue health
-  bar + batch countdown), levers pulse until first use and the chalkboard
-  flashes on press with a predicted queue delta ("12 → ~6 by 14:00"). At 17:00
-  a 14:00 wave debrief card teaches the payoff (`saved ~£XX` vs GLASSHOUSE);
-  at 17:30 and on the day-1 Z-read a Day-2 forecast earns the replay. The
-  week closes in three beats: a CLOSING TIME card at 20:40, the day-5 Z-read
+  bar + batch countdown + **heartbeat at >10, purr glow at ≤5**), levers pulse until first use and the chalkboard
+  flashes on press with a predicted queue delta ("12 → ~6 by 14:00") + chalk dust + `screech` (desaturate + wobble). At 17:00
+  a **14:00 wave debrief** card teaches the payoff (`saved ~£XX` vs GLASSHOUSE) — **a real save explodes** (`waveFanfare` rising triad + `coinRain` 10–22 + 3.5s crane + card pop + haptics), a flop falls as a soft `waveRain`.
+  At 17:30 and on the day-1 Z-read a Day-2 forecast earns the replay. The week closes in three beats: a CLOSING TIME card at 20:40, the day-5 Z-read
   (with a district leaderboard block when live), then a SOLD finale — the
-  camera visits the sold storefronts before the verdict receipt lands.
-  GLASSHOUSE keeps staff silhouettes moving behind glass that runs pale by
+  camera visits the sold storefronts before the verdict receipt lands. That
+  receipt now **prints line-by-line (30ms) and typewrites the verdict (18ms/char)**, and the till counts with `tabular-nums`. The
+  shop is alive: **sitters sip at `dwell==4`** (arm/head/lean + steam puff), **Miso the street cat** walks `spawnL→door→tables` once/day ~09:30 (sits if `queue<4`, scatters if >10, meows via `world._onCatMeow`), a **living plant** tints HSL lush→brown with queue health, **god rays** and **mist** quote the event tier, and a **till drawer** slides + stretches its shadow on every sale.
+  Hover a patron → story card (op ♥, friends, wave); click to wave. GLASSHOUSE keeps staff silhouettes moving behind glass that runs pale by
   day and amber after dark; new weeks open with a crane swoop home. HUD text
   renders at ~5Hz so 20× stays smooth. The verdict receipt carries a
   seed-challenge share button with outcome framing ("Held the line — 320
   served, 12 walked" beats "£42"). Mix runs through a bus compressor (older
-  WebAudio guarded); phones get a ≤640px layout with `touch-action: none`
-  and width-aware bubble clamping; grain/pulse/breath respect
-  `prefers-reduced-motion`. Local `analytics.js` tracks tutorial steps,
+  WebAudio guarded — pad now pre-warms `0→0.02 in 600ms` so Day 1 isn't silent, clock `tick` at 1×, `purr` at ≤5 queue); phones get a ≤640px layout with `touch-action: none`
+  and width-aware bubble clamping + queue heartbeat / purr; grain/pulse/breath/`heartbeat`/`purr` respect
+  `prefers-reduced-motion` (and breath/haptics scale with the media query). Local `analytics.js` tracks tutorial steps,
   first lever, every balk, debrief and forecast for the playtest
   (`__grunds.analytics.summary()` + boot 5-question script). Loop tests are
-  RNG-seeded, so the 15-test gate is deterministic.
-- Still to do: full live-query sync (mirror today), Convex Auth, OpenAI +
-  AgentMail keys, prod deploy, video + social.
+  RNG-seeded, so the **16-test** gate is deterministic.
+- **Performance**: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms frames, shadow budget at `queue>40`, GLB cross-fade (`opacity 0→1`), RAF slot discipline (`requestAnimationFrame(loop)` re-arms first, receipt + loader use `setTimeout` in headless so the game loop isn't stolen), `tabular-nums` till, staggered receipt — fixed two real regressions (reputation `NaN` via sparse `opContagion`, RAF steal at close) — both caught by the 16-test gate.
+- Still to do: full live-query sync (mirror today), Convex Auth, AgentMail live inbox, prod deploy, video + social.
 
 See `hackathon.md` for the build log.
 

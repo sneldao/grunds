@@ -101,6 +101,13 @@ export class FX {
       }
     }
   }
+  victoryBurst(saved) {
+    const el = document.getElementById('chapter');
+    if (!el || !saved) return;
+    // quick CSS pop on the debrief card
+    el.style.transform = 'scale(1.03)';
+    setTimeout(() => { el.style.transform = ''; }, 420);
+  }
   coinBurst(x, y, z, n = 7) {
     for (let i = 0; i < n; i++)
       this.coins.spawn(x + (Math.random() - 0.5) * 0.3, y, z + (Math.random() - 0.5) * 0.3,
@@ -301,6 +308,24 @@ export class FX {
   }
   reset() { for (const b of this.bubbles) b.el.remove(); this.bubbles = []; this.conversations = []; }
 
+  // chalk dust puff on reprice — 10 particles from the board
+  chalkDust(x, y, z) {
+    for (let i = 0; i < 10; i++)
+      this.huffs.spawn(x + (Math.random() - 0.5) * 0.6, y + Math.random() * 0.2, z + (Math.random() - 0.5) * 0.4,
+        (Math.random() - 0.5) * 0.7, 0.18 + Math.random() * 0.35, (Math.random() - 0.5) * 0.5, 0.7 + Math.random() * 0.4, 1);
+  }
+  // coin rain for a wave win — long fall from above the till
+  coinRain(x, y, z, n = 18) {
+    for (let i = 0; i < n; i++) {
+      const dx = (Math.random() - 0.5) * 1.6, dz = (Math.random() - 0.5) * 1.0;
+      // arc with spin: coins feel physical, not particle confetti
+      const spin = (Math.random() < 0.5 ? 1 : -1) * (2 + Math.random() * 1.2);
+      // encode spin in horizontal drift (cheap substitute for per-particle rotation)
+      this.coins.spawn(x + dx, y + 2.2 + Math.random() * 1.2, z + dz,
+        (Math.random() - 0.5) * 0.6 + spin * 0.08, 0.9 + Math.random() * 0.5, (Math.random() - 0.5) * 0.6, 1.1 + Math.random() * 0.5);
+    }
+  }
+
   // ---- 14:00 debrief card — 5s café card that teaches the wave's causality ----
   debriefCard({ k, sub, lines }) {
     const el = document.getElementById('chapter');
@@ -333,9 +358,35 @@ export class FX {
   receipt(stats) {
     const el = document.getElementById('receipt');
     if (!stats) { el.classList.remove('show'); return; }
-    document.getElementById('r-lines').innerHTML = stats.lines.map(l =>
-      `<div class="rl"><span>${l[0]}</span><span>${l[1]}</span></div>`).join('');
-    document.getElementById('r-verdict').textContent = stats.verdict;
+    // stagger: till prints line-by-line, not instant spreadsheet
+    const linesEl = document.getElementById('r-lines');
+    linesEl.innerHTML = '';
+    //headless harness owns the RAF slot — don't steal it
+    const isHeadless = typeof globalThis !== 'undefined' && !!globalThis.__headless;
+    stats.lines.forEach((l, i) => {
+      const renderRow = () => {
+        const row = document.createElement('div');
+        row.className = 'rl'; row.innerHTML = `<span>${l[0]}</span><span>${l[1]}</span>`;
+        row.style.opacity = '0'; row.style.transform = 'translateY(4px)';
+        linesEl.appendChild(row);
+        if (isHeadless) { row.style.opacity = '1'; row.style.transform = 'none'; }
+        else requestAnimationFrame(() => { row.style.transition = 'opacity .18s, transform .18s'; row.style.opacity = '1'; row.style.transform = 'none'; });
+      };
+      if (isHeadless) renderRow(); else setTimeout(renderRow, i * 30);
+    });
+    // typewriter for verdict when reduced-motion is off
+    const verdictEl = document.getElementById('r-verdict');
+    const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion || !stats.verdict) {
+      verdictEl.textContent = stats.verdict || '';
+    } else {
+      verdictEl.textContent = '';
+      let ci = 0;
+      const iv = setInterval(() => {
+        verdictEl.textContent = stats.verdict.slice(0, ci++);
+        if (ci > stats.verdict.length) clearInterval(iv);
+      }, 18);
+    }
     // optional forecast stripe: injected by main.js closeDay() on day 1
     const fc = document.getElementById('r-forecast');
     if (fc) {

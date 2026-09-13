@@ -86,15 +86,21 @@ export const searchCommodityIntelligence = action({
       }));
 
       const marketShift: CommodityResearchResult["marketShift"] = [];
+      const seenEvents = new Set<string>();
       for (const r of results) {
         const combined = `${r.name ?? ""} ${r.snippet ?? ""}`;
         for (const kw of RESEARCH_KEYWORDS) {
           if (kw.pattern.test(combined)) {
-            marketShift.push({
-              eventId: kw.eventId,
-              weightMul: kw.weightMul,
-              reason: `${kw.reason}: ${(r.name ?? "").slice(0, 80)}`,
-            });
+            // one shift per eventId — sources often corroborate the same
+            // story, and consumers multiply weights into the deck
+            if (!seenEvents.has(kw.eventId)) {
+              seenEvents.add(kw.eventId);
+              marketShift.push({
+                eventId: kw.eventId,
+                weightMul: kw.weightMul,
+                reason: `${kw.reason}: ${(r.name ?? "").slice(0, 80)}`,
+              });
+            }
             break;
           }
         }

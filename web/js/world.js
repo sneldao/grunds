@@ -160,9 +160,17 @@ export function buildWorld(scene, renderer, lite) {
     const flashCol = kind === 'reprice' ? 0xc9a227 : 0x86a860;
     W.menuMat.emissive.setHex(flashCol);
     W.menuMat.emissiveIntensity = 0.55;
-    setTimeout(() => { W.menuMat.emissiveIntensity = 0; }, 650);
+    // desaturate briefly so the flash reads as chalk, not just glow
+    const prevRough = W.menuMat.roughness;
+    W.menuMat.roughness = 0.45;
+    setTimeout(() => { W.menuMat.emissiveIntensity = 0; W.menuMat.roughness = prevRough; }, 650);
+    // tiny board wobble via scale pulse
+    if (W._chalkPlane) {
+      W._chalkPlane.scale.setScalar(1.02);
+      setTimeout(() => W._chalkPlane.scale.setScalar(1), 120);
+    }
   };
-  plane(cafe, 3.6, 2.7, W.menuMat, -5.5, 2.75, -7.95);
+  W._chalkPlane = plane(cafe, 3.6, 2.7, W.menuMat, -5.5, 2.75, -7.95);
   for (const sy of [1.9, 2.5]) {
     box(cafe, 7, 0.07, 0.5, PAL.walnut, -1.2, sy, -7.85, { cast: false });
     for (let i = 0; i < 7; i++) {
@@ -251,9 +259,88 @@ export function buildWorld(scene, renderer, lite) {
   // planters flanking the door — Kenney pottedPlant.glb replaces the
   // procedural box+sphere pair. The pot is ~0.6 m tall in the kit, scale 0.6
   // puts the foliage at the same 0.72 m height as the procedural version.
+  // W.plant: the living plant — three sphere "leaves" we tint by queue health.
   for (const px of [-7.8, -2.2]) {
     place(scene, 'pottedPlant.glb', { position: [px, 0, 6.6], scale: 0.6, rotationY: 0 });
   }
+  // living plant crown (3 spheres above the right planter at -2.2, 6.6)
+  W.plantMats = [];
+  W.plantGroup = new THREE.Group(); W.plantGroup.position.set(-2.2, 0.9, 6.6); scene.add(W.plantGroup);
+  for (let i = 0; i < 3; i++) {
+    const pm = new THREE.MeshStandardMaterial({ color: 0x6b8a4a, roughness: 0.9, emissive: 0x2a3d18, emissiveIntensity: 0 });
+    const ms = new THREE.Mesh(new THREE.SphereGeometry(0.22 - i * 0.04, 8, 6), pm);
+    ms.position.set((i - 1) * 0.16, 0.12 + Math.abs(i - 1) * 0.05, (i % 2 ? 0.1 : -0.08));
+    W.plantGroup.add(ms); W.plantMats.push(pm);
+  }
+  // god rays — a tall translucent quad behind the café that fades with mist; used for frost/harvest mood
+  W.godRayMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  const godGeo = new THREE.PlaneGeometry(18, 14);
+  W.godRay = new THREE.Mesh(godGeo, W.godRayMat); W.godRay.position.set(0, 7, -14); W.godRay.rotation.y = 0;
+  W.godRay.visible = false; scene.add(W.godRay);
+  W.setGodRay = (a) => { W.godRay.visible = a > 0.02; W.godRayMat.opacity = Math.min(0.18, a * 0.18); };
+  W.setPlantHealth = (queue) => {
+    // queue <5 = lush bloom (green + emissive), 5-10 = ok, 10+ = wilt (brown, dim)
+    const health = queue <= 5 ? 1 : queue <= 10 ? 0.55 : 0.18;
+    const col = new THREE.Color().setHSL(0.28 - (1 - health) * 0.18, 0.45 + health * 0.15, 0.42 + health * 0.12);
+    const wilt = (1 - health) * 0.18;
+    for (const pm of W.plantMats) {
+      pm.color.copy(col); pm.emissiveIntensity = health > 0.8 ? 0.35 : 0;
+    }
+    W.plantGroup.scale.setScalar(1 - wilt);
+    W.plantGroup.rotation.z = (1 - health) * 0.12;
+  };
+  // till drawer — a thin box that slides on sale
+  W.tillDrawer = box(scene, 0.62, 0.06, 0.42, 0xd8cbb2, LAYOUT.register.x, 0.62, -5.05, { cast: false });
+  W.tillDrawerBaseZ = -5.05; W.tillDrawerOpenUntil = 0;
+  W.popTillDrawer = () => { W.tillDrawerOpenUntil = performance.now() + 420; };
+  // street cat — a tiny capsule + head that walks spawnL->door->tables once/day
+  W.cat = (() => {
+    const g = new THREE.Group(); g.visible = false; scene.add(g);
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.32, 4, 8), mat(0x3a3d40, { rough: 0.9 }));
+    body.rotation.z = Math.PI / 2; body.position.y = 0.14; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), mat(0x3a3d40, { rough: 0.9 }));
+    head.position.set(0.22, 0.18, 0); g.add(head);
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.24, 6), mat(0x3a3d40, { rough: 0.9 }));
+    tail.position.set(-0.22, 0.16, 0); tail.rotation.z = 0.6; g.add(tail);
+    return g;
+  })();
+  W.catPath = []; W.catT = 0; W.catOn = false; W.catSitsUntil = 0;
+  W.spawnCat = () => {
+    if (W.catOn) return;
+    W.catOn = true; W.catT = 0; W.cat.visible = true; W.catSitsUntil = 0;
+    const L = LAYOUT;
+    W.catPath = [new THREE.Vector3(L.spawnL.x, 0, L.spawnL.z), new THREE.Vector3(L.door.x, 0, 6.2), new THREE.Vector3(5.6, 0, 4)];
+    W.cat.position.copy(W.catPath[0]);
+  };
+  W._catMeowed = false;
+  W.updateCat = (dt, queueLen) => {
+    if (!W.catOn) return;
+    if (W.catSitsUntil > 0) {
+      W.catSitsUntil -= dt;
+      if (!W._catMeowed && W.catSitsUntil < 7.5 && W.catSitsUntil > 6.8 && W._onCatMeow) { W._onCatMeow(); W._catMeowed = true; }
+      if (W.catSitsUntil <= 0 && queueLen > 10) { W.catOn = false; W.cat.visible = false; } // scatter
+      else if (W.catSitsUntil <= 0) { W.catSitsUntil = 0; W._catMeowed = false; }
+      else return;
+    }
+    if (W.catPath.length < 2) {
+      // at tables — sit if calm, else wander a bit
+      if (queueLen < 4 && W.catSitsUntil === 0) { W.catSitsUntil = 8; W._catMeowed = false; }
+      else if (queueLen > 10) { W.catOn = false; W.cat.visible = false; }
+      return;
+    }
+    const a = W.catPath[0], b = W.catPath[1];
+    const dx = b.x - W.cat.position.x, dz = b.z - W.cat.position.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 0.15) { W.catPath.shift(); return; }
+    const step = 1.1 * dt;
+    W.cat.position.x += (dx / dist) * step; W.cat.position.z += (dz / dist) * step;
+    W.cat.rotation.y = Math.atan2(dx, dz);
+    // tiny bob
+    W.cat.position.y = Math.abs(Math.sin(performance.now() * 0.008 + W.catT)) * 0.02;
+    W.catT += dt;
+  };
+  W.rivalJeerUntil = 0; W.rivalJeerBaseEmi = 0.25;
+  W.jeerRival = () => { W.rivalJeerUntil = performance.now() + 2200; };
 
   // ---- the rival: GLASSHOUSE across the road --------------------------------
   const rv = new THREE.Group(); rv.position.set(LAYOUT.rival.x, 0, LAYOUT.rival.z); scene.add(rv);
@@ -286,9 +373,11 @@ export function buildWorld(scene, renderer, lite) {
   box(rvGuest, 0.2, 0.22, 0.2, 0x14181c, 0, 1.28, 0, { cast: false, mat: rvSilMat });
   W.updateRival = (dt, now) => {
     const t = now / 1000;
-    rvBarista.position.x = -0.5 + Math.sin(t * 0.9) * 0.3;          // working the bar
+    rvBarista.position.x = -0.5 + Math.sin(t * 0.9) * 0.3;
     rvBarista.position.y = Math.abs(Math.sin(t * 1.7)) * 0.03;
-    rvGuest.position.x = 1.2 + Math.sin(t * 0.5 + 2) * 0.18;        // lingering
+    const lean = (W._rivalHeat || 0) > 6 ? -0.08 : 0;
+    rvBarista.rotation.z = lean;
+    rvGuest.position.x = 1.2 + Math.sin(t * 0.5 + 2) * 0.18;
   };
 
   // ---- the rent-pressure sign: gentrification drift made physical ------------
@@ -526,6 +615,30 @@ export function buildWorld(scene, renderer, lite) {
     { t: 1260, elev: -5, azim: 180, sun: 0x7788bb, sunI: 0.08, hemiI: 0.26, sky: 0x1c2440, fog: 0x161d33, pend: 1.15, street: 1 },
   ].map(k => ({ ...k, sunC: new THREE.Color(k.sun), skyC: new THREE.Color(k.sky), fogC: new THREE.Color(k.fog) }));
 
+  // delight updaters called from main loop (till slide with shadow stretch)
+  W._tillShadow = null;
+  // tiny shadow plane under the drawer — stretches when drawer is out
+  W._tillShadowMat = new THREE.MeshBasicMaterial({ color: 0x171310, transparent: true, opacity: 0, depthWrite: false });
+  W._tillShadow = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.3), W._tillShadowMat);
+  W._tillShadow.rotation.x = -Math.PI / 2; W._tillShadow.position.set(LAYOUT.register.x, 0.02, -5.05);
+  scene.add(W._tillShadow);
+  W._updateDelight = (now) => {
+    if (W.tillDrawer) {
+      const opening = now < W.tillDrawerOpenUntil;
+      const targetZ = opening ? W.tillDrawerBaseZ + 0.38 : W.tillDrawerBaseZ;
+      W.tillDrawer.position.z += (targetZ - W.tillDrawer.position.z) * 0.22;
+      // shadow stretches with the drawer — mass
+      const openFrac = Math.abs(W.tillDrawer.position.z - W.tillDrawerBaseZ) / 0.38;
+      W._tillShadow.scale.set(1 + openFrac * 0.35, 1, 1);
+      W._tillShadowMat.opacity = openFrac * 0.18;
+    }
+    if (W.rivalSignMat && W.rivalJeerUntil) {
+      if (now < W.rivalJeerUntil) {
+        const pulse = 0.5 + Math.sin(now * 0.012) * 0.35;
+        W.rivalSignMat.emissiveIntensity = W.rivalJeerBaseEmi + 0.9 + pulse * 0.4;
+      }
+    }
+  };
   W.updateTimeOfDay = function (t) {
     let i = 0;
     while (i < K.length - 2 && K[i + 1].t <= t) i++;
@@ -554,6 +667,7 @@ export function buildWorld(scene, renderer, lite) {
     if (!W.useSky) { W.starMat.opacity = night * 0.9; W.moonMat.opacity = night; W.moonMat.emissiveIntensity = night * 0.9; }
     for (const wm of W.winMats) wm.emissiveIntensity = Math.max(night * 1.1, duskish); // the district's windows come alive
     W.night = night;
+    try { W._updateDelight(performance.now()); } catch {}
   };
   W.updateTimeOfDay(360);
 

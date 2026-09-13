@@ -18,10 +18,10 @@ transform.py ──→ square_item_sales.csv ──→ ingest ──→ spatial 
 | System | Responsibility | Phase |
 |---|---|---|
 | `ingest` | Parse Square CSV, map each row to (zone, time, item, cohort); emit wave schedules | today |
-| `spatial` | Three.js floor: zones (counter, tables, register, retail), entity spawner keyed on time, queue heat, gossip bubbles, Kenney CC0 props, day-5 construction props, drifting dust, conversation lines, chalkboard flash, 3-step tutorial, goal/queue/batch HUD, wave debrief + forecast cards | today |
-| `agent` | Patron decision loop (choose stand by price/queue/reputation) + barista levers (pre-batch, reprice, queue-drain prediction) + named-Regular hat/bubble + friend-graph gossip routing + throttled gossip in calm open | today |
-| `precedent` | Patron memory: opinions persist across runs; gossip propagates through a named-friend graph; 5%/day opinion contagion along the friendship edges; local analytics (tutorial/lever/balk/debrief/forecast) in `web/js/analytics.js` | today |
-| `exchange` | Event deck (frost, harvest, hype) with pity timers + optional bias (Linkup marketShift, clamped 0.2–3×); gentrification drift (per-day cost creep + matcha price curve); forward contracts; supplier debt clock | today |
+| `spatial` | Three.js floor: zones, queue heat, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), 3-step tutorial + calm-open throttling, goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), wave debrief (fanfare/coin rain/crane) + forecast + wire/desk paywall, living plant (HSL health + wilt), god rays + mist, till drawer + stretching shadow, cat Miso, hover story card + photo mode, GLB cross-fade + shadow budget | today |
+| `agent` | Patron decision loop (price/queue/rep) + barista levers (pre-batch/reprice + queue-drain prediction + chalk dust/screech) + named-Regular hat/bubble + wave + friend-graph gossip routing (throttled in calm open) + sitter sip at `dwell==4` + hover→story card (36px probe) + click-to-wave (+0.06 op) + cat spawn/sit/scatter + plant health + till slide | today |
+| `precedent` | Patron memory: opinions persist; gossip via named-friend graph; 5%/day `opContagion` (Map<i→op> + `Number.isFinite` guard for sparse rosters); local `analytics.js` (tutorial/lever/balk/debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`) + `desk.js` (The Wire — gated briefing) + `billing.js` (RevenueCat Web Billing → Test Store) | today |
+| `exchange` | Event deck (frost/harvest/hype, pity timers + Linkup `marketShift` bias clamped 0.2–3×); gentrification drift (per-day cost creep + matcha 4.80→5.40); forward contracts; supplier debt clock; hidden `geshaUnlocked` (`GRUNDS` → £7.80 wink, persists as toast) | today |
 
 ## Game loop mapping
 
@@ -64,27 +64,39 @@ stores per-patron opinion state.
    - Matcha/Coffee → counter · Bakery → retail shelf · Retail → shelf · all → register
    - Cohort by hour: 7–9 commuters · 10–14 creatives · 14–18 students (5 cohorts
      in the local phase, the Convex phase adds 5th + 6th cohorts on the agent)
-3. `spatial` spawns entities at zone coordinates per transaction time; gossip
-   bubbles + 3D conversation lines render the friendship graph; Kenney CC0
-   props place the café interior; day-5 scaffolds + tarps + dust render the
-   gentrification visually; the floor opens at 1× through a 3-step tutorial
+3. `spatial` spawns entities per transaction time; gossip bubbles + 3D
+   conversation lines render the friendship graph; Kenney CC0 props (cross-fade
+   `opacity 0→1`, headless-aware) place the café; day-5 scaffolds/tarps/dust
+   render gentrification; the floor opens at 1× through a 3-step tutorial
    with a 3.4s paused crane settle, a goal-first HUD (brass goal strip, queue
-   health bar, batch countdown), pulse-until-used levers, a flashing chalkboard,
-   and calm-open throttling so new eyes can read before the rush; at 17:00 a
-   wave debrief card and at 17:30 a Day-2 forecast teach and tease the replay
-4. `agent` patrons pick stands (price, queue length, reputation); named
-   Regulars get a brass-band hat + a one-line greeting; the player pulls
-   levers (pre-batch/reprice, with a predicted queue drain on press) against
-   the wave schedule; gossip is throttled in the calm-open window
-5. `precedent` stores (pattern → opinion) pairs; regulars, grudges, and the
-   friendship graph persist; a 5%/day `opContagion` step pulls each regular
-   toward the mean of their friends' opinions; `web/js/analytics.js` records
-   tutorial steps/skips, first lever, every balk, debrief and forecast for the
-   playtest (exposed as `__grunds.analytics.summary()`)
-6. `exchange` rolls events with pity timers (+ optional Linkup bias) at each
-   dawn, applies gentrification drift (per-day cost creep + matcha price curve
-   + cohort expectation pressure) *before* the event roll, and settles
-   contracts and supplier debt from the Roaster's Letter
+   health bar heartbeat at >10 / purr at ≤5, `tabular-nums` till, batch countdown),
+   pulse-until-used levers, a flashing chalkboard (desaturate + wobble +
+   chalk dust on reprice) and calm-open throttling; at 17:00 a wave debrief
+   (fanfare/coin rain/crane on `saved≥6`, rain on flop) and at 17:30 a Day-2
+   forecast teach and tease the replay; glass `mistMat` + `godRay` quote the
+   event tier, a till drawer slides + shadow stretches on every sale, a living
+   plant (HSL) and a street cat (Miso, once/day 09:30, sits if `<4` / scatters
+   if `>10`) make the shop alive; hover→story card + click-to-wave and
+   `P` photo mode (golden hour + vignette + shutter) are delight affordances
+4. `agent` patrons pick stands (price/queue/rep); named Regulars get a
+   brass-band hat + greeting; the player pulls levers (pre-batch/reprice,
+   with predicted queue drain, chalk dust + screech on reprice) against the
+   wave; gossip is throttled in the calm-open window; sitters sip at
+   `dwell==4` (arm/head/lean + steam), the rival leans at `heat>6` and jeers
+   at 5 defections, Idris quips at 10:00/12:00 rep checkpoints, and haptics
+   (`vibrate(35)` on balk, `[20,30,50]` on wave save) land on phones
+5. `precedent` stores (pattern → opinion) + friendship graph; a
+   5%/day `opContagion` (Map-guarded, sparse-roster safe) pulls each regular
+   toward friends' mean; `web/js/analytics.js` records tutorial/lever/balk/
+   debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`
+   (exposed as `__grunds.analytics.summary()`); `billing.js` gates
+   `desk.js` The Wire on `commodity_insider` (HUD `⚡ the wire ↗` when intel
+   lands; Letter desklink where the choice happens)
+6. `exchange` rolls events with pity timers (+ Linkup `marketShift` bias
+   clamped 0.2–3×) at each dawn, applies gentrification drift (cost creep +
+   matcha curve + cohort expectation) *before* the roll, and settles
+   contracts/debt from the Letter; `GRUNDS` secret sets `geshaUnlocked` and
+   flashes £7.80 on the board (persists as a next-day toast)
 
 ## Convex deployment (live since Sept 12)
 
@@ -120,7 +132,9 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
 - AgentMail: signed `/agentmail/webhook` → reply-to-command mutation with
   a `letters` audit trail (inbox keys pending).
 - Hosting: `@convex-dev/static-hosting` serves the floor from
-  `https://striped-anaconda-746.convex.site` (42 files Sept 13, SPA fallback);
+  `https://striped-anaconda-746.convex.site` (43 files Sept 13, SPA fallback — adds `desk.js` + rebuilt `dist`);
+  performance: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms, shadow budget at `queue>40`, GLB cross-fade, `tabular-nums` till + staggered/typewriter receipt, `P` photo + `GRUNDS` secret;
+  delight wiring: `world.setPlantHealth`/`setGodRay`/`spawnCat`/`updateCat`/`popTillDrawer`/`_updateDelight`/`jeerRival`, `audio.tick`/`waveFanfare`/`waveRain`/`chalkScreech`/`purr`/`meow`/`shutter`, `fx.chalkDust`/`coinRain`/`victoryBurst` + receipt stagger, `main` haptics + hover card + Idris quips + rival jeer + desk/billing + `requestAnimationFrame(loop)` re-arm discipline;
   app routes stay at root (`/sync/*`, `/ai/*`, `/agentmail/*`). The floor
   mirrors each dawn into the campaign row plus a per-owner `stands` row
   (stable `grunds.owner` id, `?stand=` override), polls server state for the
@@ -131,9 +145,11 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
 
 Still pending: per-campaign dawn cron (intentionally skipped — no
 active-campaign pointer, ticks stay player-driven), Convex Auth (not
-required by the hackathon), OpenAI + AgentMail + Linkup keys (Linkup runs
-until `LINKUP_API_KEY` lands, then biases the deck for real), production
-deploy (iterating on dev until submission week), video + social.
+required by the hackathon), AgentMail live inbox (webhook live, keys
+pending — templated Letter still authoritative), production deploy
+(iterating on dev until submission week), video + social. OpenAI +
+Firecrawl + Linkup + Nebius are all live on dev (Linkup bias verified
+with 20-source pull; Nebius `Llama-3.3-70B` via Token Factory).
 
 ## Audit trail
 

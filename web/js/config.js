@@ -78,6 +78,14 @@ export const COPY = {
   gossipBad: ['matcha here is a WAIT…', 'queue’s out the door again', 'four minutes. for a latte.', 'the chain across the road is faster', 'they switched roasters, you know'],
   gossipGood: ['worth the queue today', 'pre-batched. genius.', 'best matcha on the street', 'they know my order here'],
   rivalName: 'GLASSHOUSE',
+  // delight: Idris one-liners, rival jeers, cat cameo
+  idrisQuips: {
+    sideEye: ["Mara's giving you side-eye, boss.", "The queue's talking, chief.", "Batch or watch them walk — your call.", "The board's warm today. Are you?"],
+    praise: ["That's how you hold a line.", "The regulars noticed. So did I.", "Warm till, happy room."],
+    warn: ["GLASSHOUSE is counting your walks.", "That queue's getting ideas.", "The street's watching."],
+  },
+  rivalTaunts: ['We have oat milk too — and no queue.', 'GLASSHOUSE: 90 seconds, every time.', 'Your regulars tried our matcha. Nice, right?'],
+  catName: 'Miso',
 };
 
 // THE DISTRICT — the connected campaign. The Gamble clock, the Regulars, the

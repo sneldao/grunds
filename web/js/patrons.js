@@ -182,15 +182,17 @@ export class PatronSystem {
     }
     this._layoutQ(this.registerQ, registerSlot);
 
-    // browsers finish browsing; sitters finish their cups
+    // browsers finish browsing; sitters finish their cups + sip at dwell==4
     for (let j = this.patrons.length - 1; j >= 0; j--) {
       const p = this.patrons[j];
       if (p.state === 'browse' && --p.dwell <= 0) {
         p.state = 'toRegister'; p.queueRef = 'register'; this.registerQ.push(p);
         p.goal = this._slotPos(registerSlot, this.registerQ.length - 1, p);
         this._layoutQ(this.registerQ, registerSlot);
-      } else if (p.state === 'sit' && --p.dwell <= 0) {
-        this._leave(p);
+      } else if (p.state === 'sit') {
+        if (p.sipAt != null && p.dwell === p.sipAt) { p.sipping = 2; if (this.fx) this.fx.steam.spawn(p.pos.x, 1.05, p.pos.z, 0, 0.22, 0, 0.9, 0.35); }
+        if (p.sipping) p.sipping--;
+        if (--p.dwell <= 0) this._leave(p);
       }
     }
 
@@ -234,7 +236,7 @@ export class PatronSystem {
     switch (p.state) {
       case 'walkingIn': p.state = 'toQueue'; break;   // through the door — now drift to your slot
       case 'toBrowse': p.state = 'browse'; p.dwell = 2 + (Math.random() * 4 | 0); break;
-      case 'toSeat': p.state = 'sit'; p.dwell = 8 + (Math.random() * 14 | 0); p.face = p.seat.face; break;
+      case 'toSeat': p.state = 'sit'; p.dwell = 8 + (Math.random() * 14 | 0); p.face = p.seat.face; p.sipAt = p.dwell - 4; break;
       case 'defecting': p.state = 'inRivalQ'; break;
       case 'leaving': this._despawn(p); break;
     }
@@ -345,15 +347,16 @@ export class PatronSystem {
         P.torso.setColorAt(p.idx, this._c); P.torso.instanceColor.needsUpdate = true;
       }
 
+      const sipping = p.sipping > 0;
       const sitting = p.state === 'sit';
       const s = p.scale;
       const bob = walking ? Math.abs(Math.sin(p.phase)) * 0.05 : Math.sin(now * 0.0016 + p.idx * 1.7) * 0.012;
       const torsoY = (sitting ? 0.5 : 0.62) + bob;
-      const headY = torsoY + 0.48 * s;
-      const lean = walking ? 0.1 : 0;
+      const headY = torsoY + 0.48 * s + (sipping ? -0.04 : 0);
+      const lean = walking ? 0.1 : sipping ? -0.14 : 0;
       const legSwing = walking ? Math.sin(p.phase) * 0.6 : 0;
-      const armSwing = walking ? -Math.sin(p.phase) * 0.45 : Math.sin(now * 0.0012 + p.idx) * 0.05;
-      const headRy = walking ? 0 : Math.sin(now * 0.00045 + p.idx * 2.1) * 0.45;
+      const armSwing = walking ? -Math.sin(p.phase) * 0.45 : sipping ? 0.6 : Math.sin(now * 0.0012 + p.idx) * 0.05;
+      const headRy = walking ? 0 : sipping ? 0.12 : Math.sin(now * 0.00045 + p.idx * 2.1) * 0.45;
       const fx = Math.sin(p.face), fz = Math.cos(p.face);   // forward
       const rx = Math.cos(p.face), rz = -Math.sin(p.face);  // right
 

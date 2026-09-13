@@ -43,7 +43,11 @@ export class AudioEngine {
       [98.0, 164.81, 246.94],    // G m-ish
     ];
     this._applyChord(0, 0);
-    this.padGain.gain.setTargetAtTime(0.055, ctx.currentTime, 4);
+    // pre-warm: felt in 600ms, then glide to full — Day 1 shouldn't feel silent
+    this.padGain.gain.setValueAtTime(0, ctx.currentTime);
+    this.padGain.gain.linearRampToValueAtTime(0.02, ctx.currentTime + 0.6);
+    this.padGain.gain.setTargetAtTime(0.055, ctx.currentTime + 0.6, 3);
+    this._tickT = 0;
 
     // --- café murmur: brown noise bed + syllable blips scheduled in update ---
     const brown = this._noiseBuffer(true);
@@ -167,6 +171,17 @@ export class AudioEngine {
   }
   setCrowd(n) { this.crowd = n; }
   setRush(b) { this.rush = b; }
+  tick(at1x) {
+    if (!this.ctx || !at1x || this.ctx.state !== 'running') return;
+    const now = this.ctx.currentTime;
+    if (now - (this._tickT || 0) < 0.9) return;
+    this._tickT = now;
+    const o = this.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 90;
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.018, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 180;
+    o.connect(lp); lp.connect(g); g.connect(this.master); o.start(now); o.stop(now + 0.14);
+  }
   // Day-5 construction noise — a low, slightly detuned sawtooth through a
   // narrow bandpass, ramped in/out over ~1.5s. The result is a distant
   // "nrrrr" rather than a literal saw. The oscillator + filter are
@@ -233,6 +248,82 @@ export class AudioEngine {
     g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
     src2.connect(bp2); bp2.connect(g2); g2.connect(this.master);
     src2.start(t); src2.stop(t + 0.06);
+  }
+  // ---- delight: fanfare, chalk screech, purr ----
+  waveFanfare(saved) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const base = 220 + Math.min(6, saved) * 8;
+    // rising major triad, pitch tracks saved cups
+    [0, 4, 7].forEach((semi, i) => {
+      const o = this.ctx.createOscillator(); o.type = 'triangle';
+      o.frequency.value = base * Math.pow(2, semi / 12);
+      const g = this.ctx.createGain(); this._env(g, t + i * 0.08, saved >= 6 ? 0.12 : 0.07, 0.7 + i * 0.12);
+      o.connect(g); g.connect(this.master); o.start(t + i * 0.08); o.stop(t + i * 0.08 + 0.9);
+    });
+    if (saved >= 6) {
+      // sparkle on top for a real save
+      const o2 = this.ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = base * 2;
+      const g2 = this.ctx.createGain(); this._env(g2, t + 0.28, 0.08, 0.5);
+      o2.connect(g2); g2.connect(this.master); o2.start(t + 0.28); o2.stop(t + 0.9);
+    }
+  }
+  waveRain(saved) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(180, t); o.frequency.linearRampToValueAtTime(90, t + 1.2);
+    const g = this.ctx.createGain(); this._env(g, t, 0.06, 1.4);
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700;
+    o.connect(lp); lp.connect(g); g.connect(this.master); o.start(t); o.stop(t + 1.5);
+  }
+  chalkScreech() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(1200, t); o.frequency.linearRampToValueAtTime(900, t + 0.18);
+    const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 3;
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.035, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    o.connect(bp); bp.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.25);
+  }
+  purr(on) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (on) {
+      if (this._purr) return;
+      const o = this.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 38;
+      const g = this.ctx.createGain(); g.gain.value = 0;
+      const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 180;
+      o.connect(lp); lp.connect(g); g.connect(this.master); o.start();
+      this._purr = { o, g };
+      g.gain.setTargetAtTime(0.045, t, 0.6);
+    } else if (this._purr) {
+      this._purr.g.gain.setTargetAtTime(0, t, 0.4);
+      const dead = this._purr; setTimeout(() => { try { dead.o.stop(); } catch {} }, 700);
+      this._purr = null;
+    }
+  }
+  meow() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(); o.type = 'triangle';
+    o.frequency.setValueAtTime(420, t); o.frequency.linearRampToValueAtTime(310, t + 0.18);
+    o.frequency.linearRampToValueAtTime(380, t + 0.28);
+    const g = this.ctx.createGain(); this._env(g, t, 0.07, 0.35);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.4);
+  }
+  shutter() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    // click + soft thump
+    const src = this.ctx.createBufferSource(); if (this.noiseBuf) src.buffer = this.noiseBuf;
+    const hp = this.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2200;
+    const g = this.ctx.createGain(); this._env(g, t, 0.08, 0.06);
+    try { src.connect(hp); hp.connect(g); g.connect(this.master); src.start(t, 0, 0.05); } catch {}
+    const o = this.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 90;
+    const g2 = this.ctx.createGain(); this._env(g2, t, 0.06, 0.12);
+    o.connect(g2); g2.connect(this.master); o.start(t); o.stop(t + 0.14);
   }
   toggleMute() {
     if (!this.ctx) return this.muted;   // pre-start: report, don't flip the label

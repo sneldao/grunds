@@ -3,7 +3,7 @@
 //   THE READ (hours)    — the wave schedule + the Roaster's Notebook
 //   THE SCRAMBLE (sec)  — the queue: pre-batch, reprice, or lose them to GLASSHOUSE
 import * as THREE from '../vendor/three.module.js';
-import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS } from './config.js';
+import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER } from './config.js';
 import { buildWorld } from './world.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
@@ -18,11 +18,17 @@ import { applyExpectation, priceForDay } from './gentrification.js';
 import { initSync } from './convexSync.js';
 import { calculateCampaignBadge, openShareToX } from './share.js';
 import { createAnalytics } from './analytics.js';
+import { billing } from './billing.js';
+import { initDesk, wireHint } from './desk.js';
 
 const urlParams = new URLSearchParams(location.search);
-const lite = urlParams.has('lite');
+const _liteFlag = urlParams.has('lite');
 const headless = typeof window !== 'undefined' && !!window.__headless;
 const urlSpeed = +urlParams.get('speed');
+// auto-lite: low cores or low memory → skip postFX/shadows without asking
+const _autoLite = !_liteFlag && !headless && typeof navigator !== 'undefined'
+  && ((navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || (navigator.deviceMemory && navigator.deviceMemory <= 4));
+const lite = _liteFlag || _autoLite;
 const $ = id => document.getElementById(id);
 
 // ---- three.js core -----------------------------------------------------------
@@ -50,7 +56,10 @@ const SEED = urlParams.get('seed') ? +urlParams.get('seed') : 7;
 // Linkup market intel: fetched once per session (server-cached 6h). Tilts the
 // dawn deck via exchange.openDay(bias) and is cited in the roaster's letter.
 let marketIntel = null;
-if (sync.live && sync.intel) sync.intel().then(r => { marketIntel = r; });
+if (sync.live && sync.intel) sync.intel().then(r => {
+  marketIntel = r;
+  if (r && $('wirebtn')) $('wirebtn').style.display = '';
+});
 
 const fx = new FX(scene, null, lite);   // patrons wired in just below
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
@@ -58,6 +67,10 @@ fx.patrons = patrons;
 const analytics = createAnalytics();
 // expose playtest script on boot — QA can copy/paste from console
 try { console.log(analytics.playtestScript()); } catch {}
+// District Insider Pass: the research desk gates on the entitlement; the
+// stand owner doubles as the RevenueCat appUserId so a pass travels with it.
+const desk = initDesk({ billing, analytics });
+billing.configure(sync.owner);
 
 // ---- game state ---------------------------------------------------------------
 const DAY_START = 360, DAY_END = 1260;
@@ -73,6 +86,7 @@ let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let coached = false;   // day-1 lever hint, once per campaign
 let waveDebriefShown = false;  // 14:00 wave payoff card, once per day
 let forecastShown = false;     // day-2 forecast tease, once per campaign (day 1 evening)
+let pendingGossip = null;      // a named regular's Nebius take on the market, one per day
 // campaign accumulators (persist across the 5 days)
 let cRev = 0, cCost = 0, cBalked = 0, cServed = 0, cDef = 0, settledPaid = 0, campaignDone = false;
 const ctx = { prebatched: false, repriced: false, batchUnits: 0 };
@@ -97,6 +111,13 @@ function tick() {
   }
   // run the floor
   const events = patrons.tick(dayMin, ctx);
+  // deliver the wire's gossip once the named regular is actually on the
+  // floor — routed through the friend graph so it lands as word-of-mouth
+  if (pendingGossip?.text) {
+    const src = patrons.patrons.find(p =>
+      p.regularName === pendingGossip.name && (p.state === 'sit' || p.state === 'inQueue'));
+    if (src) { fx.gossipBubbles(src, pendingGossip.text, 'good'); pendingGossip = null; }
+  }
   let sales = 0, balks = 0;
   for (const e of events) {
     if (e.type === 'served') {
@@ -109,6 +130,7 @@ function tick() {
       if (dayMin >= 840 && dayMin <= 1020) { waveBalked++; if (prebatched) prebatchHelped = false; }
       audio.balk();
       fx.huff(e.p.pos.x, 1.5, e.p.pos.z);
+      try { if (navigator.vibrate) navigator.vibrate(35); } catch {}
       // analytics: every balk is a teaching moment — day-1 balks are the signal
       try {
         const payload = { day, dayMin, queue: patrons.queueLength, wave: dayMin >= 840 && dayMin <= 1020 ? 1 : 0 };
@@ -122,7 +144,12 @@ function tick() {
     } else if (e.type === 'defect') {
       defections++;
       if (defections === 1) fx.toast('they’re crossing the road to ' + COPY.rivalName + '…', 'bad');
-      if (defections === 1 && speed <= 300) rig.queueFocus(world.focus.rival, 13, 4, 12, Math.PI);   // swing road-side: show the enemy scoring, once the camera is free
+      if (defections === 1 && speed <= 300) rig.queueFocus(world.focus.rival, 13, 4, 12, Math.PI);
+      if (defections === 5) {
+        const taunt = COPY.rivalTaunts ? COPY.rivalTaunts[(Math.random() * COPY.rivalTaunts.length) | 0] : null;
+        if (taunt) fx.toast(taunt, 'bad');
+        try { world.jeerRival(); } catch {}
+      }
       if (defections === 12) fx.toast(COPY.rivalName + '’s line is out the door.', 'bad');
     } else if (e.type === 'rivalServed') { rivalServed++; fx.coinBurst(LAYOUT.rival.x, 1.7, 15.2, 3); }
   }
@@ -130,6 +157,9 @@ function tick() {
     audio.sale(sales);
     fx.coinBurst(LAYOUT.register.x, 1.5, -5.2, Math.min(10, 3 + sales));
     $('till').classList.add('pulse'); setTimeout(() => $('till').classList.remove('pulse'), 300);
+    try { world.popTillDrawer(); } catch {}
+    // at 1× the clock is felt — one soft tick per served minute, throttled inside audio
+    try { if (speed === 60) audio.tick(true); } catch {}
   }
   if (prebatched && ctx.batchUnits <= 0) {
     prebatched = false; ctx.prebatched = false;
@@ -170,6 +200,16 @@ function beats() {
     fx.toast(fore, 'warn');
     try { analytics.track('forecast_shown', { day, dayMin, event: exchange.event?.id || null, nextPrice, nextIdx }); } catch {}
   }
+  // Idris mid-day quips at 60/80 rep checkpoints (once/day)
+  if (dayMin === 600 && regulars.reputation >= 80) {
+    const line = COPY.idrisQuips?.praise ? COPY.idrisQuips.praise[(Math.random() * COPY.idrisQuips.praise.length) | 0] : null;
+    if (line) fx.toast(line, 'good');
+  } else if (dayMin === 720 && regulars.reputation < 62) {
+    const line = COPY.idrisQuips?.warn ? COPY.idrisQuips.warn[(Math.random() * COPY.idrisQuips.warn.length) | 0] : null;
+    if (line) fx.toast(line, 'warn');
+  }
+  // cat once/day around 09:30
+  if (dayMin === 570) { try { world.spawnCat(); } catch {} }
   // 14:00 wave debrief: 5s card at 17:00 — teaches causality for Day 2
   if (!waveDebriefShown && dayMin >= 1020 && !closed) {
     waveDebriefShown = true;
@@ -191,6 +231,18 @@ function beats() {
       lines: [estLine, counterfactual],
     });
     if (saved > 0) fx.toast(`Wave debrief: saved ${saved} cups · ~${fmt(savedTill)} not lost to GLASSHOUSE`, saved >= 6 ? 'good' : 'warn');
+    // delight: fanfare + coin rain + crane on a real save; rain on a flop
+    if (saved >= 1) {
+      const win = saved >= 6;
+      try {
+        if (win) audio.waveFanfare(saved); else audio.waveRain(saved);
+        if (win && !headless && speed <= 300) rig.focus(world.focus.counter, 11, 3.5);
+        if (win) { fx.coinRain(LAYOUT.register.x, 1.5, -5.2, Math.min(22, 10 + saved * 2)); }
+        if (win) fx.victoryBurst(saved);
+        if (navigator.vibrate) navigator.vibrate(win ? [20, 30, 50] : 35);
+        if (win) world.setPlantHealth(Math.max(0, patrons.queueLength - 2));
+      } catch {}
+    }
     try { analytics.track('wave_debrief_shown', { day, dayMin, waveBalked, waveServed, saved, savedTill, prebatched, repriced, verdict }); } catch {}
   }
   // Day-1 coach: moves earlier (12:00) — halfway between noon reading
@@ -290,6 +342,19 @@ function showLetter() {
         (data.latencyMs ? ' · ' + data.latencyMs + 'ms' : ' · cached');
     }).catch(() => {});
   }
+  // the wire upsell: subscribers open the desk, everyone else meets the pass
+  const dl = $('desklink');
+  if (dl) {
+    if (marketIntel) {
+      dl.style.display = '';
+      dl.textContent = billing.isSubscribed()
+        ? '⚡ the full wire — open the desk'
+        : `⚡ the wire ${wireHint(marketIntel) || 'stirs'} — insiders read the rest`;
+      dl.onclick = () => desk.open(marketIntel);
+    } else {
+      dl.style.display = 'none';
+    }
+  }
 }
 
 function applyReply(id) {
@@ -329,11 +394,35 @@ function openDay(d) {
   if (d === 1 && marketIntel && marketIntel.marketShift && marketIntel.marketShift.length) {
     fx.toast('market intel · ' + String(marketIntel.marketShift[0].reason).slice(0, 90), 'warn');
   }
+  // the district talks: one named regular's take on today's market via
+  // Nebius — cached by (name|cohort|context), so every stand on this seed
+  // shares the pull. Delivered as a friend-graph bubble once they're here.
+  pendingGossip = null;
+  if (sync.live && !headless) {
+    const reg = REGULAR_ROSTER[(d - 1) % REGULAR_ROSTER.length];
+    const context = (`${ev.head}: ${ev.line}` +
+      (marketIntel?.marketShift?.[0] ? ' — ' + marketIntel.marketShift[0].reason : '')).slice(0, 500);
+    fetch(sync.url + '/ai/gossip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: reg.name, cohort: reg.coh, context }),
+    }).then(r => (r.ok ? r.json() : null)).then(data => {
+      if (data && !data.fallback && data.text)
+        pendingGossip = { name: reg.name, text: `${reg.name}: ${data.text}` };
+    }).catch(() => {});
+  }
   // chalkboard: matcha day-price reflects the gentrification curve (4.80 → 5.40)
   if (exchange.matchaPrice) world.setMatchaPrice(exchange.matchaPrice.toFixed(2), repriced);
   if (d > 1 && exchange.debt > 0) exchange.debt += CAMPAIGN.debtInterest;   // the debt clock ticks at dawn
   world.setMail(false);
   world.setMist(ev.tier === 'cata' ? 1 : ev.tier === 'bad' ? 0.4 : 0);
+  // weather as mood: tie sky/mist/god-rays to the event tier
+  try {
+    const frosty = ev.tier === 'cata' || ev.id === 'rumour_frost';
+    const harvest = ev.tier === 'good';
+    world.setGodRay(frosty ? 0.22 : harvest ? 0.14 : 0);
+    world.mistMat.color.setHex(frosty ? 0xc2c9d1 : harvest ? 0xffe9a8 : 0x9a9ea6);
+  } catch {}
   world.setRentPressure(d);          // the gentrification sign: 'let' → 'lease' → 'sold'
   world.setConstruction(d);          // the day-5 scaffold + tarp: the building is being remade
   world.setConstructionLeft(d);      // the day-5 mirror scaffold on the left: the whole district is turning over
@@ -351,6 +440,11 @@ function openDay(d) {
   sync.mirror({ seed: SEED, day: d, beanIndex: exchange.beanIndex, matchaPrice: exchange.matchaPrice, till: cRev + till, reputation: regulars.reputation, debt: exchange.debt }).then(refreshStands);
   fx.toast('DAY ' + day + '/' + CAMPAIGN.days + ' — ' + (ev.head || 'a new day'), ev.tier === 'cata' ? 'bad' : ev.tier === 'good' ? 'good' : '');
   fx.card('DAY ' + day, ev.line || (ev.head || 'the district stirs'));
+  try { world._onCatMeow = () => { try { audio.meow(); } catch {} }; } catch {}
+  // gesha persists: Gwen's request lingers as a brass forecast stripe next day
+  if (exchange.geshaUnlocked && day > 1) {
+    fx.toast('Gwen\'s still asking about the gesha — GRUNDS unlocked', 'warn');
+  }
   updateHUD();
 }
 
@@ -457,8 +551,13 @@ function updateHUD() {
   const qq = patrons.queueLength;
   const qHeat = qq > 10 ? 'hot' : qq > 5 ? 'warm' : 'ok';
   const qPct = Math.min(100, Math.round(qq / 12 * 100));
-  if ($('queuefill')) { $('queuefill').style.width = qPct + '%'; $('queuefill').className = qHeat; }
+  if ($('queuefill')) {
+    $('queuefill').style.width = qPct + '%';
+    const hb = qq > 10 ? ' hot heartbeat' : qq <= 5 ? ' ok purr' : '';
+    $('queuefill').className = qHeat + hb;
+  }
   if ($('qlabel')) $('qlabel').textContent = `queue ${qq} / 12 ` + (qq <= 5 ? '— calm' : qq <= 10 ? '— watch it' : '— they\u2019ll walk');
+  try { world.setPlantHealth(qq); audio.purr(qq <= 5 && patrons.count > 2); } catch {}
   // batch countdown: big number when batched, — otherwise
   if ($('batchcount')) {
     const bc = ctx.prebatched ? String(ctx.batchUnits) : '—';
@@ -531,6 +630,7 @@ function doPrebatch() {
   audio.clink();
   world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced);
   world.flashChalk('batch');
+  try { audio.clink(); } catch {}
   // prediction: queue drain preview — lifts the goal bar from instruction to live status
   if (queueBefore > 3) {
     const estAfter = Math.max(0, Math.round(queueBefore * 0.52));
@@ -552,8 +652,9 @@ function doReprice() {
   if (repriced || closed) return;
   const queueBefore = patrons.queueLength;
   repriced = true; ctx.repriced = true; patrons.repriced = true;
-  world.setMatchaPrice('4.20', true);   // the chalkboard changes in-world
+  world.setMatchaPrice('4.20', true);
   world.flashChalk('reprice');
+  try { fx.chalkDust(-5.5, 2.75, -7.95); audio.chalkScreech(); } catch {}
   fx.toast('the chalkboard changes — matcha £4.20 today', 'good');
   if (queueBefore > 2) fx.toast(`New price holds the line — fewer walks at 14:00`, 'good');
   audio.clink();
@@ -579,6 +680,51 @@ function reset() {
     fx.toast('a new week on the floor — same street, new regulars', '');
   }
 }
+// hover stories: raycast-ish nearest-patron probe near cursor
+let _hoverRaf = 0;
+function nearestPatronAt(clientX, clientY) {
+  if (!patrons.patrons.length) return null;
+  // project each inQueue/sit patron to screen, pick nearest within 36px
+  let best = null, bestD = 36;
+  for (const p of patrons.patrons) {
+    if (p.state !== 'inQueue' && p.state !== 'sit' && p.state !== 'toSeat') continue;
+    const v = new THREE.Vector3(p.pos.x, 1.1, p.pos.z); v.project(camera);
+    const sx = (v.x * 0.5 + 0.5) * innerWidth, sy = (-v.y * 0.5 + 0.5) * innerHeight;
+    if (v.z > 1) continue;
+    const d = Math.hypot(sx - clientX, sy - clientY);
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best;
+}
+function showHover(p, x, y) {
+  const el = $('hovercard'); if (!el || !p) return;
+  const name = p.regularName || p.cohort;
+  const quirk = p.regularName ? (regulars.regulars[p.regularIdx]?.quirk || '') : '';
+  const op = p.regularIdx >= 0 ? regulars.regulars[p.regularIdx]?.op : null;
+  const friends = p.regularFriends ? [...p.regularFriends].slice(0, 3).join(', ') : '';
+  el.innerHTML = `<b>${name}</b>${quirk ? ` — ${quirk}` : ''}${op != null ? `<br>op ${op > 0.2 ? '♥' : op < -0.2 ? '☹' : '—'} ${op.toFixed(2)}` : ''}${friends ? `<br><span style="opacity:.7">friends: ${friends}</span>` : ''}<br><span style="opacity:.6">click to wave</span>`;
+  el.style.left = Math.min(innerWidth - 230, x + 14) + 'px';
+  el.style.top = Math.min(innerHeight - 80, y + 14) + 'px';
+  el.classList.add('show');
+}
+function hideHover() { const el = $('hovercard'); if (el) el.classList.remove('show'); }
+renderer.domElement.addEventListener('pointermove', e => {
+  if (_hoverRaf) return;
+  _hoverRaf = requestAnimationFrame(() => {
+    _hoverRaf = 0;
+    const p = nearestPatronAt(e.clientX, e.clientY);
+    if (p) showHover(p, e.clientX, e.clientY); else hideHover();
+  });
+});
+renderer.domElement.addEventListener('pointerleave', hideHover);
+renderer.domElement.addEventListener('click', e => {
+  const p = nearestPatronAt(e.clientX, e.clientY);
+  if (!p) return;
+  // wave: bubble + tiny heal
+  fx.bubble(p, p.regularName ? `hey ${p.regularName} — welcome back` : 'hey — welcome', 'good');
+  if (p.regularIdx >= 0) regulars.regulars[p.regularIdx].op = Math.min(1, regulars.regulars[p.regularIdx].op + 0.06);
+  try { if (navigator.vibrate) navigator.vibrate(20); } catch {}
+});
 // Space pauses the floor mid-day (rendering + camera keep breathing; the
 // sim clock stops). The letter/receipt phases are already still.
 function togglePause() {
@@ -596,7 +742,9 @@ $('pause').onclick = () => togglePause();
 $('reset').onclick = reset;
 $('again').onclick = reset;
 $('mute').onclick = () => { $('mute').textContent = audio.toggleMute() ? 'sound off' : 'sound on'; };
+$('wirebtn').onclick = () => desk.open(marketIntel);
 $('camreset').onclick = () => rig.resetView();
+if ($('photoBtn')) $('photoBtn').onclick = () => { try { doPhoto(); } catch {} };
 const defaultSpeedBtn = headless ? '300' : '60';
 document.querySelectorAll('#speeds button').forEach(b => {
   if (b.dataset.s === defaultSpeedBtn) b.classList.add('on');
@@ -622,6 +770,45 @@ addEventListener('keydown', e => {
   else if (e.key === 'r' || e.key === 'R') reset();
   else if (e.key === 'm' || e.key === 'M') $('mute').click();
   else if (e.key === 'c' || e.key === 'C') rig.resetView();
+  else if (e.key === 'p' || e.key === 'P') { try { doPhoto(); } catch {} }
+});
+// photo mode: freeze at golden hour, generate share thumbnail
+function doPhoto() {
+  try { audio.shutter(); } catch {}
+  const wasPaused = paused; paused = true; if ($('pause')) $('pause').textContent = 'resume';
+  dayMin = Math.max(dayMin, 1080);
+  try { world.updateTimeOfDay(dayMin); } catch {}
+  try { document.body.classList.add('photo'); } catch {}
+  fx.toast('📷 photo — golden hour', 'good');
+  try {
+    renderer.render(scene, camera);
+    const src = renderer.domElement;
+    const c = document.createElement('canvas'); c.width = 720; c.height = 405;
+    const g = c.getContext('2d');
+    g.drawImage(src, 0, 0, 720, 405);
+    g.fillStyle = 'rgba(23,19,16,.78)'; g.fillRect(0, 360, 720, 45);
+    g.fillStyle = '#efe6d3'; g.font = '600 16px Georgia, serif'; g.textAlign = 'center';
+    const cap = `Held the line — ${served + servedRetail} served · ${balked} walked${defections ? ` · ${defections} to GLASSHOUSE` : ''}`;
+    g.fillText(cap, 360, 388);
+    const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = `grunds-day${day}.png`; a.click();
+  } catch {}
+  setTimeout(() => {
+    try { document.body.classList.remove('photo'); } catch {}
+    if (!wasPaused && !closed) { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
+  }, 900);
+}
+// Konami / GRUNDS — hidden regular Gwen gesha
+let _konami = '', _geshaUnlocked = false;
+addEventListener('keydown', e => {
+  if (e.key.length === 1) {
+    _konami = (_konami + e.key.toUpperCase()).slice(-12);
+    if (_konami.includes('GRUNDS') && !_geshaUnlocked) {
+      _geshaUnlocked = true;
+      exchange.geshaUnlocked = true;
+      fx.toast('Gwen winks — gesha reserve (£7.80) on the board', 'good');
+      try { world.setMatchaPrice('7.80', false); setTimeout(() => world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced), 4200); } catch {}
+    }
+  }
 });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -713,9 +900,22 @@ $('open').onclick = () => {
 
 // ---- loop ---------------------------------------------------------------------------
 let acc = 0, last = performance.now();
+let _slowFrames = 0, _liteSwitched = false;
 function loop(now) {
+  // re-arm first so a nested RAF inside the frame (loader fade) never steals the slot
   requestAnimationFrame(loop);
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  // dynamic lite fallback: 3 slow frames (>32ms) → kill shadows/bloom
+  if (!headless && !_liteSwitched && !lite && dt > 0.032) {
+    _slowFrames++;
+    if (_slowFrames >= 3) {
+      _liteSwitched = true;
+      try { renderer.shadowMap.enabled = false; postfx.dispose(); } catch {}
+    }
+  }
+  // shadow budget: at peak queue shadows are noise — save the fill rate
+  try { renderer.shadowMap.enabled = (lite || _liteSwitched) ? false : (patrons.queueLength <= 40); } catch {}
+  // numbers snap to RAF, not tick: jank-free even at 20× (see updateHUD throttle)
   if (started && !closed && !paused && !tutorialActive && schedule) {
     acc += dt * 1000;
     const msPerMin = 300 / (speed / 60);
@@ -725,7 +925,8 @@ function loop(now) {
   sky.update(dayMin);
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
   patrons.update(dt, WALK_MUL[speed] || 2, now);
-  world.updateRival(dt, now);   // their staff keeps moving behind the glass
+  world.updateRival(dt, now);
+  try { world.updateCat(dt, patrons.queueLength); world._updateDelight(now); } catch {}
   fx.steamFrom(dt);
   fx.update(dt, camera, now);
   rig.update(dt, now);

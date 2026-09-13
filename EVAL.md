@@ -9,15 +9,19 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Loop completeness | spawn → choose → buy → lever → visible payoff, no dead ends | all stages present |
 | Read legibility | player can state *why* the lever worked before seeing the result | demoable |
 | Wave fidelity | cohort wave shapes match `transform.py` hour-of-day profile | ±10% |
-| Calm open | day-1 opens at 1× with tutorial + throttled demand; first 12 sim-min demand ×0.5, 07–10 ×0.52, gossip 10% | 1× + tutorial + throttling |
+| Calm open | day-1 opens at 1× with tutorial + throttled demand; first 12 sim-min demand ×0.5, 07–10 ×0.52, gossip 10%; auto-`lite` on ≤4 cores/GB, dynamic `lite` after 3×>32ms, shadow budget `queue>40` | 1× + tutorial + throttling + perf |
 | Goal legibility | goal strip + queue bar + batch countdown visible before 14:00; levers pulse until first use | brass goal + health bar |
-| Lever prediction | pressing 1 shows predicted `12 → ~6 by 14:00` and chalkboard flash | toast + glow |
-| Wave payoff | 14:00 debrief at 17:00 shows `balk/served` vs `saved ~£` vs GLASSHOUSE; Day-2 forecast on receipt + toast | debrief + forecast |
-| Signal payoff | matcha riser visible in zone heat + till delta after pre-batch lever | positive delta |
-| Gossip visibility | one bad review visibly propagates through ≥2 friendship hops | demoable |
-| Playtest instrumentation | `analytics.js` records tutorial/lever/balk/debrief/forecast; `__grunds.analytics.summary()` | localStorage + console |
+| Lever prediction | pressing 1 shows predicted `12 → ~6 by 14:00` + chalkboard flash (desaturate + wobble); 2 puffs chalk dust + `screech` | toast + glow + dust |
+| Wave payoff | 14:00 debrief at 17:00: `balk/served` vs `saved ~£` vs GLASSHOUSE; `saved≥6` → fanfare + coin rain + crane + haptics, flop → rain; receipt prints line-by-line + typewrites verdict; Day-2 forecast on receipt + toast | debrief (juice) + forecast |
+| Signal payoff | matcha riser in zone heat + till (now `tabular-nums`); pre-batch lever pays in balk delta + coin burst | positive delta |
+| Gossip visibility | one bad review via ≥2 friendship hops (3D lines); warm gossip + hover story card (op ♥, friends) + click-to-wave | demoable |
+| Playtest instrumentation | `analytics.js` records tutorial/lever/balk/debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`; The Wire desk gated on `commodity_insider` | localStorage + `__grunds.analytics.summary()` |
+| Delight / craft | till drawer slides + shadow stretch, arcing coins + spin, sitters sip, cat Miso, plant health, god rays, rival lean/jeer, haptics, 90Hz tick at 1×, purr at ≤5, photo + `GRUNDS` | aggregate feel |
+| The Wire (paywall) | `⚡ the wire ↗` HUD when intel lands + Letter desklink; desk shows tilts + cited sources; modal 3 perks £4.99/mo; restore + localStorage gate | gated + headless `desk.mjs` |
 | Share framing | finale X intent leads with `Held the line — 320 served, 12 walked` not just `£42` | outcome line |
-| A11y | `prefers-reduced-motion` kills breath/grain/pulse; touch-safe canvas | reduced-motion + touch |
+| A11y | `prefers-reduced-motion` kills breath/grain/pulse/`heartbeat`/`purr` + vignette; pad pre-warm so Day 1 isn't silent; haptics on balk/wave | reduced-motion + touch + haptics |
+| Performance | auto-`lite` (≤4c/4GB) + dynamic `lite` (3×>32ms) + shadow budget (>40) + GLB cross-fade + RAF slot discipline (`loop` re-arms first, receipt + loader headless-safe) | 60fps intent |
+| Photo + secret | `P`/`📷` golden-hour photo (720×405 + shutter + vignette); `GRUNDS` → Gwen gesha £7.80 persists as toast | delight affordances |
 | Reset time | full reset to t=0 | <2s |
 | Fallback | recorded run of the exact demo path | exists |
 
@@ -30,7 +34,7 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Economy baseline | 13-week revenue ≈ GBP 157k; attach rate 8.2% preserved from source data |
 | Deterministic gate | loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`, so rail-adjacent assertions don't flake; `intel.mjs` pins bias + pity-under-bias |
 | Linkup citation | `intelLine` prints `Off the wire — <headline> (<domain>)` when sources arrive; absent offline | headless gate |
-| Gate size | 15 headless tests; `tsc` clean; `dist` builds | `game-feel` + `intel` included |
+| Gate size | 16 headless tests; `tsc` clean; `dist` 43 files | `game-feel` + `intel` + `desk` included |
 
 ## Datasets
 
@@ -55,8 +59,10 @@ Targets: `skipRate` < 40%, `first_lever_at_min` < 90s wall-clock, `% who press 1
 ```bash
 python3 transform.py
 python3 -m grunds eval
-for f in web/test/*.mjs; do node "$f"; done   # 15 headless tests
+for f in web/test/*.mjs; do node "$f"; done   # 16 headless tests
 npm run typecheck && npm run build:dist         # tsc + dist
 ```
+
+Delight hill: try the wave at 1× with headphones — `saved≥6` should ring, rain, and crane; try `GRUNDS` and hover a sitter (watch the sip at `dwell==4`); try `P` for a golden-hour shot. Then read `__grunds.analytics.summary()` — `skipRate` <40% + `first_lever_at_min` <90s is the calm-open hill.
 
 Output: `out/eval_results.json` with per-run scores; console `__grunds.analytics.summary()` after Day 1.

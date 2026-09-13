@@ -104,7 +104,8 @@ export const openDay = mutation({
 
     // Linkup deep research: the nightly refresh caches a marketShift payload;
     // a live report tilts the deck (clamped) without replacing the seeded roll.
-    let shifts: { eventId: string; weightMul: number }[] = [];
+    // One multiplier per eventId — corroborating sources must not stack.
+    const shifts = new Map<string, number>();
     const intel = await ctx.db
       .query("apiCache")
       .withIndex("by_key", (q) =>
@@ -116,9 +117,11 @@ export const openDay = mutation({
         const parsed = JSON.parse(intel.value) as {
           marketShift?: { eventId: string; weightMul: number }[];
         };
-        shifts = parsed.marketShift ?? [];
+        for (const s of parsed.marketShift ?? []) {
+          if (!shifts.has(s.eventId)) shifts.set(s.eventId, s.weightMul);
+        }
       } catch {
-        shifts = [];
+        shifts.clear();
       }
     }
 
@@ -129,9 +132,8 @@ export const openDay = mutation({
       let w = e.weight;
       if (e.tier === "cata" && c.lastTier === "cata") w = 0;
       if (c.lastTier === "cata" && e.tier !== "good" && e.tier !== "calm") w *= 0.35;
-      for (const s of shifts) {
-        if (s.eventId === id) w *= Math.min(3, Math.max(0.2, s.weightMul));
-      }
+      const mul = shifts.get(id);
+      if (mul !== undefined) w *= Math.min(3, Math.max(0.2, mul));
       for (let i = 0; i < Math.round(w); i++) pool.push(id);
     }
     const rng = seededRandom(c.seed * 100003 + day * 917);

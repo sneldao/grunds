@@ -13,6 +13,10 @@ import { hashKey } from "./apiCache";
 
 export const DEFAULT_NEBIUS_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
 export const NEBIUS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Cap on *uncached* inference calls per UTC day — the /ai/letter route is
+// public, so unique-bodies spam would otherwise burn tokens. Over budget
+// the templated letter serves instead; the game never breaks.
+export const NEBIUS_DAILY_BUDGET = 2000;
 
 export interface NebiusInferenceResult {
   fallback: boolean;
@@ -78,6 +82,13 @@ async function cachedNebiusChat(
     if (hit) {
       return { fallback: false, cached: true, model, text: hit, latencyMs: 0 };
     }
+  }
+
+  const envBudget = Number(process.env.NEBIUS_DAILY_BUDGET);
+  const budget = Number.isFinite(envBudget) && envBudget > 0 ? envBudget : NEBIUS_DAILY_BUDGET;
+  const used = await ctx.runMutation(api.apiCache.claimDaily, { name: "nebius" });
+  if (used > budget) {
+    return { fallback: true, cached: false, model, text: templated, latencyMs: 0 };
   }
 
   try {

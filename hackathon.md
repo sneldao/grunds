@@ -12,9 +12,20 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini (key-gated action stub, falls back offline)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-13T20:03:53Z
+- **Last updated:** 2026-09-13T22:16:00Z
 
 ## Log
+
+### 2026-09-13 - Delight craft pass: performance + every 10ms detail
+The game already read clearly — now it *feels* made. A 4-bucket craft pass: lock 60fps, add weight, add time, add life. No new currencies, no new levers — just the payoff moment you just made legible, made intentional. Two real regressions caught and fixed in the same pass:
+- **P0 performance lock (no new systems, pure feel):** `?lite` now auto-enables on `hardwareConcurrency≤4` or `deviceMemory≤4` (no shadows/post-FX without asking); **dynamic lite** trips after 3 frames >32ms mid-wave → kills `shadowMap` + `postfx`; **shadow budget** at `queue>40` disables shadows to save fill-rate at 14:00; `loader.js` GLBs **cross-fade `opacity 0→1` over 400ms** on `place()` resolve (headless-aware `setTimeout` so the main loop's single RAF slot is never stolen); `audio.js` pad **pre-warms `0→0.02 in 600ms →0.055`** so Day 1 isn't silent.
+- **Weight (things have mass):** tiny **till drawer** (0.62×0.06 box under register) slides +0.38m for 420ms on every `sale()` plus a **stretching shadow plane** (`scale 1→1.35`, opacity 0→0.18) driven by `world._updateDelight(now)` lerp 0.22; **coins arc** with `vy 0.9–1.4 → gravity` + a `spinZ` 2–3.2 rad encoded as horizontal drift; chalk `screech 1200→900Hz` + 10 chalk huffs now paired with **menu desaturate + 1.02 board wobble** on `flashChalk`.
+- **Time (the clock is felt):** `#till` now `font-variant-numeric: tabular-nums` so digits don't jitter; `fx.receipt` **staggers line-by-line at 30ms** (till *prints*) and **typewrites the verdict at 18ms/char** with a `prefers-reduced-motion` bypass; at `1×` a soft **90Hz clock tick** throttles to 0.9s (`audio.tick()`), felt not heard.
+- **Life (the shop breathes):** sitters now **sip at `dwell==4`** — arm lifts 0.6rad, head dips -0.04m, lean -0.14, steam puff from `fx.steam`; **street cat Miso** (`world.cat` capsule+head+tail) walks `spawnL→door→tables` at 1.1m/s once/day ~09:30 (`world.spawnCat`/`updateCat`), sits 8s if `queue<4`, scatters if >10 while sitting, meows once per sit via `audio.meow()`; **living plant** (3 spheres over the right planter at -2.2,6.6) tints HSL `0.28→0.10` lush→brown, wilts scale/wilt + emissive when `queue≤5`, driven every HUD tick via `world.setPlantHealth(queue)` + `audio.purr()` 38Hz sine; **rival leans** -0.08rad when `rivalHeat>6` + **jeers** on 5 defections via `world.jeerRival()` (2.2s emissive pulse); **Idris quips** at 10:00 rep≥80 praise / 12:00 rep<62 warn from `COPY.idrisQuips`; **weather as mood** ties `mistMat` + `godRay` quad (18×14 translucent) to `event.tier` (frost 0.22 grey-blue, harvest 0.14 warm shafts).
+- **Payoff juice (14:00 now explodes):** at the 17:00 debrief, `saved≥6` → `audio.waveFanfare(saved)` rising major triad (pitch tracks saved) + `rig.focus(counter)` 3.5s crane + `fx.coinRain` 10–22 coins + `fx.victoryBurst` card pop + haptics `[20,30,50]` + `setPlantHealth`; flop → `audio.waveRain` + 35ms buzz. `doReprice()` puffs `fx.chalkDust` + `audio.chalkScreech()`.
+- **Coherence & respect:** hover a patron → **story card** (`nearestPatronAt` projects every `inQueue`/`sit` patron, 36px radius, shows `Mara — flat white · op ♥0.42 · friends: Dev, Olu`; click to wave → `+0.06` op + bubble + 20ms haptic); `P` / 📷 **photo mode** freezes at golden hour (`dayMin=1080`, `world.updateTimeOfDay`), renders to 720×405 canvas with vignette + caption, downloads `grunds-day1.png`, `audio.shutter()` click+thump; `GRUNDS` secret → **Gwen gesha £7.80** flashes 4.2s then reverts, persists as a next-day toast (`exchange.geshaUnlocked`); queue bar now **heartbeats** at >10 and **purrs** at ≤5; `@media (prefers-reduced-motion: reduce)` now also kills `heartbeat`/`purr` + vignette.
+- **Two regressions fixed (would have shipped broken):** (1) **`reputation NaN` → `campaign-tight` filtered `regulars[]` (`Tomas`/`Yuki` out), then `opContagion` indexed by sparse `r.i` into a dense array → `undefined op` → `NaN` contagion → `reputation NaN` → `footfallMul NaN` → dawn spawns killed the loop.** Fixed `regulars.js:opContagion` to use `Map<i→op>` + `find(rr.i===f)` + `Number.isFinite` guard.** (2) **RAF steal at campaign close → `fx.receipt` used `requestAnimationFrame` inside the row loop. Headless harness owns the single RAF slot (`rafCb = cb`) — one extra RAF overwrote `loop` → `runFrames` saw `null`. Fixed with `isHeadless` branch (sync + `setTimeout` stagger).** Verified headless before/after.
+- **Tests/build:** gate **16/16**, `tsc` clean, `dist` 43 files (`web/js/desk.js` now shipped). `smoke`: cold 555→433 balks with levers holds.
 
 ### 2026-09-13 - Calm open, tutorial, payoff legibility, analytics & polish
 P0 design fix for "looks crazy on launch / don't know what to do" — pacing, onboarding, and payoff all made legible, plus the measurement and replay hooks that prove it:
@@ -80,7 +91,81 @@ module (Deep Research · Linkup challenge):
   names the top market shift.
 - New `web/test/intel.mjs`: biased-deck frequency, pity timer under bias,
   citation presence/absence, and route/cron/consumer wiring. Gate 15/15.
-  Awaiting `LINKUP_API_KEY` — falls back to the seeded deck until it lands.
+- Live with `LINKUP_API_KEY` set via `convex env set`: first real pull
+  processed 20 sources, detected `drought_ea` ×1.5 (Brazil drought coverage),
+  cited Business Insider/WisdomTree in the letter. Caught and fixed a real
+  bug on first pull — corroborating sources produced duplicate shifts that
+  would have stacked 1.5^n into the deck; now one multiplier per eventId at
+  both producer (`linkup.ts`) and consumer (`exchange.ts`). Gate 15/15.
+
+### 2026-09-13 - District Insider Pass: subscriptions gate the wire
+Built the freemium layer (Subscriptions · RevenueCat challenge): the week
+stays free; the *edge* is paid.
+- **The Wire (research desk)**: `web/js/desk.js` renders the full Linkup
+  briefing — every cited source, each deck tilt (`event ×weight`), and the
+  reasoning behind tomorrow's roll — gated on the `commodity_insider`
+  entitlement. Free players keep the toast + one letter citation;
+  subscribers get the desk.
+- **Paywall**: `⚡ the wire ↗` HUD button appears once intel lands; a letter
+  link ("insiders read the full wire before they choose") sits under the
+  reply actions — the upsell surfaces exactly where the hedging decision
+  happens. District Insider Pass modal: 3 perks, £4.99/mo, restore +
+  dismiss, mode badge.
+- **`web/js/billing.js` rewritten**: live path loads
+  `@revenuecat/purchases-js` (CDN, pinned 1.47.3) only when a Web Billing
+  public key is configured (`?rc=` / localStorage / `RC_API_KEY` const) —
+  `configure` → `getOfferings` → `purchase({rcPackage})` → entitlement
+  check; stand owner doubles as appUserId. Falls back to the Web Test
+  Store so the full flow demos before production keys land. No key in repo.
+- Analytics hooks: `paywall_shown`, `desk_opened`, `purchase_success`.
+- New `web/test/desk.mjs`: entitlement lifecycle (test store), SDK surface,
+  gating, markup, wiring. Gate 16/16, site re-uploaded. Awaiting the
+  RevenueCat Web Billing public key to flip live checkout.
+
+### 2026-09-13 - RevenueCat Test Store live end-to-end
+Real SDK verified on the deployed site: `Purchases.configure` with the Test
+Store public key, `getCustomerInfo` + `getOfferings` live (`$rc_monthly`,
+`monthly` product), and a full Test Store purchase round-trip — the SDK's
+own checkout modal → `commodity_insider` entitlement active → desk unlocks.
+- `RC_API_KEY` set in `billing.js` (public SDK key — safe to ship by design;
+  `test_` prefix = real SDK, simulated checkout).
+- Mode badge now honest about all three states: "via RevenueCat Web
+  Billing" / "RevenueCat SDK · Test Store checkout" / local fallback.
+- Subscribe button renders the live offering price
+  (`currentPrice.formattedPrice`) instead of a hardcoded £4.99 — currently
+  shows $9.99/mo, matching the dashboard product.
+- Verified via headless Chrome on the live site: configure → offerings →
+  test purchase → entitlement → restore. Note: `convex.site` serves JS with
+  `cache-control: max-age=14400` — repeat visitors may see stale modules
+  for up to 4h after an upload; fresh visitors unaffected.
+- **API spend guard:** `apiCache.claimDaily` adds a UTC-day counter row
+  (26h TTL, same table — no schema change). `cachedNebiusChat` claims a
+  slot before every *uncached* call; over `NEBIUS_DAILY_BUDGET` (2000/day,
+  env-overridable) it serves the templated fallback instead — public
+  `/ai/letter` spam can never burn past the cap, and the game never breaks.
+  Counter verified live (claims increment 1, 2…); uncached calls still
+  infer normally under budget.
+
+### 2026-09-13 - Integration surface pass: the sponsors become the game
+Three product-design fixes so judges *see* the integrations, not just the
+plumbing:
+- **Decision-time wire hint (Linkup × RevenueCat):** the letter's upsell
+  line now leaks direction for free players — `wireHint()` maps the top
+  deck tilt to a scent ("the wire smells like frost / drought / a glut /
+  a craze · reads quiet") shown next to the contract/hold/settle choice.
+  Free = scent, insiders = sources + multipliers.
+- **The district talks (Nebius):** `regularGossipNebius` is live — new
+  `POST /ai/gossip` route; `openDay` asks one rostered regular (rotating
+  daily) for a one-line take on the day's event + top shift. Delivered
+  mid-day as a friend-graph `gossipBubbles` hop once that regular is on
+  the floor. Cached by (name|cohort|context) — every stand on the seed
+  shares the pull; covered by the 2k/day budget guard. Verified live:
+  "Coffee prices will skyrocket now obviously." — Mara, 112 tokens.
+- **Desk shows the cards:** each deck tilt row in The Wire now names the
+  actual event card it biases (`card in the deck · EAST AFRICA SHORT
+  RAINS`) — the ×1.5 stops being abstract.
+- Gate 16/16 (desk test updated for the new upsell copy), functions
+  pushed, site re-uploaded.
 
 ### 2026-09-12 - viral hooks, share cards, and campaign badges
 Added subtle, meaningful social and engagement dynamics:

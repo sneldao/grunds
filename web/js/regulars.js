@@ -95,23 +95,26 @@ export class Regulars {
   // One round of friendship contagion. Two-pass: compute the new opinion
   // for each regular into a temp array, then assign. Order-independent.
   // Isolates the contagion from the day's opinion update so tests can call
-  // it directly.
+  // it directly. Robust to filtered rosters (tests mutate regulars[]).
   opContagion(weight = CONTAGION) {
-    const n = this.regulars.length;
-    const next = new Array(n);
+    const next = new Map();
+    // index by original i so sparse/deleted rosters don't alias array positions
     for (const r of this.regulars) {
       const friends = this.friendships.get(r.i);
-      if (!friends || friends.size === 0) { next[r.i] = r.op; continue; }
+      if (!friends || friends.size === 0) { next.set(r.i, r.op); continue; }
       let sum = 0, count = 0;
       for (const f of friends) {
-        const fr = this.regulars[f];
-        if (fr) { sum += fr.op; count++; }   // defensive: skip stale refs
+        const fr = this.regulars.find(rr => rr.i === f);
+        if (fr && Number.isFinite(fr.op)) { sum += fr.op; count++; }
       }
-      if (count === 0) { next[r.i] = r.op; continue; }
+      if (count === 0) { next.set(r.i, r.op); continue; }
       const mean = sum / count;
-      next[r.i] = r.op + (mean - r.op) * weight;
+      next.set(r.i, r.op + (mean - r.op) * weight);
     }
-    for (let i = 0; i < n; i++) this.regulars[i].op = clamp(next[i], -1, 1);
+    for (const r of this.regulars) {
+      const v = next.get(r.i);
+      if (Number.isFinite(v)) r.op = clamp(v, -1, 1);
+    }
   }
 
   get reputation() {

@@ -142,6 +142,27 @@ export const aiLetter = httpAction(async (ctx, req) => {
   }
 });
 
+export const aiGossip = httpAction(async (ctx, req) => {
+  let payload: { name?: string; cohort?: string; context?: string };
+  try {
+    payload = (await req.json()) as typeof payload;
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  if (!payload.name || !payload.context)
+    return json({ error: "name and context required" }, 400);
+  try {
+    const result = await ctx.runAction(api.nebius.regularGossipNebius, {
+      name: payload.name.slice(0, 40),
+      cohort: (payload.cohort ?? "regular").slice(0, 40),
+      context: payload.context.slice(0, 600),
+    });
+    return json(result);
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
 export const aiResearch = httpAction(async (ctx) => {
   try {
     const result = await ctx.runAction(api.linkup.searchCommodityIntelligence, {});
@@ -157,6 +178,7 @@ http.route({ path: "/sync/state", method: "GET", handler: syncState });
 http.route({ path: "/sync/snapshot", method: "POST", handler: syncSnapshot });
 http.route({ path: "/sync/stands", method: "GET", handler: syncStands });
 http.route({ path: "/ai/letter", method: "POST", handler: aiLetter });
+http.route({ path: "/ai/gossip", method: "POST", handler: aiGossip });
 http.route({ path: "/ai/research", method: "GET", handler: aiResearch });
 
 // Static floor (uploaded dist/): exact routes above win, everything else

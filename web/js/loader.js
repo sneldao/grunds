@@ -92,6 +92,30 @@ export function GLBLoader(opts = {}) {
         }
         if (apply.raiseToY != null) inst.position.y = apply.raiseToY + (inst.position.y || 0);
       }
+      // cross-fade-in: no pop when GLBs land after OPEN — but never steal
+      // the main loop's single RAF slot (headless tests own it).
+      const _isHeadless = typeof globalThis !== 'undefined' && !!globalThis.__headless;
+      const _raf = _isHeadless ? (cb) => setTimeout(cb, 16)
+        : (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb) => setTimeout(cb, 16));
+      inst.traverse(n => {
+        if (n.isMesh && n.material) {
+          const mats = Array.isArray(n.material) ? n.material : [n.material];
+          mats.forEach(m => {
+            if (m.transparent !== undefined) {
+              const target = m.opacity ?? 1;
+              m.transparent = true; m.opacity = 0;
+              let t = 0;
+              const step = () => {
+                t += 0.06;
+                m.opacity = Math.min(target, t * target);
+                if (m.opacity < target) _raf(step);
+                else if (target >= 0.99) { m.transparent = false; m.opacity = 1; }
+              };
+              _raf(step);
+            }
+          });
+        }
+      });
       return inst;
     });
   }

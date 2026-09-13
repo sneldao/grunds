@@ -29,7 +29,7 @@
   #clock { font-family: var(--serif); font-size: 44px; font-weight: 600; letter-spacing: 2px; color: var(--cream); line-height: 1; }
   #hud .line { font-size: 13px; margin-top: 7px; opacity: .92; }
   #hud b { font-weight: 600; }
-  #till { color: #9ad89a; font-size: 15px; }
+  #till { color: #9ad89a; font-size: 15px; font-variant-numeric: tabular-nums; }
   #till.pulse { animation: pulse .3s ease; }
   @keyframes pulse { 50% { text-shadow: 0 0 14px rgba(154,216,154,.9); } }
   #balk { color: var(--neg); }
@@ -48,6 +48,10 @@
   #queuefill.ok { background: linear-gradient(90deg, #86a860, #9ad89a); }
   #queuefill.warm { background: linear-gradient(90deg, #c9a227, #e8c46a); }
   #queuefill.hot { background: linear-gradient(90deg, #c94a2a, #e07a5a); }
+  #queuefill.heartbeat { animation: qbeat .5s ease infinite; }
+  @keyframes qbeat { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.35); box-shadow: 0 0 8px rgba(208,96,59,.5); } }
+  #queuefill.purr { animation: qpurr 2s ease infinite; }
+  @keyframes qpurr { 0%,100% { filter: brightness(1.08); } 50% { filter: brightness(1.22); } }
   #qlabel { position: relative; z-index: 1; font-size: 11px; padding-left: 8px; letter-spacing: .06em; }
   #batchline { font-size: 12px; }
   #batchline b { color: var(--matcha); font-size: 15px; }
@@ -84,6 +88,8 @@
   #chapter .cs { font-size: 13px; letter-spacing: .12em; color: rgba(239,230,211,.85); margin-top: 8px; font-style: italic; font-family: var(--serif); }
 
   /* ---- gossip bubbles ---- */
+  #hovercard { position: fixed; z-index: 12; display: none; background: rgba(23,19,16,.92); border: 1px solid rgba(201,162,39,.45); color: var(--paper); font-size: 11px; padding: 6px 9px; border-radius: 4px; pointer-events: none; line-height: 1.5; max-width: 220px; backdrop-filter: blur(4px); }
+  #hovercard.show { display: block; }
   #bubbles { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
   .bubble { position: absolute; transform: translate(-50%, -100%); font-size: 12px; padding: 5px 10px;
     border-radius: 10px; white-space: nowrap; font-family: var(--mono);
@@ -146,12 +152,45 @@
   .l-actions { display: flex; flex-direction: column; gap: 8px; }
   .l-actions button { text-align: left; font-size: 13px; }
 
+  /* photo vignette lift: only in photo mode */
+  body.photo::before { background: radial-gradient(ellipse at 50% 42%, transparent 48%, rgba(8,6,4,.55) 100%); }
+  body.photo::after { opacity: .02; }
   /* ---- reduced-motion: kill camera breath, grain, pulse, and construction hammer visuals ---- */
   @media (prefers-reduced-motion: reduce) {
     body::after { animation: none !important; opacity: .02; }
-    .attention, .pulse, #batchline .pulse, .note, #chapter.show { animation: none !important; }
+    .attention, .pulse, #batchline .pulse, .note, #chapter.show, #queuefill.heartbeat, #queuefill.purr { animation: none !important; }
     .t-inner, .l-paper, #receipt .paper { transition: none !important; }
   }
+
+  /* ---- the wire: research desk + insider paywall ---- */
+  #wirebtn { margin-top: 6px; padding: 5px 10px; font-size: 11px; letter-spacing: .08em; }
+  #desk, #paywall { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center;
+    background: rgba(10,8,6,.55); backdrop-filter: blur(4px); opacity: 0; pointer-events: none;
+    transition: opacity .5s ease; }
+  #desk.show, #paywall.show { opacity: 1; pointer-events: auto; }
+  .d-paper { width: 420px; max-width: 92vw; max-height: 80vh; overflow: auto;
+    background: linear-gradient(176deg,#f6efe0,#e8dcc2); color:#2a241c;
+    padding: 26px 28px 20px; box-shadow: 0 26px 70px rgba(0,0,0,.6);
+    border-top: 4px double var(--teal); }
+  .d-paper .l-head { color: #1d4a48; }
+  #desk-body { font-size: 12.5px; }
+  .d-sum { font-family: var(--serif); font-style: italic; font-size: 13.5px; margin: 0 0 12px; }
+  .d-paper h5 { margin: 14px 0 6px; font-size: 10px; letter-spacing: .3em; text-transform: uppercase; color: #7a5a2a; }
+  .d-row, .d-src { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0;
+    border-bottom: 1px dashed rgba(23,19,16,.15); font-size: 12px; }
+  .d-why { opacity: .55; font-size: 10.5px; text-align: right; max-width: 60%; }
+  .d-card { font-size: 9.5px; letter-spacing: 1px; text-transform: uppercase; opacity: .45; margin: -2px 0 6px; }
+  .d-close { margin-top: 14px; width: 100%; }
+  .pw-perks { margin: 14px 0; padding: 0; list-style: none; font-size: 12.5px; line-height: 1.8; }
+  .pw-perks li::before { content: '☕ '; }
+  #pw-buy { width: 100%; }
+  #pw-note { font-size: 11px; opacity: .6; text-align: center; margin-top: 8px; min-height: 14px; }
+  #pw-mode { font-size: 10px; letter-spacing: .15em; text-transform: uppercase; opacity: .5; text-align: center; margin-top: 10px; }
+  .pw-links { text-align: center; margin-top: 10px; }
+  .pw-links a { font-size: 11px; color: #7a5a2a; }
+  .l-desktoggle { display: block; margin: 8px auto 0; background: none; border: none; color: #7a5a2a;
+    font-size: 11.5px; letter-spacing: .1em; text-decoration: underline; padding: 4px; }
+  .l-desktoggle:hover:enabled { background: none; transform: none; color: #a3762f; }
 
   /* ---- controls ---- */
   button { font-family: var(--mono); font-size: 13px; padding: 10px 14px; cursor: pointer;
@@ -218,6 +257,7 @@
 </style>
 </head>
 <body>
+  <div id="hovercard"></div>
   <div id="bubbles"></div>
 
   <header id="hud">
@@ -231,6 +271,7 @@
     <div class="line" id="pressure"></div>
     <div class="line" id="syncbadge">○ local</div>
     <div class="line" id="district"></div>
+    <div class="line"><button id="wirebtn" style="display:none">⚡ the wire ↗</button></div>
   </header>
 
   <div id="progressbar">
@@ -272,6 +313,33 @@ Made to order, a matcha takes 4 minutes.
       <pre id="letter-body"></pre>
       <div class="l-sign" id="letter-sign"></div>
       <div id="letter-actions" class="l-actions"></div>
+      <button id="desklink" class="l-desktoggle" style="display:none"></button>
+    </div>
+  </div>
+
+  <!-- the wire — District Insider research desk (subscription-gated) -->
+  <div id="desk">
+    <div class="d-paper">
+      <div class="l-head">THE WIRE</div>
+      <div class="l-kicker">market desk · district insider</div>
+      <div id="desk-body"></div>
+      <button id="desk-close" class="d-close">close the desk</button>
+    </div>
+  </div>
+
+  <div id="paywall">
+    <div class="d-paper">
+      <div class="l-head">DISTRICT INSIDER PASS</div>
+      <div class="l-kicker">the full wire, every morning</div>
+      <ul class="pw-perks">
+        <li>Every cited source behind the market</li>
+        <li>Tomorrow’s deck tilt before you choose</li>
+        <li>The roaster’s private reasoning, all week</li>
+      </ul>
+      <button id="pw-buy">subscribe · £4.99/mo</button>
+      <div id="pw-note"></div>
+      <div class="pw-links"><a href="#" id="pw-restore">restore purchase</a> · <a href="#" id="pw-close">not now</a></div>
+      <div id="pw-mode"></div>
     </div>
   </div>
 
@@ -285,6 +353,7 @@ Made to order, a matcha takes 4 minutes.
     <div id="speeds"><button data-s="60">1×</button><button data-s="300">5×</button><button data-s="1200">20×</button></div>
     <button id="pause">pause</button>
     <button id="camreset">camera <kbd>C</kbd></button>
+    <button id="photoBtn" title="Photo mode (P)">📷</button>
     <button id="mute">sound on</button>
   </div>
 
@@ -306,7 +375,7 @@ Made to order, a matcha takes 4 minutes.
       <p class="t-tag">You can’t control demand. You can only be ready for it —
 faster than the café across the street.</p>
       <button id="open" disabled>loading the day…</button>
-      <p class="t-controls">drag to look · scroll to zoom · 1 batch · 2 price · space pause · letter answers 1/2/3</p>
+      <p class="t-controls">drag · scroll · 1 batch · 2 price · space pause · letter 1/2/3 · P photo</p>
     </div>
   </div>
 

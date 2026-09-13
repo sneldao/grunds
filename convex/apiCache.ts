@@ -47,6 +47,35 @@ export const cachePut = mutation({
   },
 });
 
+// Daily spend guard: bumps a UTC-date counter stored in the same table
+// (26h TTL) and returns the new count. Actions claim a slot before any
+// uncached upstream call; over-budget claims get the templated fallback,
+// so a public endpoint can never burn past the day's allowance.
+export const claimDaily = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, args): Promise<number> => {
+    const now = Date.now();
+    const key = `budget:${args.name}:${new Date().toISOString().slice(0, 10)}`;
+    const row = await ctx.db
+      .query("apiCache")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .unique();
+    const count = (row && row.expiresAt > now ? Number(row.value) || 0 : 0) + 1;
+    const expiresAt = now + 26 * 60 * 60 * 1000;
+    if (row) {
+      await ctx.db.patch(row._id, { value: String(count), expiresAt });
+    } else {
+      await ctx.db.insert("apiCache", {
+        key,
+        value: "1",
+        createdAt: now,
+        expiresAt,
+      });
+    }
+    return count;
+  },
+});
+
 // Deterministic string hash (djb2, hex) for cache keys. Not cryptographic —
 // just a compact fingerprint so identical sim outputs share cached prose.
 export function hashKey(s: string): string {
