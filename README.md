@@ -195,6 +195,7 @@ node web/test/behavioral.mjs          # decoy anchoring, pastry/cacao attachment
 node web/test/share.mjs               # Z-read share cards, campaign badges, replayable seed links
 node web/test/desk.mjs                # District Insider Pass: entitlement gates the wire, purchase/restore flows
 node web/test/agency.mjs              # Drug Wars turn — Morning Brief at 06:00, sized hedge, 11:00 offer + cost sheet
+node web/test/identity.mjs            # pitch licence — modal, name threading (letter/receipt/board), perks, skip paths
 ```
 
 The floor is a **connected 5-day campaign**, not a closed loop. The three nested clocks
@@ -214,9 +215,10 @@ street **cat Miso** that walks once a day — rendered through a
 core-Three **post-FX** bloom/vignette/grain pipeline (auto-disabled on low-RAM/low-core + dynamic shadow budget at `queue>40` + GLB cross-fade-in). Controls: `1` pre-batch, `2` reprice, `space` pause — title prints the live set.
 Morning Brief answers to `1`/`2`/`3`/`4`/`5` → `Enter` (the Letter keeps all five at night). Hidden delight: type `GRUNDS` for Gwen's gesha reserve. URL params: `?lite`
 (no shadows/post-FX, 1× pixels, now also auto on ≤4 cores / ≤4GB), `?speed=60|300|1200` (default 1×; headless stays 5×),
-`?seed=N` (campaign seed), `?skipTutorial`/`?notutorial` (bypass 3-step onboarding), `?skipBrief` (bypass Morning Brief).
+`?seed=N` (campaign seed), `?skipLicence` (bypass the pitch licence — defaults), `?skipTutorial`/`?notutorial` (bypass licence + 3-step onboarding), `?skipBrief` (bypass Morning Brief).
 
-Onboarding: new players land at 1× through a 3-step tutorial (Read 14:00 / Lever 1+2 /
+Onboarding: new players sign the **pitch licence** (name + stand + role + a one-perk
+background — Enter takes the defaults), then land at 1× through a 3-step tutorial (Read 14:00 / Lever 1+2 /
 Keep 5 vs GLASSHOUSE, `Enter`/`Space`/`Esc`) then a 3.4s paused crane settle; day-1
 mornings are half-demand and gossip-throttled so eyes settle before the queue reads.
 The HUD is goal-first: a brass goal strip, a queue health bar (ok/warm/hot + "queue
@@ -415,7 +417,7 @@ The Convex phase shipped as working backend + hosting, not a plan:
 - **Drug Wars turn**: `main.js` Morning Brief at `06:00 [PAUSED]` (`#brief` 520px linen: Idris prose + 76px sparkline + wire headlines/host/why + 5 pills; `briefPaused` freezes `loop`, `dismissBriefAndStartDay` calls `exchange.contractBeans(units, fee)`; `?skipBrief`, `_pricePreview(spot)`); `OFFERS` (5) at `11:00` — same `offerPaused` path, each with a real payoff; `INCIDENTS` (6) `14:55–16:55` days 2+ (red tint, rotated) and a **cost-sheet P&L** at `closeDay` (staff+milk+rent+card+sundries → `~£8.9k net` headless). `agency.mjs` Drug Wars gate.
 - **The pitch licence**: before the tutorial, the district office hands you a licence — your name, the stand's name, a title (`the new owner` / `the manager` / `the name on the lease`), and a background with one small perk (`ex-barista` paces the bar ~8%, `ex-accountant` trims fees & payouts 15%, `new to the trade` warms the regulars, `a market regular` hears the wire's lean in the Brief). Enter signs with defaults; the signature threads the letter (*Dear Ada… what do you want to do, Ada?*), both receipts, the tutorial greeting, and the Convex district board (`grunds.owner` reads live). Persists via `localStorage`; `?skipLicence` bypasses.
 - **Ruth, your barista**: one named staffer, one hidden `baristaCondition` — worked shifts drain it (brutal floors drain faster), a sent-home day restores it. When she's fading the Brief adds a `home / push on` row: home means a −30% solo bar today but her wage is saved and she's fresh tomorrow; push on keeps pace now and risks her breaking mid-shift (asleep at the counter, or snapping at a regular — rep hit). Her sick-call incident can't fire on a day she's already home, and on fumes it becomes a warning shot. No roster, no morale meter — the fiction carries the state.
-- **Performance**: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms frames, shadow budget at `queue>40`, GLB cross-fade (`opacity 0→1`), RAF slot discipline (`requestAnimationFrame(loop)` re-arms first, receipt + loader use `setTimeout` in headless so the game loop isn't stolen), `tabular-nums` till, staggered receipt — fixed two real regressions (reputation `NaN` via sparse `opContagion`, RAF steal at close) — both caught by the 16-test gate.
+- **Performance**: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms frames, shadow budget at `queue>40`, GLB cross-fade (`opacity 0→1`), RAF slot discipline (`requestAnimationFrame(loop)` re-arms first, receipt + loader use `setTimeout` in headless so the game loop isn't stolen), `tabular-nums` till, staggered receipt — fixed two real regressions (reputation `NaN` via sparse `opContagion`, RAF steal at close) — both caught by the headless gate.
 - Still to do: full live-query sync (mirror today), Convex Auth, Nebius voicing of the 11:00 ask (gossip pipe already serves it), AgentMail live inbox, prod deploy, video + social.
 
 See `hackathon.md` for the build log.

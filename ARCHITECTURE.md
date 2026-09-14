@@ -30,6 +30,7 @@ transform.py ──→ square_item_sales.csv ──→ ingest ──→ spatial 
  ─────────────────          ────────────────           ──────────────
  exchange events     ──→    wave schedule       ──→    patron spawn ticks
  gentrification drift       cohort signals             barista levers + prediction
+ pitch licence (boot)       identity → name/stand      role + one-perk background
  Morning Brief (06:00)      friend-graph gossip        (queue vs restock vs regular)
  sized hedge / settle       (3D lines + debrief)       11:00 offer + 14:55 incident
  cost sheet (closeDay)      Day-2 preview              named-Regular hat + bubble + calm-open
