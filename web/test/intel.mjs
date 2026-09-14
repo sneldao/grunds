@@ -103,4 +103,25 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
   console.log('WIRE    Linkup + Firecrawl merge · corroboration boost · OpenAI why-line · origin tags');
 }
 
+// 7) AgentMail: the roaster is a real mailbox — letter out, reply-to-command in.
+{
+  const am = read('convex/agentmail.ts');
+  assert.ok(am.includes('api.agentmail.to/v0') && am.includes('messages/send'),
+    'sendLetter posts through the real AgentMail API');
+  assert.ok(am.includes('agentmail:thread:') && am.includes('agentmail:rcpt:'),
+    'thread + recipient mappings resolve replies to campaigns');
+  assert.ok(am.includes('export const sendLetter') && am.includes('export const resolveThread'),
+    'sendLetter + resolveThread exist');
+  const http = read('convex/http.ts');
+  assert.ok(http.includes('verifySvix') && http.includes('svix-signature'),
+    'webhook verifies real Svix signatures');
+  assert.ok(http.includes("message.received") && http.includes('/agentmail/letter'),
+    'webhook parses message.received + /agentmail/letter send route exists');
+  assert.ok(http.includes('self-delivery'), 'self-delivery loop guard present');
+  const main = read('web/js/main.js');
+  assert.ok(main.includes('letter-mail-addr') && main.includes('/agentmail/letter'),
+    'letter modal posts the letter to a real inbox');
+  console.log('MAIL    letter→inbox · reply→command→campaign · Idris acks · audit in letters');
+}
+
 console.log('\nPASS — Linkup intel: deck bias honored + clamped, pity intact, letter cites the wire, all surfaces wired');

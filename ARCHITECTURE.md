@@ -151,8 +151,18 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   `research:wire:v1:<hash>`; `refreshWire` runs on cron so dawn reads are
   warm. Each pipe falls back independently — a dead key degrades to the
   other pipe, never to an error.
-- AgentMail: signed `/agentmail/webhook` → reply-to-command mutation with
-  a `letters` audit trail (inbox keys pending).
+- AgentMail — the roaster is a real mailbox (`grunds-roaster@agentmail.to`):
+  the letter modal gains a "post this letter" row (sync-gated) that POSTs
+  `/agentmail/letter` → `sendLetter` mails the exact rendered body + a
+  reply-to-command footer, records thread + recipient → campaign mappings
+  in `apiCache` (30d), and archives outbound in `letters`. Replies hit
+  `/agentmail/webhook` — real Svix signature verification
+  (`verifySvix`, HMAC-SHA256 over `id.ts.body`) → `message.received` →
+  `resolveThread` (thread id, else sender address) → `handleInbound`
+  (contract/hold/settle applied to the campaign) → Idris sends an
+  acknowledgement by return post. Self-delivery guarded. Verified
+  end-to-end: letter delivered → "contract" reply applied (debt +£22,
+  2400 units locked) → ack received → full audit in `letters`.
 - Hosting: `@convex-dev/static-hosting` serves the floor from
   `https://striped-anaconda-746.convex.site` (43 files Sept 13, SPA fallback — adds `desk.js` + rebuilt `dist`);
   performance: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms, shadow budget at `queue>40`, GLB cross-fade, `tabular-nums` till + staggered/typewriter receipt, `P` photo + `GRUNDS` secret, **bounce hemi 0.22 lifts the bar**;
@@ -168,8 +178,7 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
 
 Still pending: per-campaign dawn cron (intentionally skipped — no
 active-campaign pointer, ticks stay player-driven), Convex Auth (not
-required by the hackathon), AgentMail live inbox (webhook live, keys
-pending — templated Letter still authoritative), production deploy
+required by the hackathon), production deploy
 (iterating on dev until submission week), video + social. OpenAI +
 Firecrawl + Linkup + Nebius are all live on dev (Linkup bias verified
 with 20-source pull; Nebius `Llama-3.3-70B` via Token Factory).

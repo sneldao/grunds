@@ -477,6 +477,34 @@ function showLetter() {
       dl.style.display = 'none';
     }
   }
+  // the letter by post — AgentMail carries the same body to a real inbox;
+  // a reply of contract/hold/settle plays the same move through the webhook.
+  const lm = $('letter-mail');
+  if (lm) {
+    lm.style.display = sync.live ? '' : 'none';
+    const addr = $('letter-mail-addr'), mb = $('letter-mail-btn');
+    if (addr && !addr.value) { try { addr.value = localStorage.getItem('grunds.mail') || ''; } catch {} }
+    if (mb) mb.onclick = () => {
+      const to = (addr?.value || '').trim();
+      if (!to || !to.includes('@')) { fx.toast('an address first — where does the post go?', 'warn'); return; }
+      mb.disabled = true; mb.textContent = 'posting…';
+      fetch(sync.url + '/agentmail/letter', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to, subject: $('letter-head').textContent || 'A note from your roaster',
+          body: $('letter-body').textContent + '\n\n— Idris\n(reply: contract · hold · settle)',
+          campaignId: sync.campaignId,
+        }),
+      }).then(r => (r.ok ? r.json() : null)).then(d => {
+        if (d && d.ok) {
+          try { localStorage.setItem('grunds.mail', to); } catch {}
+          mb.textContent = 'posted ✓';
+          fx.toast(`the letter is in the post — reply to play from your inbox`, 'good');
+          try { analytics.track('letter_mailed', { day }); } catch {}
+        } else { mb.disabled = false; mb.textContent = 'post it'; }
+      }).catch(() => { mb.disabled = false; mb.textContent = 'post it'; });
+    };
+  }
 }
 
 function applyReply(id) {

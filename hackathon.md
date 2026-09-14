@@ -16,6 +16,14 @@
 
 ## Log
 
+### 2026-09-14 - The roaster is a real mailbox — AgentMail end-to-end
+AgentMail goes from half-wired webhook to the demo's best sponsor story: the Roaster's Letter is now literal post.
+- **Provisioned `grunds-roaster@agentmail.to`** ("Idris Grunds") + a real `message.received` webhook (`ep_3JKWZvxq…`, Svix-signed, inbox-filtered) pointed at `/agentmail/webhook`.
+- **Send path:** `POST /agentmail/letter` → `agentmail.sendLetter` mails the exact letter body the player sees (+ a `reply: contract · hold · settle` footer), records thread + recipient → campaign mappings (apiCache, 30d) and archives outbound in `letters`. The letter modal gains a paper-styled "post this letter to…" row (sync-gated; address persists in `grunds.mail`).
+- **Reply path:** the webhook now verifies real Svix signatures (`verifySvix` — HMAC-SHA256 over `id.ts.body` with the `whsec_` key), parses `message.received`, resolves the campaign via `resolveThread` (thread id → sender address fallback), applies `handleInbound` (contract/hold/settle), and **Idris acknowledges by return post** — "Done — the beans are locked at today's board." Self-delivery guarded against ack loops; the legacy shared-secret path stays for manual tests.
+- **Verified with real mail:** letter delivered to a second AgentMail inbox → replied "contract — lock me in" → campaign updated live (debt +£22 fee, 2400 units locked at 1.25) → ack received in the player's inbox → all three pieces of correspondence in `letters`.
+- Gate **18/18** (`intel.mjs` new MAIL block), `tsc` clean, functions + site live.
+
 ### 2026-09-14 - The Wire: Firecrawl + OpenAI join the loop
 The All Gas judge brief wants OpenAI, Firecrawl, and AgentMail doing real work — two of those pipes were built but dormant (`/ai/research` served Linkup only; OpenAI was dead code). Now the sponsor chain is literal: **Firecrawl crawls → Linkup searches → OpenAI explains → Convex serves → the player reads it at dawn.**
 - **`convex/research.ts` (new):** `wireResearch` fans out to both pipes in parallel, merges source lists with `origin` tags (`linkup` / `firecrawl`), and unions `marketShift` suggestions per `eventId` — when both pipes flag the same event the tilt lifts ~15% as `corroborated` instead of stacking multiplicatively. OpenAI `wireWhy` (`gpt-4o-mini`, ≤25 words, 7-day input-hash cache) writes the "why this matters" line under the lead tilt. Merged payload caches at `research:wire:v1:<hash>`; each pipe falls back independently — a dead key degrades to the other pipe, never an error.

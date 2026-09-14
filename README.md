@@ -85,7 +85,8 @@ Same world, multiplayer and persistent:
   spawn waves and roll events; live queries move the whole district in real time
 - **Firecrawl**: commodity-news crawls feed the merged Wire — **live since Sept 13**
   (Brazil drought → `drought_ea` corroborated tilt)
-- **AgentMail**: the Roaster's Letter — in-character briefings with reply-to-command
+- **AgentMail**: the roaster is a real mailbox — post the letter to your inbox,
+  reply `contract`/`hold`/`settle`, and it plays your move (verified end-to-end)
 - **OpenAI**: `gpt-4o-mini` writes the Wire's "why this matters" line —
   crawls become a one-line analyst read a player can act on
 - Deployed on `convex.site`, public repo, `hackathon.md` build log from day one
@@ -381,8 +382,10 @@ The Convex phase shipped as working backend + hosting, not a plan:
   the merged Wire — Linkup Deep Search + Firecrawl crawls unioned per
   event (corroboration lifts a tilt ~15%), with OpenAI `wireWhy`
   (`gpt-4o-mini`, 7-day hash cache) writing the "why this matters" line;
-  a signed AgentMail webhook with reply-to-command mutation (inbox keys
-  pending).
+  AgentMail runs the Roaster's Letter as a real mailbox — `/agentmail/letter`
+  posts it to a player inbox, Svix-signed `/agentmail/webhook` resolves the
+  reply (thread/recipient → campaign) and plays contract/hold/settle, with
+  an Idris ack by return post and the whole correspondence in `letters`.
 - **Hosting**: the floor deploys via `@convex-dev/static-hosting` to
   https://striped-anaconda-746.convex.site (38 files, no bundler — `web/`
   *is* the dist plus a schedule snapshot). The game auto-mirrors each
