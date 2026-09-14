@@ -59,8 +59,8 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
 // 5) Source wiring: the route, the fetcher, the cron, the server consumption.
 {
   const http = read('convex/http.ts');
-  assert.ok(http.includes('/ai/research') && http.includes('linkup.searchCommodityIntelligence'),
-    'http.ts exposes GET /ai/research → searchCommodityIntelligence');
+  assert.ok(http.includes('/ai/research') && http.includes('research.wireResearch'),
+    'http.ts exposes GET /ai/research → the merged wire');
   const sync = read('web/js/convexSync.js');
   assert.ok(sync.includes('/ai/research') && /async function intel\(/.test(sync),
     'convexSync.js fetches intel over the bridge');
@@ -68,14 +68,39 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
   assert.ok(crons.includes('linkup-intel-refresh') && crons.includes('refreshLinkupIntelligence'),
     'crons.ts schedules the nightly Linkup refresh');
   const ex = read('convex/exchange.ts');
-  assert.ok(ex.includes('linkup:research:v1:') && ex.includes('weightMul'),
-    'convex openDay consumes the cached marketShift');
+  assert.ok(ex.includes('research:wire:v1:') && ex.includes('linkup:research:v1:') && ex.includes('weightMul'),
+    'convex openDay consumes the merged wire, falls back to raw Linkup');
   const local = read('web/js/exchange.js');
   assert.ok(local.includes('roll(bias)') && local.includes('Math.min(3'),
     'local deck accepts a clamped bias map');
   const main = read('web/js/main.js');
   assert.ok(main.includes('sync.intel()') && main.includes('marketIntel.marketShift'),
     'main.js fetches intel and tilts the dawn deck');
+}
+
+// 6) The merged wire: Firecrawl + Linkup corroborate, OpenAI writes the why.
+{
+  const research = read('convex/research.ts');
+  assert.ok(research.includes('api.linkup.searchCommodityIntelligence') &&
+    research.includes('api.firecrawl.fetchCommodityNews'),
+    'wireResearch fans out to both pipes');
+  assert.ok(research.includes('corroborated = true') && research.includes('* 1.15'),
+    'corroborating pipes lift the tilt instead of stacking');
+  assert.ok(research.includes('api.openai.wireWhy'), 'OpenAI writes the why-this-matters line');
+  assert.ok(research.includes('research:wire:v1:'), 'merged payload caches under its own key');
+  const fc = read('convex/firecrawl.ts');
+  assert.ok(fc.includes('api.firecrawl.dev/v1/search') && fc.includes('KEYWORD_MAP'),
+    'firecrawl crawls commodity news into deck suggestions');
+  const oa = read('convex/openai.ts');
+  assert.ok(oa.includes('export const wireWhy') && oa.includes('api.openai.com/v1/chat/completions'),
+    'wireWhy hits the live OpenAI chat API');
+  const crons = read('convex/crons.ts');
+  assert.ok(crons.includes('wire-merge-refresh'), 'merged wire refreshes on the nightly cron');
+  const main = read('web/js/main.js');
+  const desk = read('web/js/desk.js');
+  assert.ok(main.includes("s.origin ? ' · ' + s.origin") && desk.includes("s.origin ? ' · ' + s.origin"),
+    'wire sources carry an origin tag on both surfaces');
+  console.log('WIRE    Linkup + Firecrawl merge · corroboration boost · OpenAI why-line · origin tags');
 }
 
 console.log('\nPASS — Linkup intel: deck bias honored + clamped, pity intact, letter cites the wire, all surfaces wired');

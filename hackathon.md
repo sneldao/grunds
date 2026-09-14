@@ -10,11 +10,19 @@
 - **Components:** @convex-dev/static-hosting
 - **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /sync/*, /agentmail/webhook), crons, static hosting
 - **Auth:** none
-- **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini (key-gated action stub, falls back offline)
+- **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; falls back empty when key-gated)
 - **Started:** 2026-09-05T20:48:27Z
 - **Last updated:** 2026-09-14T00:00:00Z
 
 ## Log
+
+### 2026-09-14 - The Wire: Firecrawl + OpenAI join the loop
+The All Gas judge brief wants OpenAI, Firecrawl, and AgentMail doing real work — two of those pipes were built but dormant (`/ai/research` served Linkup only; OpenAI was dead code). Now the sponsor chain is literal: **Firecrawl crawls → Linkup searches → OpenAI explains → Convex serves → the player reads it at dawn.**
+- **`convex/research.ts` (new):** `wireResearch` fans out to both pipes in parallel, merges source lists with `origin` tags (`linkup` / `firecrawl`), and unions `marketShift` suggestions per `eventId` — when both pipes flag the same event the tilt lifts ~15% as `corroborated` instead of stacking multiplicatively. OpenAI `wireWhy` (`gpt-4o-mini`, ≤25 words, 7-day input-hash cache) writes the "why this matters" line under the lead tilt. Merged payload caches at `research:wire:v1:<hash>`; each pipe falls back independently — a dead key degrades to the other pipe, never an error.
+- **Firecrawl graduates to rich sources:** crawled items now carry `{title, url, snippet}` (with a `titleFromUrl` slug fallback for titleless results) so the Brief and the desk can link them properly, and keyword-mapped suggestions stay `KEYWORD_MAP`-driven.
+- **Server + client consume the merge:** `exchange.openDay` reads `research:wire:v1:` first, `linkup:research:v1:` as fallback; `GET /ai/research` routes to the merged action; crons now run Firecrawl 06:00 → Linkup 06:15 → `wire-merge-refresh` 06:30 UTC so dawn reads a warm cache; Brief + desk rows print the origin tag (`… · stir-tea-coffee.com · firecrawl`).
+- **Verified live:** `GET /ai/research` on prod returns `feed:["linkup","firecrawl"]`, a `drought_ea` corroborated tilt (Linkup 1.5 × 1.15 = 1.725), and firecrawl-origin headlines; `why` fills once `OPENAI_API_KEY` lands — the field degrades to `""` cleanly until then.
+- Gate **18/18** (`intel.mjs` new WIRE block: fan-out, corroboration, wireWhy, merge cache key, origin tags), `tsc` clean, functions + site deployed.
 
 ### 2026-09-14 - The pitch licence: sign yourself into the week
 A playtester asked for a personalisation stage — a name, a role. The caveat we kept: it's friction at the worst possible point, so it's a fiction beat, not a form, and one keystroke signs it.

@@ -165,7 +165,8 @@ export const aiGossip = httpAction(async (ctx, req) => {
 
 export const aiResearch = httpAction(async (ctx) => {
   try {
-    const result = await ctx.runAction(api.linkup.searchCommodityIntelligence, {});
+    // the merged wire: Linkup + Firecrawl pipes, OpenAI "why this matters"
+    const result = await ctx.runAction(api.research.wireResearch, {});
     return json(result);
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : "failed" }, 400);

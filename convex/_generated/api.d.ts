@@ -20,6 +20,7 @@ import type * as linkup from "../linkup.js";
 import type * as nebius from "../nebius.js";
 import type * as openai from "../openai.js";
 import type * as regulars from "../regulars.js";
+import type * as research from "../research.js";
 import type * as stands from "../stands.js";
 
 import type {
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   nebius: typeof nebius;
   openai: typeof openai;
   regulars: typeof regulars;
+  research: typeof research;
   stands: typeof stands;
 }>;
 

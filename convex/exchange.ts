@@ -102,16 +102,25 @@ export const openDay = mutation({
     const beanAfterDrift = Math.min(DRIFT.maxIndex, c.beanIndex + DRIFT.perDay);
     const matchaPrice = priceForDay(day);
 
-    // Linkup deep research: the nightly refresh caches a marketShift payload;
-    // a live report tilts the deck (clamped) without replacing the seeded roll.
-    // One multiplier per eventId — corroborating sources must not stack.
+    // The merged wire (Linkup + Firecrawl, OpenAI-annotated) caches a
+    // marketShift payload; a live report tilts the deck (clamped) without
+    // replacing the seeded roll. One multiplier per eventId — corroborating
+    // sources must not stack. Falls back to the raw Linkup key if the
+    // merged cache hasn't been written yet.
     const shifts = new Map<string, number>();
-    const intel = await ctx.db
-      .query("apiCache")
-      .withIndex("by_key", (q) =>
-        q.eq("key", `linkup:research:v1:${hashKey(LINKUP_RESEARCH_QUERY)}`),
-      )
-      .unique();
+    const intel =
+      (await ctx.db
+        .query("apiCache")
+        .withIndex("by_key", (q) =>
+          q.eq("key", `research:wire:v1:${hashKey(LINKUP_RESEARCH_QUERY)}`),
+        )
+        .unique()) ??
+      (await ctx.db
+        .query("apiCache")
+        .withIndex("by_key", (q) =>
+          q.eq("key", `linkup:research:v1:${hashKey(LINKUP_RESEARCH_QUERY)}`),
+        )
+        .unique());
     if (intel && intel.expiresAt > Date.now()) {
       try {
         const parsed = JSON.parse(intel.value) as {

@@ -34,7 +34,12 @@ export const fetchCommodityNews = action({
   handler: async (
     ctx,
     args,
-  ): Promise<{ fallback: boolean; cached: boolean; suggestions: DeckSuggestion[]; sources: string[] }> => {
+  ): Promise<{
+    fallback: boolean;
+    cached: boolean;
+    suggestions: DeckSuggestion[];
+    sources: { title: string; url: string; snippet?: string }[];
+  }> => {
     const query = args.query ?? "arabica coffee frost drought harvest market";
     const cacheKey = `firecrawl:v1:${hashKey(query)}`;
     if (!args.force) {
@@ -42,7 +47,7 @@ export const fetchCommodityNews = action({
       if (hit) {
         const parsed = JSON.parse(hit) as {
           suggestions: DeckSuggestion[];
-          sources: string[];
+          sources: { title: string; url: string; snippet?: string }[];
         };
         return { fallback: false, cached: true, ...parsed };
       }
@@ -64,10 +69,10 @@ export const fetchCommodityNews = action({
       };
       const items = data.data ?? [];
       const suggestions: DeckSuggestion[] = [];
-      const sources: string[] = [];
+      const sources: { title: string; url: string; snippet?: string }[] = [];
       for (const item of items) {
         const text = `${item.title ?? ""} ${item.snippet ?? ""}`;
-        if (item.url) sources.push(item.url);
+        if (item.url) sources.push({ title: item.title ?? titleFromUrl(item.url), url: item.url, snippet: item.snippet });
         for (const rule of KEYWORD_MAP) {
           if (rule.pattern.test(text)) {
             suggestions.push({
@@ -92,17 +97,24 @@ export const fetchCommodityNews = action({
   },
 });
 
+// Some crawled results carry no title — fall back to a readable label derived
+// from the URL slug rather than printing the raw URL in the wire.
+function titleFromUrl(url: string): string {
+  try {
+    const seg = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
+    const label = seg.replace(/\.(html?|php|aspx?)$/i, "").replace(/[-_]+/g, " ").trim();
+    return label ? label.slice(0, 90) : new URL(url).hostname;
+  } catch {
+    return "crawled headline";
+  }
+}
+
 // Nightly refresh for the cron: forces a fresh pull into the cache so dawn
 // rolls always read news no older than ~24h. No args — the cron owns it.
 export const refreshCommodityNews = internalAction({
   args: {},
   handler: async (ctx): Promise<{ refreshed: boolean; suggestions: number }> => {
-    const fresh: {
-      fallback: boolean;
-      cached: boolean;
-      suggestions: DeckSuggestion[];
-      sources: string[];
-    } = await ctx.runAction(api.firecrawl.fetchCommodityNews, {
+    const fresh = await ctx.runAction(api.firecrawl.fetchCommodityNews, {
       query: "arabica coffee frost drought harvest market",
       force: true,
     });

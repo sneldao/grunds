@@ -83,10 +83,11 @@ Same world, multiplayer and persistent:
 
 - **Convex**: tables for stands, patrons, opinions, contracts; scheduled functions
   spawn waves and roll events; live queries move the whole district in real time
-- **Firecrawl**: nightly crawls of commodity news + real café menus/prices seed the
-  Exchange and market realism — **live since Sept 12** (Brazil drought → deck weights)
+- **Firecrawl**: commodity-news crawls feed the merged Wire — **live since Sept 13**
+  (Brazil drought → `drought_ea` corroborated tilt)
 - **AgentMail**: the Roaster's Letter — in-character briefings with reply-to-command
-- **OpenAI**: patron personas that explain their choices in speech bubbles
+- **OpenAI**: `gpt-4o-mini` writes the Wire's "why this matters" line —
+  crawls become a one-line analyst read a player can act on
 - Deployed on `convex.site`, public repo, `hackathon.md` build log from day one
   — **live since Sept 12** at https://striped-anaconda-746.convex.site
 
@@ -376,11 +377,12 @@ The Convex phase shipped as working backend + hosting, not a plan:
   friendships, letters, stands, and an API-response cache; queries +
   mutations for the Exchange (drift-then-pity-roll dawns, contracts,
   debt), the Regulars (seen-marks, expectation pressure, 5% contagion),
-  and the Letter (templated preview + archive); actions for OpenAI prose
-  (`gpt-4o-mini`, key-gated with 7-day input-hash cache) and Firecrawl
-  news→deck seeding (**live**: Brazil drought → `drought_ea` ×1.4, 6h
-  cache ≈ 1 search per campaign); a signed AgentMail webhook with
-  reply-to-command mutation (inbox keys pending).
+  and the Letter (templated preview + archive); `GET /ai/research` serves
+  the merged Wire — Linkup Deep Search + Firecrawl crawls unioned per
+  event (corroboration lifts a tilt ~15%), with OpenAI `wireWhy`
+  (`gpt-4o-mini`, 7-day hash cache) writing the "why this matters" line;
+  a signed AgentMail webhook with reply-to-command mutation (inbox keys
+  pending).
 - **Hosting**: the floor deploys via `@convex-dev/static-hosting` to
   https://striped-anaconda-746.convex.site (38 files, no bundler — `web/`
   *is* the dist plus a schedule snapshot). The game auto-mirrors each

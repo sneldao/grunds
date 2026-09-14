@@ -75,7 +75,7 @@ export function initDesk({ billing, analytics } = {}) {
         if (s.snippet) a.title = s.snippet;
         const b = document.createElement('span');
         b.className = 'd-why';
-        b.textContent = host(s.url);
+        b.textContent = host(s.url) + (s.origin ? ' · ' + s.origin : '');
         row.append(a, b);
         body.appendChild(row);
       }

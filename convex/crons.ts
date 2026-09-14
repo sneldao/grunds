@@ -20,4 +20,12 @@ crons.daily(
   {},
 );
 
+// the merged wire refreshes last — it reads both pipes' fresh caches
+crons.daily(
+  "wire-merge-refresh",
+  { hourUTC: 6, minuteUTC: 30 },
+  internal.research.refreshWire,
+  {},
+);
+
 export default crons;

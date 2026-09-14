@@ -129,8 +129,9 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   same ordering as the local `Exchange`; optional `bias` (marketShift,
   clamped 0.2–3× per event) from Linkup tilts the weighted pool without
   replacing the seeded roll. Deterministic per seed+day. New Sept 13:
-  server `openDay` reads the cached Linkup payload from `apiCache`
-  (`linkup:research:v1:<hash>`) at the dawn tick — no extra action needed.
+  server `openDay` reads the merged wire cache from `apiCache`
+  (`research:wire:v1:<hash>`, falling back to `linkup:research:v1:<hash>`)
+  at the dawn tick — no extra action needed.
 - Regulars: `markSeen`/`unsee`, `resolveDay` (expectation pressure, outcome
   delta, 5% friendship contagion), reputation meter.
 - Roaster's Letter: templated preview + archive; Nebius Token Factory
@@ -139,12 +140,17 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   Idris rewrite consumed fire-and-forget from the floor (`showLetter` swaps
   to LLM prose mid-letter); OpenAI path remains as a key-gated fallback.
   `intelLine` cites the Linkup wire when sources arrive.
-- Firecrawl + Linkup: `fetchCommodityNews` + `searchCommodityIntelligence`
-  map live headlines to deck-weight suggestions (6h cache each, ~1 search
-  per campaign). New `GET /ai/research` serves the Linkup payload over the
-  same plain-fetch bridge; the floor's `convexSync.intel()` feeds the bias
-  into the local `Exchange.roll(bias)` so the played game reacts to live
-  news too; a day-1 toast names the top market shift.
+- The Wire — merged sponsor feed (`convex/research.ts`): `GET /ai/research`
+  fans out to Linkup `searchCommodityIntelligence` (Deep Search, 6h cache)
+  and Firecrawl `fetchCommodityNews` (search crawl → `KEYWORD_MAP` deck
+  suggestions, 6h cache), merges both source lists with `origin` tags, and
+  unions the `marketShift` suggestions per `eventId` — corroborating pipes
+  lift a tilt ~15% instead of stacking. OpenAI `wireWhy` (`gpt-4o-mini`,
+  7-day input-hash cache, key-gated) writes the ≤25-word "why this matters"
+  line under the lead tilt. Merged payload caches at
+  `research:wire:v1:<hash>`; `refreshWire` runs on cron so dawn reads are
+  warm. Each pipe falls back independently — a dead key degrades to the
+  other pipe, never to an error.
 - AgentMail: signed `/agentmail/webhook` → reply-to-command mutation with
   a `letters` audit trail (inbox keys pending).
 - Hosting: `@convex-dev/static-hosting` serves the floor from
@@ -157,7 +163,8 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   badge, and the dashboard + `topStands` leaderboard + `GET /sync/stands`
   read live games.
 - Scheduled: `commodity-news-refresh` (Firecrawl, 06:00 UTC) +
-  `linkup-intel-refresh` (Linkup, 06:15 UTC) keep both 6h caches warm.
+  `linkup-intel-refresh` (Linkup, 06:15 UTC) + `wire-merge-refresh`
+  (merged wire, 06:30 UTC — reads the freshly-warmed caches).
 
 Still pending: per-campaign dawn cron (intentionally skipped — no
 active-campaign pointer, ticks stay player-driven), Convex Auth (not

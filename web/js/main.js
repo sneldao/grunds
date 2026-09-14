@@ -596,7 +596,8 @@ function showMorningBrief() {
         const a = document.createElement('a'); a.textContent = s.title || 'untitled';
         a.href = s.url || '#'; a.target = '_blank'; a.rel = 'noopener'; if (s.snippet) a.title = s.snippet;
         let host = ''; try { host = new URL(s.url).hostname.replace(/^www\./, ''); } catch {}
-        const b = document.createElement('span'); b.style.opacity = '.5'; b.style.fontSize = '10px'; b.textContent = host ? ' · ' + host : '';
+        const b = document.createElement('span'); b.style.opacity = '.5'; b.style.fontSize = '10px';
+        b.textContent = (host ? ' · ' + host : '') + (s.origin ? ' · ' + s.origin : '');
         row.append(a, b); wire.appendChild(row);
       }
       if (shift && shift.reason) {

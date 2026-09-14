@@ -87,6 +87,26 @@ export const enhanceLetter = action({
   },
 });
 
+// The "why this matters" line for the wire's strongest tilt — the analyst
+// voice under the crawled headlines in the Morning Brief and the desk.
+export const wireWhy = action({
+  args: {
+    eventId: v.string(),
+    headlines: v.array(v.string()),
+    force: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<ProseResult> => {
+    return await cachedChat(
+      ctx,
+      `openai:wirewhy:v1:${hashKey(`${args.eventId}|${args.headlines.join("|")}`)}`,
+      `You are a commodity-wire analyst for a coffee-district sim. In under 25 words, say why these headlines tilt tomorrow's "${args.eventId}" odds for a small café's bean costs. Plain desk note, no quotes, no emoji.\n\n${args.headlines.join("\n")}`,
+      60,
+      "",
+      args.force ?? false,
+    );
+  },
+});
+
 // One-line speech bubble for a named regular reacting to the day.
 export const personaLine = action({
   args: {
