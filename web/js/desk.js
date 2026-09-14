@@ -83,7 +83,7 @@ export function initDesk({ billing, analytics } = {}) {
       if (shifts[0] && shifts[0].reason) {
         const why = document.createElement('div');
         why.className = 'd-card';
-        why.textContent = 'why this matters · ' + String(shifts[0].reason).slice(0, 160);
+        why.textContent = 'why this matters · ' + String(shifts[0].why || shifts[0].reason).slice(0, 160);
         body.appendChild(why);
       }
     }

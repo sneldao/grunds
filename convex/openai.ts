@@ -14,14 +14,19 @@ import { hashKey } from "./apiCache";
 // and every completion is cached 7d by input hash — the deterministic sim
 // replays identical letter bodies across seeds and days, so repeat prose
 // costs zero tokens. Pass force: true to bypass the cache.
+//
+// Provider is configurable for dev: OPENAI_BASE_URL + OPENAI_MODEL can point
+// at any OpenAI-compatible endpoint (e.g. Venice) — the shipped product
+// defaults to api.openai.com + gpt-4o-mini, the sponsor integration.
 
 export const DEFAULT_MODEL = "gpt-4o-mini";
+export const OPENAI_BASE_URL = "https://api.openai.com/v1/chat/completions";
 export const OPENAI_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 async function chat(prompt: string, maxTokens: number): Promise<string> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("no key");
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetch(process.env.OPENAI_BASE_URL ?? OPENAI_BASE_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,

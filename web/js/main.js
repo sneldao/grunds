@@ -602,7 +602,7 @@ function showMorningBrief() {
       }
       if (shift && shift.reason) {
         const why = document.createElement('div'); why.style.marginTop = '8px'; why.style.fontSize = '10.5px';
-        why.style.opacity = '.72'; why.textContent = 'why this matters · ' + String(shift.reason).slice(0, 160);
+        why.style.opacity = '.72'; why.textContent = 'why this matters · ' + String(shift.why || shift.reason).slice(0, 160);
         wire.appendChild(why);
       }
       // insider tilt callout

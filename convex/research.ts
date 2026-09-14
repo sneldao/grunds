@@ -31,6 +31,7 @@ interface WireShift {
   eventId: string;
   weightMul: number;
   reason: string;
+  why?: string;
   corroborated?: boolean;
 }
 export interface WireResearchResult {
@@ -106,7 +107,7 @@ export const wireResearch = action({
         eventId: top.eventId,
         headlines: heads,
       });
-      if (!why.fallback && why.text) top.reason = why.text;
+      if (!why.fallback && why.text) top.why = why.text;
     }
 
     const feed = [linkup.fallback ? null : "linkup", firecrawl.fallback ? null : "firecrawl"].filter(
