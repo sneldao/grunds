@@ -18,34 +18,73 @@ import { hashKey } from "./apiCache";
 // Provider is configurable for dev: OPENAI_BASE_URL + OPENAI_MODEL can point
 // at any OpenAI-compatible endpoint (e.g. Venice) — the shipped product
 // defaults to api.openai.com + gpt-4o-mini, the sponsor integration.
+// A fallback provider (OPENAI_FALLBACK_*) picks up when the primary key is
+// unfunded or down — the wire's why-line degrades to Venice, never to a
+// blank product.
 
 export const DEFAULT_MODEL = "gpt-4o-mini";
 export const OPENAI_BASE_URL = "https://api.openai.com/v1/chat/completions";
 export const OPENAI_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-async function chat(prompt: string, maxTokens: number): Promise<string> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("no key");
-  const res = await fetch(process.env.OPENAI_BASE_URL ?? OPENAI_BASE_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+interface Provider {
+  key?: string;
+  url: string;
+  model?: string;
+}
+
+function providers(): Provider[] {
+  return [
+    {
+      key: process.env.OPENAI_API_KEY,
+      url: process.env.OPENAI_BASE_URL ?? OPENAI_BASE_URL,
       model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: maxTokens,
-      temperature: 0.8,
-    }),
-  });
-  if (!res.ok) throw new Error(`openai ${res.status}`);
-  const data = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  const text = data.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error("empty completion");
-  return text;
+    },
+    {
+      key: process.env.OPENAI_FALLBACK_API_KEY,
+      url:
+        process.env.OPENAI_FALLBACK_BASE_URL ??
+        "https://api.venice.ai/api/v1/chat/completions",
+      model: process.env.OPENAI_FALLBACK_MODEL ?? "venice-uncensored",
+    },
+  ];
+}
+
+async function chat(
+  prompt: string,
+  maxTokens: number,
+): Promise<{ text: string; model: string }> {
+  let lastErr = "no provider";
+  for (const p of providers()) {
+    if (!p.key) continue;
+    try {
+      const res = await fetch(p.url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${p.key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: p.model ?? DEFAULT_MODEL,
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: maxTokens,
+          temperature: 0.8,
+        }),
+      });
+      if (!res.ok) {
+        lastErr = `${p.url} ${res.status}`;
+        continue;
+      }
+      const data = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      const text = data.choices?.[0]?.message?.content?.trim();
+      if (text) return { text, model: p.model ?? DEFAULT_MODEL };
+      lastErr = "empty completion";
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : "fetch failed";
+    }
+  }
+  throw new Error(lastErr);
 }
 
 type ProseResult = { fallback: boolean; cached: boolean; model: string; text: string };
@@ -64,13 +103,13 @@ async function cachedChat(
     if (hit) return { fallback: false, cached: true, model, text: hit };
   }
   try {
-    const text = await chat(prompt, maxTokens);
+    const served = await chat(prompt, maxTokens);
     await ctx.runMutation(api.apiCache.cachePut, {
       key: cacheKey,
-      value: text,
+      value: served.text,
       ttlMs: OPENAI_TTL_MS,
     });
-    return { fallback: false, cached: false, model, text };
+    return { fallback: false, cached: false, model: served.model, text: served.text };
   } catch {
     return { fallback: true, cached: false, model, text: templated };
   }
