@@ -85,6 +85,7 @@ function greeting(e) {
 export function composeLetter(s) {
   const e = s.event || {};
   const rose = (s.index - 1);
+  const contract = s.contract;
   return {
     from: LETTER.from,
     sign: LETTER.sign,
@@ -95,7 +96,7 @@ export function composeLetter(s) {
       '',
       `The board's at ${s.index.toFixed(2)} — ${trendPhrase(rose)} on the spot.`,
       tapeLine(s),
-      'A light lock covers the wave. A deep one rides into tomorrow at today’s board.',
+      'Light covers half the wave. Standard covers tomorrow. Heavy rides two days — over-order and you eat waste; under-order and the wave starves you.',
       performance(s),
       debtLine(s),
       driftLine(s),
@@ -106,10 +107,11 @@ export function composeLetter(s) {
       'What do you want to do?',
     ].join('\n'),
     actions: [
-      { ...LETTER.actions[0], disabled: !!s.contract, explain: s.contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee / 2)} credit` },
-      { ...LETTER.actions[1], disabled: !!s.contract, explain: s.contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee * 2)} credit` },
-      { ...LETTER.actions[2], disabled: false, explain: `ride ${s.index.toFixed(2)}` },
-      { ...LETTER.actions[3], disabled: s.debt <= 0, explain: s.debt <= 0 ? 'nothing to settle' : `pay ${gbp(s.debt)}` },
+      { ...LETTER.actions[0], disabled: !!contract, explain: contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee / 2)} credit` },
+      { ...LETTER.actions[1], disabled: !!contract, explain: contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee)} credit` },
+      { ...LETTER.actions[2], disabled: !!contract, explain: contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee * 2)} credit` },
+      { ...LETTER.actions[3], disabled: false, explain: `ride ${s.index.toFixed(2)}` },
+      { ...LETTER.actions[4], disabled: s.debt <= 0, explain: s.debt <= 0 ? 'nothing to settle' : `pay ${gbp(s.debt)}` },
     ],
   };
 }

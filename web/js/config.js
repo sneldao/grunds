@@ -105,6 +105,17 @@ export const CAMPAIGN = {
   wastePct: 0.06,          // 6% of sales lost to waste (Business Waste / Notions)
   debtInterest: 4.0,      // the Drug Wars debt clock: £ per day on outstanding supplier credit
   startReputation: 62,     // 0..100 — the regulars' aggregate opinion
+  // The operating cost sheet — what a real stand pays beyond beans. Beans
+  // alone leave ~87% margin (a fantasy); with labour, supplies, pitch and
+  // card fees the campaign nets a believable ~12–18%. The receipt prints
+  // the full P&L — the costs are the education.
+  staffDayRate: 96,       // one barista's day on the floor
+  staffPerCup: 0.62,      // labour scales with volume — more hands at the rush
+  suppliesPerCup: 0.42,   // milk, cup, lid, sleeve — the rest of a real COGS
+  pitchMin: 180,          // the pitch's daily rent floor
+  pitchPct: 0.12,         // prime-pitch rent is turnover-linked — success is taxed
+  cardFeePct: 0.026,      // card processing on every sale
+  sundries: 48,           // utilities, insurance, cleaning, waste collection
   // Gentrification drift — the README's "pressure clock": costs creep, regular
   // expectations rise faster, willingness-to-pay rises (so the lever choice
   // matters: hold the price and lose regulars, or raise and lose the chain
@@ -171,12 +182,15 @@ export const REGULAR_ROSTER = [
 export const LETTER = {
   from: 'the roaster',
   sign: '— Idris, your roaster',
-  // templated in letter.js; these are the reply buttons (reply-to-command)
+  // templated in letter.js; reply-to-command — sizing is the position:
+  // light (half-day, £11), normal (one day, £22), heavy (two days, £44).
+  // Heavy wastes if the wave is thin; light starves if the wave is thick.
   actions: [
-    { id: 'contract',      label: 'CONTRACT light — cover the wave', hint: 'lock the board · ~half a day · +£11' },
-    { id: 'contract_deep', label: 'CONTRACT deep — two days’ cover', hint: 'lock the board · ~two days · +£44' },
-    { id: 'hold',          label: 'hold at the spot price',          hint: 'ride the market' },
-    { id: 'settle',        label: 'settle the debt',                 hint: 'pay it down from the till' },
+    { id: 'contract_light', label: 'CONTRACT light — half the wave', hint: 'lock the board · ~1200 cups · +£11' },
+    { id: 'contract',       label: 'CONTRACT standard — cover tomorrow', hint: 'lock the board · ~2400 cups · +£22' },
+    { id: 'contract_heavy', label: 'CONTRACT heavy — two days’ cover', hint: 'lock the board · ~4800 cups · +£44' },
+    { id: 'hold',           label: 'hold at the spot price',            hint: 'ride the market — no debt, no cover' },
+    { id: 'settle',         label: 'settle the debt',                   hint: 'pay it down from the till' },
   ],
 };
 

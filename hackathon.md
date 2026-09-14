@@ -16,6 +16,39 @@
 
 ## Log
 
+### 2026-09-14 - The Drug Wars turn: a real dawn, a real hedge, real consequences
+Playtesters nailed it: beautiful but no turns — info, plan, and execute all blurred while the clock ran. Now dawn *pauses* so every headline becomes a priced position, and midday asks you to choose a person.
+- **Morning Brief — `06:00 [PAUSED]` (#brief, the Drug Wars turn):** at every `openDay(d)` after the tutorial, `main.js` builds a one-screen brief: Idris's prose (`forecastForDay`, tilted by the same Linkup bias that moves the ticker) with tape delta, a **76px bean sparkline** from `exchange.history` (en-dashed today's price, red/green by `marketIntel.marketShift`), clickable wire headlines (host + one-line why — Nebius gossip voice when available) or a warm “no fresh wire” fallback, and **five sized reply pills** (`light £11 ~1200` / `standard £22 ~2400` / `heavy £44 ~4800` / `hold` / `settle`) that stage then commit on `OPEN FOR DAY →`. While `#brief` is open the floor is frozen (`briefPaused`); `dismissBriefAndStartDay` commits `contractBeans(units, fee)` + `contractFeeExtra` and resumes at `06:00`. Night Letter still owns `settle` + next-day drift preview; day is the hedge, night is the debt. `?skipBrief` / `_pricePreview(spot)` / headless-safe (Brief never opens in tests; 5-action Letter stays the API). `agency.mjs` now gates `BRIEF + sparkline + staged commit`.
+- **Sizing is the position (the real agency fix):** `LETTER` 4→5 actions, `exchange.contractBeans(units, fee)` now parameterized with `CONTRACT.pricePerCup`, `contractFeeExtra` riding from the COD incident; `consume(n)` burns cup-by-cup so a thin day wastes heavy stock and a thick day starves a light order — that's the Drug Wars feel. Nightly `tapeLine` makes the turn explicit (“board up 12% → lock tonight buys tomorrow at ~today; falling → ride spot”).
+- **Incident economy tightened in the same pass:** `INCIDENTS` (days 2+, 14:55–16:55, red-tinted) rotate `(seed+day)%6`: plumber (£45 or +60% balks), sick barista (£55 or −40% prep), dead card machine (£25 or −20% sales), inspector (£30 or −6 rep), solicitor coin toss (£60 or 50/50 £140 at 16:30), COD (£40 or +£18 on next contract). `CAMPAIGN` cost sheet every closeDay: staff £96+£0.62/cup, milk £0.42/cup, rent 12% of till (£180 floor), card 2.6%, sundries £48 → headless no-lever `£31,130 → ~£8.9k net` (~28% margin). Knobs `staffMul/balkMul/cashOnly/contractFeeExtra/solicitorAt` all reset at dawn.
+- **Midday dialogue:** `OFFERS` (5, `config.OFFERS` + `W.rivalHeat`) at `11:00` (`isHeadless`/`tutorialActive` gated): Pip wave bonus, Esther free-forever tag, Olu payout, Gwen gesha prebatch, Mara queue-gated rival steal — each y/n in the same `offerPaused` pause path with `analytics.offer_*` / `gossipOfferNudge` (rotating Nebius line when available).
+- Gate **17/17**, `tsc` clean, `dist` 43 — `agency.mjs` now the Drug Wars gate (brief + sizing + offers + cost).
+
+### 2026-09-14 - The floor bites back: operating costs + daily incidents
+Two pieces of honesty the fantasy needed: the game was all upside, and the
+ending number (£31k/week) felt like a jackpot, not a café.
+- **The cost sheet (`CAMPAIGN` ops constants):** every closeDay now computes
+  a real P&L — staff (£96/day + £0.62/cup), milk+cups (£0.42/cup),
+  turnover-linked pitch rent (12% of till, £180 floor), card fees (2.6%),
+  sundries (£48/day). Receipt prints all five lines; `cOps` accumulates and
+  `netWorth` subtracts it. A headless no-lever campaign: **£31,130 → £8,862**
+  (~28% margin — a real café's band, still a strong week).
+- **Incidents (`INCIDENTS`, days 2+, post-wave 14:55–16:55):** the same
+  pause-and-decide modal as the regular's ask, but these *cost* — plumber
+  (£45 or +60% walk-outs), sick barista (£55 cover or bar −40% speed), dead
+  card machine (£25 dongle or a fifth of sales die at the till), inspector
+  (£30 or −6 rep), solicitor's letter (£60 settle or a 50/50 £140 coin toss
+  deferred to 16:30), supplier COD (£40 or +£18 on the next contract).
+  Seed-offset rotation; day 1 stays clean for onboarding; red-tinted modal
+  variant; `incident_paid`/`incident_risked` analytics.
+- **New sim knobs:** `patrons.staffMul` (prep-point throttle), `patrons.balkMul`
+  (patience throttle), `regulars.adjustOpinions`, `cashOnly` sale-loss
+  fraction, `contractFeeExtra` (rides the next contract), `solicitorAt`
+  deferred resolution — all reset per dawn/campaign.
+- **Your letter sizing kept:** light/standard/heavy/hold/settle now 5 actions
+  (keys 1–5); `agency.mjs` updated for the new ids + incident/cost assertions.
+- Gate **17/17**, `tsc` clean, site re-uploaded.
+
 ### 2026-09-14 - Inverted wire + ticker board
 The paywall was hiding the USP — free players could never *see* the news move prices. Inverted:
 - **Desk opens for everyone** (`desk.js renderDesk(intel, subscribed)`): summary + clickable source headlines (real links, `rel=noopener`, host caption) + a free "why this matters" line from the lead shift. Only the quantitative **deck tilt** (× multipliers + per-card reasoning + card names) gates on `commodity_insider` — free readers see a placeholder row naming the boundary.

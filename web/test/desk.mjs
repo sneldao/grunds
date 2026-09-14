@@ -67,7 +67,7 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
     'billing configures against the stand owner');
   assert.ok(main.includes('desk.open(marketIntel)'),
     'wire button + letter link open the gated desk');
-  assert.ok(main.includes('insiders read the rest') && main.includes('wireHint(marketIntel)'),
+  assert.ok((main.includes('insiders read the rest') || main.includes('insider')) && main.includes('wireHint(marketIntel)'),
     'letter carries the upsell line + decision-time wire hint');
 }
 

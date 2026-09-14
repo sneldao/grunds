@@ -19,6 +19,8 @@ export class PatronSystem {
     this.free = [];
     this.counterQ = []; this.registerQ = []; this.rivalQ = [];
     this.rivalClock = 0;
+    this.staffMul = 1;   // <1 short-staffed — the bar spends fewer prep-points a tick
+    this.balkMul = 1;    // >1 impatient floor — they walk sooner
     this._d = new THREE.Object3D();
     this._c = new THREE.Color();
 
@@ -129,7 +131,7 @@ export class PatronSystem {
 
     // serve from the counter — the bar spends prep-points each minute; a made-to-order
     // matcha costs 4, a pre-batched one costs 1. The lever is visible in the line's speed.
-    let points = ECON.barPoints, servedN = 0;
+    let points = ECON.barPoints * (this.staffMul || 1), servedN = 0;
     for (let i = 0; i < this.counterQ.length && points > 0 && servedN < ECON.servePerTick;) {
       const p = this.counterQ[i];
       if (p.state !== 'inQueue') { i++; continue; }
@@ -147,7 +149,7 @@ export class PatronSystem {
     // balks — matcha waiters who've had enough walk to the chain
     for (let i = this.counterQ.length - 1; i >= 0; i--) {
       const p = this.counterQ[i];
-      const balkChance = this.repriced ? ECON.balkChance * 0.5 : ECON.balkChance;   // a deal buys patience
+      const balkChance = ECON.balkChance * (this.repriced ? 0.5 : 1) * (this.balkMul || 1);   // a deal buys patience; a bad floor loses it
       if (p.state === 'inQueue' && p.wantsMatcha && !ctx.prebatched && p.waitMin > ECON.balkAfter && Math.random() < balkChance) {
         this.counterQ.splice(i, 1);
         p.flash = 1; p.colorDirty = true;
@@ -399,6 +401,7 @@ export class PatronSystem {
   reset() {
     for (let i = this.patrons.length - 1; i >= 0; i--) this._despawn(this.patrons[i]);
     this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.rivalClock = 0;
+    this.staffMul = 1; this.balkMul = 1;
   }
 }
 

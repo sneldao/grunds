@@ -18,7 +18,7 @@ transform.py ──→ square_item_sales.csv ──→ ingest ──→ spatial 
 | System | Responsibility | Phase |
 |---|---|---|
 | `ingest` | Parse Square CSV, map each row to (zone, time, item, cohort); emit wave schedules | today |
-| `spatial` | Three.js floor: **1024 honey-oak floor + slab pavement + aggregate road** (all `anisotropy 8`), **brick facades** (two-tone + mortar, white frames + sill, cornice + shopfront), **9-block skyline**, **512×320 brass-collar ticker**, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), 3-step tutorial + calm-open throttling (reactive `#goal` + 3 just-in-time nudges), goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), wave debrief (fanfare/coin rain/crane) + forecast + wire desk (headlines free / tilt gated), bean tape HUD + ticker sparkline + bias glow, living plant (HSL health + wilt), god rays + **motes** + mist, till drawer + stretching shadow, **bollards + street decal**, cat Miso, hover story card + photo mode, scuff decal + awning tie-downs, GLB cross-fade + shadow budget + bounce hemi | today |
+| `spatial` | Three.js floor: **1024 honey-oak floor + slab pavement + aggregate road** (all `anisotropy 8`), **brick facades** (two-tone + mortar, white frames + sill, cornice + shopfront), **9-block skyline**, **512×320 brass-collar ticker**, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), 3-step tutorial + calm-open throttling (reactive `#goal` + 3 just-in-time nudges), goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), **Morning Brief `#brief` (520px linen: 76px sparkline + wire headlines/host/why + 5 pills → `OPEN`) + `briefPaused` clock gate**, wave debrief (fanfare/coin rain/crane) + forecast + wire desk (headlines free / tilt gated) + 11:00 offer / 14:55–16:55 incident modals (`offerPaused`), bean tape HUD + ticker sparkline + bias glow, living plant (HSL health + wilt), god rays + **motes** + mist, till drawer + stretching shadow, **bollards + street decal**, cat Miso, hover story card + photo mode, scuff decal + awning tie-downs, GLB cross-fade + shadow budget + bounce hemi | today |
 | `agent` | Patron decision loop (price/queue/rep) + barista levers (pre-batch/reprice + queue-drain prediction + chalk dust/screech) + named-Regular hat/bubble + wave + friend-graph gossip routing (throttled in calm open) + sitter sip at `dwell==4` + hover→story card (36px probe) + click-to-wave (+0.06 op) + cat spawn/sit/scatter + plant health + till slide | today |
 | `precedent` | Patron memory: opinions persist; gossip via named-friend graph; 5%/day `opContagion` (Map<i→op> + `Number.isFinite` guard for sparse rosters); local `analytics.js` (tutorial/lever/balk/debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`) + `desk.js` (The Wire — headlines free, tilt on `commodity_insider`) + `billing.js` (RevenueCat Web Billing → Test Store) | today |
 | `exchange` | Event deck (frost/harvest/hype, pity timers + Linkup `marketShift` bias clamped 0.2–3×); gentrification drift (per-day cost creep + matcha 4.80→5.40); forward contracts; supplier debt clock; hidden `geshaUnlocked` (`GRUNDS` → £7.80 wink, persists as toast) | today |
@@ -30,9 +30,9 @@ transform.py ──→ square_item_sales.csv ──→ ingest ──→ spatial 
  ─────────────────          ────────────────           ──────────────
  exchange events     ──→    wave schedule       ──→    patron spawn ticks
  gentrification drift       cohort signals             barista levers + prediction
- contracts / debt           friend-graph gossip        (queue vs restock vs regular)
- (Roaster's Letter)         (3D lines + debrief)       named-Regular hat + bubble
- forecast (Day 2)           Day-2 preview              calm-open throttling (1×, half-demand)
+ Morning Brief (06:00)      friend-graph gossip        (queue vs restock vs regular)
+ sized hedge / settle       (3D lines + debrief)       11:00 offer + 14:55 incident
+ cost sheet (closeDay)      Day-2 preview              named-Regular hat + bubble + calm-open
         ↓                          ↓                          ↓
         └────────── outcomes feed precedent memory (patron opinions) ──────────┘
                                           ↓
@@ -50,6 +50,10 @@ throttling (first 12 sim-min half-demand, 07–10 half-demand, gossip 10%) and a
 HUD (goal strip + queue health bar + batch countdown); at 17:00 a wave debrief teaches
 the payoff, at 17:30 and on the Z-read a Day-2 forecast earns the replay.
 
+## Morning Brief — the Drug Wars turn (06:00 [PAUSED])
+
+At every `openDay(d)` after the 3-step tutorial, `main.js` builds a one-screen `#brief` before the tick: Idris prose (`forecastForDay` tilted by the same Linkup bias that moves the ticker) with a tape delta vs `tapePrev`, a 76px canvas sparkline from `exchange.history` (today's price en-dashed, red/green by `marketIntel.marketShift`), clickable wire headlines (href + host + why; Nebius gossip voice as copy when available, else a warm “no fresh wire” fallback), and five sized reply pills (`light £11 ~1200` / `standard £22 ~2400` / `heavy £44 ~4800` / `hold` / `settle`) that *stage* on click/1–5 then `commit` on `OPEN FOR DAY →` (`contractBeans(units, fee)` + `contractFeeExtra`, `dismissBriefAndStartDay` resumes at `06:00`). While open, `briefPaused` holds `loop` at 06:00 and skips spawn/hud/dawn logic; `_pricePreview(spot)` precomputes tonight's Letter price so the pills price honestly. Headless + `?skipBrief` never show the Brief — night Letter stays the 5-action API. The nightly `tapeLine` makes the turn explicit (“board up 12% → lock tonight buys tomorrow at ~today; falling → ride spot”), and `OFFERS` (5) + `INCIDENTS` (6, red-tinted) reuse the same `offerPaused` pause path mid-day so turns compose.
+
 ## Cohorts (behavioural layer)
 
 Culture is mechanics: each cohort has its own arrival wave, elasticity, and gossip
@@ -64,12 +68,12 @@ stores per-patron opinion state.
    - Matcha/Coffee → counter · Bakery → retail shelf · Retail → shelf · all → register
    - Cohort by hour: 7–9 commuters · 10–14 creatives · 14–18 students (5 cohorts
      in the local phase, the Convex phase adds 5th + 6th cohorts on the agent)
-3. `spatial` spawns entities per transaction time; gossip bubbles + 3D
+3. `spatial` renders the district shell + the paused-dawn `#brief`, then spawns entities per transaction time; gossip bubbles + 3D
    conversation lines render the friendship graph; **honey-oak floor + slab
    pavement + aggregate road + awning eyelets** (`1024`, `anisotropy 8`,
    grain/knots/bevel/bollards + `THE DISTRICT` decal + scuff) + **brick
    facades** (two-tone, mortar, framed windows, cornice + brass shopfront) +
-   **512×320 brass-collar ticker** place the district; Kenney CC0 props
+   **512×320 brass-collar ticker** + **Morning Brief `#brief` (sparkline + 5 pills)** place the district; Kenney CC0 props
    (cross-fade `opacity 0→1`, headless-aware) place the café; day-5
    scaffolds/tarps/dust render gentrification; the floor opens at 1×
    through a 3-step tutorial with a 3.4s paused crane settle, a **reactive
@@ -85,10 +89,10 @@ stores per-patron opinion state.
    street cat (Miso, once/day 09:30, sits if `<4` / scatters if `>10`) make
    the shop alive; hover→story card + click-to-wave and `P` photo mode
    (golden hour + vignette + shutter) are delight affordances
-4. `agent` patrons pick stands (price/queue/rep); named Regulars get a
+4. At `06:00 [PAUSED]` the floor freezes for the Brief (commit the hedge), then `agent` patrons pick stands (price/queue/rep); named Regulars get a
    brass-band hat + greeting; the player pulls levers (pre-batch/reprice,
    with predicted queue drain, chalk dust + screech on reprice) against the
-   wave; gossip is throttled in the calm-open window; sitters sip at
+   wave and answers the `11:00` offer / `14:55–16:55` incident (y/n, same pause contract as the Brief); gossip is throttled in the calm-open window; sitters sip at
    `dwell==4` (arm/head/lean + steam), the rival leans at `heat>6` and jeers
    at 5 defections, Idris quips at 10:00/12:00 rep checkpoints, and haptics
    (`vibrate(35)` on balk, `[20,30,50]` on wave save) land on phones
@@ -101,10 +105,8 @@ stores per-patron opinion state.
    `commodity_insider` via `billing.js` (HUD `⚡ the wire ↗` when intel
    lands; bean tape click-through; Letter desklink where the choice
    happens; `#desk-edge` invite for free readers)
-6. `exchange` rolls events with pity timers (+ Linkup `marketShift` bias
-   clamped 0.2–3×) at each dawn, applies gentrification drift (cost creep +
-   matcha curve + cohort expectation) *before* the roll, and settles
-   contracts/debt from the Letter; `GRUNDS` secret sets `geshaUnlocked` and
+6. `exchange` at `openDay(d)` applies gentrification drift (cost creep +
+   matcha curve + cohort expectation) *before* the pity-timer roll (+ Linkup `marketShift` bias clamped 0.2–3×), stashes `tapePrev` for the tape/sparkline/`tapeLine` delta, mints the `history` for the Brief sparkline, and `history` for the ticker; at `closeDay` it emits the **cost-sheet P&L** (staff+milk+rent+card+sundries → `cOps` → `netWorth`). Sized hedges `contractBeans(units, fee)` burn cup-by-cup via `consume(n)`; `GRUNDS` secret sets `geshaUnlocked` and
    flashes £7.80 on the board (persists as a next-day toast)
 
 ## Convex deployment (live since Sept 12)

@@ -194,6 +194,7 @@ node web/test/intel.mjs               # Linkup deck bias (clamped), pity under b
 node web/test/behavioral.mjs          # decoy anchoring, pastry/cacao attachments, tip jar social proof
 node web/test/share.mjs               # Z-read share cards, campaign badges, replayable seed links
 node web/test/desk.mjs                # District Insider Pass: entitlement gates the wire, purchase/restore flows
+node web/test/agency.mjs              # Drug Wars turn — Morning Brief at 06:00, sized hedge, 11:00 offer + cost sheet
 ```
 
 The floor is a **connected 5-day campaign**, not a closed loop. The three nested clocks
@@ -211,16 +212,16 @@ arc), **brick district facades** (two-tone bricks + mortar, framed windows, corn
 mailbox, a **512×320 brass-collar ticker** with linen grain, weather mist + **warm dust motes (180, amber) in sun-shaft god rays after a frost or harvest**, **7 bollards** + a *THE DISTRICT* street decal, and a
 street **cat Miso** that walks once a day — rendered through a
 core-Three **post-FX** bloom/vignette/grain pipeline (auto-disabled on low-RAM/low-core + dynamic shadow budget at `queue>40` + GLB cross-fade-in). Controls: `1` pre-batch, `2` reprice, `space` pause — title prints the live set.
-The Roaster's Letter answers to `1`/`2`/`3`; hidden delight: type `GRUNDS` for Gwen's gesha reserve. URL params: `?lite`
+Morning Brief answers to `1`/`2`/`3`/`4`/`5` → `Enter` (the Letter keeps all five at night). Hidden delight: type `GRUNDS` for Gwen's gesha reserve. URL params: `?lite`
 (no shadows/post-FX, 1× pixels, now also auto on ≤4 cores / ≤4GB), `?speed=60|300|1200` (default 1×; headless stays 5×),
-`?seed=N` (campaign seed), `?skipTutorial`/`?notutorial` (bypass 3-step onboarding).
+`?seed=N` (campaign seed), `?skipTutorial`/`?notutorial` (bypass 3-step onboarding), `?skipBrief` (bypass Morning Brief).
 
 Onboarding: new players land at 1× through a 3-step tutorial (Read 14:00 / Lever 1+2 /
 Keep 5 vs GLASSHOUSE, `Enter`/`Space`/`Esc`) then a 3.4s paused crane settle; day-1
 mornings are half-demand and gossip-throttled so eyes settle before the queue reads.
 The HUD is goal-first: a brass goal strip, a queue health bar (ok/warm/hot + "queue
-7/12 — watch it", **heartbeat at >10 and purr glow at ≤5**), and a batch countdown; levers pulse until first use and the
-chalkboard flashes on press (with a chalk-dust puff and `screech` on reprice). At 17:00 a **14:00 wave debrief** card shows saved cups
+7/12 — watch it", **heartbeat at >10 and purr glow at ≤5**), a bean tape, and a batch countdown; levers pulse until first use and the
+chalkboard flashes on press (with a chalk-dust puff and `screech` on reprice). At 06:00 the **Morning Brief** pauses the floor for the day's hedge (sparkline + wire + 5 pills); at 11:00 a regular pauses it again for a y/n ask. At 17:00 a **14:00 wave debrief** card shows saved cups
 and `~£` vs GLASSHOUSE — a real save pops fanfare + a 3.5s counter crane + coin rain;
 an flop falls as a soft rain. At 17:30 and on day-1 close a **Day-2 forecast**
 toast + receipt stripe preview the next day's board to earn the replay. A local `analytics.js` tracks
@@ -354,12 +355,12 @@ squash-merge PR with a headless test gate.
     `construction-active`, `construction-final` (19 assertions total, canvases now 1024 including `setLineDash` stubs).
 
 The day-5 narrative is now end-to-end: numbers (HUD `#pressure` + goal +
-queue bar + batch countdown + `tabular-nums` till), narrative (the Letter + 14:00 wave debrief +
-Day-2 forecast + The Wire desk), physical (honey-oak floor + slab pavement + aggregate road + awning eyelets + facades/cornice/shopfront + bollards/decal + scaffolds/tarps + chalkboard flash + till drawer + shadow + arcing coins + sipping sitters + motes/god rays), audible
+queue bar + batch countdown + `tabular-nums` till + bean **tape**), narrative (the **Morning Brief at 06:00 [PAUSED]** + the Letter + 14:00 wave debrief +
+Day-2 forecast + The Wire desk + sized hedge + cost sheet), physical (honey-oak floor + slab pavement + aggregate road + awning eyelets + facades/cornice/shopfront + bollards/decal + scaffolds/tarps + chalkboard flash + till drawer + shadow + arcing coins + sipping sitters + motes/god rays), audible
 (saw + hammer + till/coins + 90Hz clock tick at 1× + chalk screech + fanfare/rain + 38Hz purr + meow + shutter), animated (drifting dust + 3D conversation
 lines + cat Miso + living plant + god rays + rival lean/jeer + photo vignette). Onboarding lands at 1× with a 3-step tutorial + calm-open throttling;
-`analytics.js` measures every balk and first lever for the playtest. Performance is intent: auto- + dynamic-`lite` (no shadows/post-FX on weak devices, shadow budget at `queue>40`), GLB cross-fade, `tabular-nums` + staggered receipt typewriter. **16/16**
-headless tests run green on every merge (new `desk.mjs`).
+**06:00 Drug Wars turn** pauses the floor for the Morning Brief (sparkline + wire headlines + 5 sized pills → `OPEN FOR DAY`); `analytics.js` measures every brief choice, balk and first lever for the playtest. Performance is intent: auto- + dynamic-`lite` (no shadows/post-FX on weak devices, shadow budget at `queue>40`), GLB cross-fade, `tabular-nums` + staggered receipt typewriter. **17/17**
+headless tests run green on every merge (new `agency.mjs` is the Drug Wars gate).
 
 ## Live on Convex (Sept 12–13)
 
@@ -410,9 +411,10 @@ The Convex phase shipped as working backend + hosting, not a plan:
   `prefers-reduced-motion` (and breath/haptics scale with the media query). Local `analytics.js` tracks tutorial steps,
   first lever, every balk, debrief and forecast for the playtest
   (`__grunds.analytics.summary()` + boot 5-question script). Loop tests are
-  RNG-seeded, so the **16-test** gate is deterministic.
+  RNG-seeded, so the **17-test** gate is deterministic.
+- **Drug Wars turn**: `main.js` Morning Brief at `06:00 [PAUSED]` (`#brief` 520px linen: Idris prose + 76px sparkline + wire headlines/host/why + 5 pills; `briefPaused` freezes `loop`, `dismissBriefAndStartDay` calls `exchange.contractBeans(units, fee)`; `?skipBrief`, `_pricePreview(spot)`); `OFFERS` (5) at `11:00` — same `offerPaused` path, each with a real payoff; `INCIDENTS` (6) `14:55–16:55` days 2+ (red tint, rotated) and a **cost-sheet P&L** at `closeDay` (staff+milk+rent+card+sundries → `~£8.9k net` headless). `agency.mjs` Drug Wars gate.
 - **Performance**: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms frames, shadow budget at `queue>40`, GLB cross-fade (`opacity 0→1`), RAF slot discipline (`requestAnimationFrame(loop)` re-arms first, receipt + loader use `setTimeout` in headless so the game loop isn't stolen), `tabular-nums` till, staggered receipt — fixed two real regressions (reputation `NaN` via sparse `opContagion`, RAF steal at close) — both caught by the 16-test gate.
-- Still to do: full live-query sync (mirror today), Convex Auth, AgentMail live inbox, prod deploy, video + social.
+- Still to do: full live-query sync (mirror today), Convex Auth, Nebius voicing of the 11:00 ask (gossip pipe already serves it), AgentMail live inbox, prod deploy, video + social.
 
 See `hackathon.md` for the build log.
 

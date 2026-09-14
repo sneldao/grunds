@@ -117,6 +117,12 @@ export class Regulars {
     }
   }
 
+  // Shift every regular's opinion by delta — incidents that hit the whole
+  // room (a failed inspection, a cold snap). Reputation derives from the mean.
+  adjustOpinions(delta) {
+    for (const r of this.regulars) r.op = clamp(r.op + delta, -1, 1);
+  }
+
   get reputation() {
     const m = this.regulars.reduce((s, r) => s + r.op, 0) / this.regulars.length;
     return Math.round(clamp(62 + m * 38, 0, 100));   // 0..100
