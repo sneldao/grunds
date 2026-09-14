@@ -3,7 +3,7 @@
 //   THE READ (hours)    — the wave schedule + the Roaster's Notebook
 //   THE SCRAMBLE (sec)  — the queue: pre-batch, reprice, or lose them to GLASSHOUSE
 import * as THREE from '../vendor/three.module.js';
-import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER } from './config.js';
+import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS } from './config.js';
 import { buildWorld } from './world.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
@@ -90,6 +90,9 @@ let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false;
 let waveDebriefShown = false;  // 14:00 wave payoff card, once per day
 let forecastShown = false;     // day-2 forecast tease, once per campaign (day 1 evening)
 let pendingGossip = null;      // a named regular's Nebius take on the market, one per day
+let tapePrev = 1.0;            // yesterday's bean-index close — the tape's delta
+// a regular's ask: one mid-day offer per day, yes/no with a real cost
+let offerShown = false, offerWaveMul = 1, officeRunAt = 0, oluPayoutAt = 0, estherCard = false, offerWasPaused = false;
 // campaign accumulators (persist across the 5 days)
 let cRev = 0, cCost = 0, cBalked = 0, cServed = 0, cDef = 0, settledPaid = 0, campaignDone = false;
 const ctx = { prebatched: false, repriced: false, batchUnits: 0 };
@@ -106,7 +109,7 @@ function tick() {
     const w = schedule.waves[waveIdx++];
     const morningCalm = (day === 1 && w.t < 600) ? 0.52 : 1;
     const settleThin = (day === 1 && dayMin < CALM_UNTIL_MIN) ? 0.5 : 1;
-    const mul = (exchange.event?.demand || 1) * regulars.footfallMul * morningCalm * settleThin;
+    const mul = (exchange.event?.demand || 1) * regulars.footfallMul * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1);
     for (const s of w.spawns) {
       const n = Math.max(1, Math.round(s.q * ECON.spawnScale * mul));
       for (let i = 0; i < n; i++) patrons.spawn(s.c, s.z, speed > 60);
@@ -273,6 +276,19 @@ function beats() {
     fx.toast('the wave lands at 14:00 — 2 drops matcha to £4.20', 'warn');
     $('reprice').classList.add('attention');
   }
+  // a regular's ask — once per day at 11:00, pauses the floor for a yes/no
+  if (!headless && !offerShown && dayMin >= 660 && dayMin < 840) { offerShown = true; showOffer(); }
+  // deferred offer consequences
+  if (oluPayoutAt && dayMin >= oluPayoutAt) {
+    oluPayoutAt = 0; till += 9;
+    for (let i = 0; i < 4; i++) patrons.spawn('elders', 'counter');
+    fx.toast('Olu’s bridge club lands — +£9, four more in your line', 'good');
+  }
+  if (officeRunAt && dayMin >= officeRunAt) {
+    officeRunAt = 0;
+    if (patrons.queueLength <= 6) { till += 28; fx.toast('the office run lands clean — +£28', 'good'); }
+    else fx.toast('the office saw your line — they went to ' + COPY.rivalName, 'bad');
+  }
 }
 
 function closeDay() {
@@ -299,6 +315,23 @@ function closeDay() {
     const np = priceForDay(2).toFixed(2);
     const ni = (1 + CAMPAIGN.drift.perDay * 2).toFixed(2);
     forecast = `Day 2 forecast: rumour of frost · board ${ni} · matcha £${np} — you'll choose contract at closing`;
+  }
+  // causal trace — name the contract payoff on the receipt's forecast line
+  if (exchange.contract) {
+    const savedPerCup = (exchange.beanIndex - exchange.contract.price) * CAMPAIGN.beanBaseCost;
+    const estServed = served + servedRetail;
+    const savedEst = Math.round(Math.min(exchange.contract.units + estServed, estServed * 1.1) * Math.abs(savedPerCup) * 10) / 10;
+    if (savedPerCup > 0.02) forecast = `Contract at ${exchange.contract.price.toFixed(2)} saved ~£${savedEst.toFixed(2)} today vs riding the spot (${exchange.beanIndex.toFixed(2)}).`;
+    else if (savedPerCup < -0.02) forecast = `Spot (${exchange.beanIndex.toFixed(2)}) undercut your contract (${exchange.contract.price.toFixed(2)}) today — the spot ride paid off.`;
+    else forecast = forecast || `Contract at ${exchange.contract.price.toFixed(2)} — the board held near your lock (${exchange.beanIndex.toFixed(2)}).`;
+  }
+  // when market intel tilted the deck, cite the link in the debrief for click-through
+  if (marketIntel?.sources?.[0] && marketIntel?.marketShift?.[0]) {
+    const s = marketIntel.sources[0];
+    let host = ''; try { host = new URL(s.url).hostname.replace(/^www\./, ''); } catch {}
+    const cite = host ? `${s.title ? s.title.slice(0, 44) : 'on the wire'} (${host})` : (s.title ? s.title.slice(0, 52) : 'on the wire');
+    const line = `Wire: ${cite}`;
+    forecast = forecast ? forecast + ' \n' + line : line;
   }
   fx.receipt({
     lines: [
@@ -327,6 +360,7 @@ function showLetter() {
     reputation: regulars.reputation,
     debt: exchange.debt,
     contract: exchange.contract ? exchange.contract.price : null,
+    indexPrev: tapePrev,
     intel: marketIntel,
   };
   const L = composeLetter(snap);
@@ -379,7 +413,11 @@ function showLetter() {
 function applyReply(id) {
   if (day >= CAMPAIGN.days) { campaignClose(); return; }   // the roaster's last letter is the verdict
   let msg = '';
-  if (id === 'contract') { const r = exchange.contractBeans(); msg = r.ok ? 'CONTRACTED at ' + exchange.beanIndex.toFixed(2) + ' — cost locked' : r.why; }
+  if (id === 'contract' || id === 'contract_deep') {
+    const deep = id === 'contract_deep';
+    const r = exchange.contractBeans(deep ? CAMPAIGN.contractUnits * 2 : CAMPAIGN.contractUnits / 2, deep ? CAMPAIGN.contractFee * 2 : CAMPAIGN.contractFee / 2);
+    msg = r.ok ? 'CONTRACTED ' + (deep ? 'deep' : 'light') + ' at ' + exchange.beanIndex.toFixed(2) + ' — cost locked' : r.why;
+  }
   else if (id === 'hold') msg = 'HOLDING — you ride the spot price';
   else if (id === 'settle') { const r = exchange.settle(exchange.debt); settledPaid += r.paid; msg = 'DEBT cleared' + (r.paid ? ' (' + fmt(r.paid) + ')' : ''); }
   fx.toast(msg, id === 'contract' ? 'good' : '');
@@ -409,6 +447,8 @@ function openDay(d) {
   const intelBias = marketIntel && Array.isArray(marketIntel.marketShift)
     ? Object.fromEntries(marketIntel.marketShift.map(s => [s.eventId, s.weightMul]))
     : null;
+  tapePrev = exchange.history.length ? exchange.history[exchange.history.length - 1].index : 1.0;
+  offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
   const ev = exchange.openDay(intelBias);    // drift first, then roll the market + the event
   if (d === 1 && marketIntel && marketIntel.marketShift && marketIntel.marketShift.length) {
     fx.toast('market intel · ' + String(marketIntel.marketShift[0].reason).slice(0, 90), 'warn');
@@ -433,6 +473,7 @@ function openDay(d) {
   // chalkboard: matcha day-price reflects the gentrification curve (4.80 → 5.40)
   if (exchange.matchaPrice) world.setMatchaPrice(exchange.matchaPrice.toFixed(2), repriced);
   if (d > 1 && exchange.debt > 0) exchange.debt += CAMPAIGN.debtInterest;   // the debt clock ticks at dawn
+  if (estherCard) { till -= 2; fx.toast('esther’s stamp card: −£2', ''); }  // her cup's on the house
   world.setMail(false);
   world.setMist(ev.tier === 'cata' ? 1 : ev.tier === 'bad' ? 0.4 : 0);
   // weather as mood: tie sky/mist/god-rays/motes to the event tier
@@ -475,12 +516,20 @@ function updateTicker() {
   // gentrification curve.
   const dayPrice = exchange.matchaPrice ?? priceForDay(day);
   const tillPrice = repriced ? ECON.matchaDeal : dayPrice;
+  // the wire's strongest tilt, as price pressure: a boosted bad card glows
+  // red (beans dearer), a boosted good card glows green (relief).
+  const topShift = marketIntel?.marketShift?.[0];
+  const bias = topShift
+    ? (EVENTS[topShift.eventId]?.tier === 'good' ? 2 - topShift.weightMul : topShift.weightMul)
+    : null;
   world.ticker.draw({
     prev: exchange.history.length > 1 ? exchange.history[exchange.history.length - 2].index : exchange.beanIndex,
     index: exchange.beanIndex, cost: exchange.costPerCup,
     locked: exchange.contract ? exchange.contract.price * CAMPAIGN.beanBaseCost : null,
     margin: exchange.margin(tillPrice),
     day, total: CAMPAIGN.days, rep: regulars.reputation,
+    history: exchange.history.map(h => h.index).concat(exchange.beanIndex),
+    bias,
   });
 }
 
@@ -579,6 +628,17 @@ function updateHUD() {
   }
   if ($('qlabel')) $('qlabel').textContent = `queue ${qq} / 12 ` + (qq <= 5 ? '— calm' : qq <= 10 ? '— watch it' : '— they\u2019ll walk');
   try { world.setPlantHealth(qq); audio.purr(qq <= 5 && patrons.count > 2); } catch {}
+  // the tape: the bean board as a visible object — yesterday's close →
+  // today, the event that moved it, click-through to the wire
+  if ($('tape')) {
+    if (started && day >= 1) {
+      const pct = Math.round((exchange.beanIndex - tapePrev) * 100);
+      $('tape').style.display = '';
+      $('tape').innerHTML = `beans <b>${exchange.beanIndex.toFixed(2)}</b> ${pct > 0 ? '↑' : pct < 0 ? '↓' : '→'} <b>${pct > 0 ? '+' : ''}${pct}%</b>` +
+        (exchange.event ? ` · <span class="dim">${String(exchange.event.head).toLowerCase()}</span>` : '') +
+        (marketIntel ? ' <span class="dim">· wire ↗</span>' : '');
+    } else $('tape').style.display = 'none';
+  }
   // batch countdown: big number when batched, — otherwise
   if ($('batchcount')) {
     const bc = ctx.prebatched ? String(ctx.batchUnits) : '—';
@@ -693,10 +753,57 @@ function doReprice() {
   } catch {}
   updateHUD();
 }
+// ---- a regular's ask -----------------------------------------------------------
+// One offer per day at 11:00 — a named regular, a real trade, a yes/no that
+// pauses the floor. The Drug Wars beat mid-day: an offer lands, you weigh it,
+// you answer. Consequences land deferred (12:30 payout, 15:00 queue check,
+// dawn charge) so the deal has a tail.
+const OFFERS = [
+  { who: 'Pip',    line: '“Mind if the study group lands at 14:00? Twenty of us — all matcha.”',
+    effect: 'say yes → the wave runs ~20% bigger — louder room, bigger till', yes: 'say yes',
+    accept() { offerWaveMul = 1.22; } },
+  { who: 'Esther', line: '“A stamp card for the week — £15 today, and my cup’s on the house from tomorrow.”',
+    effect: 'say yes → +£15 now · her cup’s free at every dawn after', yes: 'take the £15',
+    accept() { till += 15; estherCard = true; } },
+  { who: 'Olu',    line: '“Bridge club wants the corner at half twelve. We nurse our cups — but we pay up front.”',
+    effect: 'say yes → +£9 at 12:30 · and four more in your line', yes: 'book them in',
+    accept() { oluPayoutAt = 750; } },
+  { who: 'Gwen',   line: '“My matcha plug can do twenty units for £6.40 — today only, cash.”',
+    effect: 'say yes → −£6.40 · 20 units warming now', yes: 'take the units',
+    accept() { till -= 6.4; ctx.batchUnits += 20; ctx.prebatched = true; prebatched = true; } },
+  { who: 'Mara',   line: '“Office run — ten flat whites at 15:00. £28, but only if the line’s under six when we land.”',
+    effect: 'say yes → queue under 6 at 15:00 pays +£28 · miss it and they cross the road', yes: 'tell her yes',
+    accept() { officeRunAt = 900; } },
+];
+
+function showOffer() {
+  const o = OFFERS[(day - 1) % OFFERS.length];
+  $('offer-who').textContent = o.who.toUpperCase();
+  $('offer-line').textContent = o.line;
+  $('offer-effect').textContent = o.effect;
+  $('offer-yes').textContent = o.yes;
+  offerWasPaused = paused; paused = true; if ($('pause')) $('pause').textContent = 'resume';
+  try { audio.card(); } catch {}
+  $('offer').classList.add('show');
+}
+function resolveOffer(said) {
+  const o = OFFERS[(day - 1) % OFFERS.length];
+  $('offer').classList.remove('show');
+  if (!offerWasPaused) { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
+  if (said) { o.accept(); fx.toast(o.who + ': ' + o.yes, 'good'); }
+  else fx.toast(o.who + ' shrugs — maybe tomorrow', '');
+  try { analytics.track(said ? 'offer_accepted' : 'offer_declined', { day, who: o.who }); } catch {}
+}
+$('offer-yes').onclick = () => resolveOffer(true);
+$('offer-no').onclick = () => resolveOffer(false);
+$('tape').onclick = () => { if (marketIntel) desk.open(marketIntel); };
+
 function reset() {
   // full campaign restart: the market and the regulars rewind to their start state
   const wasFinale = campaignDone;   // restarting from the verdict gets a send-off
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = [];
+  tapePrev = 1.0; offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
+  $('offer').classList.remove('show');
   for (const r of regulars.regulars) { r.op = 0.15; r.seen = false; r.served = 0; r.balked = 0; }
   cRev = cCost = cBalked = cServed = cDef = settledPaid = 0; campaignDone = false; paused = false;
   if ($('pause')) $('pause').textContent = 'pause';
@@ -782,9 +889,14 @@ document.querySelectorAll('#speeds button').forEach(b => {
   };
 });
 addEventListener('keydown', e => {
-  // the letter answers to 1/2/3 (skipping disabled actions) while it's open
+  // a regular's ask answers to y/n while it's open
+  if ($('offer').classList.contains('show')) {
+    if (e.key === 'y' || e.key === 'Y') { resolveOffer(true); return; }
+    if (e.key === 'n' || e.key === 'N' || e.key === 'Escape') { resolveOffer(false); return; }
+  }
+  // the letter answers to 1/2/3/4 (skipping disabled actions) while it's open
   if ($('letter').classList.contains('show')) {
-    if (e.key === '1' || e.key === '2' || e.key === '3') {
+    if (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4') {
       const btns = [...document.querySelectorAll('#letter-actions button')];
       const b = btns[+e.key - 1];
       if (b && !b.disabled) b.click();

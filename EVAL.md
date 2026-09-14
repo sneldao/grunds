@@ -15,9 +15,11 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Wave payoff | 14:00 debrief at 17:00: `balk/served` vs `saved ~£` vs GLASSHOUSE; `saved≥6` → fanfare + coin rain + crane + haptics, flop → rain; receipt prints line-by-line + typewrites verdict; Day-2 forecast on receipt + toast | debrief (juice) + forecast |
 | Signal payoff | matcha riser in zone heat + till (now `tabular-nums`); pre-batch lever pays in balk delta + coin burst | positive delta |
 | Gossip visibility | one bad review via ≥2 friendship hops (3D lines); warm gossip + hover story card (op ♥, friends) + click-to-wave | demoable |
-| Playtest instrumentation | `analytics.js` records tutorial/lever/balk/debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`; The Wire desk gated on `commodity_insider` | localStorage + `__grunds.analytics.summary()` |
+| Playtest instrumentation | `analytics.js` records tutorial/lever/balk/debrief/forecast + `desk_opened`/`desk_opened_free`/`paywall_shown`/`purchase_success`; The Wire desk open to all, deck tilt gated on `commodity_insider` | localStorage + `__grunds.analytics.summary()` |
 | Delight / craft | **1024 textures** (wood/pavement/road/awning 1024 + grain/knots/bevel), **brick facades + cornice + shopfront + bollards/decal**, **ticker 512×320 + brass collar**, till drawer + shadow, arcing coins + spin, sitters sip, cat Miso, plant health, **god rays + warm motes (180, amber, drift + cycle)**, rival lean/jeer, haptics, 90Hz tick at 1×, purr at ≤5, photo + `GRUNDS` | aggregate feel |
-| The Wire (paywall) | `⚡ the wire ↗` HUD when intel lands + Letter desklink; desk shows tilts + cited sources; modal 3 perks £4.99/mo; restore + localStorage gate | gated + headless `desk.mjs` |
+| The Wire (inverted) | `⚡ the wire ↗` HUD when intel lands + bean tape click-through + Letter desklink; desk shows headlines + sources free, deck tilt × multipliers + per-card reasoning on `commodity_insider`; `#desk-edge` invite → modal 3 perks, live `formattedPrice`; restore + localStorage gate | gated tilt + headless `desk.mjs` |
+| Market legibility | HUD bean tape (index + Δ vs yesterday's close + event name); in-world ticker sparkline (index history) + bias glow when the wire tilts the deck; letter names the day's spot move + implication | tape + ticker + `tapeLine` |
+| Agency | sized contracts (light ½/½ units/fee, deep 2×/2×) burn cup-by-cup; the regular's ask at 11:00 pauses for a real y/n (Pip wave, Esther card, Olu payout, Gwen stock, Mara queue check) | `agency.mjs` |
 | Share framing | finale X intent leads with `Held the line — 320 served, 12 walked` not just `£42` | outcome line |
 | A11y | `prefers-reduced-motion` kills breath/grain/pulse/`heartbeat`/`purr` + vignette; pad pre-warm so Day 1 isn't silent; haptics on balk/wave | reduced-motion + touch + haptics |
 | Performance | auto-`lite` (≤4c/4GB) + dynamic `lite` (3×>32ms) + shadow budget (>40) + GLB cross-fade + RAF slot discipline (`loop` re-arms first, receipt + loader headless-safe) | 60fps intent |
@@ -34,7 +36,7 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Economy baseline | 13-week revenue ≈ GBP 157k; attach rate 8.2% preserved from source data |
 | Deterministic gate | loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`, so rail-adjacent assertions don't flake; `intel.mjs` pins bias + pity-under-bias |
 | Linkup citation | `intelLine` prints `Off the wire — <headline> (<domain>)` when sources arrive; absent offline | headless gate |
-| Gate size | 16 headless tests; `tsc` clean; `dist` 43 files | `game-feel` + `intel` + `desk` included |
+| Gate size | 17 headless tests; `tsc` clean; `dist` 43 files | `game-feel` + `intel` + `desk` + `agency` included |
 
 ## Datasets
 

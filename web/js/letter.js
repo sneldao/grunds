@@ -62,6 +62,17 @@ function intelLine(s) {
   try { host = new URL(src.url).hostname.replace(/^www\./, ''); } catch { host = ''; }
   return `Off the wire — ${String(src.title).slice(0, 90)}${host ? ` (${host})` : ''}.`;
 }
+function tapeLine(s) {
+  // The tape: yesterday's close → today's close, and what a move usually
+  // means for tomorrow. This is the Drug Wars beat — information → plan.
+  if (s.indexPrev == null) return '';
+  const pct = Math.round((s.index - s.indexPrev) * 100);
+  if (!pct) return 'Spot held flat through the day.';
+  const carry = pct > 0
+    ? 'Moves like that tend to carry — a lock tonight buys tomorrow at today’s board.'
+    : 'A dip like that usually holds a day — riding the spot costs little.';
+  return `Spot closed ${pct > 0 ? 'up' : 'down'} ${Math.abs(pct)}% today. ${carry}`;
+}
 function greeting(e) {
   const t = e?.tier || 'calm';
   if (t === 'cata') return 'I’m writing before the market and I’m already sorry.';
@@ -83,7 +94,8 @@ export function composeLetter(s) {
       e.line || '',
       '',
       `The board's at ${s.index.toFixed(2)} — ${trendPhrase(rose)} on the spot.`,
-      `At this price you're laying down a forty-run for ${gbp(s.cost * 40)}.`,
+      tapeLine(s),
+      'A light lock covers the wave. A deep one rides into tomorrow at today’s board.',
       performance(s),
       debtLine(s),
       driftLine(s),
@@ -94,9 +106,10 @@ export function composeLetter(s) {
       'What do you want to do?',
     ].join('\n'),
     actions: [
-      { ...LETTER.actions[0], disabled: !!s.contract, explain: s.contract ? 'already contracted this run' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee)} credit` },
-      { ...LETTER.actions[1], disabled: false, explain: `ride ${s.index.toFixed(2)}` },
-      { ...LETTER.actions[2], disabled: s.debt <= 0, explain: s.debt <= 0 ? 'nothing to settle' : `pay ${gbp(s.debt)}` },
+      { ...LETTER.actions[0], disabled: !!s.contract, explain: s.contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee / 2)} credit` },
+      { ...LETTER.actions[1], disabled: !!s.contract, explain: s.contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee * 2)} credit` },
+      { ...LETTER.actions[2], disabled: false, explain: `ride ${s.index.toFixed(2)}` },
+      { ...LETTER.actions[3], disabled: s.debt <= 0, explain: s.debt <= 0 ? 'nothing to settle' : `pay ${gbp(s.debt)}` },
     ],
   };
 }

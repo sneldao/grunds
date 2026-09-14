@@ -164,10 +164,15 @@
 
   /* ---- the wire: research desk + insider paywall ---- */
   #wirebtn { margin-top: 6px; padding: 5px 10px; font-size: 11px; letter-spacing: .08em; }
-  #desk, #paywall { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center;
+  #tape { cursor: pointer; }
+  #tape:hover { opacity: 1; }
+  #desk, #paywall, #offer { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center;
     background: rgba(10,8,6,.55); backdrop-filter: blur(4px); opacity: 0; pointer-events: none;
     transition: opacity .5s ease; }
-  #desk.show, #paywall.show { opacity: 1; pointer-events: auto; }
+  #desk.show, #paywall.show, #offer.show { opacity: 1; pointer-events: auto; }
+  #offer .d-paper { border-top-color: var(--brass); width: 380px; }
+  #offer-line { font-family: var(--serif); font-size: 14px; line-height: 1.55; white-space: pre-wrap; margin: 4px 0 6px; }
+  #offer-effect { font-size: 11px; opacity: .65; margin-bottom: 12px; }
   .d-paper { width: 420px; max-width: 92vw; max-height: 80vh; overflow: auto;
     background: linear-gradient(176deg,#f6efe0,#e8dcc2); color:#2a241c;
     padding: 26px 28px 20px; box-shadow: 0 26px 70px rgba(0,0,0,.6);
@@ -180,6 +185,9 @@
     border-bottom: 1px dashed rgba(23,19,16,.15); font-size: 12px; }
   .d-why { opacity: .55; font-size: 10.5px; text-align: right; max-width: 60%; }
   .d-card { font-size: 9.5px; letter-spacing: 1px; text-transform: uppercase; opacity: .45; margin: -2px 0 6px; }
+  #desk-edge { font-size: 11px; line-height: 1.5; opacity: .7; margin-top: 12px; padding-top: 10px;
+    border-top: 1px solid rgba(29,74,72,.18); }
+  #desk-edge a { color: #1d4a48; }
   .d-close { margin-top: 14px; width: 100%; }
   .pw-perks { margin: 14px 0; padding: 0; list-style: none; font-size: 12.5px; line-height: 1.8; }
   .pw-perks li::before { content: '☕ '; }
@@ -269,6 +277,7 @@
     <div class="line">till <span id="till">£0.00</span> &nbsp;·&nbsp; balked <span id="balk">0</span></div>
     <div class="line" id="status"></div>
     <div class="line" id="pressure"></div>
+    <div class="line" id="tape" style="display:none" title="the district wire — open the market desk"></div>
     <div class="line" id="syncbadge">○ local</div>
     <div class="line" id="district"></div>
     <div class="line"><button id="wirebtn" style="display:none">⚡ the wire ↗</button></div>
@@ -317,12 +326,13 @@ Made to order, a matcha takes 4 minutes.
     </div>
   </div>
 
-  <!-- the wire — District Insider research desk (subscription-gated) -->
+  <!-- the wire — headlines are free (the education); the quantitative tilt is insider -->
   <div id="desk">
     <div class="d-paper">
       <div class="l-head">THE WIRE</div>
-      <div class="l-kicker">market desk · district insider</div>
+      <div class="l-kicker">market desk — headlines free; the quantitative tilt is insider</div>
       <div id="desk-body"></div>
+      <div id="desk-edge" style="display:none"></div>
       <button id="desk-close" class="d-close">close the desk</button>
     </div>
   </div>
@@ -332,14 +342,28 @@ Made to order, a matcha takes 4 minutes.
       <div class="l-head">DISTRICT INSIDER PASS</div>
       <div class="l-kicker">the full wire, every morning</div>
       <ul class="pw-perks">
-        <li>Every cited source behind the market</li>
-        <li>Tomorrow’s deck tilt before you choose</li>
+        <li>Exact deck-tilt multipliers behind every headline</li>
+        <li>Per-card reasoning — which event the news is loading</li>
         <li>The roaster’s private reasoning, all week</li>
       </ul>
       <button id="pw-buy">subscribe · £4.99/mo</button>
       <div id="pw-note"></div>
       <div class="pw-links"><a href="#" id="pw-restore">restore purchase</a> · <a href="#" id="pw-close">not now</a></div>
       <div id="pw-mode"></div>
+    </div>
+  </div>
+
+  <!-- a regular's ask — one mid-day offer, a real yes/no with a cost -->
+  <div id="offer">
+    <div class="d-paper">
+      <div class="l-head" id="offer-who"></div>
+      <div class="l-kicker">a regular asks · y / n</div>
+      <pre id="offer-line"></pre>
+      <div id="offer-effect"></div>
+      <div class="l-actions">
+        <button id="offer-yes"></button>
+        <button id="offer-no">not today</button>
+      </div>
     </div>
   </div>
 

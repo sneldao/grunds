@@ -8,13 +8,29 @@
 - **Frontend:** Convex static hosting
 - **Convex deployment:** https://striped-anaconda-746.convex.cloud
 - **Components:** @convex-dev/static-hosting
-- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /sync/*, /agentmail/webhook), crons, static hosting
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /sync/*, /agentmail/webhook), crons, static hosting
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini (key-gated action stub, falls back offline)
 - **Started:** 2026-09-05T20:48:27Z
 - **Last updated:** 2026-09-14T00:00:00Z
 
 ## Log
+
+### 2026-09-14 - Inverted wire + ticker board
+The paywall was hiding the USP — free players could never *see* the news move prices. Inverted:
+- **Desk opens for everyone** (`desk.js renderDesk(intel, subscribed)`): summary + clickable source headlines (real links, `rel=noopener`, host caption) + a free "why this matters" line from the lead shift. Only the quantitative **deck tilt** (× multipliers + per-card reasoning + card names) gates on `commodity_insider` — free readers see a placeholder row naming the boundary.
+- **Invite, don't block:** new `#desk-edge` footer in the desk offers `peek the edge →` to non-subscribers (opens the paywall, tracks `paywall_shown`); opens tracked separately as `desk_opened` vs `desk_opened_free`.
+- **Ticker board upgrade (`world.js`):** the in-world brass board now draws a **sparkline of the bean-index history** (line + dots + lo/hi labels, today's index included) and a **bias glow** — the board tints warm when the wire amplifies a bad card, green when it loads a good one (`bias` passed price-directional from `updateTicker`, EVENTS tier-aware). `· WIRE` badge + "tap the wire for sources" caption when a tilt is active.
+- Paywall perks reworded to sell the gated edge, not the now-free sources. `desk.mjs` updated to assert the inversion. Gate 17/17, `tsc` clean, site re-uploaded.
+
+### 2026-09-14 - Agency pass: the tape, sized contracts, letter stakes, the regular's ask
+Playtesters' second pass: "no real dialogue or interactivity mid-day, no sense the market is a thing I can read or act on." The Drug Wars loop — information → plan → execute — existed but was illegible. Five fixes, one coherent change: **make the market a visible object, then make decisions about it sized and personal.**
+- **The Tape (`#tape`):** a new HUD line shows `beans 1.15 ↑ +15% · EAST AFRICA SHORT RAINS · wire ↗` — current index, day-over-day delta vs `tapePrev` (stashed at dawn), direction arrow, event name. Clickable → opens the Wire desk when `marketIntel` exists. The market is now a number you *watch*, not a hidden die roll.
+- **Letter stakes (`letter.js tapeLine`):** the nightly letter now names the day's spot move (`Spot closed up 15% — ...`) and says what it implies (rising board → lock tonight buys tomorrow at today's price; falling → ride spot). The information→plan→execute turn is now explicit in the fiction.
+- **Free market visibility:** the tape + event + wire *scent* hint are free — news visibly moves prices for every player. The paid desk keeps cited sources, exact multipliers, and card names. Information asymmetry stays buyable; basic comprehension doesn't.
+- **Sized contracts:** letter now offers four replies — `contract` (light: ½ units, ½ fee — covers the wave), `contract_deep` (2× units, 2× fee — rides into tomorrow), `hold`, `settle`. `exchange.contractBeans(units, fee)` parameterized; the position still burns cup-by-cup and clears at quota. Keys 1–4.
+- **The regular's ask (`#offer` modal):** once per day at 11:00 a named regular pauses the floor and makes an offer — Y accepts, N/Esc declines, each with a real simulated consequence: Pip's study group (+22% demand at 14:00), Esther's stamp card (£15 now, her cups free forever), Olu's bridge club (£9 at 12:30 + 4 patrons), Gwen's gesha (20 units for £6.40 into prebatch), Mara's office run (£28 at 15:00 *if* queue < 6 — else they go to GLASSHOUSE). Rotates `(day-1) % 5`; headless-gated so tests don't stall on the pause.
+- **Tests/build:** new `web/test/agency.mjs` proves tape wiring, sized contract math, 4-reply letter with delta line, and all five offers' deferred consequences. Gate **17/17**, `tsc` clean, site re-uploaded. (No Convex changes — the `/ai/gossip` route from the prior pass now serves the ask's voice.)
 
 ### 2026-09-13 - Delight craft pass: performance + every 10ms detail
 The game already read clearly — now it *feels* made. A 4-bucket craft pass: lock 60fps, add weight, add time, add life. No new currencies, no new levers — just the payoff moment you just made legible, made intentional. Two real regressions caught and fixed in the same pass:

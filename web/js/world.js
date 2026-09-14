@@ -617,6 +617,11 @@ export function buildWorld(scene, renderer, lite) {
       g.fillStyle = '#0c0f14'; g.fillRect(0, 0, 512, 320);
       // linen grain
       g.fillStyle = 'rgba(255,255,255,.015)'; for (let i = 0; i < 900; i++) g.fillRect(Math.random() * 512, Math.random() * 320, 1, 1);
+      // bias highlight — when Linkup tilts the deck, the market board glows
+      if (s.bias && s.bias !== 1) {
+        const col = s.bias > 1 ? 'rgba(208,96,59,.18)' : 'rgba(134,168,96,.14)';
+        g.fillStyle = col; g.fillRect(8, 8, 496, 304);
+      }
       g.strokeStyle = '#c9a227'; g.lineWidth = 3.5; g.strokeRect(8, 8, 496, 304);
       g.strokeStyle = 'rgba(201,162,39,.28)'; g.lineWidth = 1; g.strokeRect(12, 12, 488, 296);
       g.fillStyle = '#c9a227'; g.font = '600 24px Georgia, serif'; g.textAlign = 'center'; g.fillText('ROASTER\u2019S  TICKER', 256, 46);
@@ -628,11 +633,46 @@ export function buildWorld(scene, renderer, lite) {
         g.fillStyle = col || '#efe6d3'; g.font = '700 24px ui-monospace, monospace'; g.textAlign = 'right'; g.fillText(val, 484, y);
       };
       const arrow = up ? '\u25B2' : '\u25BC';
-      row('BEAN  ' + arrow, '\u00a3' + s.cost.toFixed(2) + '/cup', up ? '#9ad89a' : '#e07a7a', 108);
+      const beanCol = s.bias && s.bias > 1 ? '#ff9a7a' : s.bias && s.bias < 1 ? '#9ad89a' : (up ? '#9ad89a' : '#e07a7a');
+      row('BEAN  ' + arrow + (s.bias ? ' \u00b7 WIRE' : ''), '\u00a3' + s.cost.toFixed(2) + '/cup', beanCol, 108);
       row('LOCKED', s.locked != null ? '\u00a3' + s.locked.toFixed(2) + '/cup' : '\u2014', s.locked != null ? '#7fb3b0' : '#6a6460', 158);
       row('MARGIN', '\u00a3' + s.margin.toFixed(2) + '/cup', '#e8c46a', 208);
+      // 5-day sparkline — the bean index history the ticker board actually tracks
+      const hist = s.history;
+      if (hist && hist.length > 1) {
+        const x0 = 28, w = 456, y0 = 228, h = 34;
+        const n = hist.length;
+        const vals = hist.slice(-13);
+        const lo = Math.min(...vals) * 0.97, hi = Math.max(...vals) * 1.03;
+        const span = Math.max(0.08, hi - lo);
+        // track
+        g.fillStyle = 'rgba(239,230,211,.06)'; g.fillRect(x0, y0, w, h);
+        g.strokeStyle = 'rgba(201,162,39,.18)'; g.lineWidth = 0.8; g.strokeRect(x0, y0, w, h);
+        // line
+        g.strokeStyle = up ? '#9ad89a' : '#e07a7a'; g.lineWidth = 1.6; g.beginPath();
+        vals.forEach((v, i) => {
+          const x = x0 + (i / Math.max(1, vals.length - 1)) * w;
+          const y = y0 + h - ((v - lo) / span) * h;
+          if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+        });
+        g.stroke();
+        // dots
+        vals.forEach((v, i) => {
+          const x = x0 + (i / Math.max(1, vals.length - 1)) * w;
+          const y = y0 + h - ((v - lo) / span) * h;
+          g.fillStyle = i === vals.length - 1 ? '#efe6d3' : 'rgba(239,230,211,.55)';
+          g.beginPath(); g.arc(x, y, i === vals.length - 1 ? 2.2 : 1.2, 0, Math.PI * 2); g.fill();
+        });
+        g.fillStyle = 'rgba(239,230,211,.45)'; g.font = '9px ui-monospace, monospace'; g.textAlign = 'left';
+        g.fillText(vals[0].toFixed(2), x0 + 2, y0 + 9);
+        g.textAlign = 'right'; g.fillText(vals[vals.length - 1].toFixed(2), x0 + w - 2, y0 + 9);
+      }
       g.fillStyle = 'rgba(239,230,211,.72)'; g.font = '13px ui-monospace, monospace'; g.textAlign = 'center';
-      g.fillText('DAY ' + s.day + '/' + s.total + '   \u00b7   REP ' + s.rep, 256, 268);
+      g.fillText('DAY ' + s.day + '/' + s.total + '   \u00b7   REP ' + s.rep + (s.bias ? '   \u00b7   \u25B2 WIRE' : ''), 256, s.history && s.history.length > 1 ? 282 : 268);
+      if (s.bias) {
+        g.fillStyle = 'rgba(201,162,39,.62)'; g.font = '9px ui-monospace, monospace'; g.textAlign = 'center';
+        g.fillText('tap the wire for sources', 256, s.history && s.history.length > 1 ? 294 : 282);
+      }
       const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
       W.tickerMat.map = t; W.tickerMat.emissiveMap = t; W.tickerMat.needsUpdate = true;
     };

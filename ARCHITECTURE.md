@@ -18,9 +18,9 @@ transform.py ──→ square_item_sales.csv ──→ ingest ──→ spatial 
 | System | Responsibility | Phase |
 |---|---|---|
 | `ingest` | Parse Square CSV, map each row to (zone, time, item, cohort); emit wave schedules | today |
-| `spatial` | Three.js floor: **1024 honey-oak floor + slab pavement + aggregate road** (all `anisotropy 8`), **brick facades** (two-tone + mortar, white frames + sill, cornice + shopfront), **9-block skyline**, **512×320 brass-collar ticker**, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), 3-step tutorial + calm-open throttling (reactive `#goal` + 3 just-in-time nudges), goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), wave debrief (fanfare/coin rain/crane) + forecast + wire/desk paywall, living plant (HSL health + wilt), god rays + **motes** + mist, till drawer + stretching shadow, **bollards + street decal**, cat Miso, hover story card + photo mode, scuff decal + awning tie-downs, GLB cross-fade + shadow budget + bounce hemi | today |
+| `spatial` | Three.js floor: **1024 honey-oak floor + slab pavement + aggregate road** (all `anisotropy 8`), **brick facades** (two-tone + mortar, white frames + sill, cornice + shopfront), **9-block skyline**, **512×320 brass-collar ticker**, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), 3-step tutorial + calm-open throttling (reactive `#goal` + 3 just-in-time nudges), goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), wave debrief (fanfare/coin rain/crane) + forecast + wire desk (headlines free / tilt gated), bean tape HUD + ticker sparkline + bias glow, living plant (HSL health + wilt), god rays + **motes** + mist, till drawer + stretching shadow, **bollards + street decal**, cat Miso, hover story card + photo mode, scuff decal + awning tie-downs, GLB cross-fade + shadow budget + bounce hemi | today |
 | `agent` | Patron decision loop (price/queue/rep) + barista levers (pre-batch/reprice + queue-drain prediction + chalk dust/screech) + named-Regular hat/bubble + wave + friend-graph gossip routing (throttled in calm open) + sitter sip at `dwell==4` + hover→story card (36px probe) + click-to-wave (+0.06 op) + cat spawn/sit/scatter + plant health + till slide | today |
-| `precedent` | Patron memory: opinions persist; gossip via named-friend graph; 5%/day `opContagion` (Map<i→op> + `Number.isFinite` guard for sparse rosters); local `analytics.js` (tutorial/lever/balk/debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`) + `desk.js` (The Wire — gated briefing) + `billing.js` (RevenueCat Web Billing → Test Store) | today |
+| `precedent` | Patron memory: opinions persist; gossip via named-friend graph; 5%/day `opContagion` (Map<i→op> + `Number.isFinite` guard for sparse rosters); local `analytics.js` (tutorial/lever/balk/debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`) + `desk.js` (The Wire — headlines free, tilt on `commodity_insider`) + `billing.js` (RevenueCat Web Billing → Test Store) | today |
 | `exchange` | Event deck (frost/harvest/hype, pity timers + Linkup `marketShift` bias clamped 0.2–3×); gentrification drift (per-day cost creep + matcha 4.80→5.40); forward contracts; supplier debt clock; hidden `geshaUnlocked` (`GRUNDS` → £7.80 wink, persists as toast) | today |
 
 ## Game loop mapping
@@ -95,10 +95,12 @@ stores per-patron opinion state.
 5. `precedent` stores (pattern → opinion) + friendship graph; a
    5%/day `opContagion` (Map-guarded, sparse-roster safe) pulls each regular
    toward friends' mean; `web/js/analytics.js` records tutorial/lever/balk/
-   debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`
-   (exposed as `__grunds.analytics.summary()`); `billing.js` gates
-   `desk.js` The Wire on `commodity_insider` (HUD `⚡ the wire ↗` when intel
-   lands; Letter desklink where the choice happens)
+   debrief/forecast + `desk_opened`/`desk_opened_free`/`paywall_shown`/
+   `purchase_success` (exposed as `__grunds.analytics.summary()`);
+   `desk.js` The Wire opens to all — headlines/sources free, deck tilt on
+   `commodity_insider` via `billing.js` (HUD `⚡ the wire ↗` when intel
+   lands; bean tape click-through; Letter desklink where the choice
+   happens; `#desk-edge` invite for free readers)
 6. `exchange` rolls events with pity timers (+ Linkup `marketShift` bias
    clamped 0.2–3×) at each dawn, applies gentrification drift (cost creep +
    matcha curve + cohort expectation) *before* the roll, and settles

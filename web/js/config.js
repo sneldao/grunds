@@ -173,9 +173,10 @@ export const LETTER = {
   sign: '— Idris, your roaster',
   // templated in letter.js; these are the reply buttons (reply-to-command)
   actions: [
-    { id: 'contract', label: 'CONTRACT 40kg at today’s price', hint: 'lock cost · +£22 credit' },
-    { id: 'hold',     label: 'hold at the spot price',         hint: 'ride the market' },
-    { id: 'settle',   label: 'settle the debt',                hint: 'pay it down from the till' },
+    { id: 'contract',      label: 'CONTRACT light — cover the wave', hint: 'lock the board · ~half a day · +£11' },
+    { id: 'contract_deep', label: 'CONTRACT deep — two days’ cover', hint: 'lock the board · ~two days · +£44' },
+    { id: 'hold',          label: 'hold at the spot price',          hint: 'ride the market' },
+    { id: 'settle',        label: 'settle the debt',                 hint: 'pay it down from the till' },
   ],
 };
 

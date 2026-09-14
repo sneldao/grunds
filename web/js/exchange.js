@@ -85,10 +85,13 @@ export class Exchange {
   }
 
   // Reply-to-command handlers (the Roaster's Letter → contract/hold/settle).
-  contractBeans() {
+  // Sizing is the position: `units` burn cup-by-cup, so a deep lock covers
+  // ~two days of demand — more upside if the board rises, more fee + a
+  // stuck price if it falls.
+  contractBeans(units = CAMPAIGN.contractUnits, fee = CAMPAIGN.contractFee) {
     if (this.contract) return { ok: false, why: 'already contracted' };
-    this.contract = { price: this.beanIndex, units: CAMPAIGN.contractUnits, fee: CAMPAIGN.contractFee };
-    this.debt += CAMPAIGN.contractFee;
+    this.contract = { price: this.beanIndex, units, fee };
+    this.debt += fee;
     return { ok: true, debt: this.debt };
   }
   settle(amount) {

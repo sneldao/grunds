@@ -35,10 +35,18 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
   assert.equal(b.includes('rcb_'), false, 'no API key committed to the repo');
 }
 
-// 3) The desk gates on the entitlement and renders intel, not chrome.
+// 3) The wire is inverted: the desk opens for everyone (headlines + summary
+//    are the free education), and the entitlement gates the quantitative
+//    deck tilt — multipliers + per-card reasoning are the insider edge.
 {
   const d = read('web/js/desk.js');
   assert.ok(d.includes('billing.isSubscribed()'), 'desk checks the entitlement');
+  assert.ok(d.includes('renderDesk(intel, subscribed)'),
+    'desk renders for non-subscribers too — the tilt is what gates');
+  assert.ok(d.includes('if (!subscribed)') && d.includes('District Insider'),
+    'free players see the tilt placeholder, not the numbers');
+  assert.ok(d.includes("track(subscribed ? 'desk_opened' : 'desk_opened_free'"),
+    'free vs insider desk opens are measured separately');
   assert.ok(d.includes('marketShift') && d.includes('sources'),
     'desk renders deck tilt + cited sources');
   assert.ok(d.includes('pw-buy') && d.includes('purchasePass'),
@@ -49,7 +57,7 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
 // 4) UI surfaces exist and are wired in main.js.
 {
   const html = read('web/index.html');
-  for (const id of ['desk', 'desk-body', 'paywall', 'pw-buy', 'pw-restore', 'wirebtn', 'desklink']) {
+  for (const id of ['desk', 'desk-body', 'desk-edge', 'paywall', 'pw-buy', 'pw-restore', 'wirebtn', 'desklink']) {
     assert.ok(html.includes(`id="${id}"`), `index.html has #${id}`);
   }
   const main = read('web/js/main.js');
@@ -63,4 +71,4 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
     'letter carries the upsell line + decision-time wire hint');
 }
 
-console.log('\nPASS — District Insider Pass: entitlement gates the desk, purchase/restore flows work, live SDK path wired, surfaces mounted');
+console.log('\nPASS — District Insider Pass: desk open to all (headlines free), entitlement gates the tilt, purchase/restore flows work, live SDK path wired');
