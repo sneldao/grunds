@@ -80,6 +80,9 @@ let day = 0, dayMin = DAY_START, speed = [60, 300, 1200].includes(urlSpeed) ? ur
 let tutorialActive = false, tutStep = 0;
 let batchPulseUntil = 0;
 const wantTutorial = !headless && !urlParams.has('skipTutorial') && !urlParams.has('notutorial');
+// the pitch licence precedes the tutorial — ?skipTutorial/?notutorial/?skipLicence
+// or headless all bypass it (the district assigns defaults: Sam, THE CORNER CUP)
+const skipLicence = headless || urlParams.has('skipLicence') || !wantTutorial;
 let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0, rivalServed = 0;
 let prebatched = false, repriced = false, batchUnits = 0;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
@@ -100,6 +103,11 @@ let lastDayStats = null;   // yesterday's counters — the Brief's letter reads 
 // Ruth — your barista. One hidden condition stat; the fiction carries it.
 // Worked days drain (harder on brutal floors), sent-home days recover.
 let baristaCondition = 1.0, baristaHomeToday = false, baristaRested = false, baristaStaged = false, baristaCrisis = false;
+// the pitch licence — who you are, signed before the first dawn. Identity
+// threads the letter, the receipt, the district board; the background pick
+// carries one small mechanical perk (not a class — the arc is one role).
+let playerName = 'Sam', standName = 'THE CORNER CUP', playerRole = 'the new owner', perkBg = null;
+let perkStaffMul = 1, perkCostMul = 1;   // ex-barista pace / ex-accountant trim
 // campaign accumulators (persist across the 5 days)
 let cRev = 0, cCost = 0, cBalked = 0, cServed = 0, cDef = 0, settledPaid = 0, campaignDone = false;
 let cOps = 0;   // the cost sheet — staff, supplies, pitch, fees across the campaign
@@ -312,7 +320,7 @@ function beats() {
   if (solicitorAt && dayMin >= solicitorAt) {
     solicitorAt = 0;
     if (Math.random() < 0.5) {
-      till -= 140; regulars.adjustOpinions(-0.1);
+      till -= 140 * perkCostMul; regulars.adjustOpinions(-0.1);
       fx.toast('the scald claim stuck — −£140 and the story did the rounds', 'bad');
     } else fx.toast('the scald claim went away — their solicitor stopped calling', 'good');
   }
@@ -348,7 +356,7 @@ function closeDay() {
     staff: (ruthWasHome ? 0 : CAMPAIGN.staffDayRate) + servedN * CAMPAIGN.staffPerCup,
     supplies: servedN * CAMPAIGN.suppliesPerCup,
     pitch: Math.max(CAMPAIGN.pitchMin, till * CAMPAIGN.pitchPct),
-    fees: till * CAMPAIGN.cardFeePct,
+    fees: till * CAMPAIGN.cardFeePct * perkCostMul,
     sundries: CAMPAIGN.sundries,
   };
   ops.total = ops.staff + ops.supplies + ops.pitch + ops.fees + ops.sundries;
@@ -390,6 +398,7 @@ function closeDay() {
   }
   fx.receipt({
     lines: [
+      [standName, playerName],
       ['revenue', fmt(till)], ['bean cost', fmt(cogs)],
       ['staff', fmt(ops.staff)], ['milk + cups', fmt(ops.supplies)],
       ['pitch rent', fmt(ops.pitch)], ['card fees', fmt(ops.fees)], ['sundries', fmt(ops.sundries)],
@@ -418,7 +427,7 @@ function showLetter() {
     reputation: regulars.reputation,
     debt: exchange.debt,
     contract: exchange.contract ? exchange.contract.price : null,
-    indexPrev: tapePrev,
+    indexPrev: tapePrev, player: playerName,
     intel: marketIntel,
   };
   const L = composeLetter(snap);
@@ -555,7 +564,7 @@ function showMorningBrief() {
     sold: lastDayStats ? lastDayStats.sold : null, balked: lastDayStats ? lastDayStats.balked : 0,
     defections: lastDayStats ? lastDayStats.defections : 0, reputation: regulars.reputation,
     debt: exchange.debt, contract: exchange.contract ? exchange.contract.price : null,
-    indexPrev: tapePrev, intel: marketIntel,
+    indexPrev: tapePrev, intel: marketIntel, player: playerName,
   };
   // MakeReadable: if the player hasn't seen headlines yet, the Brief is the
   // first place the wire's strongest tilt is explained — not just hinted.
@@ -604,6 +613,16 @@ function showMorningBrief() {
         edge.textContent = 'the quantitative tilt (×) is District Insider · headlines above are yours';
       } else edge.textContent = 'headlines free · the wire lives inside the brief and the desk';
       wire.appendChild(edge);
+      // a market regular hears the direction without the multiplier — the
+      // whisper is qualitative, the × stays insider
+      if (perkBg === 'circuit' && shift) {
+        const tier = EVENTS[shift.eventId]?.tier;
+        const lean = tier === 'good' ? 'kind' : tier === 'cata' || tier === 'bad' ? 'against you' : tier === 'warn' ? 'nervous' : 'flat';
+        const w = document.createElement('div');
+        w.style.cssText = 'margin-top:6px;font-size:10.5px;opacity:.78;font-style:italic';
+        w.textContent = `the circuit whispers — the board leans ${lean}`;
+        wire.appendChild(w);
+      }
     } else {
       wire.textContent = 'The wire is quiet today — no headlines tilted the deck.';
     }
@@ -737,7 +756,7 @@ function openDay(d) {
   offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; solicitorAt = 0;
   // Ruth's pace at dawn — exhausted legs move slower until she's rested or sent home
-  patrons.staffMul = baristaCondition < 0.35 ? 0.8 : 1; patrons.balkMul = 1;
+  patrons.staffMul = (baristaCondition < 0.35 ? 0.8 : 1) * perkStaffMul; patrons.balkMul = 1;
   const ev = exchange.openDay(intelBias);    // drift first, then roll the market + the event
   if (d === 1 && marketIntel && marketIntel.marketShift && marketIntel.marketShift.length) {
     fx.toast('market intel · ' + String(marketIntel.marketShift[0].reason).slice(0, 90), 'warn');
@@ -842,6 +861,7 @@ function campaignClose() {
   else if (net > 0) v = VERDICTS.scarped;
   else v = VERDICTS.lost;
   const lines = [
+    [standName, playerName + ' — ' + playerRole],
     ['revenue (5 days)', fmt(cRev)], ['bean cost', fmt(cCost)], ['operating costs', fmt(cOps)],
     ['final debt', fmt(exchange.debt)], ['—', '—'],
     ['cups poured', cServed], ['walked to ' + COPY.rivalName, cDef], ['—', '—'],
@@ -1083,32 +1103,32 @@ const INCIDENTS = [
   { who: 'the plumber', line: '“Bathroom’s backed up. Emergency callout’s forty-five quid, cash.”',
     effect: 'pay £45 · or the floor loses patience — walk-outs run hotter today',
     yes: 'pay the £45', no: 'they can hold it',
-    accept() { till -= 45; },
+    accept() { till -= 45 * perkCostMul; },
     decline() { patrons.balkMul = 1.6; } },
   { who: 'Ruth, your barista', line: '“So sorry — I’ve woken up with no voice. I can’t make it in.”',
     effect: '£55 agency cover · or solo shift — the bar runs ~40% slower',
     yes: 'book the cover', no: 'work it solo',
-    accept() { till -= 55; },
+    accept() { till -= 55 * perkCostMul; },
     decline() { patrons.staffMul = 0.6; } },
   { who: 'the card machine', line: 'The reader’s dead. Cash only until a 4G dongle lands.',
     effect: '£25 for the dongle · or a fifth of today’s sales die at the till',
     yes: 'order the dongle', no: 'cash only today',
-    accept() { till -= 25; },
+    accept() { till -= 25 * perkCostMul; },
     decline() { cashOnly = 0.2; } },
   { who: 'the inspector', line: '“Council. Routine check — that milk needs a dated fridge log.”',
     effect: '£30 compliance fix now · or −6 reputation when the report lands',
     yes: 'pay the £30', no: 'take the report',
-    accept() { till -= 30; },
+    accept() { till -= 30 * perkCostMul; },
     decline() { regulars.adjustOpinions(-0.16); } },
   { who: 'a solicitor’s letter', line: 'Someone claims a scalded wrist. “Settle for sixty and it goes away.”',
     effect: 'pay £60 nuisance settlement · or contest — it lands at 16:30, half the time it sticks for £140',
     yes: 'settle the £60', no: 'contest it',
-    accept() { till -= 60; },
+    accept() { till -= 60 * perkCostMul; },
     decline() { solicitorAt = 990; } },
   { who: 'the supplier', line: '“Milk van’s here — account’s overdue, it’s cash on delivery today.”',
     effect: '£40 cash now · or your next contract carries a +£18 fee',
     yes: 'pay the £40', no: 'put it on the account',
-    accept() { till -= 40; },
+    accept() { till -= 40 * perkCostMul; },
     decline() { contractFeeExtra += 18; } },
 ];
 
@@ -1165,7 +1185,7 @@ function reset() {
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
   try { const b = $('brief'); if (b) b.classList.remove('show'); } catch {}
   $('offer').classList.remove('show');
-  for (const r of regulars.regulars) { r.op = 0.15; r.seen = false; r.served = 0; r.balked = 0; }
+  for (const r of regulars.regulars) { r.op = perkBg === 'newcomer' ? 0.25 : 0.15; r.seen = false; r.served = 0; r.balked = 0; }
   cRev = cCost = cBalked = cServed = cDef = settledPaid = 0; campaignDone = false; paused = false;
   if ($('pause')) $('pause').textContent = 'pause';
   $('receipt').classList.remove('show'); $('letter').classList.remove('show');
@@ -1250,6 +1270,11 @@ document.querySelectorAll('#speeds button').forEach(b => {
   };
 });
 addEventListener('keydown', e => {
+  // the licence: typing lives in the inputs; Enter/Escape signs (defaults ok)
+  if ($('licence') && $('licence').classList.contains('show')) {
+    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); signLicence(); }
+    return;
+  }
   // Morning Brief answers to 1/2/3/4/5 (commit a choice) then Enter opens
   if ($('brief') && $('brief').classList.contains('show')) {
     if (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4' || e.key === '5') {
@@ -1339,6 +1364,72 @@ fetch('./api/schedule.json').then(r => r.json()).then(s => {
 }).catch(() => {
   $('open').textContent = 'schedule missing — run: python3 -m grunds spatial';
 });
+// ---- the pitch licence: sign yourself into the week ---------------------------
+const LIC_ROLES = ['the new owner', 'the manager', 'the name on the lease'];
+const LIC_BGS = [
+  { id: 'ex-barista',    label: 'an ex-barista',    perk: 'the wrist remembers — the bar runs ~8% faster' },
+  { id: 'ex-accountant', label: 'an ex-accountant', perk: 'you read invoices — fees & payouts −15%' },
+  { id: 'newcomer',      label: 'new to the trade', perk: 'a fresh face — the regulars warm quicker' },
+  { id: 'circuit',       label: 'a market regular', perk: 'you know the circuit — the wire names its lean' },
+];
+let licRole = 0, licBg = 0;
+function showLicence() {
+  const el = $('licence'); if (!el) return;
+  // a returning signature pre-fills — the district office remembers
+  try {
+    const s = JSON.parse(localStorage.getItem('grunds.identity') || 'null');
+    if (s) {
+      playerName = s.playerName; standName = s.standName;
+      licRole = Math.max(0, LIC_ROLES.indexOf(s.playerRole));
+      licBg = Math.max(0, LIC_BGS.findIndex(b => b.id === s.perkBg));
+    }
+  } catch {}
+  const nameEl = $('lic-name'), standEl = $('lic-stand');
+  if (nameEl) nameEl.value = playerName === 'Sam' ? '' : playerName;
+  if (standEl) standEl.value = standName === 'THE CORNER CUP' ? '' : standName;
+  const roles = $('lic-roles');
+  roles.textContent = '';
+  LIC_ROLES.forEach((r, i) => {
+    const b = document.createElement('button');
+    b.textContent = r; b.className = i === licRole ? 'on' : '';
+    b.onclick = () => { licRole = i; [...roles.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
+    roles.appendChild(b);
+  });
+  const bgs = $('lic-bgs');
+  bgs.textContent = '';
+  LIC_BGS.forEach((g, i) => {
+    const b = document.createElement('button');
+    b.innerHTML = g.label + '<small>' + g.perk + '</small>';
+    b.className = i === licBg ? 'on' : '';
+    b.onclick = () => { licBg = i; [...bgs.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
+    bgs.appendChild(b);
+  });
+  el.classList.add('show');
+  setTimeout(() => { try { (nameEl.value ? standEl : nameEl).focus(); } catch {} }, 350);
+  try { analytics.track('licence_shown'); } catch {}
+}
+function applyPerk() {
+  perkStaffMul = perkBg === 'ex-barista' ? 1.08 : 1;
+  perkCostMul = perkBg === 'ex-accountant' ? 0.85 : 1;
+  if (perkBg === 'newcomer') for (const r of regulars.regulars) r.op = Math.max(r.op, 0.25);
+}
+function signLicence() {
+  playerName = (($('lic-name').value || '').trim() || 'Sam').slice(0, 16);
+  standName = ((($('lic-stand').value || '').trim() || 'the corner cup').slice(0, 22)).toUpperCase();
+  playerRole = LIC_ROLES[licRole]; perkBg = LIC_BGS[licBg].id;
+  try {
+    localStorage.setItem('grunds.identity', JSON.stringify({ playerName, standName, playerRole, perkBg }));
+    localStorage.setItem('grunds.owner', standName);   // the district board lists the stand, not a hash
+  } catch {}
+  applyPerk();
+  $('licence').classList.remove('show');
+  try { analytics.track('licence_signed', { role: playerRole, bg: perkBg, defaults: playerName === 'Sam' && standName === 'THE CORNER CUP' }); } catch {}
+  fx.toast('licence signed — ' + standName + ' opens Monday', 'good');
+  if (wantTutorial) openTutorial();
+  else { started = true; audio.start(); openDay(1); rig.crane(); }
+}
+if ($('lic-sign')) $('lic-sign').onclick = signLicence;
+
 // ---- tutorial: 3 steps, then the floor runs. Headless + ?skipTutorial bypass it.
 const TUT_STEPS = [
   { k: '1 of 3 — THE READ', t: 'WATCH THE CLOCK', b: 'At <b>14:00 every day</b> students flood in for matcha. 139 &rarr; 683 a week — the fastest item on the floor. Made to order, a matcha takes <b>4 minutes</b>.' },
@@ -1348,7 +1439,7 @@ const TUT_STEPS = [
 function showTutStep(n) {
   tutStep = n;
   $('tstep').textContent = TUT_STEPS[n].k;
-  $('ttitle').textContent = TUT_STEPS[n].t;
+  $('ttitle').textContent = n === 0 ? TUT_STEPS[n].t + ', ' + playerName.toUpperCase() : TUT_STEPS[n].t;
   $('tbody').innerHTML = TUT_STEPS[n].b;
   $('tnext').textContent = n < TUT_STEPS.length - 1 ? 'Next \u2192' : 'Start the day \u25B6';
   try { analytics.track('tutorial_step', { step: n + 1, total: TUT_STEPS.length, title: TUT_STEPS[n].t }); } catch {}
@@ -1405,14 +1496,11 @@ $('open').onclick = () => {
   if (!schedule) return;
   $('title').classList.add('gone');
   setTimeout(() => $('title').remove(), 1400);
-  if (headless || !wantTutorial) {
-    started = true;
-    audio.start();
-    openDay(1); rig.crane();
-  } else {
-    // open the 3-step tutorial over the diorama; it owns the first 3.5s
-    openTutorial();
-  }
+  // the licence is the first beat: who you are, signed before the tutorial.
+  // headless / ?skipTutorial / ?skipLicence → defaults, straight in.
+  if (!skipLicence) { showLicence(); return; }
+  if (wantTutorial) openTutorial();
+  else { started = true; audio.start(); openDay(1); rig.crane(); }
 };
 
 // ---- loop ---------------------------------------------------------------------------

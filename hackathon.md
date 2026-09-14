@@ -16,6 +16,13 @@
 
 ## Log
 
+### 2026-09-14 - The pitch licence: sign yourself into the week
+A playtester asked for a personalisation stage — a name, a role. The caveat we kept: it's friction at the worst possible point, so it's a fiction beat, not a form, and one keystroke signs it.
+- **`#licence` before the tutorial:** a district-office paper card over the diorama — pen-line inputs for name + stand name (defaults: Sam, THE CORNER CUP), a cosmetic role (`the new owner` / `the manager` / `the name on the lease`), and four backgrounds with one small perk each — `ex-barista` (bar +8%), `ex-accountant` (fees & payouts −15% — card fees *and* every incident `accept`), `new to the trade` (regulars open warmer, op 0.25), `a market regular` (the Brief whispers the wire's *direction* — qualitative only, the × stays insider).
+- **The signature threads the fiction:** `composeLetter` opens `Dear Ada,` and closes `…what do you want to do, Ada?`; nightly + finale receipts print the stand; tutorial step 1 titles `WATCH THE CLOCK, ADA`; and `convexSync` now reads `ownerName()` live so `localStorage` `grunds.owner` = the stand name lands on the district board at the next mirror.
+- **The caveats held:** Enter/Escape signs with defaults (no required typing), ~10 seconds, `localStorage` `grunds.identity` pre-fills on return visits, `?skipLicence`/`?skipTutorial`/headless all bypass — the harness never stalls.
+- Gate **18/18** — new `identity.mjs` proves the modal, the threading (letter salutation + close, receipts, owner), all four perks, and the skip paths. `tsc` clean, site uploaded.
+
 ### 2026-09-14 - Ruth: the staff layer, kept thin on purpose
 The ask was staff management — tired baristas, morale contagion, away days, holidays. The honest answer for a 5-day arc: one face, one hidden stat, no roster. Morale needs time to compound; a week gives it two beats.
 - **One named barista, one hidden `baristaCondition` (0–1):** a worked shift drains −0.14 (+0.08 on a `peakQueue>50` day, +0.06 on a `balked>60` day); a sent-home day recovers +0.45. Never a meter — the fiction carries it.

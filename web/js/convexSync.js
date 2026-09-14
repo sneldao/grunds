@@ -46,7 +46,9 @@ export function initSync() {
       const r = await fetch(url + '/sync/snapshot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId, seed: state.seed ?? 7, owner, ...state }),
+        // ownerName() reads localStorage live — the pitch licence can rename
+        // the stand mid-session and the board picks it up at the next dawn
+        body: JSON.stringify({ campaignId, seed: state.seed ?? 7, owner: ownerName(), ...state }),
       });
       const data = await r.json();
       if (data && data.campaignId && data.campaignId !== campaignId) {
@@ -67,7 +69,7 @@ export function initSync() {
       const r = await fetch(url + '/sync/state?campaignId=' + encodeURIComponent(campaignId));
       const data = await r.json();
       if (data && data.campaign && typeof data.campaign.day === 'number') {
-        paint(`● LIVE · day ${data.campaign.day}/5 · ${owner}`);
+        paint(`● LIVE · day ${data.campaign.day}/5 · ${ownerName()}`);
       }
       return data;
     } catch {

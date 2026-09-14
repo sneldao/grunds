@@ -22,6 +22,7 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Drug Wars turn (06:00) | **Morning Brief at `06:00 [PAUSED]`**: Idris prose + 76px sparkline (from `exchange.history`, red/green by shift) + clickable wire headlines/host/why + **5 sized pills** (`light £11 ~1200` / `standard £22 ~2400` / `heavy £44 ~4800` / `hold` / `settle`) staging→commit on `OPEN FOR DAY →`; `briefPaused` freezes `loop`; `_pricePreview` honest pricing; `?skipBrief` / headless bypass; nightly `tapeLine` explicit; `desk.js` why-it-matters same source | `agency.mjs` (brief + sparkline + staged commit) |
 | Sizing | 5-way hedge (light ½/½, standard, heavy 2×/2×) via `contractBeans(units, fee)` + `contractFeeExtra`; burns cup-by-cup (`consume(n)`) — heavy wastes on a thin day, light starves on a thick one | `agency.mjs` |
 | Dialogue | 11:00 named-regular offer (y/n, `offerPaused` same contract as Brief; 5 with real payoffs: Pip +22% wave, Esther free-forever, Olu payout, Gwen prebatch stock, Mara queue-gated steal) | `agency.mjs` |
+| Identity | pitch licence before tutorial — name + stand + role + 1-perk background (pace/trim/warmth/circuit-whisper); Enter signs defaults; threads letter, receipts, tutorial, Convex owner (live `ownerName()`); `localStorage` + `?skipLicence` | `identity.mjs` |
 | Staff | Ruth — hidden `baristaCondition` (−0.14/shift, worse on brutal floors; +0.45 rested); Brief row at <0.55 → home (0.7× bar, wage saved) or push; <0.35 dawn drag; <0.2 crisis (asleep 0.5× / snaps −rep); sick-call incident reads her state | `agency.mjs` (RUTH) |
 | Costs | nightly incident `14:55–16:55` (days 2+, 6-way, red tint) + **cost-sheet P&L** at closeDay (staff+milk+rent+card+sundries) → headless `£31k → ~£8.9k net` | `agency.mjs` + receipt |
 | Agency | **the** agency fix — a sized position, not a binary toggle; every other midday choice reuses the same pause contract so turns compose | `agency.mjs` |
@@ -41,7 +42,7 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Economy baseline | 13-week revenue ≈ GBP 157k; attach rate 8.2% preserved from source data |
 | Deterministic gate | loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`, so rail-adjacent assertions don't flake; `intel.mjs` pins bias + pity-under-bias |
 | Linkup citation | `intelLine` prints `Off the wire — <headline> (<domain>)` when sources arrive; absent offline | headless gate |
-| Gate size | 17 headless tests; `tsc` clean; `dist` 43 files | `game-feel` + `intel` + `desk` + `agency` (Drug Wars gate) |
+| Gate size | 18 headless tests; `tsc` clean; `dist` 43 files | `game-feel` + `intel` + `desk` + `agency` (Drug Wars gate) |
 
 ## Datasets
 
@@ -66,7 +67,7 @@ Targets: `skipRate` < 40%, Brief chosen before `OPEN` (`brief_choice` >80%), `% 
 ```bash
 python3 transform.py
 python3 -m grunds eval
-for f in web/test/*.mjs; do node "$f"; done   # 17 headless tests
+for f in web/test/*.mjs; do node "$f"; done   # 18 headless tests
 npm run typecheck && npm run build:dist         # tsc + dist
 ```
 

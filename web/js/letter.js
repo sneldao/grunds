@@ -93,6 +93,7 @@ export function composeLetter(s) {
     sign: LETTER.sign,
     head: e.head || 'A NOTE FROM YOUR ROASTER',
     body: [
+      s.player ? `Dear ${s.player},` : '',
       `Day ${s.day} of ${CAMPAIGN.days}. ${greeting(e)}`,
       e.line || '',
       '',
@@ -106,7 +107,7 @@ export function composeLetter(s) {
       neighborhoodLine(s),
       reputationLine(s),
       '',
-      'What do you want to do?',
+      s.player ? `What do you want to do, ${s.player}?` : 'What do you want to do?',
     ].join('\n'),
     actions: [
       { ...LETTER.actions[0], disabled: !!contract, explain: contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee / 2)} credit` },
