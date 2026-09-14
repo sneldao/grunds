@@ -96,6 +96,10 @@ let offerShown = false, offerWaveMul = 1, officeRunAt = 0, oluPayoutAt = 0, esth
 let incidentShown = false, activeBeat = null, cashOnly = 0, cashOnlyToast = false, contractFeeExtra = 0, solicitorAt = 0;
 // Morning Brief — the Drug Wars turn: paused at 06:00, read then commit
 let briefChoice = null;
+let lastDayStats = null;   // yesterday's counters — the Brief's letter reads them at dawn
+// Ruth — your barista. One hidden condition stat; the fiction carries it.
+// Worked days drain (harder on brutal floors), sent-home days recover.
+let baristaCondition = 1.0, baristaHomeToday = false, baristaRested = false, baristaStaged = false, baristaCrisis = false;
 // campaign accumulators (persist across the 5 days)
 let cRev = 0, cCost = 0, cBalked = 0, cServed = 0, cDef = 0, settledPaid = 0, campaignDone = false;
 let cOps = 0;   // the cost sheet — staff, supplies, pitch, fees across the campaign
@@ -312,6 +316,14 @@ function beats() {
       fx.toast('the scald claim stuck — −£140 and the story did the rounds', 'bad');
     } else fx.toast('the scald claim went away — their solicitor stopped calling', 'good');
   }
+  // Ruth breaks — pushed under a fifth of her condition and worked anyway,
+  // she fails on the floor: asleep at the counter or sharp with a regular.
+  if (!headless && day >= 2 && !baristaCrisis && !baristaHomeToday && baristaCondition < 0.2 && dayMin >= 900 && dayMin < 1030) {
+    baristaCrisis = true;
+    if (Math.random() < 0.5) { patrons.staffMul = 0.5; fx.toast('Ruth’s gone quiet — she’s asleep on the back counter. The bar crawls.', 'bad'); }
+    else { regulars.adjustOpinions(-0.2); fx.toast('Ruth snapped at a regular — the room went cold.', 'bad'); }
+    try { analytics.track('staff_crisis', { day, condition: Math.round(baristaCondition * 100) / 100 }); } catch {}
+  }
 }
 
 function closeDay() {
@@ -321,11 +333,19 @@ function closeDay() {
   if ($('again')) $('again').style.display = 'none';   // mid-campaign: the letter drives the next day, not this button
   if ($('shareWeek')) $('shareWeek').style.display = 'none';
   cRev += till; cCost += cogs; cBalked += balked; cServed += served + servedRetail; cDef += defections;
+  lastDayStats = { sold: served + servedRetail, balked, defections };   // the Brief reads these at dawn
+  // Ruth's ledger — a worked day drains (harder on a brutal floor), a
+  // sent-home day recovers. The cost is real: her wage is saved but the
+  // bar runs a third slower while she's off.
+  const ruthWasHome = baristaHomeToday;
+  if (ruthWasHome) { baristaCondition = Math.min(1, baristaCondition + 0.45); baristaRested = true; }
+  else baristaCondition = Math.max(0, baristaCondition - 0.14 - (peakQueue > 50 ? 0.08 : 0) - (balked > 60 ? 0.06 : 0));
+  baristaHomeToday = false;
   // the cost sheet — a real stand pays more than beans. Labour, milk+cups,
   // turnover-linked pitch rent, card fees, sundries: the day's true P&L.
   const servedN = served + servedRetail;
   const ops = {
-    staff: CAMPAIGN.staffDayRate + servedN * CAMPAIGN.staffPerCup,
+    staff: (ruthWasHome ? 0 : CAMPAIGN.staffDayRate) + servedN * CAMPAIGN.staffPerCup,
     supplies: servedN * CAMPAIGN.suppliesPerCup,
     pitch: Math.max(CAMPAIGN.pitchMin, till * CAMPAIGN.pitchPct),
     fees: till * CAMPAIGN.cardFeePct,
@@ -532,7 +552,8 @@ function showMorningBrief() {
   const el = $('brief'); if (!el) return;
   const snap = {
     day, event: exchange.event, index: exchange.beanIndex, cost: exchange.costPerCup,
-    sold: served + servedRetail, balked, defections, reputation: regulars.reputation,
+    sold: lastDayStats ? lastDayStats.sold : null, balked: lastDayStats ? lastDayStats.balked : 0,
+    defections: lastDayStats ? lastDayStats.defections : 0, reputation: regulars.reputation,
     debt: exchange.debt, contract: exchange.contract ? exchange.contract.price : null,
     indexPrev: tapePrev, intel: marketIntel,
   };
@@ -586,6 +607,34 @@ function showMorningBrief() {
     } else {
       wire.textContent = 'The wire is quiet today — no headlines tilted the deck.';
     }
+  }
+  // Ruth — the one staffing call the week can carry. When she's fading the
+  // Brief offers a choice: send her home (slow bar, saved wage, she recovers)
+  // or push on (full pace now, she drains further — and below a fifth, she breaks).
+  const staffRow = $('brief-staff');
+  if (staffRow) {
+    staffRow.textContent = '';
+    baristaStaged = false;
+    if (day >= 2 && baristaCondition < 0.55) {
+      staffRow.style.display = '';
+      const t = document.createElement('div');
+      t.style.cssText = 'font-size:10.5px;opacity:.78;margin-bottom:5px;font-style:italic';
+      t.textContent = baristaCondition < 0.25
+        ? 'Ruth hasn’t had a day off all week — she’s dead on her feet.'
+        : 'Ruth’s dragging this morning — too many shifts back to back.';
+      const home = document.createElement('button'); home.id = 'brief-staff-home';
+      home.textContent = 'send her home · bar −30% today, wage saved, fresh tomorrow';
+      const push = document.createElement('button'); push.id = 'brief-staff-push';
+      push.textContent = 'push on · she’ll manage — probably';
+      const sel = on => {
+        baristaStaged = on;
+        home.style.borderColor = on ? 'var(--brass)' : ''; home.style.background = on ? 'rgba(201,162,39,.16)' : '';
+        push.style.borderColor = on ? '' : 'var(--brass)'; push.style.background = on ? '' : 'rgba(201,162,39,.16)';
+      };
+      sel(false);
+      home.onclick = () => sel(true); push.onclick = () => sel(false);
+      staffRow.append(t, home, push);
+    } else staffRow.style.display = 'none';
   }
   // choice row: sizing is the position — header says what this means in one line
   // Brief offers the hedge only (light/std/heavy/hold); settle stays on the night Letter
@@ -642,6 +691,11 @@ function dismissBriefAndStartDay() {
   } else if (id === 'hold') msg = 'HOLDING — you ride the spot price';
   else if (id === 'settle') { const r = exchange.settle(exchange.debt); settledPaid += r.paid; msg = 'DEBT cleared' + (r.paid ? ' (' + fmt(r.paid) + ')' : ''); }
   fx.toast(msg, id.startsWith('contract') ? 'good' : '');
+  // Ruth's shift lands here — staged in the Brief, committed with the hedge.
+  // Sent home: bar −30% today, her wage saved tonight, she recovers at close.
+  baristaHomeToday = baristaStaged; baristaStaged = false;
+  if (baristaHomeToday) { patrons.staffMul = 0.7; fx.toast('Ruth’s off — you’re solo on the bar today', 'warn'); }
+  if (day >= 2 && baristaCondition < 0.55) try { analytics.track(baristaHomeToday ? 'staff_sent_home' : 'staff_pushed', { day, condition: Math.round(baristaCondition * 100) / 100 }); } catch {}
   // expectation already landed via the Letter's applyReply between days;
   // Brief commits the hedge for *today*, not the next day's drift
   // resolveDay needs "some balls in the air" — use a neutral claim for dawn
@@ -669,7 +723,9 @@ function openDay(d) {
   till = 0; cogs = 0; balked = 0; served = 0; servedRetail = 0; defections = 0; rivalServed = 0;
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; waveDebriefShown = false; closed = false;
+  baristaCrisis = false;
   if (d === 1) { forecastShown = false; nudgedQueue = nudgedBalk = nudgedPrice = false; }
+  if (baristaRested) { baristaRested = false; fx.toast('Ruth’s back — rested. The bar hums.', 'good'); }
   world.setMatchaPrice('4.80', false);
   fx.receipt(null); fx.notebook(false);
   // the wire tilts the deck: live Linkup research multiplies event weights
@@ -680,7 +736,8 @@ function openDay(d) {
   tapePrev = exchange.history.length ? exchange.history[exchange.history.length - 1].index : 1.0;
   offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; solicitorAt = 0;
-  patrons.staffMul = 1; patrons.balkMul = 1;
+  // Ruth's pace at dawn — exhausted legs move slower until she's rested or sent home
+  patrons.staffMul = baristaCondition < 0.35 ? 0.8 : 1; patrons.balkMul = 1;
   const ev = exchange.openDay(intelBias);    // drift first, then roll the market + the event
   if (d === 1 && marketIntel && marketIntel.marketShift && marketIntel.marketShift.length) {
     fx.toast('market intel · ' + String(marketIntel.marketShift[0].reason).slice(0, 90), 'warn');
@@ -1028,7 +1085,7 @@ const INCIDENTS = [
     yes: 'pay the £45', no: 'they can hold it',
     accept() { till -= 45; },
     decline() { patrons.balkMul = 1.6; } },
-  { who: 'your barista', line: '“So sorry — I’ve woken up with no voice. I can’t make it in.”',
+  { who: 'Ruth, your barista', line: '“So sorry — I’ve woken up with no voice. I can’t make it in.”',
     effect: '£55 agency cover · or solo shift — the bar runs ~40% slower',
     yes: 'book the cover', no: 'work it solo',
     accept() { till -= 55; },
@@ -1056,7 +1113,17 @@ const INCIDENTS = [
 ];
 
 function showIncident() {
-  const o = INCIDENTS[(day - 2 + ((SEED * 7) | 0)) % INCIDENTS.length];
+  const idx = (day - 2 + ((SEED * 7) | 0)) % INCIDENTS.length;
+  let o = INCIDENTS[idx];
+  // Ruth can't call in sick on a day you already sent her home — and when
+  // she's on fumes the call isn't a sick day, it's a warning shot.
+  if (o.who === 'Ruth, your barista') {
+    if (baristaHomeToday) o = INCIDENTS[(idx + 1) % INCIDENTS.length];
+    else if (baristaCondition < 0.4) o = { ...o,
+      line: '“I can’t do another one like yesterday.” Ruth’s voice is flat — she’s on fumes.',
+      effect: '£55 agency cover · or she pushes on — the bar runs ~60% slower',
+      decline() { patrons.staffMul = 0.4; } };
+  }
   presentBeat(o, 'the floor bites back · y / n', true);
 }
 
@@ -1094,7 +1161,9 @@ function reset() {
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = [];
   tapePrev = 1.0; offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; cOps = 0;
-  briefChoice = null; try { const b = $('brief'); if (b) b.classList.remove('show'); } catch {}
+  briefChoice = null; lastDayStats = null;
+  baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
+  try { const b = $('brief'); if (b) b.classList.remove('show'); } catch {}
   $('offer').classList.remove('show');
   for (const r of regulars.regulars) { r.op = 0.15; r.seen = false; r.served = 0; r.balked = 0; }
   cRev = cCost = cBalked = cServed = cDef = settledPaid = 0; campaignDone = false; paused = false;
@@ -1314,8 +1383,9 @@ function dismissTutorialAndStart(fromSkip = false) {
   // The Brief owns day 1 too: once the crane settles, Brief pauses at 06:00.
   // (openDay() already queued showMorningBrief; this just unblocks the re-arm.)
   setTimeout(() => {
-    // openDay's setTimeout(showMorningBrief, 120) will re-pause; keep the
-    // floor alive until then so the brief's "paused" is the real gate
+    // if the Brief is still open when the crane settles, it owns the pause —
+    // unpausing here would run the floor behind the modal
+    if ($('brief') && $('brief').classList.contains('show')) return;
     paused = false; if ($('pause')) $('pause').textContent = 'pause';
   }, 3400);
 }

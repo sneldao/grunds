@@ -13,6 +13,8 @@ function trendPhrase(rose) {
   return 'flat';
 }
 function performance(s) {
+  // The Morning Brief reads yesterday's counters — on day 1 there are none.
+  if (s.sold == null) return 'Opening day. The kettle’s cold and the street hasn’t decided about you yet.';
   const ratio = s.balked / Math.max(1, s.sold);
   if (ratio < 0.05) return `You held the floor. ${s.sold} cups out the door, ${s.balked} walked. The regulars saw it.`;
   if (ratio < 0.15) return `A workable day — ${s.sold} served, ${s.balked} balked. ${s.defections} crossed to the chain.`;

@@ -10,6 +10,9 @@
 //      the trigger is headless-gated so tests don't stall on the pause.
 //   4. Letter stakes: composeLetter prints the spot delta line when given
 //      indexPrev.
+//   5. Ruth — the staff layer: one hidden condition stat, a Brief choice
+//      (send home / push on), real consequences both ways, and the
+//      sick-barista incident reads her state.
 //
 // Run: node web/test/agency.mjs
 import { readFileSync } from 'node:fs';
@@ -94,8 +97,8 @@ const fails = [];
 {
   const main = read('web/js/main.js');
   assert.ok(main.includes('const INCIDENTS'), 'incidents table exists');
-  assert.equal((main.match(/who: 'the |who: 'your |who: 'a /g) || []).length >= 6, true,
-    'six operational incidents');
+  const incBlock = main.slice(main.indexOf('const INCIDENTS'), main.indexOf('function showIncident'));
+  assert.equal((incBlock.match(/who: '/g) || []).length, 6, 'six operational incidents');
   assert.ok(main.includes('day >= 2 && !incidentShown'), 'incidents are day-2+ (day 1 stays clean)');
   assert.ok(main.includes('dayMin >= 895'), 'incidents land post-wave');
   assert.ok(main.includes('patrons.balkMul = 1.6'), 'plumber decline hits patience');
@@ -142,5 +145,36 @@ const fails = [];
   console.log('BRIEF   06:00 paused turn: letter + sparkline + wire + sizing + OPEN — headless/tutorial-gated');
 }
 
+// ---- 7) Ruth: one hidden condition, one Brief choice, real consequences ----
+{
+  const html = read('web/index.html');
+  assert.ok(html.includes('id="brief-staff"'), 'index.html has #brief-staff row');
+  const main = read('web/js/main.js');
+  assert.ok(main.includes('baristaCondition'), 'hidden condition state exists');
+  // the choice only surfaces when she's fading — and never on day 1
+  assert.ok(main.includes('day >= 2 && baristaCondition < 0.55'), 'staff row is condition-gated, day-2+');
+  assert.ok(main.includes('brief-staff-home') && main.includes('brief-staff-push'), 'home/push buttons exist');
+  // both branches carry a real trade: home slows the bar but saves the wage and recovers her
+  assert.ok(main.includes('baristaHomeToday = baristaStaged'), 'Brief commit lands the staff choice');
+  assert.ok(main.includes('patrons.staffMul = 0.7'), 'sent home → solo bar runs −30%');
+  assert.ok(main.includes('baristaCondition + 0.45'), 'sent home → she recovers at close');
+  assert.ok(main.includes('ruthWasHome ? 0 : CAMPAIGN.staffDayRate'), 'sent home → wage saved on the cost sheet');
+  assert.ok(main.includes('baristaCondition - 0.14'), 'a worked day drains her');
+  // neglect has teeth: exhausted legs slow the bar, pushed under a fifth she breaks
+  assert.ok(main.includes('baristaCondition < 0.35 ? 0.8 : 1'), 'exhausted dawn → slower bar');
+  assert.ok(main.includes('baristaCrisis') && main.includes('baristaCondition < 0.2'), 'crisis fires under a fifth');
+  assert.ok(main.includes('patrons.staffMul = 0.5'), 'crisis: she falls asleep — bar crawls');
+  assert.ok(main.includes('adjustOpinions(-0.2)'), 'crisis: she snaps at a regular — rep hit');
+  // the incident table reads her state: home → she can't call in sick; fumes → worse terms
+  assert.ok(main.includes('o = INCIDENTS[(idx + 1) % INCIDENTS.length]'), 'home days skip the sick-call');
+  assert.ok(main.includes('patrons.staffMul = 0.4'), 'fumes variant declines to a −60% bar');
+  // campaign hygiene
+  assert.ok(main.includes('baristaCondition = 1.0'), 'reset() restores Ruth');
+  assert.ok(main.includes('lastDayStats'), 'Brief reads yesterday’s counters, not reset zeros');
+  assert.ok(main.includes('staff_sent_home') && main.includes('staff_pushed') && main.includes('staff_crisis'),
+    'staff analytics: sent home / pushed / crisis');
+  console.log('RUTH    hidden condition · Brief home/push · solo-bar cost · crisis under a fifth');
+}
+
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
-console.log('\nPASS — agency: the tape, sized contracts, letter stakes, the regular’s ask, the floor’s bite, the Morning Brief turn');
+console.log('\nPASS — agency: the tape, sized contracts, letter stakes, the regular’s ask, the floor’s bite, the Morning Brief turn, Ruth’s ledger');
