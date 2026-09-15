@@ -10,11 +10,18 @@
 - **Components:** @convex-dev/static-hosting
 - **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /sync/*, /agentmail/webhook), crons, static hosting
 - **Auth:** none
-- **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; falls back empty when key-gated)
+- **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-14T00:00:00Z
+- **Last updated:** 2026-09-15T00:00:00Z
 
 ## Log
+
+### 2026-09-15 - The demo video: real gameplay, sponsor loop end-to-end
+The three-minute cap needed the product, not a pitch reel — so `videos/grunds-demo` is a HyperFrames composition assembled from Playwright-recorded live gameplay at 1920×1080, not mockups.
+- **`scripts/record.mjs`** drives the real site through three clips: (a) licence → tutorial → Morning Brief → hedge → floor, (b) a full day at 20× → Roaster's Letter → "post this letter to…" (AgentMail), (c) the Wire desk with `linkup`/`firecrawl` origin tags. Recording gotchas that mattered: `#open` stays `disabled` until the GLBs place (DOM clicks on disabled buttons are silent no-ops), and Playwright's actionability wait stalls on the animating overlays — direct `el.click()` evals everywhere.
+- **`index.html`** sequences six trimmed segments (~95s) under Iowan caption cards: licence → brief → the day at 20× → the letter and its post row → the wire desk → the live district board → end card with the `convex.site` URL and the sponsor roll. Music bed is a synthesized pad (ffmpeg) — voiceover deliberately held until the cut is approved.
+- **A real bug fell out of recording:** typing an email into the post row fired global game keys — the `r` in an address ran `reset()` and wiped the campaign mid-keystroke. `main.js`'s keydown handler now returns early when the target is an input/textarea (after the licence gate, which still owns Enter-to-sign inside its own fields). Verified live: the letter stays open while `excitedinstrument809@agentmail.to` types in.
+- Gate unchanged (18/18), `npm run check` clean (0 findings), deployed with the fix.
 
 ### 2026-09-14 - The roaster is a real mailbox — AgentMail end-to-end
 AgentMail goes from half-wired webhook to the demo's best sponsor story: the Roaster's Letter is now literal post.

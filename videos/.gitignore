@@ -1,11 +1,5 @@
-node_modules/
-videos/**/node_modules/
-videos/**/capture/video/
-videos/**/capture/clips/
-videos/**/capture/frames/
-videos/**/capture/review/
-videos/**/capture/assets/
-videos/**/capture/extracted/
-videos/**/capture/audio/
-videos/**/renders/
-videos/**/fonts/
+**/node_modules/
+**/capture/
+**/renders/
+**/fonts/
+**/.media/

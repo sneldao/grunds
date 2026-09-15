@@ -140,12 +140,13 @@ Keep one reliable path, visible reset controls, and a fallback recording.
 2. ~~The Exchange: scheduled functions + Firecrawl news→event deck (with pity timers)~~ —
    deck + pity timers live server-side; Firecrawl pull live with 6h cache; nightly cron next
 3. ~~The Regulars: persistent patron memory + gossip propagation graph~~ — done server-side
-4. The Roaster's Letter: AgentMail inbox, reply-to-command mutations — webhook live,
-   inbox keys pending
+4. ~~The Roaster's Letter: AgentMail inbox, reply-to-command mutations~~ — live
+   end-to-end: `grunds-roaster@agentmail.to` sends the letter, signed webhook plays
+   reply commands, Idris acks by return post
 5. All 5 cohorts, supplier credit clock, gentrification drift, cupping events — drift +
-   credit live; OpenAI persona prose stubbed until key lands
+   credit live; `wireWhy` live on the OpenAI chain (primary key → compatible fallback)
 6. ~~Deploy convex.site, public repo, `hackathon.md`, video, X post~~ — site + repo + log
-   live; video + social still to do
+   live; demo video v1 rendered (`videos/grunds-demo`, renders gitignored); social still to do
 
 ## Architecture
 
@@ -423,7 +424,7 @@ The Convex phase shipped as working backend + hosting, not a plan:
 - **The pitch licence**: before the tutorial, the district office hands you a licence — your name, the stand's name, a title (`the new owner` / `the manager` / `the name on the lease`), and a background with one small perk (`ex-barista` paces the bar ~8%, `ex-accountant` trims fees & payouts 15%, `new to the trade` warms the regulars, `a market regular` hears the wire's lean in the Brief). Enter signs with defaults; the signature threads the letter (*Dear Ada… what do you want to do, Ada?*), both receipts, the tutorial greeting, and the Convex district board (`grunds.owner` reads live). Persists via `localStorage`; `?skipLicence` bypasses.
 - **Ruth, your barista**: one named staffer, one hidden `baristaCondition` — worked shifts drain it (brutal floors drain faster), a sent-home day restores it. When she's fading the Brief adds a `home / push on` row: home means a −30% solo bar today but her wage is saved and she's fresh tomorrow; push on keeps pace now and risks her breaking mid-shift (asleep at the counter, or snapping at a regular — rep hit). Her sick-call incident can't fire on a day she's already home, and on fumes it becomes a warning shot. No roster, no morale meter — the fiction carries the state.
 - **Performance**: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms frames, shadow budget at `queue>40`, GLB cross-fade (`opacity 0→1`), RAF slot discipline (`requestAnimationFrame(loop)` re-arms first, receipt + loader use `setTimeout` in headless so the game loop isn't stolen), `tabular-nums` till, staggered receipt — fixed two real regressions (reputation `NaN` via sparse `opContagion`, RAF steal at close) — both caught by the headless gate.
-- Still to do: full live-query sync (mirror today), Convex Auth, Nebius voicing of the 11:00 ask (gossip pipe already serves it), AgentMail live inbox, prod deploy, video + social.
+- Still to do: full live-query sync (mirror today), Convex Auth, Nebius voicing of the 11:00 ask (gossip pipe already serves it), prod deploy, social post + submission. Demo video v1 lives in `videos/grunds-demo` — recorded gameplay + HyperFrames; `npm run render` re-renders, captures/renders are gitignored.
 
 See `hackathon.md` for the build log.
 
