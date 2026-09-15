@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ headless: true, args: ['--use-angle=metal','--enable-webgl','--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+page.on('console', m => { if (m.type() === 'error') console.log('CONSOLE ERR:', m.text().slice(0,160)); });
+page.on('pageerror', e => console.log('PAGE ERR:', String(e).slice(0,200)));
+await page.goto('https://striped-anaconda-746.convex.site', { waitUntil: 'domcontentloaded', timeout: 30000 });
+await page.waitForTimeout(6000);
+await page.screenshot({ path: 'capture/probe-title.png' });
+const openVisible = await page.$eval('#open', el => el.offsetParent !== null).catch(() => 'no #open');
+console.log('#open visible:', openVisible);
+const lic = await page.$eval('#licence', el => el.className).catch(() => 'no #licence');
+console.log('#licence class:', lic);
+await browser.close();

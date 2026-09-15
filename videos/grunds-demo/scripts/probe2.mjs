@@ -1,0 +1,23 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ headless: true, args: ['--use-angle=metal','--enable-webgl','--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+const t0 = Date.now(); const log = (m) => console.log(`+${((Date.now()-t0)/1000).toFixed(1)}s`, m);
+await page.goto('https://striped-anaconda-746.convex.site', { waitUntil: 'domcontentloaded', timeout: 30000 });
+log('loaded');
+await page.waitForSelector('#title #open', { timeout: 20000 }); log('#open ready');
+await page.$eval('#open', el => el.click()); log('clicked open');
+const lic = await page.waitForSelector('#licence.show', { timeout: 12000 }).then(()=>true).catch(()=>false);
+log('licence shown: ' + lic);
+await page.screenshot({ path: 'capture/probe-licence.png' });
+await page.type('#lic-name', 'Ada', { delay: 60 }); log('typed name');
+await page.type('#lic-stand', 'ADA CUP', { delay: 60 }); log('typed stand');
+await page.$eval('#lic-sign', el => el.click()); log('signed');
+const tut = await page.waitForSelector('#tutorial.show', { timeout: 12000 }).then(()=>true).catch(()=>false);
+log('tutorial shown: ' + tut);
+await page.screenshot({ path: 'capture/probe-tutorial.png' });
+if (tut) { await page.$eval('#tskip', el => el.click()); log('skipped tutorial'); }
+const brief = await page.waitForSelector('#brief.show', { timeout: 20000 }).then(()=>true).catch(()=>false);
+log('brief shown: ' + brief);
+await page.screenshot({ path: 'capture/probe-brief.png' });
+await browser.close();
+log('done');

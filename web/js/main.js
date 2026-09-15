@@ -1304,6 +1304,8 @@ addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); signLicence(); }
     return;
   }
+  // typing belongs to the field — never let an email fire game keys
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
   // Morning Brief answers to 1/2/3/4/5 (commit a choice) then Enter opens
   if ($('brief') && $('brief').classList.contains('show')) {
     if (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4' || e.key === '5') {
