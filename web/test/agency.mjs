@@ -122,7 +122,7 @@ const fails = [];
 // ---- 6) Morning Brief: the Drug Wars turn — paused at 06:00, commit then OPEN ----
 {
   const html = read('web/index.html');
-  for (const id of ['brief', 'brief-kicker', 'brief-letter', 'brief-canvas', 'brief-wire', 'brief-actions', 'brief-open', 'brief-desklink'])
+  for (const id of ['brief', 'brief-kicker', 'brief-letter', 'brief-canvas', 'brief-wire', 'brief-demand', 'brief-actions', 'brief-open', 'brief-desklink'])
     assert.ok(html.includes(`id="${id}"`), `index.html has #${id}`);
   const main = read('web/js/main.js');
   assert.ok(main.includes('function showMorningBrief()'), 'Morning Brief: showMorningBrief() exists');
@@ -142,7 +142,12 @@ const fails = [];
   assert.ok(!briefBlock.includes('openDay(day + 1)'),
     'Brief commit stays on today — only the letter advances the day');
   assert.ok(briefBlock.includes('paused = false'), 'Brief OPEN resumes the floor');
-  console.log('BRIEF   06:00 paused turn: letter + sparkline + wire + sizing + OPEN — headless/tutorial-gated');
+  // Street work: three dawn toggles with real costs, committed with the hedge
+  assert.ok(main.includes('brief-demand-'),
+    'Brief carries the street-work row (chalk/sample/sponsor)');
+  assert.ok(main.includes('marketingSpend'), 'sponsor cost rides a marketing accumulator into the ops sheet');
+  assert.ok(main.includes('demand.resolveDay'), 'closeDay resolves awareness decay + returnees');
+  console.log('BRIEF   06:00 paused turn: letter + sparkline + wire + sizing + street work + OPEN — headless/tutorial-gated');
 }
 
 // ---- 7) Ruth: one hidden condition, one Brief choice, real consequences ----

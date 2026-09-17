@@ -178,6 +178,9 @@
   #brief-wire details[open] summary { margin-bottom: 4px; }
   #brief-staff { margin: 8px 0; padding: 8px 10px; background: rgba(160,60,50,.07); border-left: 3px solid #a0522d; border-radius: 3px; }
   #brief-staff button { display: block; width: 100%; margin-top: 4px; font-size: 11.5px; text-align: left; }
+  #brief-demand { margin: 8px 0; padding: 8px 10px; background: rgba(134,168,96,.08); border-left: 3px solid var(--matcha); border-radius: 3px; }
+  #brief-demand button { display: block; width: 100%; margin-top: 4px; font-size: 11.5px; text-align: left; }
+  #brief-demand button:disabled { opacity: .45; }
   #brief-actions { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 12px; }
   #brief-actions button { font-size: 12.5px; text-align: left; }
   #brief-open { width: 100%; font-size: 13px; letter-spacing: .14em; border-color: var(--brass); }
@@ -403,6 +406,7 @@ Made to order, a matcha takes 4 minutes.
       <pre id="brief-letter" style="font-family:var(--serif); font-size:14px; line-height:1.58; white-space:pre-wrap; margin:6px 0 0;"></pre>
       <canvas id="brief-canvas" width="480" height="76" aria-hidden="true"></canvas>
       <div id="brief-wire" style="display:none"></div>
+      <div id="brief-demand" style="display:none"></div>
       <div id="brief-staff" style="display:none"></div>
       <div id="brief-actions"></div>
       <button id="brief-open">OPEN FOR DAY →</button>

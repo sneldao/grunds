@@ -14,6 +14,18 @@
 
 ## Log
 
+### 2026-09-17 — Demand: awareness + loyalty (direction-track difficulty)
+- **The game got harder on purpose** (player feedback: customers came too
+  easily). New pure `web/js/demand.js`: awareness 0..1 multiplies wave spawns
+  0.4×–1.3×, decays 0.04/close (+0.04 catastrophes); loyalty is reputation as
+  a return rate (12% at rep 62, cap 35%) — yesterday's served reappear across
+  today's waves. Coasting 3 closes runs 0.55 → 0.43 awareness.
+- **Brief gains a `work the street` row:** chalk (free), sample hour (£8 cups),
+  sponsor the stall (£30 ops line, day 3+). Costs commit with the hedge;
+  verdicts talk back under 0.35 awareness; tape + receipt print pips.
+- **Proof:** new `web/test/demand.mjs` (9 pins), agency BRIEF extended, full
+  suite 19/19 green, EVAL gate bumped, live on the deployment.
+
 ### 2026-09-17 — Generative District goes live: seed-7 kit grown, brief de-cluttered
 - **`convex/district.ts` + `web/js/districtGen.js` shipped and deployed:**
   seed → deterministic 5-slot kit spec (mulberry32, silhouette-first word

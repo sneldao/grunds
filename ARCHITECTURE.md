@@ -113,6 +113,16 @@ stores per-patron opinion state.
 6. `exchange` at `openDay(d)` applies gentrification drift (cost creep +
    matcha curve + cohort expectation) *before* the pity-timer roll (+ Linkup `marketShift` bias clamped 0.2–3×), stashes `tapePrev` for the tape/sparkline/`tapeLine` delta, mints the `history` for the Brief sparkline, and `history` for the ticker; at `closeDay` it emits the **cost-sheet P&L** (staff+milk+rent+card+sundries → `cOps` → `netWorth`). Sized hedges `contractBeans(units, fee)` burn cup-by-cup via `consume(n)`; `GRUNDS` secret sets `geshaUnlocked` and
    flashes £7.80 on the board (persists as a next-day toast)
+7. Demand (`web/js/demand.js`, pure/deterministic): awareness 0..1 multiplies
+   the wave spawn 0.4×–1.3× via `spawnMul()`, decays 0.04/close (+0.04 on
+   catastrophes); loyalty is reputation as a return rate (`Regulars.returnRate`,
+   12% at rep 62, capped 35%) — yesterday's served × rate reappear spread
+   across today's waves. Dawn street work (chalk/sample/sponsor) stages in the
+   Brief (`#brief-demand` toggles, row-local re-render so the hedge choice
+   survives), commits costs with the hedge (cups → COGS, sponsor → `marketing`
+   ops line), and lands on tomorrow's awareness at `closeDay.resolveDay`.
+   Tape prints `street ●●●○○`; receipt prints awareness; verdicts talk back
+   under 0.35.
 
 ## Convex deployment (live since Sept 12)
 

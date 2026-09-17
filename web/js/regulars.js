@@ -7,7 +7,7 @@
 // friends first (a "word of mouth" hop); reputation pulls toward the mean of
 // a regular's friends (5%/day). Diameter is 2 for the current roster, so any
 // sour or sweet day reaches the whole network within three hops.
-import { REGULAR_ROSTER } from './config.js';
+import { REGULAR_ROSTER, CAMPAIGN } from './config.js';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const CONTAGION = 0.05;   // opinion pull toward each friend's mean (per day)
@@ -129,6 +129,12 @@ export class Regulars {
   }
   get footfallMul() { return 1 + (this.reputation - 62) * 0.006; }   // ~±23% at the rails
   get tipMul() { return 1 + (this.reputation - 62) * 0.01; }
+  // Loyalty as a return rate: yesterday's served × this reappear across
+  // today's waves (see Demand.resolveDay). 62 → returnBase, capped at returnMax.
+  get returnRate() {
+    const d = CAMPAIGN.demand;
+    return clamp(d.returnBase + (this.reputation - 62) * d.returnPerRep, 0, d.returnMax);
+  }
 
   // Mark a regular as present today (called when a patron of this cohort
   // spawns into the queue). Returns {idx, name, coh, found} so the patron

@@ -128,6 +128,27 @@ export const CAMPAIGN = {
     priceCeiling: 5.40,     // matcha day-5 till price (player can hold below)
     priceDays: 5,           // how many days the curve spans
   },
+  // Demand — awareness brings them, loyalty brings them back. Awareness
+  // 0..1 multiplies the wave spawn rate (spawnMin..spawnMax); it decays
+  // every close unless the player works for it at dawn. Loyalty is the
+  // existing reputation stock, re-explained as a return rate: yesterday's
+  // served × returnRate reappear spread across today's waves.
+  demand: {
+    start: 0.55,          // opening-day awareness — the street hasn't decided yet
+    spawnMin: 0.4,        // spawn multiplier at zero awareness (regulars only)
+    spawnMax: 1.3,        // spawn multiplier at full awareness (the street queues)
+    decay: 0.04,          // awareness lost per close when coasting
+    cataExtra: 0.04,      // catastrophes scare the street extra
+    returnBase: 0.12,     // return rate at reputation 62
+    returnPerRep: 0.004,  // +0.4% per reputation point above 62
+    returnMax: 0.35,      // even legends don't get everyone back
+    chalkGain: 0.03,      // chalk the board: free, once a day
+    sampleGain: 0.12,     // sample hour: costs cups, buys the street
+    sampleCost: 8.0,      // £ of cups given away
+    sponsorGain: 0.20,    // sponsor the market stall: real money, real crowd
+    sponsorCost: 30.0,    // £ from the till at commit
+    sponsorDay: 3,        // the stall only takes sponsors once you're known
+  },
   // Cohort expectation pressure — applied at end of day, scales with the
   // day index (so day 5 elders feel 5x day 1's pressure). Compounds with
   // the friendship contagion; elders souring sours the network.

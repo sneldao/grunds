@@ -14,6 +14,7 @@ import { CameraRig } from './camera.js';
 import { AudioEngine } from './audio.js';
 import { Exchange } from './exchange.js';
 import { Regulars } from './regulars.js';
+import { Demand } from './demand.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay } from './gentrification.js';
 import { initSync } from './convexSync.js';
@@ -50,6 +51,8 @@ const audio = new AudioEngine();
 // ---- the connected campaign: the Gamble + the Regulars -----------------------
 const exchange = new Exchange(urlParams.get('seed') ? +urlParams.get('seed') : 7);
 const regulars = new Regulars();
+const demand = new Demand();   // awareness brings them, loyalty brings them back
+let marketingSpend = 0;        // dawn-staged sponsor cost, folded into the closeDay ops sheet
 // Optional Convex mirror: offline-first, fire-and-forget. Configure with
 // ?convex=https://<deploy>.convex.site — the floor never blocks on it.
 const sync = initSync();
@@ -130,9 +133,15 @@ function tick() {
     const w = schedule.waves[waveIdx++];
     const morningCalm = (day === 1 && w.t < 600) ? 0.52 : 1;
     const settleThin = (day === 1 && dayMin < CALM_UNTIL_MIN) ? 0.5 : 1;
-    const mul = (exchange.event?.demand || 1) * regulars.footfallMul * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1);
+    const mul = (exchange.event?.demand || 1) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1);
+    // loyalty made visible: yesterday's served × return rate reappear,
+    // spread evenly so the wave keeps its shape and just runs deeper
+    const returnBonus = demand.todayReturnees > 0 && schedule.waves.length
+      ? Math.round(demand.todayReturnees / schedule.waves.length) : 0;
+    let firstSpawn = true;
     for (const s of w.spawns) {
-      const n = Math.max(1, Math.round(s.q * ECON.spawnScale * mul));
+      const n = Math.max(1, Math.round(s.q * ECON.spawnScale * mul)) + (firstSpawn ? returnBonus : 0);
+      firstSpawn = false;
       for (let i = 0; i < n; i++) patrons.spawn(s.c, s.z, speed > 60);
     }
   }
@@ -357,14 +366,21 @@ function closeDay() {
   // the cost sheet — a real stand pays more than beans. Labour, milk+cups,
   // turnover-linked pitch rent, card fees, sundries: the day's true P&L.
   const servedN = served + servedRetail;
+  // demand resolves at close: the street forgets a little every day
+  // (catastrophes scare extra), dawn-staged street work lands tomorrow's
+  // awareness, and today's served × loyalty become tomorrow's returnees
+  const dtrace = demand.resolveDay({ served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier });
+  try { analytics.track('demand_resolved', { day, ...dtrace }); } catch {}
   const ops = {
     staff: (ruthWasHome ? 0 : CAMPAIGN.staffDayRate) + servedN * CAMPAIGN.staffPerCup,
     supplies: servedN * CAMPAIGN.suppliesPerCup,
     pitch: Math.max(CAMPAIGN.pitchMin, till * CAMPAIGN.pitchPct),
     fees: till * CAMPAIGN.cardFeePct * perkCostMul,
     sundries: CAMPAIGN.sundries,
+    marketing: marketingSpend,   // the sponsor invoice arrives with the milk bill
   };
-  ops.total = ops.staff + ops.supplies + ops.pitch + ops.fees + ops.sundries;
+  marketingSpend = 0;
+  ops.total = ops.staff + ops.supplies + ops.pitch + ops.fees + ops.sundries + ops.marketing;
   cOps += ops.total;
   const net = till - cogs - ops.total;        // today's take-home — debt is a *campaign* figure below
   rig.focus(world.focus.wide, 27, 6);
@@ -377,6 +393,9 @@ function closeDay() {
   else if (ratio < 0.2) verdict = 'You fed the chain across the road.';
   else verdict = 'The wave ate you alive.';
   if (prebatchHelped && waveBalked < 80) verdict += ' The notebook paid off.';
+  // the street talks back: coasting shows up as a sentence, not just a number
+  if (dtrace.after < 0.35) verdict += ' The street is forgetting you — work it at dawn.';
+  else if (dtrace.gain > 0) verdict += ' Yesterday’s street work brings them in tomorrow.';
   // Day-1 receipt gets the Day-2 forecast stripe — the preview that makes you replay.
   let forecast = null;
   if (day === 1 && day < CAMPAIGN.days) {
@@ -407,6 +426,8 @@ function closeDay() {
       ['revenue', fmt(till)], ['bean cost', fmt(cogs)],
       ['staff', fmt(ops.staff)], ['milk + cups', fmt(ops.supplies)],
       ['pitch rent', fmt(ops.pitch)], ['card fees', fmt(ops.fees)], ['sundries', fmt(ops.sundries)],
+      ...(ops.marketing > 0 ? [['street work', fmt(ops.marketing)]] : []),
+      ['street awareness', demand.pips()],
       ['debt', fmt(exchange.debt)],
       ['peak queue', peakQueue + ' deep'], ['walked to ' + COPY.rivalName, defections], ['—', '—'],
       ['NET TODAY', fmt(net)],
@@ -692,6 +713,40 @@ function showMorningBrief() {
       wire.textContent = 'The wire is quiet today — no headlines tilted the deck.';
     }
   }
+  // Street work — the demand turn inside the Brief. Awareness decays every
+  // close; these three buy it back for tomorrow. Independent toggles (not one
+  // choice): chalk is the free daily habit, sampling costs cups at commit,
+  // sponsoring costs till at commit and unlocks once you're known (day 3+).
+  // Re-render is row-local so toggling never touches the hedge choice.
+  const renderDemandRow = () => {
+  const demandRow = $('brief-demand');
+  if (demandRow) {
+    demandRow.textContent = '';
+    demandRow.style.display = '';
+    const t = document.createElement('div');
+    t.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55';
+    t.textContent = `work the street — awareness ${demand.pips()}`;
+    demandRow.appendChild(t);
+    const D = CAMPAIGN.demand;
+    const defs = [
+      { id: 'chalk', label: `chalk the board · free · the street notices` },
+      { id: 'sample', label: `sample hour · ${fmt(D.sampleCost)} in cups · they taste, they return` },
+      { id: 'sponsor', label: day >= D.sponsorDay
+        ? `sponsor the market stall · ${fmt(D.sponsorCost)} · the whole street hears`
+        : `sponsor the market stall · the stall only takes sponsors day ${D.sponsorDay}+` },
+    ];
+    for (const def of defs) {
+      const b = document.createElement('button');
+      b.id = 'brief-demand-' + def.id;
+      b.textContent = (demand.staged[def.id] ? '✓ ' : '') + def.label;
+      b.disabled = !demand.canStage(def.id, day);
+      if (demand.staged[def.id]) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; }
+      b.onclick = () => { demand.stage(def.id, day); renderDemandRow(); };
+      demandRow.appendChild(b);
+    }
+  }
+  };
+  renderDemandRow();
   // Ruth — the one staffing call the week can carry. When she's fading the
   // Brief offers a choice: send her home (slow bar, saved wage, she recovers)
   // or push on (full pace now, she drains further — and below a fifth, she breaks).
@@ -790,6 +845,10 @@ function dismissBriefAndStartDay() {
   // Ruth's shift lands here — staged in the Brief, committed with the hedge.
   // Sent home: bar −30% today, her wage saved tonight, she recovers at close.
   baristaHomeToday = baristaStaged; baristaStaged = false;
+  // Street work lands here too — staged at dawn, paid today, felt tomorrow.
+  // Sampling burns cups out of today's COGS; sponsoring invoices the ops sheet.
+  if (demand.staged.sample) { cogs += CAMPAIGN.demand.sampleCost; fx.toast(`Sampling today — ${fmt(CAMPAIGN.demand.sampleCost)} in cups for the street`, ''); }
+  if (demand.staged.sponsor) { marketingSpend += CAMPAIGN.demand.sponsorCost; fx.toast(`Stall sponsored — ${fmt(CAMPAIGN.demand.sponsorCost)} on the sheet, the street hears`, 'good'); }
   if (baristaHomeToday) { patrons.staffMul = 0.7; fx.toast('Ruth’s off — you’re solo on the bar today', 'warn'); }
   if (day >= 2 && baristaCondition < 0.55) try { analytics.track(baristaHomeToday ? 'staff_sent_home' : 'staff_pushed', { day, condition: Math.round(baristaCondition * 100) / 100 }); } catch {}
   // expectation already landed via the Letter's applyReply between days;
@@ -803,7 +862,7 @@ function dismissBriefAndStartDay() {
   paused = false; if ($('pause')) $('pause').textContent = 'pause';
   // wire highlight fades once committed
   try { const t = $('tape'); if (t) t.style.color = ''; } catch {}
-  try { analytics.track('brief_committed', { day, choice: id, debt: exchange.debt, index: exchange.beanIndex }); } catch {}
+  try { analytics.track('brief_committed', { day, choice: id, debt: exchange.debt, index: exchange.beanIndex, streetWork: { ...demand.staged } }); } catch {}
   updateHUD();
 }
 
@@ -1043,6 +1102,7 @@ function updateHUD() {
       $('tape').style.display = '';
       $('tape').innerHTML = `beans <b>${exchange.beanIndex.toFixed(2)}</b> ${pct > 0 ? '↑' : pct < 0 ? '↓' : '→'} <b>${pct > 0 ? '+' : ''}${pct}%</b>` +
         (exchange.event ? ` · <span class="dim">${String(exchange.event.head).toLowerCase()}</span>` : '') +
+        ` · <span class="dim" title="street awareness — work it at dawn">street ${demand.pips()}</span>` +
         (marketIntel ? ' <span class="dim">· wire ↗</span>' : '');
     } else $('tape').style.display = 'none';
   }
@@ -1272,6 +1332,7 @@ function reset() {
   tapePrev = 1.0; offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; cOps = 0;
   briefChoice = null; lastDayStats = null;
+  demand.reset(); marketingSpend = 0;
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
   try { const b = $('brief'); if (b) b.classList.remove('show'); } catch {}
   $('offer').classList.remove('show');

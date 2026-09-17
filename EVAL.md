@@ -42,7 +42,7 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Economy baseline | 13-week revenue ≈ GBP 157k; attach rate 8.2% preserved from source data |
 | Deterministic gate | loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`, so rail-adjacent assertions don't flake; `intel.mjs` pins bias + pity-under-bias |
 | Linkup citation | `intelLine` prints `Off the wire — <headline> (<domain>)` when sources arrive; absent offline | headless gate |
-| Gate size | 18 headless tests; `tsc` clean; `dist` 43 files | `game-feel` + `intel` + `desk` + `agency` (Drug Wars gate) |
+| Gate size | 19 headless tests; `tsc` clean; `dist` 45 files | `game-feel` + `intel` + `desk` + `agency` (Drug Wars gate) + `demand` (awareness/loyalty gate) |
 
 ## Datasets
 
@@ -67,7 +67,7 @@ Targets: `skipRate` < 40%, Brief chosen before `OPEN` (`brief_choice` >80%), `% 
 ```bash
 python3 transform.py
 python3 -m grunds eval
-for f in web/test/*.mjs; do node "$f"; done   # 18 headless tests
+for f in web/test/*.mjs; do node "$f"; done   # 19 headless tests
 npm run typecheck && npm run build:dist         # tsc + dist
 ```
 
