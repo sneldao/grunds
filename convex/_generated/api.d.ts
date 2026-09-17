@@ -11,17 +11,20 @@
 import type * as agentmail from "../agentmail.js";
 import type * as apiCache from "../apiCache.js";
 import type * as crons from "../crons.js";
+import type * as district from "../district.js";
 import type * as exchange from "../exchange.js";
 import type * as firecrawl from "../firecrawl.js";
 import type * as gameConfig from "../gameConfig.js";
 import type * as http from "../http.js";
 import type * as letters from "../letters.js";
 import type * as linkup from "../linkup.js";
+import type * as mint from "../mint.js";
 import type * as nebius from "../nebius.js";
 import type * as openai from "../openai.js";
 import type * as regulars from "../regulars.js";
 import type * as research from "../research.js";
 import type * as stands from "../stands.js";
+import type * as tripo from "../tripo.js";
 
 import type {
   ApiFromModules,
@@ -33,17 +36,20 @@ declare const fullApi: ApiFromModules<{
   agentmail: typeof agentmail;
   apiCache: typeof apiCache;
   crons: typeof crons;
+  district: typeof district;
   exchange: typeof exchange;
   firecrawl: typeof firecrawl;
   gameConfig: typeof gameConfig;
   http: typeof http;
   letters: typeof letters;
   linkup: typeof linkup;
+  mint: typeof mint;
   nebius: typeof nebius;
   openai: typeof openai;
   regulars: typeof regulars;
   research: typeof research;
   stands: typeof stands;
+  tripo: typeof tripo;
 }>;
 
 /**

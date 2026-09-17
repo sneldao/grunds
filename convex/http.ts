@@ -134,6 +134,100 @@ export const agentmailWebhook = httpAction(async (ctx, req) => {
   }
 });
 
+// Tripo webhook — task.completed / task.failed / balance.low.
+// Tripo signs HMAC-SHA256 over `${t}.${rawBody}` with the whsec_ signing
+// secret; header format `t=<unix>,v1=<hex>`. Same verification discipline as
+// verifySvix: verify before acting, 5-minute replay window, idempotent apply.
+async function verifyTripo(
+  secret: string,
+  sig: string | null,
+  body: string,
+): Promise<boolean> {
+  if (!sig) return false;
+  const parts: Record<string, string> = {};
+  for (const p of sig.split(",")) {
+    const i = p.indexOf("=");
+    if (i > 0) parts[p.slice(0, i)] = p.slice(i + 1);
+  }
+  const t = parts["t"];
+  const v1 = parts["v1"];
+  if (!t || !v1) return false;
+  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false; // replay guard
+  try {
+    const keyHex = secret.startsWith("whsec_") ? secret.slice(6) : secret;
+    const keyBytes = Uint8Array.from(
+      keyHex.match(/.{1,2}/g) ?? [],
+      (b) => parseInt(b, 16),
+    );
+    if (keyBytes.length === 0) return false;
+    const key = await crypto.subtle.importKey(
+      "raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+    );
+    const out = await crypto.subtle.sign(
+      "HMAC", key, new TextEncoder().encode(`${t}.${body}`),
+    );
+    const hex = Array.from(new Uint8Array(out))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    return hex === v1.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+export const tripoWebhook = httpAction(async (ctx, req) => {
+  const secret = process.env.TRIPO_WEBHOOK_SECRET;
+  if (!secret) return json({ error: "webhook not configured" }, 503);
+  const raw = await req.text();
+  if (!(await verifyTripo(secret, req.headers.get("tripo-webhook-signature"), raw)))
+    return json({ error: "bad signature" }, 401);
+  let evt: {
+    type?: string;
+    data?: {
+      task_id?: string;
+      status?: string;
+      output?: { model_url?: string; rendered_image_url?: string };
+    };
+  };
+  try {
+    evt = JSON.parse(raw) as typeof evt;
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const type = evt.type;
+  if (type === "balance.low") return json({ noted: "balance.low" });
+  if (type !== "task.completed" && type !== "task.failed")
+    return json({ ignored: type ?? "unknown" });
+  const d = evt.data ?? {};
+  if (!d.task_id) return json({ error: "missing task_id" }, 400);
+  // Idempotent + fast: applyResult patches at most one row and drops unknown
+  // task ids (Tripo retries non-2xx, so we always answer 2xx once verified).
+  await ctx.runMutation(internal.tripo.applyResult, {
+    taskId: d.task_id,
+    ok: type === "task.completed",
+    modelUrl: d.output?.model_url,
+    previewUrl: d.output?.rendered_image_url,
+    error: type === "task.failed" ? `webhook: ${d.status ?? "failed"}` : undefined,
+  });
+  return json({ ok: true });
+});
+
+// The Generative District — read the kit for a seed (floor polls this),
+// or grow it: get-or-create the missing slots (budget-guarded in
+// mint.generate; the first player on a seed pays, the rest load the cache).
+// Read-only + idempotent, so no auth — same posture as /sync/*.
+export const districtKit = httpAction(async (ctx, req) => {
+  const seed = Number(new URL(req.url).searchParams.get("seed") ?? 7);
+  if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
+  return json(await ctx.runQuery(api.district.kit, { seed }));
+});
+
+export const districtEnsure = httpAction(async (ctx, req) => {
+  const seed = Number(new URL(req.url).searchParams.get("seed") ?? 7);
+  if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
+  return json(await ctx.runAction(api.district.ensure, { seed }));
+});
+
 // Post the letter to a real inbox — the client sends the composed letter
 // plus a recipient; replies resolve back to this campaign via the thread
 // mapping recorded in agentmail.sendLetter.
@@ -303,6 +397,8 @@ http.route({ path: "/sync/stands", method: "GET", handler: syncStands });
 http.route({ path: "/ai/letter", method: "POST", handler: aiLetter });
 http.route({ path: "/ai/gossip", method: "POST", handler: aiGossip });
 http.route({ path: "/ai/research", method: "GET", handler: aiResearch });
+http.route({ path: "/district/kit", method: "GET", handler: districtKit });
+http.route({ path: "/district/ensure", method: "POST", handler: districtEnsure });
 
 // Static floor (uploaded dist/): exact routes above win, everything else
 // falls back to index.html. App URLs stay at root — no /api prefix move.

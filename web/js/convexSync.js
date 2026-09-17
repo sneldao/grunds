@@ -5,7 +5,7 @@
 // client lib — plain fetch against the http.ts bridge, fire-and-forget so
 // the game never blocks.
 
-function baseUrl() {
+export function baseUrl() {
   try {
     const q = new URLSearchParams(location.search).get('convex');
     if (q) { try { localStorage.setItem('grunds.convexUrl', q); } catch { /* private mode */ } return q; }

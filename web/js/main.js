@@ -5,6 +5,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS } from './config.js';
 import { buildWorld } from './world.js';
+import { initDistrictGen } from './districtGen.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
 import { PatronSystem } from './patrons.js';
@@ -53,6 +54,10 @@ const regulars = new Regulars();
 // ?convex=https://<deploy>.convex.site — the floor never blocks on it.
 const sync = initSync();
 const SEED = urlParams.get('seed') ? +urlParams.get('seed') : 7;
+// Generative District (Tripothon S1): street furniture grown from the seed
+// via the Convex bridge — fire-and-forget cross-fade on arrival; the classic
+// procedural district is the fallback. No-ops when headless / no-GL / no Convex.
+initDistrictGen({ scene, seed: SEED });
 // Linkup market intel: fetched once per session (server-cached 6h). Tilts the
 // dawn deck via exchange.openDay(bias) and is cited in the roaster's letter.
 let marketIntel = null;
@@ -607,7 +612,15 @@ function showMorningBrief() {
     head.textContent = hint ? `06:00 · day ${day}/${CAMPAIGN.days} — the wire ${hint} · · · tap the wire for sources` : `06:00 · day ${day}/${CAMPAIGN.days} — the street is still · read, then commit`;
   } catch { if (head) head.textContent = `06:00 · day ${day}/${CAMPAIGN.days} — the street is still · read, then commit`; }
   const body = $('brief-letter');
-  if (body) body.textContent = L.body;
+  if (body) {
+    // Progressive disclosure (stage 1 = the news only): the sizing explainer
+    // paragraph and the wire citation live on as buttons (stage 3) and the
+    // collapsed wire (stage 2) — the visible letter stays the news, not the manual.
+    body.textContent = L.body.split('\n')
+      .filter(ln => !ln.includes('Light covers half the wave. Standard covers tomorrow.')
+        && !ln.startsWith('Off the wire — '))
+      .join('\n').replace(/\n{3,}/g, '\n\n');
+  }
   // wire block: clickable source links + why-this-matters
   const wire = $('brief-wire');
   if (wire) {
@@ -616,9 +629,23 @@ function showMorningBrief() {
     const srcs = (marketIntel && marketIntel.sources) || [];
     const shift = marketIntel?.marketShift?.[0];
     if (srcs.length) {
-      const h = document.createElement('div'); h.style.fontSize = '10px'; h.style.letterSpacing = '.18em';
-      h.style.textTransform = 'uppercase'; h.style.opacity = '.55'; h.textContent = 'on the wire — headlines (free)';
-      wire.appendChild(h);
+      // Progressive disclosure (stage 2 = folded wire): the kicker already
+      // promises "tap the wire for sources" — the summary counts the cost
+      // (free) and everything inside is one tap away, not ten lines.
+      // First tap opens + marks the wire read so the kicker stops shouting.
+      const det = document.createElement('details'); det.id = 'brief-wire-details';
+      const sum = document.createElement('summary');
+      sum.textContent = `on the wire — ${Math.min(srcs.length, 2)} headline${srcs.length > 1 ? 's' : ''} (free) · tap for sources`;
+      det.appendChild(sum);
+      wire.appendChild(det);
+      if (head) {
+        head.style.cursor = 'pointer';
+        head.title = 'tap to open the wire’s sources';
+        head.onclick = () => {
+          det.open = true;
+          try { analytics.track('wire_opened', { day }); } catch {}
+        };
+      }
       for (const s of srcs.slice(0, 2)) {
         const row = document.createElement('div'); row.style.marginTop = '6px';
         const a = document.createElement('a'); a.textContent = s.title || 'untitled';
@@ -626,12 +653,12 @@ function showMorningBrief() {
         let host = ''; try { host = new URL(s.url).hostname.replace(/^www\./, ''); } catch {}
         const b = document.createElement('span'); b.style.opacity = '.5'; b.style.fontSize = '10px';
         b.textContent = (host ? ' · ' + host : '') + (s.origin ? ' · ' + s.origin : '');
-        row.append(a, b); wire.appendChild(row);
+        row.append(a, b); det.appendChild(row);
       }
       if (shift && shift.reason) {
         const why = document.createElement('div'); why.style.marginTop = '8px'; why.style.fontSize = '10.5px';
         why.style.opacity = '.72'; why.textContent = 'why this matters · ' + String(shift.why || shift.reason).slice(0, 160);
-        wire.appendChild(why);
+        det.appendChild(why);
       }
       // insider tilt callout
       const edge = document.createElement('div'); edge.style.marginTop = '8px'; edge.style.fontSize = '10px';
@@ -641,7 +668,7 @@ function showMorningBrief() {
       } else if (shift) {
         edge.textContent = 'the quantitative tilt (×) is District Insider · headlines above are yours';
       } else edge.textContent = 'headlines free · the wire lives inside the brief and the desk';
-      wire.appendChild(edge);
+      det.appendChild(edge);
       // a market regular hears the direction without the multiplier — the
       // whisper is qualitative, the × stays insider
       if (perkBg === 'circuit' && shift) {
@@ -650,8 +677,17 @@ function showMorningBrief() {
         const w = document.createElement('div');
         w.style.cssText = 'margin-top:6px;font-size:10.5px;opacity:.78;font-style:italic';
         w.textContent = `the circuit whispers — the board leans ${lean}`;
-        wire.appendChild(w);
+        det.appendChild(w);
       }
+      // the desk lives inside the open wire now — context at the point of
+      // curiosity, not a footer under OPEN. The standalone #brief-desklink
+      // stays as the quiet-day fallback (no details element those mornings).
+      const dl = document.createElement('button');
+      dl.className = 'l-desktoggle';
+      dl.style.cssText = 'margin:8px 0 0;font-size:11px;text-align:left;opacity:.85';
+      dl.textContent = billing.isSubscribed() ? '⚡ open the full wire desk' : '⚡ headlines free — open the desk for the tilt';
+      dl.onclick = () => desk.open(marketIntel);
+      det.appendChild(dl);
     } else {
       wire.textContent = 'The wire is quiet today — no headlines tilted the deck.';
     }
@@ -688,6 +724,13 @@ function showMorningBrief() {
   // Brief offers the hedge only (light/std/heavy/hold); settle stays on the night Letter
   const actions = $('brief-actions'); if (actions) {
     actions.textContent = '';
+    // Progressive disclosure (stage 3 = the decision): a section label so the
+    // sizing row reads as the commit it is, not more paragraphs.
+    const lab = document.createElement('div');
+    lab.style.fontSize = '10px'; lab.style.letterSpacing = '.18em';
+    lab.style.textTransform = 'uppercase'; lab.style.opacity = '.55';
+    lab.textContent = 'decide — size the position';
+    actions.appendChild(lab);
     const hint = document.createElement('div');
     hint.style.fontSize = '10.5px'; hint.style.opacity = '.6'; hint.style.marginBottom = '4px';
     hint.textContent = 'Sizing is the position — light wastes less, heavy covers tomorrow, spot pays no fee.';
@@ -706,9 +749,14 @@ function showMorningBrief() {
   if (open) open.textContent = 'OPEN FOR DAY →';
   const desklink = $('brief-desklink');
   if (desklink) {
-    if (marketIntel) {
+    // Quiet days have no wire details, so the footer button is the only door
+    // to the desk. On wire days the desk entry lives inside the open details
+    // (built above) and the footer stays hidden — one door, not two.
+    if ($('brief-wire-details')) {
+      desklink.style.display = 'none';
+    } else if (marketIntel) {
       desklink.style.display = '';
-      desklink.textContent = billing.isSubscribed() ? '\u26a1 open the full wire desk' : '\u26a1 headlines free — open the desk for the tilt';
+      desklink.textContent = billing.isSubscribed() ? '⚡ open the full wire desk' : '⚡ headlines free — open the desk for the tilt';
       desklink.onclick = () => desk.open(marketIntel);
     } else desklink.style.display = 'none';
   }
@@ -907,6 +955,18 @@ function campaignClose() {
     if ($('again')) { $('again').style.display = ''; $('again').textContent = '↺ run another week'; }
     // Challenge link: the week was a seed — share it so a friend plays the
     // same market, same waves, same regulars.
+    // Challenge link: the week was a seed — share it so a friend plays the
+    // same market, same waves, same regulars. The seed is also the street:
+    // the Generative District kit is keyed by it, so the link gifts the world.
+    const rs = $('r-seed');
+    if (rs) {
+      rs.style.display = '';
+      rs.textContent = 'district seed ' + SEED + ' — ';
+      const a = document.createElement('a');
+      a.href = '?seed=' + SEED;
+      a.textContent = 'this street, for a friend ↗';
+      rs.appendChild(a);
+    }
     if ($('shareWeek')) {
       $('shareWeek').style.display = '';
       $('shareWeek').onclick = () => openShareToX({
@@ -938,7 +998,8 @@ function refreshStands() {
     b.textContent = '1st ' + rows[0].ownerName + ' ' + fmt(rows[0].till);
     d.append('district · ', b,
       rank ? ' · you ' + ordinal(rank) + ' of ' + rows.length
-           : ' · ' + rows.length + ' stands racing');
+           : ' · ' + rows.length + ' stands racing',
+      ' · seed ' + SEED);
     const box = $('r-stands');
     box.textContent = '';
     const h = document.createElement('h4');

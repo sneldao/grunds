@@ -28,4 +28,23 @@ crons.daily(
   {},
 );
 
+// Tripo backstop: webhooks are primary, this re-queries tasks stuck in
+// "processing" (lost delivery) and times out the hopeless ones (1h).
+// Hourly is deliberate — a lost webhook costs minutes of polling lag at most,
+// and the floor's fallback never blocks play.
+crons.hourly(
+  "tripo-task-reaper",
+  { minuteUTC: 15 },
+  internal.tripo.reaper,
+  {},
+);
+
+// Mint operations (no webhooks — polling IS the completion path).
+crons.hourly(
+  "mint-operation-reaper",
+  { minuteUTC: 45 },
+  internal.mint.reaper,
+  {},
+);
+
 export default crons;

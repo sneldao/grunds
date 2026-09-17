@@ -76,6 +76,33 @@ export default defineSchema({
     reputation: v.number(),
   }).index("by_campaign", ["campaignId"]),
 
+  // Tripo-generated assets (Tripothon S1 — the Generative District).
+  // Content-addressed: `key` is a hash of the full generation spec, so
+  // identical prompts+seeds share one row and generate once. Webhook
+  // primary, reaper-cron backstop; `key = "tripo:<djb2>"`.
+  tripoAssets: defineTable({
+    key: v.string(),
+    // "tripo" | "mint" | (future providers) — the table is the provider-
+    // agnostic asset spine; the reaper dispatches on this.
+    provider: v.string(),
+    taskId: v.optional(v.string()),
+    status: v.string(), // "processing" | "success" | "failed"
+    prompt: v.string(),
+    model: v.string(),
+    modelSeed: v.optional(v.number()),
+    imageSeed: v.optional(v.number()),
+    textureSeed: v.optional(v.number()),
+    faceLimit: v.optional(v.number()),
+    pbr: v.optional(v.boolean()),
+    negativePrompt: v.optional(v.string()),
+    modelUrl: v.optional(v.string()),
+    previewUrl: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_task", ["taskId"]),
+
   // External-API response cache — token/cost efficiency. Firecrawl news
   // (6h TTL: commodity news moves daily) and OpenAI prose (7d TTL: the
   // deterministic sim replays identical bodies across seeds and days).

@@ -67,7 +67,9 @@ function intelLine(s) {
 function tapeLine(s) {
   // The tape: yesterday's close → today's close, and what a move usually
   // means for tomorrow. This is the Drug Wars beat — information → plan.
-  if (s.indexPrev == null) return '';
+  // Day 1 has no yesterday (tapePrev is just the 1.0 initializer), so a
+  // phantom "Spot closed up N%" would read as history that never happened.
+  if (s.day <= 1 || s.indexPrev == null) return '';
   const pct = Math.round((s.index - s.indexPrev) * 100);
   if (!pct) return 'Spot held flat through the day.';
   const carry = pct > 0
