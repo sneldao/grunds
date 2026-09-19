@@ -307,11 +307,13 @@ is effectively free until a task succeeds.
       Tripo" (@TripoAI, #Tripothon)
 
 ### Wk 2 — Sep 20–26: P0 shipped (All Gas deploy Sep 22)
-- [ ] District kit complete: rival façades + hero props + sign; seed → code on
-      district board + photo mode
-- [ ] `?classicDistrict` + failure fallback hardened (headless-safe)
-- [ ] `tools/tripo-pipeline.mjs` pre-warms a **hero seed** (the demo seed) so
-      judges' first load is always the best district
+- [x] District kit complete: rival façades + hero props + sign; seed → code on
+      district board + photo mode *(board + share card 09-17; photo caption 09-19)*
+- [x] `?classicDistrict` + failure fallback hardened (headless-safe) *(09-19,
+      `web/test/district.mjs` — classic boot makes zero network calls)*
+- [x] `tools/mint-pipeline.mjs` pre-warms a **hero seed** (the demo seed) so
+      judges' first load is always the best district *(09-19; seed 7 verified
+      5/5 settled, reaper kicked on demand instead of waiting for the hourly cron)*
 - [ ] All Gas final gate + deploy; Tripo work tagged in a separate branch
       cadence so the All Gas gate (18/18) stays green
 - [ ] Build-log post #2 with before/after frames (Kenney vs generated stand)

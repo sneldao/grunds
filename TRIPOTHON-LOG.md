@@ -14,6 +14,13 @@
 
 ## Log
 
+### 2026-09-19 — The unblockable demo: `?classicDistrict`, on-demand pre-warm, seed in every artifact
+- **`tools/mint-pipeline.mjs` (new):** grows or checks district kits through the *same* live `district:ensure` / `district:kit` path the first player's boot fires — one prompt source of truth (`convex/district.ts`), offline and runtime can't drift. Each poll tick kicks `mint:reaper` directly instead of waiting for the hourly cron, so a fresh kit finalizes inside one run; writes `out/district-manifest.json`. **Hero seed 7: 5/5 grown + cached** — the seed judges land on never waits on a provider.
+- **`?classicDistrict` built** (aliases `?noDistrict` / `?nogen`) — the completeness guarantee the plan named but nobody had wired: `districtOptOut()` is pure + test-pinned; a classic boot makes **zero network calls**. New `web/test/district.mjs` (20 assertions): opt-out regex (incl. substring false-positives), classic/headless/no-GL/no-base no-ops, slot placement contract, main.js wiring. Gate **20/20**, `tsc` clean, site uploaded.
+- **Seed visibility:** the photo-mode caption now signs every shot `· seed N` (the district board and share card already carried it) — everything a player emits names the world to gift.
+- **Provider flake found the honest way:** seeds 11 + 23 (fresh shareable streets) are refused **at creation** by Mint's safety check ("couldn't complete the safety check. Try again.") — every slot, 4 retry rounds, ~45 min. Seed 7's byte-identical lantern prompt proves it isn't our prompt library. The floor degrades exactly as designed: `missing` → classic stand-in, never an error. Retry via `node tools/mint-pipeline.mjs 11 23` (free until it grows).
+- **Budget-guard fix this surfaced:** `apiCache.claimDaily` slots were consumed by *unbilled* creation failures — a provider outage could starve a whole day of budget. New `apiCache.refundDaily` hands the slot back whenever upstream fails without billing (mint.generate + tripo.generate catch paths); verified live — counter stayed at 0 across five fresh flakes. `MINT_DAILY_BUDGET` 25 → 40.
+
 ### 2026-09-17 — Demand: awareness + loyalty (direction-track difficulty)
 - **The game got harder on purpose** (player feedback: customers came too
   easily). New pure `web/js/demand.js`: awareness 0..1 multiplies wave spawns

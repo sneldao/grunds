@@ -8,24 +8,41 @@
 - **Frontend:** Convex static hosting
 - **Convex deployment:** https://striped-anaconda-746.convex.cloud
 - **Components:** @convex-dev/static-hosting
-- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /sync/*, /agentmail/webhook), crons, static hosting
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /sync/*, /agentmail/webhook, /district/kit, /district/ensure, /tripo/webhook), crons, static hosting
 - **Auth:** none
-- **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated)
+- **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-15T00:00:00Z
+- **Last updated:** 2026-09-19T17:35:00Z
 
 ## Log
+
+### 2026-09-19 - Working tree - The unblockable district: classic escape hatch, kit pre-warm, budget refunds
+- **`?classicDistrict` built** (aliases `?noDistrict`/`?nogen`): `districtGen.js` gains a pure `districtOptOut()` gate threaded from `main.js` — an explicit opt-out makes zero network calls, so any judge/offline demo plays the procedural street. New `web/test/district.mjs` (20 assertions) pins the gate, the headless/no-GL/no-base fallbacks, and the slot contract; gate **20/20**, `tsc` clean, site re-uploaded.
+- **`tools/mint-pipeline.mjs` (new):** pre-warms district kits through the live `district:ensure`/`district:kit` path (shared prompt source with `convex/district.ts`), kicking the `mint:reaper` action on demand instead of the hourly cron; writes `out/district-manifest.json`. Hero seed 7 verified 5/5 grown + cached; photo-mode captions now carry the seed.
+- **Convex fix — spend guard honesty:** `apiCache.refundDaily` (new mutation) returns a daily budget slot when an upstream generation fails *unbilled* (Mint's safety check began refusing new-seed creation at task start — seed 11/23 kits stuck `missing`, classic stand-in holds by design); wired into `mint.generate` + `tripo.generate` catch paths and verified live (counter stays 0 across repeated flakes). `MINT_DAILY_BUDGET` 25→40. Convex features: mutations, actions, crons untouched.
+
+### 2026-09-17 - c8fc9fa - Demand stocks: awareness decays, street work buys it back, loyalty returns
+- **`web/js/demand.js` (new):** two stocks, one funnel. Awareness (0..1) multiplies wave spawn rate (0.4×–1.3×); it decays every `closeDay` (extra on catastrophe events) and dawn-staged street work buys it back — chalk (free), sampling (costs cups), sponsor (£ from till, unlocks day 3+), committed the next morning.
+- **Loyalty is reputation re-explained as a return rate:** `Demand.returnRateFor(reputation)` (+ `regulars.js` live-stock version) — a share of yesterday's served reappear at today's dawn, spread across the waves. HUD tape shows awareness pips (●●●○○); the receipt prints the decay/gain trace.
+- Pure + deterministic — the sim owns commit timing, the module owns the numbers. New `web/test/demand.mjs` pins every constant through `CAMPAIGN.demand`; gate **19/19**, `tsc` clean.
+
+### 2026-09-17 - 3695bf1 - The generative district goes live (seed-7 kit) + Morning Brief disclosure pass
+- **Seed → street, deployed:** `convex/district.ts` + `web/js/districtGen.js` — a mulberry32 seed derives a deterministic 5-slot kit spec (silhouette-first word banks, house style, no-text guard); `/district/kit` + `/district/ensure` serve content-keyed get-or-create via `convex/mint.ts` (Mint, `MINT_DAILY_BUDGET=25`). Seed 7 pre-warmed 5/5, GLBs URL-verified; fresh seeds read `missing` and self-grow on first visit.
+- **Provider-agnostic spine:** `tripoAssets` gains a `provider` field — Mint generates today, the Tripo v3 adapter (`convex/tripo.ts`, `verifyTripo` webhook + reaper cron) flips in if credits land (Sep 18 gate). Mint has no seed params, so District Seed determinism is key memoization: generate once per seed, cache forever — same seed, same street.
+- **Client cross-fades** generated GLBs over the procedural base with per-slot scale normalization; `?classicDistrict` + failure fallback keep the demo unblockable.
+- **Morning Brief progressive disclosure:** news-only letter (sizing paragraph + wire citation de-duped into buttons/wire), wire folded into `<details>`, `decide — size the position` over the commit row — plus an honesty fix: day 1 no longer prints a phantom "Spot closed up N%" (the tape needs a yesterday).
+- Agency + smoke PASS, live; gate 18/18 at this commit. Tripothon build log started alongside: `TRIPOTHON-LOG.md`, plan in `TRIPOTHON.md`.
 
 ### 2026-09-15 - The demo video: real gameplay, sponsor loop end-to-end
 The three-minute cap needed the product, not a pitch reel — so `videos/grunds-demo` is a HyperFrames composition assembled from Playwright-recorded live gameplay at 1920×1080, not mockups.
 - **`scripts/record.mjs`** drives the real site through three clips: (a) licence → tutorial → Morning Brief → hedge → floor, (b) a full day at 20× → Roaster's Letter → "post this letter to…" (AgentMail), (c) the Wire desk with `linkup`/`firecrawl` origin tags. Recording gotchas that mattered: `#open` stays `disabled` until the GLBs place (DOM clicks on disabled buttons are silent no-ops), and Playwright's actionability wait stalls on the animating overlays — direct `el.click()` evals everywhere.
 - **`index.html`** sequences six trimmed segments (~95s) under Iowan caption cards: licence → brief → the day at 20× → the letter and its post row → the wire desk → the live district board → end card with the `convex.site` URL and the sponsor roll. Music bed is a synthesized pad (ffmpeg) — voiceover deliberately held until the cut is approved.
-- **A real bug fell out of recording:** typing an email into the post row fired global game keys — the `r` in an address ran `reset()` and wiped the campaign mid-keystroke. `main.js`'s keydown handler now returns early when the target is an input/textarea (after the licence gate, which still owns Enter-to-sign inside its own fields). Verified live: the letter stays open while `excitedinstrument809@agentmail.to` types in.
+- **A real bug fell out of recording:** typing an email into the post row fired global game keys — the `r` in an address ran `reset()` and wiped the campaign mid-keystroke. `main.js`'s keydown handler now returns early when the target is an input/textarea (after the licence gate, which still owns Enter-to-sign inside its own fields). Verified live: the letter stays open while `[redacted inbox]` types in.
 - Gate unchanged (18/18), `npm run check` clean (0 findings), deployed with the fix.
 
 ### 2026-09-14 - The roaster is a real mailbox — AgentMail end-to-end
 AgentMail goes from half-wired webhook to the demo's best sponsor story: the Roaster's Letter is now literal post.
-- **Provisioned `grunds-roaster@agentmail.to`** ("Idris Grunds") + a real `message.received` webhook (`ep_3JKWZvxq…`, Svix-signed, inbox-filtered) pointed at `/agentmail/webhook`.
+- **Provisioned the roaster inbox** ([redacted inbox], "Idris Grunds") + a real `message.received` webhook (`ep_3JKWZvxq…`, Svix-signed, inbox-filtered) pointed at `/agentmail/webhook`.
 - **Send path:** `POST /agentmail/letter` → `agentmail.sendLetter` mails the exact letter body the player sees (+ a `reply: contract · hold · settle` footer), records thread + recipient → campaign mappings (apiCache, 30d) and archives outbound in `letters`. The letter modal gains a paper-styled "post this letter to…" row (sync-gated; address persists in `grunds.mail`).
 - **Reply path:** the webhook now verifies real Svix signatures (`verifySvix` — HMAC-SHA256 over `id.ts.body` with the `whsec_` key), parses `message.received`, resolves the campaign via `resolveThread` (thread id → sender address fallback), applies `handleInbound` (contract/hold/settle), and **Idris acknowledges by return post** — "Done — the beans are locked at today's board." Self-delivery guarded against ack loops; the legacy shared-secret path stays for manual tests.
 - **Verified with real mail:** letter delivered to a second AgentMail inbox → replied "contract — lock me in" → campaign updated live (debt +£22 fee, 2400 units locked at 1.25) → ack received in the player's inbox → all three pieces of correspondence in `letters`.
