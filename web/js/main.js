@@ -24,7 +24,8 @@ import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay } from './gentrification.js';
 import { initSync } from './convexSync.js';
 import { buildMailTheater } from './mailTheater.js';
-import { calculateCampaignBadge, openShareToX } from './share.js';
+import { calculateCampaignBadge, openShareToX, formatShareText } from './share.js';
+import { buildShareCard, CARD_W, CARD_H } from './shareCard.js';
 import { createAnalytics } from './analytics.js';
 import { billing } from './billing.js';
 import { initDesk, wireHint } from './desk.js';
@@ -1537,7 +1538,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'c' || e.key === 'C') rig.resetView();
   else if (e.key === 'p' || e.key === 'P') { try { doPhoto(); } catch {} }
 });
-// photo mode: freeze at golden hour, generate share thumbnail
+// photo mode: freeze at golden hour, print a stamped share card, act on it
 function doPhoto() {
   try { audio.shutter(); } catch {}
   const wasPaused = paused; paused = true; if ($('pause')) $('pause').textContent = 'resume';
@@ -1545,22 +1546,67 @@ function doPhoto() {
   try { world.updateTimeOfDay(dayMin); } catch {}
   try { document.body.classList.add('photo'); } catch {}
   fx.toast('📷 photo — golden hour', 'good');
+  const badge = calculateCampaignBadge({
+    netWorth: cRev - cCost - cOps - settledPaid - exchange.debt,
+    reputation: regulars.reputation, served: served + servedRetail, balked, debt: exchange.debt,
+  });
+  const shareData = {
+    day: day + 1, till, reputation: regulars.reputation, seed: SEED,
+    verdict: '', badge, balked, served: served + servedRetail,
+  };
+  let cardUrl = null;
   try {
-    renderer.render(scene, camera);
+    postfx.render(performance.now());   // the print matches the eye: bloom + vignette included
     const src = renderer.domElement;
-    const c = document.createElement('canvas'); c.width = 720; c.height = 405;
-    const g = c.getContext('2d');
-    g.drawImage(src, 0, 0, 720, 405);
-    g.fillStyle = 'rgba(23,19,16,.78)'; g.fillRect(0, 360, 720, 45);
-    g.fillStyle = '#efe6d3'; g.font = '600 16px Georgia, serif'; g.textAlign = 'center';
-    const cap = `Held the line — ${served + servedRetail} served · ${balked} walked${defections ? ` · ${defections} to GLASSHOUSE` : ''} · seed ${SEED}`;
-    g.fillText(cap, 360, 388);
-    const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = `grunds-day${day}.png`; a.click();
-  } catch {}
-  setTimeout(() => {
+    const snap = document.createElement('canvas'); snap.width = 1208; snap.height = 562;
+    snap.getContext('2d').drawImage(src, 0, 0, snap.width, snap.height);
+    const card = document.createElement('canvas'); card.width = CARD_W; card.height = CARD_H;
+    buildShareCard(card.getContext('2d'), {
+      snapshot: snap, badge, seed: SEED, day: day + 1,
+      stats: { till, rep: regulars.reputation, served: served + servedRetail, balked },
+    });
+    cardUrl = card.toDataURL('image/png');
+  } catch { /* a dead card never eats the moment — the row still shows the caption path */ }
+  let caption = '';
+  try { caption = formatShareText(shareData); } catch { caption = `Grunds — The District · day ${day + 1} · seed ${SEED}`; }
+  // the dim holds until an action lands — or 6 s of admire
+  const row = $('photo-actions');
+  let ended = false;
+  const finish = () => {
+    if (ended) return; ended = true;
+    if (row) row.classList.remove('show');
     try { document.body.classList.remove('photo'); } catch {}
     if (!wasPaused && !closed) { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
-  }, 900);
+  };
+  const act = (id, fn) => {
+    const b = $(id);
+    if (b) b.onclick = () => { Promise.resolve().then(fn).catch(() => {}).then(() => setTimeout(finish, 250)); };
+  };
+  act('pc-save', () => {
+    if (!cardUrl) return;
+    const a = document.createElement('a');
+    a.href = cardUrl; a.download = `grunds-day${day + 1}-seed${SEED}.png`; a.click();
+  });
+  act('pc-share', async () => {
+    if (cardUrl && typeof navigator !== 'undefined' && navigator.canShare) {
+      try {
+        const blob = await (await fetch(cardUrl)).blob();
+        const file = new File([blob], `grunds-day${day + 1}-seed${SEED}.png`, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ text: caption, files: [file] });   // the card rides along
+          return;
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;   // player closed the sheet — that's an answer
+      }
+    }
+    openShareToX(shareData);   // no files? the X intent carries the text
+  });
+  act('pc-copy', async () => {
+    try { await navigator.clipboard.writeText(caption); fx.toast('caption copied', 'good'); } catch {}
+  });
+  if (row) row.classList.add('show'); else setTimeout(finish, 900);
+  setTimeout(finish, 6000);
 }
 // Konami / GRUNDS — hidden regular Gwen gesha
 let _konami = '', _geshaUnlocked = false;

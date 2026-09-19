@@ -155,6 +155,13 @@
   /* photo vignette lift: only in photo mode */
   body.photo::before { background: radial-gradient(ellipse at 50% 42%, transparent 48%, rgba(8,6,4,.55) 100%); }
   body.photo::after { opacity: .02; }
+  /* photo mode: the stamped card's action row — save / share / copy */
+  #photo-actions { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%) translateY(10px);
+    z-index: 34; display: flex; gap: 8px; padding: 10px 12px; background: rgba(23,19,16,.88);
+    border: 1px solid rgba(201,162,39,.35); border-radius: 6px; opacity: 0; pointer-events: none;
+    transition: opacity .4s ease, transform .4s ease; }
+  #photo-actions.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+  #photo-actions button { font-size: 12px; letter-spacing: .04em; }
   /* ---- reduced-motion: kill camera breath, grain, pulse, and construction hammer visuals ---- */
   @media (prefers-reduced-motion: reduce) {
     body::after { animation: none !important; opacity: .02; }
@@ -456,6 +463,12 @@ Made to order, a matcha takes 4 minutes.
     <button id="camreset">camera <kbd>C</kbd></button>
     <button id="photoBtn" title="Photo mode (P)">📷</button>
     <button id="mute">sound on</button>
+  </div>
+
+  <div id="photo-actions">
+    <button id="pc-save" title="Download the stamped card">↓ save</button>
+    <button id="pc-share" title="Share — system sheet where available">𝕏 share</button>
+    <button id="pc-copy" title="Copy the caption">⧉ copy</button>
   </div>
 
   <div id="tutorial" aria-hidden="true">
