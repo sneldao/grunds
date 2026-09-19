@@ -8,13 +8,21 @@
 - **Frontend:** Convex static hosting
 - **Convex deployment:** https://striped-anaconda-746.convex.cloud
 - **Components:** @convex-dev/static-hosting
-- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /sync/*, /agentmail/webhook, /district/kit, /district/ensure, /tripo/webhook), crons, static hosting
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /sync/*, /agentmail/webhook, /agentmail/inbox, /district/kit, /district/ensure, /tripo/webhook), crons, static hosting
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-19T17:35:00Z
+- **Last updated:** 2026-09-19T18:54:00Z
 
 ## Log
+
+### 2026-09-19 - 534eef6 - The delight pass: five durable features, one architecture spine
+Five committed features (206a5a4 → 534eef6), each with its own headless suite — the gate grew 20 → 26/26, `tsc` clean, functions + site redeployed and verified live.
+- **Vitality spine (206a5a4):** `web/js/director.js` — a per-frame layer registry that runs strictly AFTER `world.updateTimeOfDay`/`sky.update` (every modulation target is rewritten each frame; layers read-modify-write, never cache). `web/js/vitality.js`: 0.65·awareness + 0.35·reputation as a smoothed 0–1 signal that dims lamps, sky sun/stars, and the audio murmur/pad — audiovisual skin only, provably never touching `demand.spawnMul` (no mechanical double-count, test-enforced).
+- **Idle guidance (bdaad4a):** `web/js/nextAction.js` is the single next-action source feeding the `#goal` strip and the brief row, so text and pointer can't drift; `web/js/halo.js` pulses a brass ground ring at the chalkboard / street / mailbox after 4.5 s of no intent (pure `shouldHalo` predicate; keyboard intent counted too).
+- **Kit arrival beat (ccc7334):** `districtGen.js` gained a `grown` signal — `onGrown` fires exactly once when every successful slot has placed; `web/js/kitArrival.js` plays it: cart rolls in from off-street, pendant/lamp lights strike slot-by-slot, fanfare + "the block got its kit" toast. A kit already grown at load stays a quiet crossfade (policy lives in main.js, districtGen stays game-state-free). Reduced motion → toast + soft fanfare, no motion.
+- **Letter arrives as theater (c4f3284, Convex):** `letters` gains `dir/action/from/createdAt` + the `by_campaign_dir_created` index; `agentmail.latestInbox` (after-cursor, pre-migration rows never surface) served by a read-only `GET /agentmail/inbox` — handleInbound stays the only writer of the mechanical move (mirror ≠ second rule). Client: `sync.inbox()` self-throttled ~8 s while a posted letter is pending → `web/js/mailTheater.js` lerps the mailbox flag up, `audio.knock3()` (refactored `_hammerTap` scheduling), drops an envelope sprite (`letterSprite()` bake), toasts; armed on post, disarmed at dawn so the wait never crosses onto a live floor. Proved end-to-end on the dev deployment: seeded inbound reply → round-trip through the route → cursor suppresses it.
+- **Stamped share card (534eef6):** photo mode now captures via `postfx.render` before `drawImage` (fixing a real bug — printed cards silently skipped bloom + vignette) and bakes a 1280×720 card in `web/js/shareCard.js`: cream stock + rng grain, double rule + brass corners (rent-sign idiom), cover-cropped snapshot, caption band, rotated red "GRUNDS · SEED N" rubber stamp — pure on an injected 2D context, so a recording stub asserts paper→pixels→band→stamp order. `#photo-actions` row: ↓ save (seeded filename) / 𝕏 share (Web Share Level 2 with files, X-intent fallback, cancel-aware) / ⧉ copy caption — each degrading independently; the dim holds until an action or 6 s.
 
 ### 2026-09-19 - Working tree - The unblockable district: classic escape hatch, kit pre-warm, budget refunds
 - **`?classicDistrict` built** (aliases `?noDistrict`/`?nogen`): `districtGen.js` gains a pure `districtOptOut()` gate threaded from `main.js` — an explicit opt-out makes zero network calls, so any judge/offline demo plays the procedural street. New `web/test/district.mjs` (20 assertions) pins the gate, the headless/no-GL/no-base fallbacks, and the slot contract; gate **20/20**, `tsc` clean, site re-uploaded.

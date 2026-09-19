@@ -59,6 +59,51 @@ At every `openDay(d)` after the 3-step tutorial, `main.js` builds a one-screen `
 
 **Ruth — the staff layer.** One named barista, one hidden stat: `baristaCondition` drains −0.14 per worked shift (+0.08 if `peakQueue>50`, +0.06 if `balked>60`), recovers +0.45 on a sent-home day. When she fades under 0.55 the Brief carries a `#brief-staff` row — *send her home* (`staffMul 0.7`, her `staffDayRate` saved on the cost sheet, fresh tomorrow) vs *push on*; below 0.35 her legs slow the dawn bar to 0.8×, and pushed under 0.2 she breaks mid-afternoon — asleep at the counter (`staffMul 0.5`) or snapping at a regular (`adjustOpinions −0.2`). The sick-call incident reads her state: she can't call in on a day you already sent her home, and on fumes the call becomes a warning shot (−60% decline). No roster, no morale meter — the fiction carries the state; `staff_sent_home`/`staff_pushed`/`staff_crisis` land in analytics.
 
+## Delight spine — director + vitality (Sept 19)
+
+Five delight features share one architecture rule: `world.updateTimeOfDay`,
+`sky.update`, and `audio.update` overwrite their targets with absolute values
+every frame, so any added modulation must run **after** them, read-modify-write.
+`web/js/director.js` is that seam: `add(id, apply) / remove(id) / update(ctx)`
+with `ctx = {dt, now, dayMin, night, vitality}`, replace-by-id, try/catch per
+layer, wired in `main.js loop()` right after the time-of-day calls.
+
+- **`vitality.js`** — `0.65·awareness + 0.35·(reputation/100)`, lerped ×0.02/frame.
+  Recomputed at `openDay`/`closeDay`/`applyReply`. **Skin, not mechanics:** it
+  drives director layers (pendant/lamp/window/sign glow), `sky.update(t, sun, mood)`
+  (sun intensity + star visibility), and `audio.setMood(v)` (murmur + pad gain) —
+  and provably never touches `demand.spawnMul()`, which already carries the
+  numbers (`vitality.mjs` pins this numerically).
+- **`nextAction.js` + `halo.js`** — one pure priority rule (queue≥6 & !prebatched
+  → batch · morning window & !repriced → price · `mailPending` → mail · wait)
+  renders *both* the `#goal` strip text and the brief row, and after ~5 s of no
+  user intent a camera-invariant ground ring pulses under the target object
+  (`shouldHalo` predicate is pure/headless; the mesh never builds headless or
+  under reduced-motion, which keeps a faint static ring). Words and light
+  cannot drift apart because they read the same function.
+- **`kitArrival.js`** — `districtGen.tick()` now tracks grown vs pending slots
+  and fires `onGrown(slots)` exactly once; the beat rolls a cart in from
+  x+14 (~2.4 s ease-out + bob), lights the five lanterns 0.6 s apart via a
+  `kitGlow` director layer on the decaying pulses, then fanfare + toast. A
+  pre-warmed seed (7) loads quietly; classic/headless never see it
+  (`kit-arrival.mjs`).
+- **`mailTheater.js` + the inbox mirror** — `letters` gained
+  `dir`/`action`/`from`/`createdAt` and index `by_campaign_dir_created`;
+  `agentmail.latestInbox` + `GET /agentmail/inbox` (read-only httpAction) let
+  the client poll for Idris's reply while a posted letter is pending. On
+  arrival: flag lerps up, `audio.knock3()` triple tap, an envelope sprite drops
+  from the mailbox to the pavement, halo retargets. **Mirror rule:**
+  `handleInbound` (server) is the only applier of contract/hold/settle — the
+  client never re-applies (`mail-inbox.mjs` asserts no `runMutation` in the
+  route and no `applyReply` in the arrival path).
+- **`shareCard.js`** — `doPhoto` captures *after* `postfx.render(now)` (the
+  renderer has no `preserveDrawingBuffer`, so a bare `drawImage` would lose
+  bloom/vignette), cover-crops the snapshot into a 1280×720 cream-paper card
+  with double rule, brass corners, caption band and a rotated red rubber stamp
+  (`textures.js` SOLD-stamp idiom), then offers `↓ save · 𝕏 share · ⧉ copy` —
+  Web Share Level 2 where the OS supports it, X-intent and clipboard
+  independently (`share-card.mjs`).
+
 ## Cohorts (behavioural layer)
 
 Culture is mechanics: each cohort has its own arrival wave, elasticity, and gossip
@@ -93,7 +138,9 @@ stores per-patron opinion state.
    drawer slides + shadow stretches on every sale, a living plant (HSL) and a
    street cat (Miso, once/day 09:30, sits if `<4` / scatters if `>10`) make
    the shop alive; hover→story card + click-to-wave and `P` photo mode
-   (golden hour + vignette + shutter) are delight affordances
+   (golden hour + post-FX-correct **stamped share card** — save / Web Share L2
+   / copy) are delight affordances, joined by the idle-time **guidance halo**
+   and the vitality glow the block wears
 4. At `06:00 [PAUSED]` the floor freezes for the Brief (commit the hedge), then `agent` patrons pick stands (price/queue/rep); named Regulars get a
    brass-band hat + greeting; the player pulls levers (pre-batch/reprice,
    with predicted queue drain, chalk dust + screech on reprice) against the
@@ -172,7 +219,11 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   (contract/hold/settle applied to the campaign) → Idris sends an
   acknowledgement by return post. Self-delivery guarded. Verified
   end-to-end: letter delivered → "contract" reply applied (debt +£22,
-  2400 units locked) → ack received → full audit in `letters`.
+  2400 units locked) → ack received → full audit in `letters`. Sept 19:
+  `letters` rows carry `dir`/`action`/`from`/`createdAt` (+
+  `by_campaign_dir_created` index); `latestInbox` behind read-only
+  `GET /agentmail/inbox` mirrors the mailbox so the client can stage the
+  reply's arrival — server `handleInbound` remains the only applier.
 - Hosting: `@convex-dev/static-hosting` serves the floor from
   `https://striped-anaconda-746.convex.site` (43 files Sept 13, SPA fallback — adds `desk.js` + rebuilt `dist`);
   performance: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms, shadow budget at `queue>40`, GLB cross-fade, `tabular-nums` till + staggered/typewriter receipt, `P` photo + `GRUNDS` secret, **bounce hemi 0.22 lifts the bar**;
