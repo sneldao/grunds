@@ -10,6 +10,8 @@ import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
 import { buildDirector } from './director.js';
 import { buildVitality } from './vitality.js';
+import { computeNextAction } from './nextAction.js';
+import { buildHalo, shouldHalo } from './halo.js';
 import { PatronSystem } from './patrons.js';
 import { FX } from './fx.js';
 import { CameraRig } from './camera.js';
@@ -33,6 +35,7 @@ const urlSpeed = +urlParams.get('speed');
 const _autoLite = !_liteFlag && !headless && typeof navigator !== 'undefined'
   && ((navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || (navigator.deviceMemory && navigator.deviceMemory <= 4));
 const lite = _liteFlag || _autoLite;
+const reducedMotion = !headless && typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
 
 // ---- three.js core -----------------------------------------------------------
@@ -92,6 +95,22 @@ if (sync.live && sync.intel) sync.intel().then(r => {
 });
 
 const fx = new FX(scene, null, lite);   // patrons wired in just below
+// ---- idle guidance ------------------------------------------------------------
+// halo.js points at the SAME answer the goal strip speaks (nextAction.js).
+// Any intent — pointer, lever, key — retires it; it only wakes after 4.5s.
+const halo = headless ? null : buildHalo(scene);
+const HALO_SPOTS = {
+  chalk: new THREE.Vector3(-5.5, 0.02, -6.8),     // in front of the menu board
+  street: new THREE.Vector3(0, 0.02, 5.6),        // the pavement band the queue walks
+  mailbox: new THREE.Vector3(-10.4, 0.02, 6.4),   // world.js mailbox
+};
+let _lastIntentAt = 0;
+function markIntent() { _lastIntentAt = performance.now(); }
+let mailPending = false;      // F5: armed when a letter is posted, cleared on arrival
+let kitBeatActive = false;    // F1: the arrival celebration holds the floor's attention
+function currentAction() {
+  return computeNextAction({ dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending });
+}
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
 fx.patrons = patrons;
 const analytics = createAnalytics();
@@ -1149,17 +1168,15 @@ function updateHUD() {
   }
   // goal strip: swap from instruction to live status once the player acts
   if ($('goal')) {
-    if (prebatched || repriced || dayMin >= 840) {
-      const acts = [prebatched ? 'batched ' + ctx.batchUnits : 'not batched', repriced ? 'price cut' : 'full price'];
-      $('goal').innerHTML = `Day ${day}/${CAMPAIGN.days} — <b>${qq} in line</b> · ${acts.join(' · ')} <span class="dim">— 14:00 rush at ${qq <= 5 ? 'safe' : 'danger'}</span>`;
+    // instruction → live status, straight from nextAction.js: the strip and
+    // the idle halo can never disagree
+    const na = currentAction();
+    if (na.id === 'mail') {
+      $('goal').innerHTML = `📬 ${na.text} <span class="dim">— Idris answers those who post</span>`;
+    } else if (na.id === 'status') {
+      $('goal').innerHTML = `Day ${day}/${CAMPAIGN.days} — <b>${qq} in line</b> · ${na.text} <span class="dim">— 14:00 rush at ${qq <= 5 ? 'safe' : 'danger'}</span>`;
     } else {
-      // reactive directive: the strip answers "what should I do right now?"
-      const now = qq >= 6
-        ? `<b>queue’s building — 1 to batch</b>`
-        : qq >= 3
-          ? `watch the queue · <b>1</b> batches before the rush`
-          : `keep the <b>queue under 5</b>`;
-      $('goal').innerHTML = `☕ ${now} · next: <b>14:00 rush</b> <span class="dim">— walk-outs feed GLASSHOUSE</span>`;
+      $('goal').innerHTML = `☕ ${na.text} · next: <b>14:00 rush</b> <span class="dim">— walk-outs feed GLASSHOUSE</span>`;
     }
   }
   // Text + ticker redraws are the bottleneck at high speed (66 DOM writes/s
@@ -1198,6 +1215,7 @@ function updateHUD() {
 function doPrebatch() {
   if (closed || dayMin >= 960) return;
   if (prebatched && ctx.batchUnits > 0) return;          // already warming
+  markIntent();
   const topUp = prebatched || ctx.batchUnits > 0;
   const queueBefore = patrons.queueLength;
   const priceBefore = repriced ? ECON.matchaDeal : (exchange.matchaPrice ?? priceForDay(day));
@@ -1228,6 +1246,7 @@ function doPrebatch() {
 }
 function doReprice() {
   if (repriced || closed) return;
+  markIntent();
   const queueBefore = patrons.queueLength;
   repriced = true; ctx.repriced = true; patrons.repriced = true;
   world.setMatchaPrice('4.20', true);
@@ -1419,6 +1438,7 @@ renderer.domElement.addEventListener('click', e => {
 // sim clock stops). The letter/receipt phases are already still.
 function togglePause() {
   if (!started || closed || campaignDone) return paused;
+  markIntent();
   paused = !paused;
   if ($('pause')) $('pause').textContent = paused ? 'resume' : 'pause';
   fx.toast(paused ? 'paused — space to resume' : 'back on the floor', '');
@@ -1452,6 +1472,7 @@ addEventListener('keydown', e => {
   }
   // typing belongs to the field — never let an email fire game keys
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+  markIntent();   // any game key is intent: the idle halo retires
   // Morning Brief answers to 1/2/3/4/5 (commit a choice) then Enter opens
   if ($('brief') && $('brief').classList.contains('show')) {
     if (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4' || e.key === '5') {
@@ -1714,6 +1735,18 @@ function loop(now) {
   fx.steamFrom(dt);
   fx.update(dt, camera, now);
   rig.update(dt, now);
+  // idle guidance: after 4.5s of no intent, point at the nextAction target
+  if (halo) {
+    let show = false;
+    const lastIntent = Math.max(rig.lastUser || 0, _lastIntentAt || 0);
+    const modalsOpen = ['brief', 'offer', 'letter', 'licence', 'tutorial', 'receipt', 'desk', 'paywall'].some(id => $(id) && $(id).classList.contains('show'));
+    if (shouldHalo({ started, closed, paused, photo: document.body.classList.contains('photo'), modalsOpen, headless, busy: kitBeatActive, idleMs: now - lastIntent })) {
+      const spot = HALO_SPOTS[currentAction().target];
+      if (spot) { halo.showAt(spot, now); show = true; }
+    }
+    if (!show) halo.hide();
+    halo.update(dt, now, { reduced: reducedMotion });
+  }
   audio.setCrowd(patrons.count);
   audio.setRush(patrons.queueLength > 8);
   audio.setMood(vitality.current);
