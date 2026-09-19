@@ -55,14 +55,30 @@ function fitToSlot(inst, height) {
   inst.position.y -= box2.min.y; // ground to y=0 (position was set pre-fit)
 }
 
-export function initDistrictGen({ scene, seed, classic }) {
+export function initDistrictGen({ scene, seed, classic, loader }) {
   const state = { live: false, placed: 0, total: Object.keys(SLOTS).length, seed, classic: !!classic };
   if (classic) return state; // explicit opt-out — the procedural street carries the demo
   if (typeof globalThis !== 'undefined' && (globalThis.__headless || globalThis.__noGLB)) return state;
   const base = (baseUrl() || '').replace(/\/$/, '');
   if (!base || !scene) return state;
-  const glb = GLBLoader();
+  const glb = loader || GLBLoader();
   const placed = new Set();
+  state.grown = false;
+  state.grownSlots = [];
+  state.pending = true;
+  state.successCount = 0;
+
+  // The kit is "grown" once nothing is processing and every success the
+  // server reported has actually landed in the scene. One hook, fires once —
+  // main.js turns it into the arrival celebration.
+  function markGrown() {
+    if (state.grown) return;
+    state.grown = true;
+    if (state.onGrown) state.onGrown(state.grownSlots);
+  }
+  function maybeMarkGrown() {
+    if (!state.pending && state.successCount > 0 && state.placed >= state.successCount) markGrown();
+  }
 
   async function placeSlot(slot, modelUrl) {
     if (placed.has(slot)) return;
@@ -77,7 +93,9 @@ export function initDistrictGen({ scene, seed, classic }) {
       fitToSlot(inst, s.height);
       scene.add(inst);
       state.placed++;
+      state.grownSlots.push({ slot, inst });
       if (state.onPlaced) state.onPlaced(slot, inst);
+      maybeMarkGrown();
     } catch {
       /* one bad asset never blocks the street */
     }
@@ -95,23 +113,28 @@ export function initDistrictGen({ scene, seed, classic }) {
     const slots = data?.slots ?? {};
     let pending = false;
     let missing = [];
+    let successCount = 0;
     for (const [slot, s] of Object.entries(slots)) {
-      if (!SLOTS[slot] || placed.has(slot)) continue;
+      if (!SLOTS[slot]) continue;
       if (s.status === 'success' && s.modelUrl) {
-        placeSlot(slot, s.modelUrl);
+        successCount++;
+        if (!placed.has(slot)) placeSlot(slot, s.modelUrl);
       } else if (s.status === 'processing') {
         pending = true;
-      } else if (s.status === 'missing') {
+      } else if (s.status === 'missing' && !placed.has(slot)) {
         missing.push(slot);
       }
       // "failed" stays failed — classic stand-in is the design, not a bug
     }
+    state.pending = pending;
+    state.successCount = successCount;
     if (missing.length && !state.ensured) {
       state.ensured = true;
       fetch(`${base}/district/ensure?seed=${seed}`, { method: 'POST' }).catch(() => {});
     }
     state.live = true;
     state.known = Object.keys(slots).length;
+    maybeMarkGrown();   // covers the all-already-placed re-poll case
     if (pending && attempt < MAX_POLLS) {
       setTimeout(() => tick(attempt + 1), 30000);
     }

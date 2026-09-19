@@ -59,6 +59,7 @@ check('classic state.live is false', stClassic.live === false, `live=${stClassic
 check('classic state.placed is 0', stClassic.placed === 0, `placed=${stClassic.placed}`);
 check('classic flag recorded', stClassic.classic === true, 'classic not set');
 check('classic made NO network call', fetchCalls === 0, `fetch called ${fetchCalls}x`);
+check('classic exposes no grown machinery', stClassic.grown === undefined && stClassic.grownSlots === undefined, 'onGrown leaked into classic');
 
 // ============================================================
 // 3) headless / noGLB short-circuit

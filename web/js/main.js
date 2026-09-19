@@ -12,6 +12,7 @@ import { buildDirector } from './director.js';
 import { buildVitality } from './vitality.js';
 import { computeNextAction } from './nextAction.js';
 import { buildHalo, shouldHalo } from './halo.js';
+import { buildKitBeat } from './kitArrival.js';
 import { PatronSystem } from './patrons.js';
 import { FX } from './fx.js';
 import { CameraRig } from './camera.js';
@@ -85,7 +86,7 @@ const SEED = urlParams.get('seed') ? +urlParams.get('seed') : 7;
 // via the Convex bridge — fire-and-forget cross-fade on arrival; the classic
 // procedural district is the fallback. No-ops when headless / no-GL / no Convex.
 // ?classicDistrict forces the procedural street (completeness escape hatch).
-initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search) });
+const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search) });
 // Linkup market intel: fetched once per session (server-cached 6h). Tilts the
 // dawn deck via exchange.openDay(bias) and is cited in the roaster's letter.
 let marketIntel = null;
@@ -107,7 +108,16 @@ const HALO_SPOTS = {
 let _lastIntentAt = 0;
 function markIntent() { _lastIntentAt = performance.now(); }
 let mailPending = false;      // F5: armed when a letter is posted, cleared on arrival
-let kitBeatActive = false;    // F1: the arrival celebration holds the floor's attention
+// ---- the kit arrival celebration ------------------------------------------------
+// A kit that grew at load stays a quiet crossfade; one that finishes DURING
+// play is an event: cart rolls in, lights strike, toast lands. The policy
+// (pending at open) lives here, not in districtGen — that module stays
+// game-state-free.
+const kitBeat = buildKitBeat({ world, audio, fx, director, reducedMotion, headless });
+let kitPendingAtOpen = false;
+district.onGrown = (slots) => {
+  if (kitPendingAtOpen) kitBeat.start(slots, SEED);
+};
 function currentAction() {
   return computeNextAction({ dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending });
 }
@@ -914,6 +924,7 @@ if ($('brief-desklink')) $('brief-desklink').onclick = () => { if (marketIntel) 
 // ---- dawns -------------------------------------------------------------------
 function openDay(d) {
   day = d;
+  if (d === 1) kitPendingAtOpen = !district.grown;   // the kit is an event only if it grows during play
   coached = d !== 1;   // the lever hint only coaches day 1, once per campaign
   patrons.reset(); fx.reset();
   waveIdx = 0; chapterIdx = 0; dayMin = DAY_START;
@@ -1728,6 +1739,7 @@ function loop(now) {
   world.updateTimeOfDay(dayMin);
   sky.update(dayMin, null, vitality.current);
   director.update({ dt, now, dayMin, night: world.night || 0, vitality: vitality.current });
+  kitBeat.update(dt, now);
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
   patrons.update(dt, WALK_MUL[speed] || 2, now);
   world.updateRival(dt, now);
@@ -1740,7 +1752,7 @@ function loop(now) {
     let show = false;
     const lastIntent = Math.max(rig.lastUser || 0, _lastIntentAt || 0);
     const modalsOpen = ['brief', 'offer', 'letter', 'licence', 'tutorial', 'receipt', 'desk', 'paywall'].some(id => $(id) && $(id).classList.contains('show'));
-    if (shouldHalo({ started, closed, paused, photo: document.body.classList.contains('photo'), modalsOpen, headless, busy: kitBeatActive, idleMs: now - lastIntent })) {
+    if (shouldHalo({ started, closed, paused, photo: document.body.classList.contains('photo'), modalsOpen, headless, busy: kitBeat.isActive, idleMs: now - lastIntent })) {
       const spot = HALO_SPOTS[currentAction().target];
       if (spot) { halo.showAt(spot, now); show = true; }
     }
@@ -1758,7 +1770,7 @@ function loop(now) {
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null }),
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
-  vitality, director,
+  vitality, director, district, kitBeat,
   openDay, applyReply, reset, togglePause,
   get paused() { return paused; },
 };
