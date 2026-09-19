@@ -184,6 +184,9 @@ export const generate = action({
       });
       return { key, created: true, status: "processing" };
     } catch (e) {
+      // Creation failed upstream (e.g. Mint safety check) — nothing was
+      // billed, so hand the budget slot back; flakes must not starve players.
+      await ctx.runMutation(api.apiCache.refundDaily, { name: "mint-generate" });
       return {
         key,
         created: false,

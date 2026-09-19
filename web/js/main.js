@@ -5,7 +5,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS } from './config.js';
 import { buildWorld } from './world.js';
-import { initDistrictGen } from './districtGen.js';
+import { initDistrictGen, districtOptOut } from './districtGen.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
 import { PatronSystem } from './patrons.js';
@@ -60,7 +60,8 @@ const SEED = urlParams.get('seed') ? +urlParams.get('seed') : 7;
 // Generative District (Tripothon S1): street furniture grown from the seed
 // via the Convex bridge — fire-and-forget cross-fade on arrival; the classic
 // procedural district is the fallback. No-ops when headless / no-GL / no Convex.
-initDistrictGen({ scene, seed: SEED });
+// ?classicDistrict forces the procedural street (completeness escape hatch).
+initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search) });
 // Linkup market intel: fetched once per session (server-cached 6h). Tilts the
 // dawn deck via exchange.openDay(bias) and is cited in the roaster's letter.
 let marketIntel = null;
@@ -1477,7 +1478,7 @@ function doPhoto() {
     g.drawImage(src, 0, 0, 720, 405);
     g.fillStyle = 'rgba(23,19,16,.78)'; g.fillRect(0, 360, 720, 45);
     g.fillStyle = '#efe6d3'; g.font = '600 16px Georgia, serif'; g.textAlign = 'center';
-    const cap = `Held the line — ${served + servedRetail} served · ${balked} walked${defections ? ` · ${defections} to GLASSHOUSE` : ''}`;
+    const cap = `Held the line — ${served + servedRetail} served · ${balked} walked${defections ? ` · ${defections} to GLASSHOUSE` : ''} · seed ${SEED}`;
     g.fillText(cap, 360, 388);
     const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = `grunds-day${day}.png`; a.click();
   } catch {}

@@ -76,6 +76,25 @@ export const claimDaily = mutation({
   },
 });
 
+// Hand a claimed slot back when the upstream call failed without billing
+// (e.g. Mint's safety check refusing at creation — a refund-free flake that
+// must not eat the day's budget, which exists to cap real spend).
+export const refundDaily = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, args): Promise<number> => {
+    const now = Date.now();
+    const key = `budget:${args.name}:${new Date().toISOString().slice(0, 10)}`;
+    const row = await ctx.db
+      .query("apiCache")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .unique();
+    if (!row || row.expiresAt <= now) return 0;
+    const count = Math.max(0, (Number(row.value) || 0) - 1);
+    await ctx.db.patch(row._id, { value: String(count) });
+    return count;
+  },
+});
+
 // Deterministic string hash (djb2, hex) for cache keys. Not cryptographic —
 // just a compact fingerprint so identical sim outputs share cached prose.
 export function hashKey(s: string): string {

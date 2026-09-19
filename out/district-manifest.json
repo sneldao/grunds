@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-09-19T17:26:40.875Z",
+  "provider": "mint",
+  "preset": "fast",
+  "seeds": [
+    {
+      "seed": 11,
+      "done": false,
+      "growing": false,
+      "counts": {
+        "missing": 5
+      },
+      "slots": {
+        "cart": {
+          "modelUrl": null,
+          "previewUrl": null,
+          "status": "missing"
+        },
+        "lantern": {
+          "modelUrl": null,
+          "previewUrl": null,
+          "status": "missing"
+        },
+        "planter": {
+          "modelUrl": null,
+          "previewUrl": null,
+          "status": "missing"
+        },
+        "sign": {
+          "modelUrl": null,
+          "previewUrl": null,
+          "status": "missing"
+        },
+        "stall": {
+          "modelUrl": null,
+          "previewUrl": null,
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "seed": 23,
+      "done": false,
+      "growing": false,
+      "counts": {
+        "missing": 5
+      },
+      "slots": {
+        "cart": {
+          "modelUrl": null,
+          "previewUrl": null,
+          "status": "missing"
+        },
+        "lantern": {
+          "modelUrl": null,
+          "previewUrl": null,
+          "status": "missing"
+        },
+        "planter": {
+          "modelUrl": null,
+          "previewUrl": null,
+          "status": "missing"
+        },
+        "sign": {
+          "modelUrl": null,
+          "previewUrl": null,
+          "status": "missing"
+        },
+        "stall": {
+          "modelUrl": null,
+          "previewUrl": null,
+          "status": "missing"
+        }
+      }
+    }
+  ]
+}

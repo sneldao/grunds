@@ -28,6 +28,15 @@ export const SLOTS = {
 
 const MAX_POLLS = 8; // ~4 min at 30 s — a young district; older ones hit the cache
 
+// ?classicDistrict (also ?noDistrict / ?nogen) opts out of generation
+// entirely and plays the hand-built procedural street. The completeness
+// guarantee made testable: a judge, a flaky network, or an offline demo can
+// always fall back to the district that never needs a provider call. Pure so
+// the gate is testable without a DOM.
+export function districtOptOut(search) {
+  return /(^|[?&])(classicDistrict|noDistrict|nogen)($|[=&])/.test(search || '');
+}
+
 // Fit a loaded GLB to the slot's target height and ground it (arbitrary
 // generator scale/origin → box-normalize to min.y = 0).
 function fitToSlot(inst, height) {
@@ -46,8 +55,9 @@ function fitToSlot(inst, height) {
   inst.position.y -= box2.min.y; // ground to y=0 (position was set pre-fit)
 }
 
-export function initDistrictGen({ scene, seed }) {
-  const state = { live: false, placed: 0, total: Object.keys(SLOTS).length, seed };
+export function initDistrictGen({ scene, seed, classic }) {
+  const state = { live: false, placed: 0, total: Object.keys(SLOTS).length, seed, classic: !!classic };
+  if (classic) return state; // explicit opt-out — the procedural street carries the demo
   if (typeof globalThis !== 'undefined' && (globalThis.__headless || globalThis.__noGLB)) return state;
   const base = (baseUrl() || '').replace(/\/$/, '');
   if (!base || !scene) return state;

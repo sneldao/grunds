@@ -233,6 +233,9 @@ export const generate = action({
       });
       return { key, created: true, status: "processing" };
     } catch (e) {
+      // Task never started (bad key/model/refused at create) — Tripo only
+      // bills started tasks, so the budget slot goes back.
+      await ctx.runMutation(api.apiCache.refundDaily, { name: "tripo-generate" });
       return {
         key,
         created: false,
