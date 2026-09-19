@@ -4,7 +4,7 @@
 export class AudioEngine {
   constructor() {
     this.ctx = null; this.muted = false;
-    this.crowd = 0; this.rush = false;
+    this.crowd = 0; this.rush = false; this.mood = 1; this._padT = -1;
     this._lastTill = 0; this._lastClink = 0; this._lastBalk = 0;
     this._chordI = 0; this._chordT = 0;
     this._hammerOn = false; this._hammerT = 0; this._hammerNext = 0.7;
@@ -86,8 +86,14 @@ export class AudioEngine {
   update(dt) {
     if (!this.ctx || this.ctx.state !== 'running') return;
     const t = this.ctx.currentTime;
-    const target = Math.min(0.16, 0.011 * Math.sqrt(this.crowd));
+    // mood (vitality 0..1): a forgotten street murmurs quieter and the pad thins out
+    const target = Math.min(0.16, 0.011 * Math.sqrt(this.crowd)) * (0.55 + 0.45 * this.mood);
     this.murmurGain.gain.setTargetAtTime(target, t, 0.6);
+    const padTarget = 0.02 + 0.055 * this.mood;
+    if (Math.abs(this._padT - padTarget) > 0.003) {
+      this._padT = padTarget;
+      this.padGain.gain.setTargetAtTime(padTarget, t, 1.5);
+    }
     this.hissGain.gain.setTargetAtTime(this.rush ? 0.035 : 0, t, 0.8);
     // muffled syllables when it's busy
     if (this.crowd > 6 && Math.random() < dt * this.crowd * 0.05) {
@@ -171,6 +177,7 @@ export class AudioEngine {
   }
   setCrowd(n) { this.crowd = n; }
   setRush(b) { this.rush = b; }
+  setMood(v) { this.mood = v < 0 ? 0 : v > 1 ? 1 : v; }
   tick(at1x) {
     if (!this.ctx || !at1x || this.ctx.state !== 'running') return;
     const now = this.ctx.currentTime;
@@ -221,21 +228,22 @@ export class AudioEngine {
       this._hammerNext = 0.6 + Math.random() * 0.3;
     }
   }
-  _hammerTap() {
+  _hammerTap(at, withClick = true, vol = 1) {
     if (!this.ctx || !this.noiseBuf) return;
-    const t = this.ctx.currentTime;
+    const t = typeof at === 'number' ? at : this.ctx.currentTime;
     // wooden tock: low bandpassed noise burst, ~80ms
     const src1 = this.ctx.createBufferSource(); src1.buffer = this.noiseBuf;
     src1.playbackRate.value = 0.6 + Math.random() * 0.3;
     const bp1 = this.ctx.createBiquadFilter(); bp1.type = 'bandpass';
     bp1.frequency.value = 80 + Math.random() * 40; bp1.Q.value = 2.5;
     const g1 = this.ctx.createGain();
-    const v1 = 0.04 + Math.random() * 0.02;
+    const v1 = (0.04 + Math.random() * 0.02) * vol;
     g1.gain.setValueAtTime(0, t);
     g1.gain.linearRampToValueAtTime(v1, t + 0.005);
     g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
     src1.connect(bp1); bp1.connect(g1); g1.connect(this.master);
     src1.start(t); src1.stop(t + 0.12);
+    if (!withClick) return;
     // metal click: high bandpassed noise, ~30ms — the hammer-on-nail top
     const src2 = this.ctx.createBufferSource(); src2.buffer = this.noiseBuf;
     src2.playbackRate.value = 1.4 + Math.random() * 0.4;
@@ -248,6 +256,15 @@ export class AudioEngine {
     g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
     src2.connect(bp2); bp2.connect(g2); g2.connect(this.master);
     src2.start(t); src2.stop(t + 0.06);
+  }
+  // Knuckles on a door — Idris's reply has landed in the box. Wood only,
+  // three taps with the human rhythm: firm, firm, soft.
+  knock3() {
+    if (!this.ctx || !this.noiseBuf) return;
+    const t = this.ctx.currentTime;
+    this._hammerTap(t, false, 1.15);
+    this._hammerTap(t + 0.14, false, 1.05);
+    this._hammerTap(t + 0.30, false, 0.7);
   }
   // ---- delight: fanfare, chalk screech, purr ----
   waveFanfare(saved) {

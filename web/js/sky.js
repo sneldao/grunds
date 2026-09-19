@@ -112,7 +112,7 @@ export function buildSky(scene) {
     mesh = geo = mat = null;
   }
 
-  function update(t, sunDir) {
+  function update(t, sunDir, mood = 1) {
     if (!mat) return;
     t = clamp(t, 360, 1260);
     // bracket the keyframes and smoothstep the fraction for smooth color ramps
@@ -134,6 +134,11 @@ export function buildSky(scene) {
     const y = sd.y;
     u.uSunInt.value = y > 0 ? clamp(Math.pow(y, 0.6), 0, 1) : 0;   // 0 below horizon, peak near noon
     u.uStars.value = ss(1140, 1230, t);            // stars rise from ~19:00 to ~20:30
+    // mood (vitality 0..1): a lively street scatters its skyglow; a dying one shows stars
+    if (mood !== 1) {
+      u.uSunInt.value *= 0.75 + 0.5 * mood;
+      u.uStars.value *= 1.35 - 0.5 * mood;
+    }
     const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
     u.uTwinkle.value = now ? now * 0.001 : t * 0.05;
   }

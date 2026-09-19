@@ -8,6 +8,8 @@ import { buildWorld } from './world.js';
 import { initDistrictGen, districtOptOut } from './districtGen.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
+import { buildDirector } from './director.js';
+import { buildVitality } from './vitality.js';
 import { PatronSystem } from './patrons.js';
 import { FX } from './fx.js';
 import { CameraRig } from './camera.js';
@@ -53,6 +55,25 @@ const exchange = new Exchange(urlParams.get('seed') ? +urlParams.get('seed') : 7
 const regulars = new Regulars();
 const demand = new Demand();   // awareness brings them, loyalty brings them back
 let marketingSpend = 0;        // dawn-staged sponsor cost, folded into the closeDay ops sheet
+// ---- vitality + director -----------------------------------------------------------
+// The street's numbers, worn as weather: awareness + reputation drive a 0..1
+// vitality that dims lanterns, thins the pad and shows the stars (see
+// vitality.js). Layers run strictly AFTER updateTimeOfDay/sky.update rewrite
+// their absolute values each frame — read-modify-write, never cached.
+const director = buildDirector();
+const vitality = buildVitality({ demand, regulars });
+vitality.recompute();
+director.add('vitalityGlow', (ctx) => {
+  const v = ctx.vitality;
+  const warm = 0.75 + 0.5 * v;    // café pendants + bulbs
+  const street = 0.6 + 0.8 * v;   // street lamps, glows, windows, sign
+  for (const p of world.lights.pendants) p.intensity *= warm;
+  for (const bm of world.bulbMats) bm.emissiveIntensity *= warm;
+  for (const lm of world.lampMats) lm.emissiveIntensity *= street;
+  for (const sm of world.lampGlows) sm.opacity *= street;
+  for (const wm of world.winMats) wm.emissiveIntensity *= street;
+  world.signMat.emissiveIntensity *= street;
+});
 // Optional Convex mirror: offline-first, fire-and-forget. Configure with
 // ?convex=https://<deploy>.convex.site — the floor never blocks on it.
 const sync = initSync();
@@ -371,6 +392,7 @@ function closeDay() {
   // (catastrophes scare extra), dawn-staged street work lands tomorrow's
   // awareness, and today's served × loyalty become tomorrow's returnees
   const dtrace = demand.resolveDay({ served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier });
+  vitality.recompute();   // the evening settles on the block's true mood
   try { analytics.track('demand_resolved', { day, ...dtrace }); } catch {}
   const ops = {
     staff: (ruthWasHome ? 0 : CAMPAIGN.staffDayRate) + servedN * CAMPAIGN.staffPerCup,
@@ -952,6 +974,7 @@ function openDay(d) {
   if (exchange.geshaUnlocked && day > 1) {
     fx.toast('Gwen\'s still asking about the gesha — GRUNDS unlocked', 'warn');
   }
+  vitality.recompute();   // dawn re-skins the block with the fresh numbers
   updateHUD();
   // Morning Brief — the Drug Wars turn: at 06:00 the floor pauses so the
   // player reads commodity → price → choice, then commits with OPEN.
@@ -1680,8 +1703,10 @@ function loop(now) {
     const msPerMin = 300 / (speed / 60);
     while (acc > msPerMin) { acc -= msPerMin; tick(); }
   }
+  vitality.tick();
   world.updateTimeOfDay(dayMin);
-  sky.update(dayMin);
+  sky.update(dayMin, null, vitality.current);
+  director.update({ dt, now, dayMin, night: world.night || 0, vitality: vitality.current });
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
   patrons.update(dt, WALK_MUL[speed] || 2, now);
   world.updateRival(dt, now);
@@ -1691,14 +1716,16 @@ function loop(now) {
   rig.update(dt, now);
   audio.setCrowd(patrons.count);
   audio.setRush(patrons.queueLength > 8);
+  audio.setMood(vitality.current);
   audio.update(dt);
   if (!headless) postfx.render(now);   // headless harness skips GL
 }
   window.__grunds = {
   stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count,
-    index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null }),
+    index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null }),
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
+  vitality, director,
   openDay, applyReply, reset, togglePause,
   get paused() { return paused; },
 };
