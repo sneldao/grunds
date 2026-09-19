@@ -279,6 +279,22 @@ export function softSprite() {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
+// Envelope sprite for the letter-arrival beat — cream paper, flap crease,
+// wax dot. Small bake; it only ever shows at arm's length near the mailbox.
+export function letterSprite() {
+  const [c, g] = canvas(128, 96);
+  g.fillStyle = '#efe4c8'; g.fillRect(6, 10, 116, 76);
+  g.strokeStyle = 'rgba(90,70,40,.7)'; g.lineWidth = 3; g.strokeRect(6, 10, 116, 76);
+  g.strokeStyle = 'rgba(90,70,40,.45)'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(8, 12); g.lineTo(64, 52); g.lineTo(120, 12); g.stroke();   // flap
+  g.beginPath(); g.moveTo(8, 84); g.lineTo(52, 48); g.moveTo(120, 84); g.lineTo(76, 48); g.stroke();
+  g.fillStyle = '#8c2b26';                                                                             // wax seal
+  g.beginPath(); g.arc(64, 54, 9, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.25)';
+  g.beginPath(); g.arc(61, 51, 3, 0, Math.PI * 2); g.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
 export function shopSign(text, fg = '#efe6d3', bg = '#1d2a24', font = '600 44px Georgia, serif') {
   const [c, g] = canvas(1024, 192);
   // deep green with subtle linen weave

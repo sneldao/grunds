@@ -1,4 +1,4 @@
-import { action, internalMutation, internalQuery, mutation } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { CAMPAIGN_TUNING } from "./gameConfig";
@@ -102,6 +102,8 @@ export const recordOutbound = internalMutation({
       day: c?.day ?? 0,
       head: `SENT: ${args.subject}`.slice(0, 80),
       body: `Posted to ${args.to}\n\n${args.body}`.slice(0, 2000),
+      dir: "out",
+      createdAt: Date.now(),
     });
   },
 });
@@ -167,7 +169,40 @@ export const handleInbound = mutation({
       day: c.day,
       head: `RE: ${args.subject}`.slice(0, 80),
       body: `Inbound reply (${action})${args.from ? ` from ${args.from}` : ""}: ${args.body}`.slice(0, 2000),
+      dir: "in",
+      action,
+      from: args.from?.slice(0, 200),
+      createdAt: Date.now(),
     });
     return { action, ok: true as const, debt: after?.debt ?? c.debt };
+  },
+});
+
+// Newest inbound reply for a campaign, older-than `after` — the client polls
+// this to learn that Idris answered. `dir:"in"` rows only; pre-migration rows
+// (no createdAt) never surface. Returns null when the box is empty.
+export const latestInbox = query({
+  args: { campaignId: v.id("campaigns"), after: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const after = args.after ?? 0;
+    const rows = await ctx.db
+      .query("letters")
+      .withIndex("by_campaign_dir_created", (q) =>
+        q.eq("campaignId", args.campaignId).eq("dir", "in"),
+      )
+      .order("desc")
+      .take(20);
+    for (const r of rows) {
+      if (typeof r.createdAt === "number" && r.createdAt > after) {
+        return {
+          head: r.head,
+          body: r.body,
+          action: r.action ?? null,
+          day: r.day,
+          createdAt: r.createdAt,
+        };
+      }
+    }
+    return null;
   },
 });

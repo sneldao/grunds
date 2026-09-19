@@ -23,6 +23,7 @@ import { Demand } from './demand.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay } from './gentrification.js';
 import { initSync } from './convexSync.js';
+import { buildMailTheater } from './mailTheater.js';
 import { calculateCampaignBadge, openShareToX } from './share.js';
 import { createAnalytics } from './analytics.js';
 import { billing } from './billing.js';
@@ -108,6 +109,21 @@ const HALO_SPOTS = {
 let _lastIntentAt = 0;
 function markIntent() { _lastIntentAt = performance.now(); }
 let mailPending = false;      // F5: armed when a letter is posted, cleared on arrival
+// The reply arrives as theater: flag rises, three knocks, envelope drops.
+// Mirror only — convex handleInbound already applied the command; we never
+// re-apply it here. Offline/headless never polls; classic beats go on.
+const mailT = buildMailTheater({
+  world, scene, audio, fx, sync, headless, reducedMotion,
+  onArrive: (letter) => {
+    mailPending = false;
+    const msg = String(letter.body || '').replace(/^Inbound reply \(\w+\)( from [^:]+)?:\s*/, '');
+    if ($('letter') && $('letter').classList.contains('show')) {
+      const sign = $('letter-sign');
+      if (sign) sign.textContent = '✉ Idris replied: “' + msg.slice(0, 110) + (msg.length > 110 ? '…' : '') + '”';
+    }
+    try { vitality.recompute(); } catch {}
+  },
+});
 // ---- the kit arrival celebration ------------------------------------------------
 // A kit that grew at load stays a quiet crossfade; one that finishes DURING
 // play is an event: cart rolls in, lights strike, toast lands. The policy
@@ -578,6 +594,8 @@ function showLetter() {
           try { localStorage.setItem('grunds.mail', to); } catch {}
           mb.textContent = 'posted ✓';
           fx.toast(`the letter is in the post — reply to play from your inbox`, 'good');
+          mailPending = true;
+          mailT.arm(Date.now());   // await a reply newer than this posting
           try { analytics.track('letter_mailed', { day }); } catch {}
         } else { mb.disabled = false; mb.textContent = 'post it'; }
       }).catch(() => { mb.disabled = false; mb.textContent = 'post it'; });
@@ -972,6 +990,8 @@ function openDay(d) {
   if (d > 1 && exchange.debt > 0) exchange.debt += CAMPAIGN.debtInterest;   // the debt clock ticks at dawn
   if (estherCard) { till -= 2; fx.toast('esther’s stamp card: −£2', ''); }  // her cup's on the house
   world.setMail(false);
+  mailT.disarm();                 // the wait for a reply never crosses into a live floor
+  mailPending = false;
   world.setMist(ev.tier === 'cata' ? 1 : ev.tier === 'bad' ? 0.4 : 0);
   // weather as mood: tie sky/mist/god-rays/motes to the event tier
   try {
@@ -1740,6 +1760,7 @@ function loop(now) {
   sky.update(dayMin, null, vitality.current);
   director.update({ dt, now, dayMin, night: world.night || 0, vitality: vitality.current });
   kitBeat.update(dt, now);
+  mailT.update(dt, now);
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
   patrons.update(dt, WALK_MUL[speed] || 2, now);
   world.updateRival(dt, now);
@@ -1770,7 +1791,7 @@ function loop(now) {
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null }),
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
-  vitality, director, district, kitBeat,
+  vitality, director, district, kitBeat, mailT,
   openDay, applyReply, reset, togglePause,
   get paused() { return paused; },
 };

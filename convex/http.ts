@@ -255,6 +255,27 @@ export const mailLetter = httpAction(async (ctx, req) => {
   }
 });
 
+// The client's window into the inbox: GET the newest inbound reply after a
+// cursor, so the floor can play the letter-arrival beat. Read-only — the
+// mechanical action was already applied by handleInbound; this mirror never
+// re-applies it. Same no-auth posture as /sync/state and /district/kit.
+export const agentmailInbox = httpAction(async (ctx, req) => {
+  const p = new URL(req.url).searchParams;
+  const id = p.get("campaignId");
+  if (!id) return json({ error: "campaignId required" }, 400);
+  const after = Number(p.get("after") ?? 0);
+  try {
+    const letter = await ctx.runQuery(api.agentmail.latestInbox, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      campaignId: id as any,
+      after: Number.isFinite(after) && after > 0 ? after : 0,
+    });
+    return json({ letter });
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
 export const syncState = httpAction(async (ctx, req) => {
   const id = new URL(req.url).searchParams.get("campaignId");
   if (!id) return json({ error: "campaignId required" }, 400);
@@ -391,6 +412,7 @@ export const aiResearch = httpAction(async (ctx) => {
 const http = httpRouter();
 http.route({ path: "/agentmail/webhook", method: "POST", handler: agentmailWebhook });
 http.route({ path: "/agentmail/letter", method: "POST", handler: mailLetter });
+http.route({ path: "/agentmail/inbox", method: "GET", handler: agentmailInbox });
 http.route({ path: "/sync/state", method: "GET", handler: syncState });
 http.route({ path: "/sync/snapshot", method: "POST", handler: syncSnapshot });
 http.route({ path: "/sync/stands", method: "GET", handler: syncStands });

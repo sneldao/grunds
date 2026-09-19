@@ -104,5 +104,21 @@ export function initSync() {
     }
   }
 
-  return { live, url, owner, mirror, poll, stands, intel, get campaignId() { return campaignId; } };
+  // Idris's inbox: newest inbound reply after a cursor (ms timestamp of the
+  // last letter seen). Null offline or on any failure — the mailbox simply
+  // stays shut. Read-only mirror; the backend already applied the command.
+  async function inbox(after) {
+    if (!live || !campaignId) return null;
+    try {
+      const r = await fetch(url + '/agentmail/inbox?campaignId=' + encodeURIComponent(campaignId)
+        + '&after=' + encodeURIComponent(String(after || 0)));
+      if (!r.ok) return null;
+      const data = await r.json();
+      return data && data.letter !== undefined ? data.letter : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return { live, url, owner, mirror, poll, stands, intel, inbox, get campaignId() { return campaignId; } };
 }

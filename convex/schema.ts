@@ -60,12 +60,21 @@ export default defineSchema({
   }).index("by_campaign", ["campaignId"]),
 
   // Roaster's Letter archive — templated today, OpenAI-enhanced next.
+  // dir/action/from/createdAt are optional: rows written before the inbox
+  // bridge carry none, and the latestInbox query skips them rather than
+  // surfacing undated mail.
   letters: defineTable({
     campaignId: v.id("campaigns"),
     day: v.number(),
     head: v.string(),
     body: v.string(),
-  }).index("by_campaign_day", ["campaignId", "day"]),
+    dir: v.optional(v.string()), // "in" | "out"
+    action: v.optional(v.string()), // inbound command: contract|hold|settle
+    from: v.optional(v.string()),
+    createdAt: v.optional(v.number()),
+  })
+    .index("by_campaign_day", ["campaignId", "day"])
+    .index("by_campaign_dir_created", ["campaignId", "dir", "createdAt"]),
 
   // Player stands — multiplayer till/reputation per campaign. Minimal today,
   // expanded when the floor goes live-sync.
