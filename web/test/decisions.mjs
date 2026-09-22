@@ -6,6 +6,8 @@ import { createHash } from 'node:crypto';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { resolveDecision } from '../js/decision.js';
+import { CAMPAIGN } from '../js/config.js';
+import { hedgeTerms, debtInterestFor } from '../js/economy.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = p => readFileSync(join(ROOT, p), 'utf8');
@@ -48,6 +50,10 @@ const check = (cond, msg) => { if (!cond) fails.push(msg); };
   check(hold.ok && hold.interest === 4 && hold.debt === 24, 'hold on day>1 adds the interest tick');
   const hedged = resolveDecision({ day: 2, index: 1.2, debt: 0, contract: null, extraFee: 5, staffCondition: 1 }, { ...plan, hedge: 'contract' });
   check(hedged.ok && hedged.contract && hedged.contract.price === 1.2 && hedged.extraFee === 0 && hedged.debt === hedged.fee, 'contract locks index, clears surcharge, debts the fee');
+  const nearLimit = CAMPAIGN.creditLimit - hedgeTerms('contract').fee - debtInterestFor(0);
+  check(resolveDecision({ day: 2, index: 1.2, debt: nearLimit + 1, contract: null, extraFee: 0, staffCondition: 1 }, { ...plan, hedge: 'contract' }).ok === false, 'contract over the supplier tab limit rejected');
+  check(resolveDecision({ day: 2, index: 1.2, debt: nearLimit + 1, contract: null, extraFee: 0, staffCondition: 1 }, { ...plan, hedge: 'settle' }).ok === true, 'settle still available over the tab limit');
+  check(resolveDecision({ day: 2, index: 1.2, debt: nearLimit - hedgeTerms('contract').fee, contract: null, extraFee: 0, staffCondition: 1 }, { ...plan, hedge: 'contract' }).ok === true, 'contract inside the tab limit accepted');
 }
 console.log('PURE resolveDecision validation + finance verified');
 
@@ -321,7 +327,7 @@ console.log('HANDLERS begin/prepare/stage/commit/finish/abandon + email arbitrat
   const { modifiersForDay } = await import('../js/gentrification.js');
   const qMail = quoteDayPlan({ day: 3, hedge: 'hold', staffing: 'apprentice', marketing: { sample: true, sponsor: true }, debt: 0, extraFee: 0, modifiers: modifiersForDay(3) });
   const qNoMod = quoteDayPlan({ day: 3, hedge: 'hold', staffing: 'apprentice', marketing: { sample: true, sponsor: true }, debt: 0, extraFee: 0, modifiers: {} });
-  check(Math.abs(qMail.fixedMinimum - (qNoMod.fixedMinimum + 20)) < 1e-9, 'day-3 pitch revaluation lifts the fixed floor by £20');
+  check(Math.abs(qMail.fixedMinimum - (qNoMod.fixedMinimum + modifiersForDay(3).pitchMinDelta)) < 1e-9, 'day-3 pitch revaluation lifts the fixed floor by the configured delta');
   let mailText = '';
   const prevCtxFetch = context.fetch;
   process.env.AGENTMAIL_API_KEY = 'test-key'; process.env.AGENTMAIL_INBOX_ID = 'inbox1';

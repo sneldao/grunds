@@ -24,3 +24,11 @@ export interface DayPlanQuote {
   settlement: number;
 }
 export function quoteDayPlan(input: QuoteInput): DayPlanQuote;
+export function hedgeTerms(id: string, extraFee?: number): { units: number; fee: number } | null;
+export function debtInterestFor(debt: number): number;
+export function salePrice(exchange: { matchaPrice?: number; day: number }, repriced?: boolean): number;
+export function operatingCosts(input?: {
+  till?: number; served?: number; staffing?: string; marketing?: number;
+  training?: number; sampling?: number; perkCostMul?: number; modifiers?: Partial<DayModifiers>;
+}): Record<string, number> & { total: number };
+export function campaignVerdict(net: number, rep: number): 'star' | 'good' | 'held' | 'scarped' | 'lost';

@@ -36,7 +36,7 @@ export function calculateNonLinearDrift(day, base = CAMPAIGN.drift.perDay, accel
 
 // Secondary macro shocks affecting cost lines and operating variables
 export const MACRO_SHOCKS = {
-  pitch_reval:   { day: 3, name: 'PITCH REVALUATION', desc: 'District Council increases pitch turnover rate (+3%)', pitchPctDelta: +0.03, pitchMinDelta: +20 },
+  pitch_reval:   { day: 3, name: 'PITCH REVALUATION', desc: 'District Council raises the base pitch rent and the turnover rate', pitchPctDelta: +0.03, pitchMinDelta: +150 },
   dairy_crunch:  { day: 4, name: 'OAT MILK SURCHARGE', desc: 'Packaging & dairy supply bottleneck (+£0.18/cup)', suppliesDelta: +0.18 },
   transit_delay: { day: 2, name: 'TUBE LINE DISRUPTION', desc: 'Commuter morning wave delayed, table dwell increases', commuterDelayMinutes: 30, dwellBonus: +0.3 },
 };

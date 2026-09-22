@@ -18,7 +18,7 @@ import { FX } from './fx.js';
 import { CameraRig } from './camera.js';
 import { AudioEngine } from './audio.js';
 import { Exchange, seeded } from './exchange.js';
-import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan } from './economy.js';
+import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } from './economy.js';
 import { Regulars } from './regulars.js';
 import { Demand, DEMAND_ACTIONS } from './demand.js';
 import { composeLetter } from './letter.js';
@@ -551,6 +551,7 @@ function closeDay() {
   else if (ratio < 0.12) verdict = 'Held the line when it mattered.';
   else if (ratio < 0.2) verdict = 'You fed the chain across the road.';
   else verdict = 'The wave ate you alive.';
+  if (netToday < 0) verdict += ' The till went backward — the nut came due anyway.';
   if (prebatchHelped && waveBalked < 80) verdict += ' The notebook paid off.';
   // the street talks back: coasting shows up as a sentence, not just a number
   if (dtrace.after < 0.35) verdict += ' The street is forgetting you — work it at dawn.';
@@ -846,6 +847,13 @@ function commitDayPlan() {
 
 function continueFromReview() {
   if (phase !== 'review') return false;
+  // The supplier calls the tab: a campaign that owes more than it's worth can't
+  // open tomorrow. Same net-worth formula as stats()/the verdict.
+  if (cRev - cCost - cOps - settledPaid - exchange.debt < 0) {
+    fx.toast('the supplier calls the tab — the stand is done', 'warn');
+    campaignClose(true);
+    return true;
+  }
   if (day < CAMPAIGN.days) { prepareDay(day + 1); return true; }
   campaignClose();   // the roaster's last letter is the verdict
   return true;
@@ -1375,8 +1383,9 @@ function updateTicker() {
   });
 }
 
-function campaignClose() {
-  if (campaignDone || phase !== 'review' || day < CAMPAIGN.days || exchange.day < CAMPAIGN.days) return;
+function campaignClose(insolvent = false) {
+  if (campaignDone || phase !== 'review') return;
+  if (!insolvent && (day < CAMPAIGN.days || exchange.day < CAMPAIGN.days)) return;
   closed = true;
   campaignDone = true;
   phase = 'finale';
@@ -1386,15 +1395,10 @@ function campaignClose() {
   audio.closing();
   const net = cRev - cCost - cOps - settledPaid - exchange.debt;   // the week, after the whole cost sheet
   const rep = regulars.reputation;
-  let v;
-  if (net > 2400 && rep >= 78) v = VERDICTS.star;
-  else if (net > 1400 && rep >= 62) v = VERDICTS.good;
-  else if (net > 600) v = VERDICTS.held;
-  else if (net > 0) v = VERDICTS.scarped;
-  else v = VERDICTS.lost;
+  const v = VERDICTS[campaignVerdict(net, rep)];
   const lines = [
     [standName, playerName + ' — ' + playerRole],
-    ['revenue (5 days)', fmt(cRev)], ['bean cost', fmt(cCost)], ['operating costs', fmt(cOps)],
+    [`revenue (${Math.min(day, CAMPAIGN.days)} days)`, fmt(cRev)], ['bean cost', fmt(cCost)], ['operating costs', fmt(cOps)],
     ['final debt', fmt(exchange.debt)], ['—', '—'],
     ['cups poured', cServed], ['walked to ' + COPY.rivalName, cDef], ['—', '—'],
     ['NET WORTH', fmt(net)],
@@ -1728,6 +1732,7 @@ function reset() {
   runGen++;
   exchange.rng = seeded(SEED);
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
+  exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; cOps = 0;
   briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;

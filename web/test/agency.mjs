@@ -41,14 +41,17 @@ const fails = [];
 {
   const { Exchange } = await import('../js/exchange.js');
   const { CAMPAIGN } = await import('../js/config.js');
-  for (const [tag, mul] of [['light', 0.5], ['standard', 1], ['heavy', 2]]) {
+  const { hedgeTerms } = await import('../js/economy.js');
+  for (const id of ['contract_light', 'contract', 'contract_heavy']) {
     const ex = new Exchange(7);
-    ex.contractBeans(CAMPAIGN.contractUnits * mul, CAMPAIGN.contractFee * mul);
-    assert.equal(ex.contract.units, CAMPAIGN.contractUnits * mul, `${tag} contract sizes the units`);
-    assert.equal(Math.round(ex.debt), CAMPAIGN.contractFee * mul, `${tag} contract sizes the fee`);
+    const t = hedgeTerms(id);
+    ex.contractBeans(t.units, t.fee);
+    assert.equal(ex.contract.units, t.units, `${id} contract sizes the units`);
+    assert.equal(Math.round(ex.debt), Math.round(t.fee), `${id} contract sizes the fee`);
   }
   const ex = new Exchange(7);
-  ex.contractBeans(CAMPAIGN.contractUnits / 2, CAMPAIGN.contractFee / 2);
+  const lt = hedgeTerms('contract_light');
+  ex.contractBeans(lt.units, lt.fee);
   for (let i = 0; i < CAMPAIGN.contractUnits / 2; i++) ex.consume(1);
   assert.equal(ex.contract, null, 'contract clears exactly at quota');
   console.log('SIZE    light/std/heavy contracts size units+fee, burn cup-by-cup, clear at quota');

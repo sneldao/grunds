@@ -15,10 +15,13 @@ export const DRIFT = {
 export const CAMPAIGN_TUNING = {
   days: 5,
   beanBaseCost: 1.3,
-  contractFee: 22.0,
+  contractUnitFee: 0.09,    // £ per covered cup at standard size (mirrors config.js)
+  contractFeeSlope: 0.025,  // per-cup rate steps this much per size tier
   contractUnits: 2400,
   wastePct: 0.06,
   debtInterest: 4.0,
+  debtInterestRate: 0.025,
+  creditLimit: 1500,        // supplier tab ceiling — resolveDecision enforces it
   startReputation: 62,
 } as const;
 

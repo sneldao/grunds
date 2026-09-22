@@ -100,22 +100,29 @@ export const COPY = {
 export const CAMPAIGN = {
   days: 5,
   beanBaseCost: 1.30,       // £ per drink at index 1.0 (≈27% of £4.80)
-  contractFee: 22.0,       // lock the price: £22 supplier credit (the debt clock)
   contractUnits: 2400,     // a contract covers one full day's made drinks at the counter
+  // Cover is priced per cup near the expected daily drift (~£0.08–0.10/unit):
+  // calm weeks bleed the fee, spikes still pay. Bigger locks cost more per cup
+  // because they sit on the board through more of the drift.
+  contractUnitFee: 0.09,   // £ per covered cup at standard size
+  contractFeeSlope: 0.025, // per-cup rate steps this much per size tier
   wastePct: 0.06,          // 6% of sales lost to waste (Business Waste / Notions)
-  debtInterest: 4.0,      // the Drug Wars debt clock: £ per day on outstanding supplier credit
+  debtInterest: 4.0,      // daily floor on outstanding supplier credit
+  debtInterestRate: 0.025, // plus 2.5%/day — the tab compounds, not just ticks
+  creditLimit: 1500,      // the supplier's tab limit — past it you settle before you hedge
   startReputation: 62,     // 0..100 — the regulars' aggregate opinion
-  // The operating cost sheet — what a real stand pays beyond beans. Beans
-  // alone leave ~87% margin (a fantasy); with labour, supplies, pitch and
-  // card fees the campaign nets a believable ~12–18%. The receipt prints
-  // the full P&L — the costs are the education.
-  staffDayRate: 96,       // one barista's day on the floor
-  staffPerCup: 0.62,      // labour scales with volume — more hands at the rush
-  suppliesPerCup: 0.42,   // milk, cup, lid, sleeve — the rest of a real COGS
-  pitchMin: 180,          // the pitch's daily rent floor
-  pitchPct: 0.12,         // prime-pitch rent is turnover-linked — success is taxed
+  // The operating cost sheet — what a real stand pays beyond beans. The load
+  // sits in committed costs (a rostered shift, the pitch's base rent) rather
+  // than per-cup: a quiet day still owes most of the nut, which is what makes
+  // a bad week able to lose. The receipt prints the full P&L — the costs are
+  // the education.
+  staffDayRate: 1700,     // the day's roster — committed before the weather is known
+  staffPerCup: 0.14,      // flex hands at the rush on top of the roster
+  suppliesPerCup: 0.50,   // milk, cup, lid, sleeve — the rest of a real COGS
+  pitchMin: 1150,         // base pitch rent — owed even when nobody comes
+  pitchPct: 0.12,         // turnover top-up once sales clear the breakpoint
   cardFeePct: 0.026,      // card processing on every sale
-  sundries: 48,           // utilities, insurance, cleaning, waste collection
+  sundries: 64,           // utilities, insurance, cleaning, waste collection
   // Gentrification drift — the README's "pressure clock": costs creep, regular
   // expectations rise faster, willingness-to-pay rises (so the lever choice
   // matters: hold the price and lose regulars, or raise and lose the chain
@@ -131,7 +138,7 @@ export const CAMPAIGN = {
   },
   // Staffing depth — apprentice / temp options when Ruth is fatigued.
   staff: {
-    apprenticeDayRate: 65,     // day wage for a hired casual barista
+    apprenticeDayRate: 2040,   // agency temps cost more than the rostered day
     apprenticeTrainingFee: 12, // upfront training fee deducted at dawn
     apprenticeStaffMul: 1.05,  // combined throughput bonus
     apprenticeWasteExtra: 0.04,// minor clumsiness increases waste
@@ -151,18 +158,18 @@ export const CAMPAIGN = {
   // served × returnRate reappear spread across today's waves.
   demand: {
     start: 0.28,          // opening-day awareness — nobody knows the stand yet
-    spawnMin: 0.4,        // spawn multiplier at zero awareness (regulars only)
+    spawnMin: 0.18,       // spawn multiplier at zero awareness — passing trade only
     spawnMax: 1.3,        // spawn multiplier at full awareness (the street queues)
-    decay: 0.04,          // awareness lost per close when coasting
+    decay: 0.055,         // awareness lost per close when coasting
     cataExtra: 0.04,      // catastrophes scare the street extra
     returnBase: 0.12,     // return rate at reputation 62
     returnPerRep: 0.004,  // +0.4% per reputation point above 62
     returnMax: 0.35,      // even legends don't get everyone back
     chalkGain: 0.03,      // chalk the board: free, once a day
     sampleGain: 0.12,     // sample hour: costs cups, buys the street
-    sampleCost: 8.0,      // £ of cups given away
+    sampleCost: 40.0,     // £ of cups given away
     sponsorGain: 0.20,    // sponsor the market stall: real money, real crowd
-    sponsorCost: 30.0,    // £ from the till at commit
+    sponsorCost: 160.0,   // £ from the till at commit
     sponsorDay: 3,        // the stall only takes sponsors once you're known
   },
   // Cohort expectation pressure — applied at end of day, scales with the
@@ -220,12 +227,12 @@ export const LETTER = {
   from: 'the roaster',
   sign: '— Idris, your roaster',
   // templated in letter.js; reply-to-command — sizing is the position:
-  // light (half-day, £11), normal (one day, £22), heavy (two days, £44).
-  // Heavy wastes if the wave is thin; light starves if the wave is thick.
+  // light covers ~1200 cups, standard ~2400, heavy ~4800 — per-cup fees of
+  // £0.065/£0.09/£0.115 riding the tab (real quotes render live via explain()).
   actions: [
-    { id: 'contract_light', label: 'CONTRACT light — half the wave', hint: 'lock the board · ~1200 cups · +£11' },
-    { id: 'contract',       label: 'CONTRACT standard — cover tomorrow', hint: 'lock the board · ~2400 cups · +£22' },
-    { id: 'contract_heavy', label: 'CONTRACT heavy — two days’ cover', hint: 'lock the board · ~4800 cups · +£44' },
+    { id: 'contract_light', label: 'CONTRACT light — half the wave', hint: 'lock the board · ~1200 cups' },
+    { id: 'contract',       label: 'CONTRACT standard — cover tomorrow', hint: 'lock the board · ~2400 cups' },
+    { id: 'contract_heavy', label: 'CONTRACT heavy — two days’ cover', hint: 'lock the board · ~4800 cups' },
     { id: 'hold',           label: 'hold at the spot price',            hint: 'ride the market — no debt, no cover' },
     { id: 'settle',         label: 'settle the debt',                   hint: 'pay it down from the till' },
   ],

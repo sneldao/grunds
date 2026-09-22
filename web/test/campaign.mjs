@@ -2,6 +2,7 @@
 // connection end-to-end (no browser, no GL). Run: node web/test/campaign.mjs
 import { readFileSync } from 'node:fs';
 import { CAMPAIGN } from '../js/config.js';
+import { hedgeTerms } from '../js/economy.js';
 
 const schedule = JSON.parse(readFileSync(new URL('../../out/wave_schedule.json', import.meta.url), 'utf8'));
 
@@ -92,7 +93,7 @@ if (!end.campaignDone) fails.push('campaign never closed');
 // Smoke check only: this only proves the interest clock advanced at dawn.
 // The rigorous "interest does not accrue on a settled-zero balance" check
 // lives in campaign-tight.mjs.
-if (!(end.debt > CAMPAIGN.contractFee)) fails.push('debt interest never accrued: ' + end.debt);
+if (!(end.debt > hedgeTerms('contract').fee)) fails.push('debt interest never accrued: ' + end.debt);
 
 // === CONNECTION 3: settle clears the debt ===
 G.reset(); await new Promise(r => setTimeout(r, 10));

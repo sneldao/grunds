@@ -4,10 +4,11 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { CAMPAIGN } from '../js/config.js';
+import { campaignVerdict } from '../js/economy.js';
 
 const schedule = JSON.parse(readFileSync(new URL('../../out/wave_schedule.json', import.meta.url), 'utf8'));
-const seeds = [7, 42, 101, 202, 555];
-const policies = ['passive', 'queue', 'growth', 'conservative', 'aggressive'];
+const seeds = [7, 42, 101, 202, 555, 13, 77, 150, 314, 431];
+const policies = ['passive', 'queue', 'growth', 'conservative', 'aggressive', 'forecaster', 'engaged', 'reckless'];
 const sourceFiles = ['main', 'config', 'patrons', 'exchange', 'economy', 'decision', 'gentrification', 'demand', 'regulars', 'rival', 'staffing'];
 const fingerprint = () => createHash('sha256').update(sourceFiles.map(name => readFileSync(new URL(`../js/${name}.js`, import.meta.url), 'utf8')).join('\n')).digest('hex');
 const sourceHash = fingerprint();
@@ -91,16 +92,28 @@ async function run(seed, policy) {
       else if (before.debt > 0) hedge = 'settle';
     }
     if (policy === 'aggressive' && !game.exc.contract) hedge = 'contract_heavy';
-    const staffing = policy !== 'passive' && day >= 2 && before.staffCondition < .55 ? 'apprentice' : 'work';
-    const marketing = { sample: policy === 'growth' && day < CAMPAIGN.days, sponsor: policy === 'growth' && day >= 3 && day < CAMPAIGN.days };
+    if ((policy === 'forecaster' || policy === 'engaged') && !game.exc.contract) {
+      if (before.event === 'rumour_frost') hedge = 'contract_heavy';
+      else if (before.event === 'frost_minas' || before.event === 'drought_ea') hedge = 'contract_light';
+      else if (before.debt > 0) hedge = 'settle';
+    }
+    if (policy === 'reckless' && !game.exc.contract) hedge = 'contract_heavy';
+    const staffing = policy !== 'passive' && policy !== 'reckless' && day >= 2 && before.staffCondition < .55 ? 'apprentice' : 'work';
+    const marketing = { sample: (policy === 'growth' || policy === 'engaged') && day < CAMPAIGN.days, sponsor: (policy === 'growth' || policy === 'engaged' || policy === 'reckless') && day >= 3 && day < CAMPAIGN.days };
     assert.equal(game.stageDayPlan({ hedge, staffing, marketing }), true);
-    const quote = game.quote;
-    assert.equal((await game.commitDayPlan()).ok, true);
+    let quote = game.quote;
+    let res = await game.commitDayPlan();
+    if (!res.ok && hedge !== 'hold' && hedge !== 'settle') {   // the supplier tab is maxed — ride the spot
+      assert.equal(game.stageDayPlan({ hedge: 'hold' }), true);
+      quote = game.quote;
+      res = await game.commitDayPlan();
+    }
+    assert.equal(res.ok, true, JSON.stringify(res));
     let frames = 0;
     while (game.phase === 'trading' && frames++ < 1000) {
-      if (game.modals.top() === 'offer') document.getElementById('offer-no').click();
+      if (game.modals.top() === 'offer') document.getElementById(policy === 'engaged' ? 'offer-yes' : 'offer-no').click();
       const s = game.stats();
-      if (policy !== 'passive' && !game.paused) {
+      if (policy !== 'passive' && policy !== 'reckless' && !game.paused) {
         const batch = document.getElementById('prebatch');
         if (s.queue >= 6 && s.dayMin < 960 && !batch.disabled) batch.click();
         const price = document.getElementById('reprice');
@@ -119,12 +132,14 @@ async function run(seed, policy) {
       served: s.served + s.servedRetail, balked: s.balked, defections: s.defections, rivalChoices: s.rivalChoices,
       rep: s.rep, staffCondition: s.staffCondition, awareness: s.awareness, hedgeSavings: s.hedgeSavings, contractFee: s.feeToday, interest: s.interestToday, frames });
     assert.equal(game.continueFromReview(), true);
+    if (game.phase === 'finale') break;   // the supplier called the tab — insolvent
   }
   const end = game.stats();
   assert.equal(game.phase, 'finale');
   assert.ok(Math.abs(days.reduce((n, d) => n + d.net, 0) - end.netWorth) < 1e-6, 'Daily and campaign ledgers must reconcile');
   const sum = key => days.reduce((n, d) => n + d[key], 0);
   return { seed, policy, netWorth: end.netWorth, reputation: end.rep, served: sum('served'), balked: sum('balked'), rivalChoices: sum('rivalChoices'),
+    verdict: campaignVerdict(end.netWorth, end.rep), worstDayNet: Math.min(...days.map(d => d.net)), negativeDays: days.filter(d => d.net < 0).length,
     hedgeBenefitAfterFees: sum('hedgeSavings') - sum('contractFee') - sum('interest'),
     marketingSpend: days.reduce((n, d) => n + d.ops.marketing + d.ops.sampling, 0), days };
 }
@@ -142,10 +157,13 @@ try {
   const summary = policies.map(policy => {
     const rows = runs.filter(r => r.policy === policy);
     const mean = key => rows.reduce((n, r) => n + r[key], 0) / rows.length;
+    const verdicts = {};
+    for (const r of rows) verdicts[r.verdict] = (verdicts[r.verdict] || 0) + 1;
     return { policy, runs: rows.length, meanNetWorth: mean('netWorth'), minNetWorth: Math.min(...rows.map(r => r.netWorth)), maxNetWorth: Math.max(...rows.map(r => r.netWorth)),
-      meanReputation: mean('reputation'), meanServed: mean('served'), meanBalked: mean('balked'), meanHedgeBenefitAfterFees: mean('hedgeBenefitAfterFees') };
+      meanReputation: mean('reputation'), meanServed: mean('served'), meanBalked: mean('balked'), meanHedgeBenefitAfterFees: mean('hedgeBenefitAfterFees'),
+      verdicts, meanWorstDayNet: mean('worstDayNet'), totalNegativeDays: rows.reduce((n, r) => n + r.negativeDays, 0) };
   });
-  const report = { sourceHash, seeds, policies, assumptions: ['Local simulator, no identity perk, speed1200, deterministic Math.random reset immediately before play', 'All offers and incidents declined through the same modal action handler', 'All active policies batch at queue>=6 before16:00 and discount at queue>=12 after13:20; apprentice when eligible', 'Growth samples days1-4 and sponsors days3-4; conservative locks light at index<=1.1 or settles outstanding debt; aggressive buys heavy whenever uncovered', 'Each campaign runs in a fresh Node process; fixed 100ms frame clock, fixed Date.now origin, and UI animation timers disabled; no browser, live backend, or human playtest', 'Five-seed diagnostic pilot, not a calibrated balance gate or isolated marketing ROI estimate'], summary, runs };
+  const report = { sourceHash, seeds, policies, assumptions: ['Local simulator, no identity perk, speed1200, deterministic Math.random reset immediately before play', 'All offers and incidents declined through the same modal action handler', 'All active policies batch at queue>=6 before16:00 and discount at queue>=12 after13:20; apprentice when eligible', 'Growth samples days1-4 and sponsors days3-4; conservative locks light at index<=1.1 or settles outstanding debt; aggressive buys heavy whenever uncovered; forecaster/engaged buy heavy after a rumour day and light after a spike; engaged also accepts offers and incidents; reckless buys heavy whenever uncovered, pushes Ruth, never works the queue; a rejected contract (supplier tab limit) falls back to riding the spot', 'Each campaign runs in a fresh Node process; fixed 100ms frame clock, fixed Date.now origin, and UI animation timers disabled; no browser, live backend, or human playtest', 'Ten-seed diagnostic pilot. Verdicts come from the shared campaignVerdict ladder; still not an isolated marketing ROI estimate'], summary, runs };
   if (process.argv[2]) writeFileSync(process.argv[2], JSON.stringify(report, null, 2) + '\n', { flag: 'wx' });
   original.log(JSON.stringify({ sourceHash, seeds, replayVerified: true, summary, artifact: process.argv[2] || null }, null, 2));
   }

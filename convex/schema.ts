@@ -12,6 +12,7 @@ export default defineSchema({
     day: v.number(),
     beanIndex: v.number(),
     lastTier: v.optional(v.string()),
+    lastEventId: v.optional(v.string()),
     matchaPrice: v.number(),
     debt: v.number(),
     contractPrice: v.optional(v.number()),

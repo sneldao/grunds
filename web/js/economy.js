@@ -19,7 +19,20 @@ export function operatingCosts({ till = 0, served = 0, staffing = 'work', market
 }
 export function hedgeTerms(id, extraFee = 0) {
   const mul = { contract_light: .5, contract: 1, contract_heavy: 2 }[id];
-  return mul ? { units: CAMPAIGN.contractUnits * mul, fee: CAMPAIGN.contractFee * mul + extraFee } : null;   // a COD incident rides on the next contract
+  if (!mul) return null;
+  const units = CAMPAIGN.contractUnits * mul;
+  const rate = CAMPAIGN.contractUnitFee + (mul - 1) * CAMPAIGN.contractFeeSlope;
+  return { units, fee: Math.round(units * rate * 100) / 100 + extraFee };   // a COD incident rides on the next contract
+}
+export function debtInterestFor(debt) {
+  return debt > 0 ? Math.max(CAMPAIGN.debtInterest, Math.round(debt * CAMPAIGN.debtInterestRate * 100) / 100) : 0;
+}
+export function campaignVerdict(net, rep) {
+  if (net > 8000 && rep >= 70) return 'star';
+  if (net > 5500 && rep >= 60) return 'good';
+  if (net > 4500) return 'held';
+  if (net > 0) return 'scarped';
+  return 'lost';
 }
 export function quoteDayPlan({ day, hedge = 'hold', staffing = 'work', marketing = {}, debt = 0, extraFee = 0, perkCostMul = 1, modifiers = {} }) {
   const training = staffing === 'apprentice' ? CAMPAIGN.staff.apprenticeTrainingFee : 0;
@@ -30,6 +43,6 @@ export function quoteDayPlan({ day, hedge = 'hold', staffing = 'work', marketing
     perCup: CAMPAIGN.staffPerCup + CAMPAIGN.suppliesPerCup + (modifiers.suppliesDelta || 0) + (staffing === 'apprentice' ? CAMPAIGN.staff.apprenticeWasteExtra : 0),
     pitchPct: CAMPAIGN.pitchPct + (modifiers.pitchPctDelta || 0), cardFeePct: CAMPAIGN.cardFeePct * perkCostMul,
     contractFee: hedgeTerms(hedge, extraFee)?.fee || 0,
-    interest: day > 1 && debt > 0 && hedge !== 'settle' ? CAMPAIGN.debtInterest : 0,
+    interest: day > 1 && hedge !== 'settle' ? debtInterestFor(debt) : 0,
     settlement: hedge === 'settle' ? debt : 0 };
 }

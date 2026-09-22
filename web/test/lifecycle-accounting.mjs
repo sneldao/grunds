@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { CAMPAIGN, ECON } from '../js/config.js';
 import { Exchange } from '../js/exchange.js';
 import { PatronSystem } from '../js/patrons.js';
-import { salePrice, operatingCosts, hedgeTerms } from '../js/economy.js';
+import { salePrice, operatingCosts, hedgeTerms, campaignVerdict } from '../js/economy.js';
 import { priceForDay } from '../js/gentrification.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -128,13 +128,13 @@ const c1 = G.commitDayPlan();
 if (!c1.ok) fails.push('commit rejected: ' + JSON.stringify(c1));
 s = G.stats();
 if (G.phase !== 'trading') fails.push(`post-commit phase should be trading, got ${G.phase}`);
-if (!near(s.debt, CAMPAIGN.contractFee / 2)) fails.push(`light contract fee should be ${CAMPAIGN.contractFee / 2}, got ${s.debt}`);
+if (!near(s.debt, hedgeTerms('contract_light').fee)) fails.push(`light contract fee should be ${hedgeTerms('contract_light').fee}, got ${s.debt}`);
 if (!near(s.contract, 1.0)) fails.push(`contract should lock the pre-roll board 1.00, got ${s.contract}`);
 if (G.exc.day !== 1 || G.exc.history.length !== 1) fails.push(`commit should roll day 1 exactly once: day ${G.exc.day} hist ${G.exc.history.length}`);
 if (near(s.index, 1.0)) fails.push('commit should roll the market (index still 1.0)');
 const c2 = G.commitDayPlan();
 if (c2.ok || c2.why !== 'not planning') fails.push('second commit should fail as not planning: ' + JSON.stringify(c2));
-if (!near(G.stats().debt, CAMPAIGN.contractFee / 2)) fails.push('duplicate commit double-charged');
+if (!near(G.stats().debt, hedgeTerms('contract_light').fee)) fails.push('duplicate commit double-charged');
 G.exc.contract.units = 3;
 runFrames(220);
 s = G.stats();
@@ -249,7 +249,7 @@ if (!near(opsTrain.total, opsTrain.staff + opsTrain.supplies + opsTrain.pitch + 
 const nut = operatingCosts({ served: 0 });
 if (!near(nut.total, CAMPAIGN.staffDayRate + CAMPAIGN.pitchMin + CAMPAIGN.sundries)) fails.push(`the nut should be ${CAMPAIGN.staffDayRate + CAMPAIGN.pitchMin + CAMPAIGN.sundries}, got ${nut.total}`);
 const ht = hedgeTerms('contract_light', 18);
-if (!ht || !near(ht.fee, CAMPAIGN.contractFee / 2 + 18) || ht.units !== CAMPAIGN.contractUnits / 2) fails.push('hedgeTerms light+extraFee wrong');
+if (!ht || !near(ht.fee, hedgeTerms('contract_light').fee + 18) || ht.units !== CAMPAIGN.contractUnits / 2) fails.push('hedgeTerms light+extraFee wrong');
 if (hedgeTerms('hold')) fails.push('hedgeTerms should return null for non-contracts');
 
 {
@@ -282,6 +282,23 @@ if (hedgeTerms('hold')) fails.push('hedgeTerms should return null for non-contra
   if (!G.commitDayPlan().ok) fails.push('day-5 pushed commit failed');
   runFrames(220);
   if (G.stats().baristaCrisis !== true) fails.push('pushed day at 0.15 condition should trigger the barista crisis');
+}
+
+// Insolvency — mid-campaign, the supplier calls the tab. Inflate the debt past
+// net worth at a day-1 review; the campaign must end 'lost' on the spot.
+G.reset();
+await new Promise(r => setTimeout(r, 5400));
+{
+  G.stageDayPlan({ hedge: 'hold' });
+  if (!G.commitDayPlan().ok) fails.push('insolvency-fixture commit failed');
+  runFrames(220);
+  if (G.phase !== 'review') fails.push(`insolvency fixture expected review, got ${G.phase}`);
+  G.exc.debt = 99999;
+  if (G.stats().netWorth >= 0) fails.push(`fixture should be insolvent, netWorth ${G.stats().netWorth}`);
+  if (!G.continueFromReview()) fails.push('insolvent continueFromReview rejected');
+  if (G.phase !== 'finale' || !G.stats().campaignDone) fails.push(`insolvency should end the campaign early, got ${G.phase}`);
+  if (campaignVerdict(G.stats().netWorth, G.stats().rep) !== 'lost') fails.push('insolvent campaign should verdict lost');
+  if (G.stats().day !== 1) fails.push('insolvency ran past the failed day');
 }
 
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }

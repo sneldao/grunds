@@ -83,7 +83,8 @@ export class Regulars {
     for (const r of this.regulars) {
       if (!r.seen) continue;
       r.op += (happy - 0.5) * 0.10;
-      if (balked > served * 0.18) r.op -= 0.05;        // a rough day sours the room
+      if (balked > served * 0.15) r.op -= 0.10;        // the floor drowned — the room sours hard
+      else if (balked > served * 0.06) r.op -= 0.05;   // a rough day sours the room
       if (defections > 8) r.op -= 0.03;                // the chain's line is a bad sign
       if (priced && r.coh === 'students') r.op += 0.04; // a deal the regulars love
       r.op = clamp(r.op, -1, 1);
@@ -127,7 +128,7 @@ export class Regulars {
     const m = this.regulars.reduce((s, r) => s + r.op, 0) / this.regulars.length;
     return Math.round(clamp(62 + m * 38, 0, 100));   // 0..100
   }
-  get footfallMul() { return 1 + (this.reputation - 62) * 0.006; }   // ~±23% at the rails
+  get footfallMul() { return 1 + (this.reputation - 62) * 0.014; }   // ~±53% at the rails
   get tipMul() { return 1 + (this.reputation - 62) * 0.01; }
   // Loyalty as a return rate: yesterday's served × this reappear across
   // today's waves (see Demand.resolveDay). 62 → returnBase, capped at returnMax.

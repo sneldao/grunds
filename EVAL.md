@@ -85,28 +85,55 @@ node web/test/balance-policies.mjs
 ```
 
 `balance-policies.mjs` is a measurement harness, not a balance gate. The
-2026-09-22 pilot ran five policies across seeds 7, 42, 101, 202, and 555
-(25 campaigns); a fresh-process replay of seed 7 / passive matched exactly.
-Every run used a fixed frame clock, no identity perk, and declined all offers
-and incidents through the normal action handler. Active policies batch and
-reprice by the documented queue rules and hire apprentice cover when eligible.
+2026-09-22 tuning run played eight policies across ten seeds (7, 42, 101,
+202, 555, 13, 77, 150, 314, 431 — 80 campaigns); a fresh-process replay of
+seed 7 / passive matched exactly. Every run used a fixed frame clock, no
+identity perk, and resolved offers/incidents through the normal modal action
+handler (engaged accepts, the rest decline). Active policies batch and
+reprice by the documented queue rules and hire apprentice cover when
+eligible; a contract rejected by the supplier tab limit falls back to
+riding the spot.
 
-| Policy | Mean five-day net worth | Mean reputation | Mean balked |
-|---|---:|---:|---:|
-| Passive | £7,398.23 | 53.0 | 1,651.6 |
-| Queue-focused | £8,022.92 | 64.0 | 633.0 |
-| Growth-focused | £8,248.61 | 65.6 | 646.2 |
-| Conservative hedge | £8,215.37 | 64.0 | 633.0 |
-| Aggressive hedge | £9,204.60 | 64.0 | 633.0 |
+The same-day tuning changed the cost shape (committed staff roster and a
+binding pitch floor rather than mostly per-cup costs), priced hedges per
+covered cup, added the £1,500 supplier tab limit with 2.5%/day interest,
+made `rumour_frost` a real (×3 weight) next-day spike signal, steepened the
+reputation→footfall loop, lowered the zero-awareness spawn floor to 0.18×,
+repriced marketing, and recalibrated `campaignVerdict` to the measured
+economy (`lost` ≤ £0, `scarped` ≤ £4,500, `held` ≤ £5,500, `good` needs
+rep ≥ 60, `star` needs rep ≥ 70 and £8,000). Insolvency at any review now
+ends the campaign `lost` early.
+
+| Policy | Mean net worth | Min | Mean rep | Verdicts (10 seeds) | Hedge EV after fees | Mean worst day |
+|---|---:|---:|---:|---|---:|---:|
+| Reckless (heavy hedge, push Ruth, no queue work) | £4,007.72 | £2,799.38 | 43.1 | 7 scarped · 3 held | −£647.38 | −£273.78 |
+| Passive | £4,974.06 | £2,570.72 | 46.5 | 5 scarped · 5 held | — | −£248.26 |
+| Aggressive hedge | £4,740.97 | £3,143.23 | 63.0 | 6 scarped · 1 held · 3 good | −£695.12 | −£353.51 |
+| Growth-focused | £5,248.99 | £2,590.05 | 63.2 | 5 scarped · 2 held · 3 good | — | −£308.83 |
+| Conservative hedge | £5,261.23 | £3,539.55 | 63.0 | 5 scarped · 2 held · 3 good | −£174.86 | −£262.38 |
+| Queue-focused | £5,436.09 | £3,532.46 | 63.0 | 5 scarped · 2 held · 3 good | — | −£252.66 |
+| Forecaster (hedge on the rumour signal) | £5,616.94 | £3,951.38 | 63.0 | 2 scarped · 5 held · 3 good | +£180.85 | −£30.57 |
+| Engaged (levers + offers + forecast hedge + marketing) | £6,071.39 | £3,300.49 | 70.0 | 2 scarped · 2 held · 4 good · 2 star | +£188.75 | +£147.44 |
 
 Capture: `out/review-balance-2026-09-22.json`, source fingerprint
-`4204f1188949cfa97c6a5e02b4a310d9a360a34d36cb2c7a150debc2bcdc954e`.
-Daily P&Ls reconciled to campaign net worth. Passive play remained profitable
-in all five sampled seeds; aggressive hedging had the highest mean net worth.
-These are remaining tuning concerns, not proof of universal dominance or a
-human-tested difficulty curve. No verdict thresholds were changed to fit the
-results. The capture includes full daily records and policy assumptions;
-reuse it for reporting rather than silently recomputing the inputs.
+`3e2a3765237f2576191ce7d549f8d1028ec310eeb7abc83b5f432e9ea4717f4f`.
+Daily P&Ls reconciled to campaign net worth in every run.
+
+Reading: the earlier forgiving economy is gone — every policy posts negative
+days (4–8 per 50-day sample, mean worst day −£31 to −£354) and passive play
+now lands scarped/held rather than always finishing ahead. Policy quality
+orders correctly: reckless < passive < blind hedges < informed play, and
+engaged play is the only policy to reach `star`. Hedging now behaves like
+insurance — blind heavy cover loses ~£650–700 on average while the
+rumour-informed policy earns ~£180 and holds the best worst-day protection.
+
+Caveats: ten seeds is a diagnostic sample, not a difficulty guarantee. No
+policy reached `lost` — the scripted floor is `scarped` (worst mid-campaign
+net worth +£1,109), so `lost` requires play worse than the harness's
+reckless policy (e.g. compounding the tab into a spike week) and is enforced
+by the insolvency rule rather than observed in the sample. Human playtest of
+the difficulty curve remains unperformed; these are scripted-policy results
+under fixed conditions.
 
 Tests use pure fixtures, mocked DOM/GL/audio, and mocked database/HTTP handlers
 as appropriate. Layout geometry and deployed Convex behavior are not verified.

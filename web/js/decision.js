@@ -1,5 +1,5 @@
 import { CAMPAIGN } from './config.js';
-import { hedgeTerms } from './economy.js';
+import { hedgeTerms, debtInterestFor } from './economy.js';
 import { canChooseStaffing } from './staffing.js';
 
 const HEDGES = new Set(['hold', 'settle', 'contract_light', 'contract', 'contract_heavy']);
@@ -37,9 +37,10 @@ export function resolveDecision(snapshot, plan) {
   if (hedge !== 'hold' && hedge !== 'settle' && contract) return { ok: false, why: 'already contracted' };
 
   const settlement = hedge === 'settle' ? debt : 0;
-  const interest = day > 1 && debt > 0 && hedge !== 'settle' ? CAMPAIGN.debtInterest : 0;   // the debt clock ticks at dawn
+  const interest = day > 1 && hedge !== 'settle' ? debtInterestFor(debt) : 0;   // the debt clock compounds at dawn
   const terms = hedgeTerms(hedge, extraFee);
   const fee = terms ? terms.fee : 0;
+  if (terms && debt + interest + fee > CAMPAIGN.creditLimit) return { ok: false, why: 'the tab is maxed — settle the supplier first' };
   const newDebt = debt - settlement + interest + fee;
   if (!Number.isFinite(newDebt)) return { ok: false, why: 'debt overflow' };
   const newContract = contract

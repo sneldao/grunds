@@ -3,7 +3,7 @@
 // contract beans, ride the spot, or pay the debt. The reply mutates the exchange
 // — the Gamble clock turns. No LLM; every line templated from state.
 import { LETTER, CAMPAIGN } from './config.js';
-import { hedgeTerms } from './economy.js';
+import { hedgeTerms, debtInterestFor } from './economy.js';
 
 const gbp = n => '£' + Math.max(0, n).toFixed(2);
 
@@ -105,6 +105,13 @@ export function composeLetter(s) {
     const t = cover(id);
     return `lock ${s.index.toFixed(2)} · ${t.units} cups · ${gbp(t.fee)} credit` + (extraFee > 0 ? ` (incl. ${gbp(extraFee)} COD)` : '');
   };
+  // The supplier's tab has a ceiling — projecting fee + today's interest against
+  // it mirrors what resolveDecision will enforce at commit.
+  const overTab = id => {
+    const t = cover(id);
+    const interest = s.day > 1 ? debtInterestFor(s.debt || 0) : 0;
+    return (s.debt || 0) + interest + t.fee > CAMPAIGN.creditLimit;
+  };
   return {
     from: LETTER.from,
     sign: LETTER.sign,
@@ -131,9 +138,9 @@ export function composeLetter(s) {
         : 'That’s the day on paper. Tomorrow’s board lands at dawn.',
     ].join('\n'),
     actions: mode === 'planning' ? [
-      { ...LETTER.actions[0], disabled: !!contract, explain: contract ? 'already contracted' : explain('contract_light') },
-      { ...LETTER.actions[1], disabled: !!contract, explain: contract ? 'already contracted' : explain('contract') },
-      { ...LETTER.actions[2], disabled: !!contract, explain: contract ? 'already contracted' : explain('contract_heavy') },
+      { ...LETTER.actions[0], disabled: !!contract || overTab('contract_light'), explain: contract ? 'already contracted' : overTab('contract_light') ? 'tab limit — settle first' : explain('contract_light') },
+      { ...LETTER.actions[1], disabled: !!contract || overTab('contract'), explain: contract ? 'already contracted' : overTab('contract') ? 'tab limit — settle first' : explain('contract') },
+      { ...LETTER.actions[2], disabled: !!contract || overTab('contract_heavy'), explain: contract ? 'already contracted' : overTab('contract_heavy') ? 'tab limit — settle first' : explain('contract_heavy') },
       { ...LETTER.actions[3], disabled: false, explain: `ride ${s.index.toFixed(2)}` },
       { ...LETTER.actions[4], disabled: s.debt <= 0, explain: s.debt <= 0 ? 'nothing to settle' : `pay ${gbp(s.debt)}` },
     ] : [],

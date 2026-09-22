@@ -163,6 +163,8 @@ export const openDay = mutation({
       let w = e.weight;
       if (e.tier === "cata" && c.lastTier === "cata") w = 0;
       if (c.lastTier === "cata" && e.tier !== "good" && e.tier !== "calm") w *= 0.35;
+      // a rumour is a real signal: yesterday's whisper loads tomorrow's bad draws
+      if (c.lastEventId === "rumour_frost" && (id === "frost_minas" || id === "drought_ea")) w *= 3;
       const mul = shifts.get(id);
       if (mul !== undefined) w *= Math.min(3, Math.max(0.2, mul));
       for (let i = 0; i < Math.round(w); i++) pool.push(id);
@@ -176,6 +178,7 @@ export const openDay = mutation({
       day,
       beanIndex,
       lastTier: def.tier,
+      lastEventId: eventId,
       matchaPrice,
     });
     await ctx.db.insert("marketEvents", {
@@ -203,13 +206,14 @@ export const contractBeans = mutation({
     if (!c) throw new Error("campaign not found");
     await rejectIfManaged(ctx, args.campaignId);
     if (c.contractUnits !== undefined) return { ok: false as const, why: "already contracted" };
+    const fee = Math.round(CAMPAIGN_TUNING.contractUnits * CAMPAIGN_TUNING.contractUnitFee * 100) / 100;
     await ctx.db.patch(args.campaignId, {
       contractPrice: c.beanIndex,
       contractUnits: CAMPAIGN_TUNING.contractUnits,
-      contractFee: CAMPAIGN_TUNING.contractFee,
-      debt: c.debt + CAMPAIGN_TUNING.contractFee,
+      contractFee: fee,
+      debt: c.debt + fee,
     });
-    return { ok: true as const, debt: c.debt + CAMPAIGN_TUNING.contractFee };
+    return { ok: true as const, debt: c.debt + fee };
   },
 });
 

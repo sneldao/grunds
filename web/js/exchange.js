@@ -22,6 +22,7 @@ export class Exchange {
     this.beanIndex = 1.0;             // the benchmark
     this.event = null;                 // today's rolled event ({id, ...EVENTS[id], day})
     this.lastTier = null;              // for the pity timer
+    this.lastEventId = null;           // yesterday's draw — a rumour tilts tomorrow
     this.contract = null;             // { price, units, fee } when locked
     this.debt = 0;                     // supplier credit (£)
     this.history = [];                // [{day, id, index, cost, margin}]
@@ -48,6 +49,8 @@ export class Exchange {
       if (e.tier === 'cata' && this.lastTier === 'cata') w = 0;
       // after a catastrophe, bias toward recovery (good/calm/stable up)
       if (this.lastTier === 'cata' && e.tier !== 'good' && e.tier !== 'calm') w *= 0.35;
+      // a rumour is a real signal: yesterday's whisper loads tomorrow's bad draws
+      if (this.lastEventId === 'rumour_frost' && (id === 'frost_minas' || id === 'drought_ea')) w *= 3;
       if (bias && bias[id]) w *= Math.min(3, Math.max(0.2, bias[id]));
       for (let i = 0; i < Math.round(w); i++) pool.push(id);
     }
@@ -56,6 +59,7 @@ export class Exchange {
     this.event = { id, ...def, day: this.day };
     this.beanIndex = Math.max(0.6, Math.min(2.6, this.beanIndex + def.dIndex));
     this.lastTier = def.tier;
+    this.lastEventId = id;
     // a contract is now consumed cup-by-cup (Exchange.consume), not dawn-by-dawn
     return this.event;
   }
@@ -96,7 +100,7 @@ export class Exchange {
   // Sizing is the position: `units` burn cup-by-cup, so a deep lock covers
   // ~two days of demand — more upside if the board rises, more fee + a
   // stuck price if it falls.
-  contractBeans(units = CAMPAIGN.contractUnits, fee = CAMPAIGN.contractFee) {
+  contractBeans(units = CAMPAIGN.contractUnits, fee = Math.round(units * CAMPAIGN.contractUnitFee * 100) / 100) {
     if (this.contract) return { ok: false, why: 'already contracted' };
     this.contract = { price: this.beanIndex, units, fee };
     this.debt += fee;
