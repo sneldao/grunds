@@ -244,7 +244,7 @@ console.log('FOCUSABLES hidden/disabled/closed-details excluded');
 {
   const html = read('web/index.html');
   const css = html;
-  for (const id of ['brief', 'offer', 'letter', 'licence', 'paywall', 'desk']) {
+  for (const id of ['brief', 'offer', 'letter', 'licence', 'paywall', 'desk', 'evening']) {
     const seg = html.slice(html.indexOf(`id="${id}"`), html.indexOf(`id="${id}"`) + 4000);
     for (const cls of ['modal-panel', 'modal-header', 'modal-body', 'modal-footer'])
       check(seg.includes(cls), `${id} missing .${cls}`);

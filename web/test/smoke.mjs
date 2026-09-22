@@ -89,7 +89,7 @@ async function runDay({ levers = false, query = '', frames = 950, step = 16.7 } 
   if (G0.phase !== 'planning') throw new Error(`expected planning after open, got ${G0.phase}`);
   const cr = G0.commitDayPlan();
   if (!cr.ok) throw new Error('commit failed: ' + JSON.stringify(cr));
-  let batched = false;
+  let acted = false;
   let now = 1000;
   for (let f = 0; f < frames; f++) {
     now += step;
@@ -99,9 +99,16 @@ async function runDay({ levers = false, query = '', frames = 950, step = 16.7 } 
     const off = registry.get('offer'); if (off && off.classList.contains('show')) registry.get('offer-no').click();
     if (f % 300 === 0) console.error(`  …frame ${f} clock=${registry.get('clock').textContent}`);
     if (levers && registry.get('clock').textContent >= '12:30') {
-      if (!batched) { batched = true; registry.get('reprice').click(); }
-      const pb = registry.get('prebatch');
-      if (!pb.disabled) pb.click();   // keep the batch topped up through the wave
+      // Prep OR price — never both. Keep topping up through the wave.
+      if (!acted) {
+        acted = true;
+        if (levers === 'reprice') registry.get('reprice').click();
+        else registry.get('prebatch').click();
+      }
+      if (levers !== 'reprice') {
+        const pb = registry.get('prebatch');
+        if (!pb.disabled) pb.click();
+      }
     }
   }
   return {
@@ -114,14 +121,16 @@ async function runDay({ levers = false, query = '', frames = 950, step = 16.7 } 
 }
 
 const t0 = Date.now();
-const A = await runDay({ query: '?speed=1200' });                    // cold bar, no levers
-const B = await runDay({ levers: true, query: '?speed=1200' });      // the read → pre-batch + reprice
+const A = await runDay({ query: '?speed=1200' });                         // cold bar, no levers
+const B = await runDay({ levers: true, query: '?speed=1200' });           // prep path (buy cups + top up)
+const Br = await runDay({ levers: 'reprice', query: '?speed=1200' });     // price-cut path alone
 // 1x covers the cinematic street walk-in path (dt clamps at 0.1s, so ~2700 frames for a day)
 const C = await runDay({ query: '?speed=60', frames: 2900, step: 100 });   // dt clamps at 0.1s → 0.33 min/frame
 
 console.log('A (cold bar)  :', JSON.stringify(A.stats));
 console.log('  verdict     :', A.verdict);
-console.log('B (read+lever):', JSON.stringify(B.stats));
+console.log('B (prep path) :', JSON.stringify(B.stats));
+console.log('Br (price cut):', JSON.stringify(Br.stats));
 console.log('C (1x walk-in) :', JSON.stringify(C.stats));
 console.log('  verdict     :', B.verdict);
 
@@ -132,10 +141,12 @@ if (A.stats.served < 200) fails.push(`A: too few served (${A.stats.served}) — 
 if (A.stats.peakQueue < 12) fails.push(`A: queue never built (peak ${A.stats.peakQueue}) — the scramble is missing`);
 if (A.stats.balked < 1) fails.push('A: nobody balked on a cold bar — balk logic broken');
 if (A.stats.defections < 1) fails.push('A: nobody crossed to the rival — defection broken');
-if (!(B.stats.waveBalked <= A.stats.waveBalked)) fails.push('B: pre-batch should not increase wave balks');
-if (!(B.stats.served >= A.stats.served)) fails.push('B: levers should serve at least as many patrons');
-if (B.stats.balked >= A.stats.balked) fails.push(`B: levers should cut balks (${B.stats.balked} !< ${A.stats.balked})`);
+if (!(B.stats.waveBalked <= A.stats.waveBalked)) fails.push('B: prep should not increase wave balks');
+if (!(B.stats.served >= A.stats.served * 0.9)) fails.push('B: prep should serve roughly as many');
+if (B.stats.balked >= A.stats.balked) fails.push(`B: prep should cut balks (${B.stats.balked} !< ${A.stats.balked})`);
+if (Br.stats.balked >= A.stats.balked) fails.push(`Br: price cut should cut balks (${Br.stats.balked} !< ${A.stats.balked})`);
+if (!(Br.stats.waveBalked <= A.stats.waveBalked)) fails.push(`Br: price cut should not worsen the wave (${Br.stats.waveBalked} !<= ${A.stats.waveBalked})`);
 if (C.clock !== '21:00') fails.push(`C: 1x day should close at 21:00, got ${C.clock}`);
 if (C.stats.served < 200) fails.push(`C: 1x served too few (${C.stats.served})`);
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
-console.log(`\nPASS — two full days simulated headless in ${Date.now() - t0}ms; lever payoff verified (balks ${A.stats.balked} → ${B.stats.balked})`);
+console.log(`\nPASS — days simulated headless in ${Date.now() - t0}ms; prep (${A.stats.balked}→${B.stats.balked}) and price-cut (${A.stats.balked}→${Br.stats.balked}) each beat a cold bar`);

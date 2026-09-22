@@ -71,7 +71,7 @@ export class PatronSystem {
     const torso = new THREE.Color(COHORTS[cohort]?.color ?? 0xaaaaaa).lerp(new THREE.Color(0x888888), 0.12);
     const p = {
       idx, active: true, cohort, zone,
-      wantsMatcha: zone === 'counter' && Math.random() < (this.repriced ? 0.45 : ECON.matchaShare),   // a deal pulls the students
+      wantsMatcha: zone === 'counter' && Math.random() < ECON.matchaShare,
       pos: V3(s.x, 0, s.z + (Math.random() - 0.5) * 1.4), face: fromLeft ? Math.PI / 2 : -Math.PI / 2,
       path: [], state: 'walking', waitMin: 0, dwell: 0,
       speed: 2.1 + Math.random() * 0.9, phase: Math.random() * 6.28,
@@ -108,6 +108,13 @@ export class PatronSystem {
         if (!set) { set = new Set(); this.regularsByIdx.set(r.idx, set); }
         set.add(p);
       }
+    }
+    // The 11:00 ask's party — stamp members during the rush so the evening
+    // card can count who stayed and who walked.
+    if (!toRival && zone === 'counter' && this.party && !this.party.declined
+        && this.partyActive && this.party.left > 0 && cohort === this.party.cohort) {
+      p.partyMember = true;
+      this.party.left--;
     }
     this.patrons.push(p);
     const door = V3(LAYOUT.door.x + (Math.random() - 0.5) * 2.2, 0, LAYOUT.door.z + 0.5);
@@ -162,12 +169,17 @@ export class PatronSystem {
     for (let i = 0; i < this.counterQ.length && points > 0 && servedN < ECON.servePerTick;) {
       const p = this.counterQ[i];
       if (p.state !== 'inQueue') { i++; continue; }
-      const cost = p.wantsMatcha ? (ctx.prebatched ? ECON.prepBatched : ECON.prepMatcha) : ECON.prepOther;
+      const fromBatch = p.wantsMatcha && (ctx.batchUnits || 0) > 0;
+      const cost = p.wantsMatcha ? (fromBatch ? ECON.prepBatched : ECON.prepMatcha) : ECON.prepOther;
       if (cost > points) { i++; continue; }   // bar's busy — cheaper orders slip ahead
       this.counterQ.splice(i, 1); points -= cost; servedN++;
-      if (p.wantsMatcha && ctx.prebatched) ctx.batchUnits = Math.max(0, ctx.batchUnits - 1);
+      if (fromBatch) ctx.batchUnits = Math.max(0, ctx.batchUnits - 1);
       p.hasCup = true; p.cupGreen = p.wantsMatcha; p.colorDirty = true;
-      const cup = this.exchange ? this.exchange.purchaseCup() : { beanCost: 0, spotCost: 0, hedged: false };   // burn one contract unit per cup
+      // Batch cups were paid at prep (£1 each) — skip the bean charge and
+      // don't burn a hedge unit on inventory already bought.
+      let cup;
+      if (fromBatch) cup = { beanCost: 0, spotCost: 0, hedged: false, prepaid: true };
+      else cup = this.exchange ? this.exchange.purchaseCup() : { beanCost: 0, spotCost: 0, hedged: false };
       ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: p.wantsMatcha ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull) : ECON.other, ...cup });
       this._afterServe(p);
     }
@@ -176,8 +188,9 @@ export class PatronSystem {
     // balks — matcha waiters who've had enough walk to the chain
     for (let i = this.counterQ.length - 1; i >= 0; i--) {
       const p = this.counterQ[i];
-      const balkChance = ECON.balkChance * (this.repriced ? 0.5 : 1) * (this.balkMul || 1);   // a deal buys patience; a bad floor loses it
-      if (p.state === 'inQueue' && p.wantsMatcha && !ctx.prebatched && p.waitMin > ECON.balkAfter && Math.random() < balkChance) {
+      const balkChance = ECON.balkChance * (this.repriced ? 0.25 : 1) * (this.balkMul || 1);   // a deal buys patience; a bad floor loses it
+      const hasBatch = (ctx.batchUnits || 0) > 0;
+      if (p.state === 'inQueue' && p.wantsMatcha && !hasBatch && p.waitMin > ECON.balkAfter && Math.random() < balkChance) {
         this.counterQ.splice(i, 1);
         p.flash = 1; p.colorDirty = true;
         ev.push({ type: 'balked', p });

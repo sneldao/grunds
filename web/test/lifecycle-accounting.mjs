@@ -345,5 +345,57 @@ await new Promise(r => setTimeout(r, 5400));
   if (G.stats().day !== 1) fails.push('insolvency ran past the failed day');
 }
 
+// Evening call — the three choices are real and the prep gate holds.
+// resolveEvening is exposed for headless coverage. Each branch runs the day
+// past the rush first — closing at dawn is (correctly) insolvency.
+const runTo = (min, cap = 900) => { let g = 0; while (G.phase === 'trading' && G.stats().dayMin < min && g++ < cap) runFrames(1); };
+G.reset();
+await new Promise(r => setTimeout(r, 5400));
+{
+  G.stageDayPlan({ hedge: 'hold' });
+  if (!G.commitDayPlan().ok) fails.push('evening-fixture commit failed');
+  runTo(1025);
+  if (G.phase !== 'trading') fails.push(`evening fixture expected trading past the rush, got ${G.phase}@${G.stats().dayMin}`);
+  G.resolveEvening('close');
+  if (G.phase !== 'review') fails.push(`evening close should land on the review, got ${G.phase}`);
+}
+{
+  // 'hold' fast-forwards to close; on a price-cut day 'topup' coerces to hold
+  G.continueFromReview(); await new Promise(r => setTimeout(r, 10));
+  G.stageDayPlan({ hedge: 'hold' }); G.commitDayPlan();
+  runFrames(5);
+  registry.get('reprice').click();
+  runTo(1025);
+  G.resolveEvening('topup');
+  if (G.stats().batchUnits !== 0) fails.push(`topup on a price-cut day should coerce to hold, got ${G.stats().batchUnits} cups`);
+  if (G.stats().batchSpend !== 0) fails.push('coerced topup should not charge');
+  runFrames(220);
+  if (G.phase !== 'review') fails.push(`evening fast-forward should still close the day, got ${G.phase}`);
+}
+{
+  // a prep day can top up — it charges, adds cups, and the day still closes
+  G.continueFromReview(); await new Promise(r => setTimeout(r, 10));
+  G.stageDayPlan({ hedge: 'hold' }); G.commitDayPlan();
+  runFrames(5);
+  registry.get('prebatch').click();
+  const before = G.stats().batchUnits;
+  if (before !== ECON.batchUnits) fails.push(`prep should buy ${ECON.batchUnits} cups, got ${before}`);
+  runTo(1025);
+  const atEvening = G.stats().batchUnits;   // the rush may have drunk the first batch
+  G.resolveEvening('topup');
+  if (G.stats().batchUnits !== atEvening + ECON.batchUnits) fails.push(`evening topup should add ${ECON.batchUnits} cups, got ${G.stats().batchUnits}`);
+  if (!near(G.stats().batchSpend, ECON.batchCost * 2)) fails.push(`two batches should spend ${ECON.batchCost * 2}, got ${G.stats().batchSpend}`);
+  G.resolveEvening('hold');   // second call is a no-op — the evening is already resolving
+  if (G.stats().batchUnits !== atEvening + ECON.batchUnits) fails.push('repeat evening call should be idempotent');
+  runFrames(220);
+  if (G.phase !== 'review') fails.push(`topped-up evening should still close, got ${G.phase}`);
+  const rcE = G.lastDayReceipt;
+  if (!rcE || !rcE.lines.some(l => l[0] === 'matcha batch bought')) fails.push('receipt missing the batch-bought line');
+  const revLine = rcE && rcE.lines.find(l => l[0] === 'revenue');
+  const stE = G.stats();
+  const wantRev = '£' + (stE.till + stE.batchSpend).toFixed(2);
+  if (!revLine || revLine[1] !== wantRev) fails.push(`revenue should be gross of batch spend: got ${revLine && revLine[1]}, want ${wantRev}`);
+}
+
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
 console.log('\nPASS — lifecycle gates hold, commit charges once, hedge accounting is realized, reset kills stale timers');

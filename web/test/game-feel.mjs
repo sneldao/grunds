@@ -56,7 +56,7 @@ console.log('BADGE   local badge is quiet; LIVE still flips on mirror');
 ok(/coached/.test(main), 'main.js has no coached flag');
 ok(/day === 1 && !coached && dayMin >= 7[28]0/.test(main), 'coach hint is not gated to day 1, 12:00-13:00, once');
 ok(/!prebatched && !repriced/.test(main), 'coach hint fires even after the player acted');
-ok(/students land at 14:00/.test(main), 'coach hint text missing');
+ok(/students at 14:00 — 1 buys cups/.test(main), 'coach hint text missing');
 console.log('COACH   day-1 13:00 lever nudge, once, only when idle');
 
 // 8) Beat camera respects speed: push-ins only at readable speeds.
@@ -136,6 +136,23 @@ ok(/#sys \{ top: 132px/.test(index), 'sys row overlaps the HUD clock on phones')
 console.log('SHARE   seed challenge on the verdict; MIX glued; MOBILE holds 390px');
 ok(/rivalServed.*coinBurst/.test(main), 'rival sales have no coin payoff');
 console.log('RIVAL   sign burns with their line, camera shows first blood, coins on their sales');
+
+// 16) Price copy comes from ECON — no third £40 / £4.20 literal trap.
+ok(/batchCost: 40/.test(config), 'ECON.batchCost is not 40');
+ok(/notebook: `[\s\S]*\$\{ECON\.batchCost\}/.test(config), 'notebook string does not interpolate ECON.batchCost');
+ok(/Buy \$\{ECON\.batchUnits\} cups for <b>\$\{fmt\(ECON\.batchCost\)\}<\/b>/.test(main)
+  || /fmt\(ECON\.batchCost\)/.test(main) && /TUT_STEPS/.test(main), 'tutorial does not paint batch cost from ECON');
+ok(/paintStaticCopy/.test(main), 'boot does not repaint lever/notebook copy from ECON');
+ok(!/pay £40/.test(index) && !/−£40/.test(index) && !/Buy 40 cups for £40/.test(index),
+  'index.html still hardcodes £40 batch prices');
+ok(!/matchaWaitMin/.test(config), 'dead matchaWaitMin still in ECON');
+ok(/residualEveningCups/.test(main) && /evening usually brings/.test(main),
+  'evening call has no residual-demand hint');
+ok(/revenue', fmt\(till \+ batchSpend\)/.test(main), 'receipt revenue is not gross of batch spend');
+ok(/matcha batch bought/.test(main), 'receipt has no batch-bought line');
+ok(!/estBalkNoBatchWave|waveBalked \+ \(prebatched \|\| repriced \? 12/.test(main),
+  'waveRead still invents a fixed +12 saved count');
+console.log('COPY    ECON owns £40/£4.20; receipt shows batch spend; waveRead is honest; evening hints residual demand');
 
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
 console.log('\nPASS — game feel: bounded bubbles, clamped to screen, signed numbers, pause, letter keys, quiet badge');

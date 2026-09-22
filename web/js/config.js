@@ -48,8 +48,11 @@ function counterSlotMax() { return 30; }
 // Economy — identical to the original slice. Do not tune here without a reason.
 export const ECON = {
   matchaFull: 4.80, matchaDeal: 4.20, other: 3.60,
-  batchCost: 4.20, batchUnits: 40,
-  matchaWaitMin: 4, servePerTick: 12, registerPerTick: 4,
+  // Prep buys the matcha up front (£1/cup, under the £1.30 bean spot).
+  // Served batch cups skip the bean charge; leftovers are waste at close.
+  // Prep and the price cut lock each other out — speed or margin, not both.
+  batchCost: 40, batchUnits: 40, batchCupCost: 1,
+  servePerTick: 12, registerPerTick: 4,
   barPoints: 8, prepOther: 1, prepMatcha: 4, prepBatched: 1,   // the bar spends prep-points; matcha is expensive unless batched
   balkAfter: 3, balkChance: 0.12, matchaShare: 0.35,
   sitChance: 0.35, maxPatrons: 260,
@@ -59,7 +62,7 @@ export const ECON = {
 // Story beats keyed to the real wave shapes in out/wave_schedule.json.
 export const CHAPTERS = [
   { t: 360,  k: 'FIRST LIGHT',      sub: 'the regulars take their corners' },
-  { t: 420,  k: 'THE COMMUTE',      sub: 'same order, no time — don’t be the bottleneck', beat: 'counter' },
+  { t: 420,  k: 'THE COMMUTE',      sub: 'same order, no time — keep the line under 5', beat: 'counter' },
   { t: 600,  k: 'THE LAPTOP HOURS', sub: 'one pour-over, three hours — reputation walks in', beat: 'tables' },
   { t: 720,  k: 'HIGH NOON',        sub: 'the “best of” lists arrive', notebook: true, beat: 'counter' },
   { t: 840,  k: 'THE MATCHA WAVE',  sub: 'students · 14:00 · you either batched or you didn’t', beat: 'counter', wave: true },
@@ -74,7 +77,7 @@ export const COPY = {
   open: 'OPEN THE DISTRICT',
   controls: 'drag to look · scroll to zoom · 1 pre-batch · 2 reprice · M sound · R reset',
   notebookTitle: 'ROASTER’S NOTEBOOK',
-  notebook: 'Matcha: 139 → 683 a week in thirteen weeks.\nThe student wave lands at 14:00.\nMade to order, a matcha takes 4 minutes.\nPre-batch and the wave hits a warm till.',
+  notebook: `Students arrive at 14:00.\nA matcha takes 4 minutes made to order, and 1 minute if you bought the batch.\nPress 1 to buy ${ECON.batchUnits} cups of matcha for £${ECON.batchCost} — leftovers spoil. Press 2 to sell at £${ECON.matchaDeal.toFixed(2)} instead of the board price.\nPick one. They walk to Glasshouse once the line passes 5.`,
   gossipBad: ['matcha here is a WAIT…', 'queue’s out the door again', 'four minutes. for a latte.', 'the chain across the road is faster', 'they switched roasters, you know'],
   gossipGood: ['worth the queue today', 'pre-batched. genius.', 'best matcha on the street', 'they know my order here'],
   rivalName: 'GLASSHOUSE',

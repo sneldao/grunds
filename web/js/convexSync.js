@@ -68,7 +68,7 @@ export function initSync() {
       const r = await fetch(url + '/sync/state?campaignId=' + encodeURIComponent(campaignId));
       const data = await r.json();
       if (data && data.campaign && typeof data.campaign.day === 'number') {
-        paint(`● LIVE · day ${data.campaign.day}/5 · ${ownerName()}`);
+        paint(`● LIVE · ${ownerName()}`);
       }
       return data;
     } catch {

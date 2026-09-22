@@ -1,4 +1,4 @@
-const OWNED = ['brief', 'offer', 'letter', 'licence', 'paywall', 'desk', 'receipt', 'tutorial', 'title'];
+const OWNED = ['brief', 'offer', 'letter', 'licence', 'paywall', 'desk', 'receipt', 'tutorial', 'title', 'evening'];
 const FOCUSABLE = 'a[href],button,input,textarea,select,summary,[tabindex],[contenteditable="true"],[contenteditable=""]';
 const INTERACTIVE = 'button,a,input,textarea,select,summary,[contenteditable="true"],[contenteditable=""]';
 

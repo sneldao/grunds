@@ -56,6 +56,7 @@
   #qlabel { position: relative; z-index: 1; font-size: 11px; padding-left: 8px; letter-spacing: .06em; }
   #batchline { font-size: 12px; }
   #batchline b { color: var(--matcha); font-size: 15px; }
+  #batchcount.low { color: var(--neg); }
   #batchline .pulse { animation: batchPulse .45s ease; }
   @keyframes batchPulse { 50% { color: #fff; text-shadow: 0 0 10px rgba(134,168,96,.9); transform: scale(1.12); display:inline-block; } }
   .attention { animation: leverPulse 1.6s ease infinite; }
@@ -362,12 +363,12 @@
 
   <header id="hud">
     <div id="clock">06:00</div>
-    <div class="line" id="daytag">DAY 1/5 · REP —</div>
-    <div id="goal" class="line">☕ keep the <b>queue under 5</b> · next: <b>14:00 rush</b> <span class="dim">— walk-outs feed GLASSHOUSE</span></div>
-    <div id="queuebar" aria-hidden="true"><div id="queuefill" class="ok" style="width:0%"></div><span id="qlabel">queue —</span></div>
-    <div class="line" id="batchline">matcha ready: <b id="batchcount">—</b></div>
-    <div class="line">till <span id="till">£0.00</span> &nbsp;·&nbsp; balked <span id="balk">0</span></div>
-    <div class="line" id="status"></div>
+    <div class="line" id="daytag">DAY 1/5 · regulars —</div>
+    <div id="goal" class="line">keep the line under <b>5</b> before the <b>14:00</b> rush</div>
+    <div id="queuebar" aria-hidden="true"><div id="queuefill" class="ok" style="width:0%"></div><span id="qlabel">0 in line — holding</span></div>
+    <div class="line" id="batchline"><span id="batchword">cups ready</span>: <b id="batchcount">none</b></div>
+    <div class="line">till <span id="till">£0.00</span> · walked <span id="balk">0</span> · poured <span id="poured">0</span></div>
+    <div class="line" id="status" hidden></div>
     <div class="line" id="pressure"></div>
     <div class="line" id="tape" style="display:none" title="the district wire — open the market desk"></div>
     <div class="line" id="syncbadge">○ local</div>
@@ -387,10 +388,10 @@
 
   <aside id="notebook">
     <h3>ROASTER’S NOTEBOOK</h3>
-    <p>Matcha: 139 → 683 a week in thirteen weeks.
-The student wave lands at <em>14:00</em>.
-Made to order, a matcha takes 4 minutes.
-<em>Pre-batch</em> and the wave hits a warm till.</p>
+    <p id="notebook-body">Students arrive at 14:00.
+A matcha takes 4 minutes made to order, and 1 minute if you bought the batch.
+Press 1 to buy cups — leftovers spoil. Press 2 to cut the price.
+Pick one. They walk to Glasshouse once the line passes 5.</p>
   </aside>
 
   <div id="receipt" class="modal" role="dialog" aria-labelledby="receipt-heading" aria-hidden="true" inert>
@@ -532,6 +533,26 @@ Made to order, a matcha takes 4 minutes.
     </div>
   </div>
 
+  <!-- 17:00 — the rush is over. One call, then the evening resolves. -->
+  <div id="evening" class="modal" role="dialog" aria-labelledby="evening-heading" aria-hidden="true" inert>
+    <div class="d-paper modal-panel" tabindex="-1">
+      <header class="modal-header">
+        <div class="l-head" id="evening-heading">THE EVENING</div>
+        <div class="l-kicker">the rush is over · one call, then the day ends</div>
+      </header>
+      <div class="modal-body">
+        <pre id="evening-read"></pre>
+        <div id="evening-left"></div>
+        <p id="evening-morrow" hidden></p>
+      </div>
+      <footer class="modal-footer"><div class="l-actions">
+        <button id="evening-topup">Top up for the evening <kbd>1</kbd><small>leftovers spoil again</small></button>
+        <button id="evening-hold">Hold the line <kbd>2</kbd><small>keep what’s left · then the receipt</small></button>
+        <button id="evening-close">Let them go <kbd>3</kbd><small>close now · no evening trade</small></button>
+      </div></footer>
+    </div>
+  </div>
+
   <!-- a regular's ask — one mid-day offer, a real yes/no with a cost -->
   <div id="offer" class="modal" role="dialog" aria-labelledby="offer-who" aria-hidden="true" inert>
     <div class="d-paper modal-panel" tabindex="-1">
@@ -551,8 +572,8 @@ Made to order, a matcha takes 4 minutes.
   </div>
 
   <div id="levers">
-    <button id="prebatch">Pre-batch matcha <kbd>1</kbd><small>−£4.20 · 40 units · before 16:00</small></button>
-    <button id="reprice">Reprice matcha <kbd>2</kbd><small>£4.80 → £4.20 · the chalkboard changes</small></button>
+    <button id="prebatch">Buy cups <kbd>1</kbd><small>fast bar · leftovers spoil</small></button>
+    <button id="reprice">Sell matcha cheaper <kbd>2</kbd><small>down from the board price · locks prep</small></button>
     <button id="reset">↺ day <kbd>R</kbd></button>
   </div>
 
@@ -573,7 +594,7 @@ Made to order, a matcha takes 4 minutes.
   <div id="tutorial" class="modal" role="dialog" aria-labelledby="ttitle" aria-hidden="true" inert>
     <div class="tcard modal-panel" tabindex="-1">
       <header class="modal-header"><div class="stepk" id="tstep">1 of 3</div><h3 id="ttitle">READ THE STREET</h3></header>
-      <div class="modal-body"><p id="tbody">At <b>14:00 every day</b> students flood in for matcha. 139 → 683 a week — the fastest item on the floor. Made to order, a matcha takes <b>4 minutes</b>.</p></div>
+      <div class="modal-body"><p id="tbody">Students arrive at <b>14:00</b> for matcha. Buy cups or cut the price — pick one. They walk once the line passes <b>5</b>.</p></div>
       <footer class="modal-footer">
         <div class="trow"><button id="tnext">Next →</button><button id="tskip" class="secondary">Skip — start the day</button></div>
         <button id="tclose" class="skip">skip tutorial (?skipTutorial to always skip)</button>
@@ -589,7 +610,7 @@ Made to order, a matcha takes 4 minutes.
       <p class="t-tag">You can’t control demand. You can only be ready for it —
 faster than the café across the street.</p>
       <button id="open" disabled>loading the day…</button>
-      <p class="t-controls">1 batch · 2 price · space pause</p>
+      <p class="t-controls">1 buy cups · 2 cut the price · space pause</p>
     </div>
   </div>
 

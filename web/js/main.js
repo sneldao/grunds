@@ -143,7 +143,7 @@ district.onGrown = (slots) => {
   if (kitPendingAtOpen) kitBeat.start(slots, SEED);
 };
 function currentAction() {
-  return computeNextAction({ dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending });
+  return computeNextAction({ dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending, offerShown, eveningFast });
 }
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
 fx.patrons = patrons;
@@ -158,7 +158,8 @@ const modals = createModalController({
     else if (t === 'letter') {
       modals.close('letter');
       if (phase === 'review' && lastDayReceipt) modals.open('receipt');
-    } else if (t === 'receipt') {
+    } else if (t === 'evening') resolveEvening('hold');
+    else if (t === 'receipt') {
       const back = $('receipt-back');
       if (phase === 'planning' && back && back.style.display !== 'none') back.click();
     }
@@ -226,18 +227,24 @@ let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0
 // first-timers = walk-ins the Regulars graph doesn't know (regularIdx < 0).
 // The new-shop arc lives on these numbers: tried, walked, told a friend.
 let firstServed = 0, firstWalked = 0, firstServedToast = 0, firstWalkedToast = 0;
-let prebatched = false, repriced = false, batchUnits = 0;
+let prebatched = false, repriced = false;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let coached = false;   // day-1 lever hint, once per campaign
 // just-in-time nudges: each fires once per campaign, only when its
 // condition is on screen — teach at the moment of need, not at boot
 let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false;
-let waveDebriefShown = false;  // 14:00 wave payoff card, once per day
+
+let eveningCallShown = false, eveningFast = false;
 let forecastShown = false;     // day-2 forecast tease, once per campaign (day 1 evening)
 let pendingGossip = null;      // a named regular's Nebius take on the market, one per day
 let tapePrev = 1.0;            // yesterday's bean-index close — the tape's delta
 // a regular's ask: one mid-day offer per day, yes/no with a real cost
 let offerShown = false, offerWaveMul = 1, officeRunAt = 0, oluPayoutAt = 0, estherCard = false, offerWasPaused = false;
+// The 11:00 ask can put a named party on the floor. Count them through the
+// rush so the evening card and Pip's opinion are about people, not a ratio.
+let party = null;   // { name, cohort, left, served, walked, declined? } | null
+let batchWaste = 0; // prepaid cups still on the bar at close
+let batchSpend = 0; // cash spent on cups up front — the receipt shows it beside revenue
 let incidentShown = false, activeBeat = null, cashOnly = 0, cashOnlyToast = false, contractFeeExtra = 0, solicitorAt = 0;
 // Morning Brief — the Drug Wars turn: paused at 06:00, read then commit
 let briefChoice = null;
@@ -264,6 +271,19 @@ function tick() {
   if (phase !== 'trading' || paused || closed) return;
   if (dayMin >= DAY_END) { closeDay(); return; }
   dayMin++;
+  // Drop 20× when the rush starts — the cup countdown has to be readable.
+  if (!headless && speed >= 1200 && dayMin === 840) {
+    speed = 300;
+    document.querySelectorAll('#speeds button').forEach(x => {
+      x.classList.toggle('on', x.dataset.s === '300');
+    });
+    fx.toast('slowed to 5× for the rush', 'warn');
+  }
+  if (!headless) {
+    document.querySelectorAll('#speeds button').forEach(x => {
+      if (x.dataset.s === '1200') x.disabled = phase === 'trading' && dayMin >= 840 && dayMin < 1020;
+    });
+  }
   // spawn the wave — day-1 mornings are half-demand so newcomers can read the floor
   while (waveIdx < dayWaves.length && dayWaves[waveIdx].t < dayMin) {
     const w = dayWaves[waveIdx++];
@@ -275,6 +295,8 @@ function tick() {
     const returnBonus = demand.todayReturnees > 0 && dayWaves.length
       ? Math.round(demand.todayReturnees / dayWaves.length) : 0;
     let firstSpawn = true;
+    patrons.party = party;
+    patrons.partyActive = dayMin >= 840 && dayMin <= 1020;
     for (const s of w.spawns) {
       const n = Math.max(1, Math.round(s.q * ECON.spawnScale * mul)) + (firstSpawn ? returnBonus : 0);
       firstSpawn = false;
@@ -310,6 +332,7 @@ function tick() {
         firstServed++;
         if (firstServedToast < 2) { firstServedToast++; fx.toast('a first-timer — the street’s trying you', 'good'); }
       }
+      if (e.p && e.p.partyMember && party && !party.declined) party.served++;
       if (dayMin >= 840 && dayMin <= 1020) waveServed++;
       audio.clink();
     } else if (e.type === 'balked') {
@@ -318,6 +341,7 @@ function tick() {
         firstWalked++;
         if (firstWalkedToast < 2) { firstWalkedToast++; fx.toast('a first-timer walked — first impressions travel', 'warn'); }
       }
+      if (e.p && e.p.partyMember && party && !party.declined) party.walked++;
       if (dayMin >= 840 && dayMin <= 1020) { waveBalked++; if (prebatched) prebatchHelped = false; }
       audio.balk();
       fx.huff(e.p.pos.x, 1.5, e.p.pos.z);
@@ -335,7 +359,7 @@ function tick() {
       // first walk-out names the remedy, not just the failure
       if (!nudgedBalk) {
         nudgedBalk = true;
-        fx.toast('they walked — the queue’s the enemy · 1 batches, 2 cuts the price', 'warn');
+        fx.toast('they walked — press 1 to prep cups, or 2 to cut the price', 'warn');
       }
     } else if (e.type === 'defect') {
       defections++;
@@ -357,8 +381,10 @@ function tick() {
     // at 1× the clock is felt — one soft tick per served minute, throttled inside audio
     try { if (speed === 60) audio.tick(true); } catch {}
   }
-  if (prebatched && ctx.batchUnits <= 0) {
-    prebatched = false; ctx.prebatched = false;
+  // Stock ran out — the bar goes cold until a top-up. The day's prep choice
+  // still stands (price cut stays locked).
+  if (prebatched && ctx.batchUnits <= 0 && ctx.prebatched) {
+    ctx.prebatched = false;
     fx.toast('batch exhausted — made-to-order until you top up (1)', 'warn');
   }
   peakQueue = Math.max(peakQueue, patrons.queueLength);
@@ -370,6 +396,7 @@ function tick() {
 function beats() {
   while (chapterIdx < CHAPTERS.length && dayMin >= CHAPTERS[chapterIdx].t) {
     const ch = CHAPTERS[chapterIdx++];
+    if (eveningFast) continue;
     fx.card(ch.k, ch.sub); audio.card();
     // Beat push-ins only at readable speeds — at 20× the chapters fly by and
     // the camera would whip around every few seconds. Cards still show.
@@ -382,11 +409,10 @@ function beats() {
     }
   }
   if (dayMin >= 840) fx.notebook(prebatched ? false : dayMin < 900);
-  // notebook: pinned open from the first minute of day 1, so newcomers
-  // meet the read before the rush. Beats still re-open it at noon.
-  if (day === 1 && dayMin === DAY_START + 1) fx.notebook(true);
+  // The tutorial owns the rule at open. The notebook comes back at noon
+  // and again if the 14:00 wave arrives with a cold bar.
   // Day-2 forecast tease: ~17:30 day 1, once per campaign. Gives a reason to replay.
-  if (day === 1 && !forecastShown && dayMin >= 1050 && !closed) {
+  if (day === 1 && !forecastShown && dayMin >= 1050 && !closed && !eveningFast) {
     forecastShown = true;
     const nextPrice = priceForDay(2).toFixed(2);
     const nextIdx = (exchange.beanIndex + calculateNonLinearDrift(2)).toFixed(2);
@@ -406,46 +432,11 @@ function beats() {
   }
   // cat once/day around 09:30
   if (dayMin === 570) { try { world.spawnCat(); } catch {} }
-  // 14:00 wave debrief: 5s card at 17:00 — teaches causality for Day 2
-  if (!waveDebriefShown && dayMin >= 1020 && !closed) {
-    waveDebriefShown = true;
-    const estBalkNoBatchWave = Math.max(0, Math.round(waveBalked + (prebatched || repriced ? 12 : 0)));
-    const saved = Math.max(0, estBalkNoBatchWave - waveBalked);
-    const savedTill = saved * (repriced ? ECON.matchaDeal : ECON.matchaFull);
-    const verdict = prebatched || repriced
-      ? (waveBalked <= 6 ? 'You held the line.' : waveBalked <= 14 ? 'The notebook paid off.' : 'Tough wave — batch earlier tomorrow.')
-      : 'No batch, no deal — the wave ate you. Try 1 before noon tomorrow.';
-    const estLine = prebatched || repriced
-      ? `With your prep: balk ${waveBalked} · served ${waveServed}`
-      : `No prep: balk ${waveBalked} · served ${waveServed}`;
-    const counterfactual = prebatched || repriced
-      ? `Without it: ~${estBalkNoBatchWave} would have walked · saved ~${fmt(savedTill)}`
-      : `With a 40-unit batch: ~${Math.max(1, Math.round(waveServed * 0.7))} more served`;
-    fx.debriefCard({
-      k: '14:00 — THE WAVE',
-      sub: verdict,
-      lines: [estLine, counterfactual],
-    });
-    if (saved > 0) fx.toast(`Wave debrief: saved ${saved} cups · ~${fmt(savedTill)} not lost to GLASSHOUSE`, saved >= 6 ? 'good' : 'warn');
-    // delight: fanfare + coin rain + crane on a real save; rain on a flop
-    if (saved >= 1) {
-      const win = saved >= 6;
-      try {
-        if (win) audio.waveFanfare(saved); else audio.waveRain(saved);
-        if (win && !headless && speed <= 300) rig.focus(world.focus.counter, 11, 3.5);
-        if (win) { fx.coinRain(LAYOUT.register.x, 1.5, -5.2, Math.min(22, 10 + saved * 2)); }
-        if (win) fx.victoryBurst(saved);
-        if (navigator.vibrate) navigator.vibrate(win ? [20, 30, 50] : 35);
-        if (win) world.setPlantHealth(Math.max(0, patrons.queueLength - 2));
-      } catch {}
-    }
-    try { analytics.track('wave_debrief_shown', { day, dayMin, waveBalked, waveServed, saved, savedTill, prebatched, repriced, verdict }); } catch {}
-  }
   // Day-1 coach: moves earlier (12:00) — halfway between noon reading
   // and 14:00 action. Only if the player hasn't acted yet, once per campaign.
   if (day === 1 && !coached && dayMin >= 720 && !prebatched && !repriced) {
     coached = true;
-    fx.toast('students land at 14:00 — batch matcha (1) or cut the price (2)', 'warn');
+    fx.toast(`students at 14:00 — 1 buys cups (${fmt(ECON.batchCost)}) or 2 cuts the price — pick one`, 'warn');
     audio.card();
     $('prebatch').classList.add('attention');
     $('reprice').classList.add('attention');
@@ -453,12 +444,12 @@ function beats() {
   // contextual nudges — bound to the state on screen, any day, once each
   if (!nudgedQueue && patrons.queueLength >= 4 && !prebatched && dayMin < 840) {
     nudgedQueue = true;
-    fx.toast('the queue’s building — 1 to batch before they walk', 'warn');
+    fx.toast('line’s past 5 — press 1 to prep cups', 'warn');
     $('prebatch').classList.add('attention');
   }
   if (!nudgedPrice && dayMin >= 800 && dayMin < 840 && !repriced) {
     nudgedPrice = true;
-    fx.toast('the wave lands at 14:00 — 2 drops matcha to £4.20', 'warn');
+    fx.toast(`14:00 is close — 2 sells matcha at ${fmt(ECON.matchaDeal)}`, 'warn');
     $('reprice').classList.add('attention');
   }
   // a regular's ask — once per day at 11:00, pauses the floor for a yes/no
@@ -470,7 +461,10 @@ function beats() {
   // deferred offer consequences
   if (oluPayoutAt && dayMin >= oluPayoutAt) {
     oluPayoutAt = 0; till += 9;
+    patrons.party = party;
+    patrons.partyActive = true;
     for (let i = 0; i < 4; i++) patrons.spawn('elders', 'counter');
+    patrons.partyActive = dayMin >= 840 && dayMin <= 1020;
     fx.toast('Olu’s bridge club lands — +£9, four more in your line', 'good');
   }
   if (officeRunAt && dayMin >= officeRunAt) {
@@ -494,6 +488,133 @@ function beats() {
     else { regulars.adjustOpinions(-0.2); fx.toast('Ruth snapped at a regular — the room went cold.', 'bad'); }
     try { analytics.track('staff_crisis', { day, condition: Math.round(baristaCondition * 100) / 100 }); } catch {}
   }
+  // 17:00: the rush, the incident, and any deferred ask have landed.
+  // One call, then the evening resolves itself. Headless holds and keeps
+  // ticking so a full day still closes at 21:00.
+  if (!eveningCallShown && dayMin >= 1020 && !closed) {
+    if (!headless && modals.top()) return;
+    eveningCallShown = true;
+    const read = waveRead();
+    const waveN = read.waveServed + read.waveBalked;
+    if (waveN > 0 && !headless) fx.toast(`the wave: ${read.waveServed} served · ${read.waveBalked} walked`, read.ratio <= 0.15 ? 'good' : 'warn');
+    if (waveN > 0 && !headless) {
+      const win = read.waveServed >= 30 && read.ratio <= 0.15;
+      try {
+        if (win) audio.waveFanfare(read.waveServed); else audio.waveRain(read.waveBalked);
+        if (win && speed <= 300) rig.focus(world.focus.counter, 11, 3.5);
+        if (win) { fx.coinRain(LAYOUT.register.x, 1.5, -5.2, Math.min(22, 10 + Math.round(read.waveServed / 10))); }
+        if (win) fx.victoryBurst(read.waveServed);
+        if (navigator.vibrate) navigator.vibrate(win ? [20, 30, 50] : 35);
+        if (win) world.setPlantHealth(Math.max(0, patrons.queueLength - 2));
+      } catch {}
+    }
+    try { analytics.track('wave_debrief_shown', { day, dayMin, waveBalked, waveServed, waveRatio: read.ratio, lever: read.lever, verdict: read.sub }); } catch {}
+    if (!headless) showEveningCall(read);
+  }
+}
+
+function waveRead() {
+  const waveN = waveServed + waveBalked;
+  const ratio = waveN ? waveBalked / waveN : 0;
+  const lever = prebatched ? 'prep' : repriced ? 'deal' : null;
+  const pace = ECON.prepMatcha / ECON.prepBatched;
+  const sub = !lever
+    ? (waveBalked ? 'No cups bought — the wave ate you.' : 'The wave passed quietly.')
+    : (ratio <= 0.06 ? 'You held the line.' : ratio <= 0.15 ? 'The call paid off.' : 'Tough wave — top up earlier tomorrow.');
+  const lines = [
+    `the wave: ${waveBalked} walked · ${waveServed} served`,
+    lever === 'prep'
+      ? `the batch moved matcha at ${pace}× pace — speed was the answer`
+      : lever === 'deal'
+        ? 'the deal kept them patient — balks ran at a quarter'
+        : `a ${ECON.batchUnits}-cup batch moves matcha at ${pace}× pace — a deal keeps them patient`,
+  ];
+  return { sub, lines, waveServed, waveBalked, ratio, lever };
+}
+
+function residualEveningCups() {
+  // Rough forecast of how many more people land after the evening call.
+  // Scaled the same way as the live spawn loop (no event/rep multipliers —
+  // the modal needs a stable number the player can trust).
+  let n = 0;
+  for (const w of dayWaves) {
+    if (w.t < 1020) continue;
+    for (const s of w.spawns || []) n += Math.max(0, Math.round((s.q || 0) * ECON.spawnScale));
+  }
+  return n;
+}
+
+function showEveningCall(read) {
+  const body = $('evening-read');
+  const partyLine = partyLineText();
+  if (body) body.textContent = (partyLine ? partyLine + '\n\n' : '') + read.sub + '\n' + read.lines.join('\n');
+  const left = $('evening-left');
+  if (left) {
+    const residual = residualEveningCups();
+    const q = patrons.queueLength;
+    let txt = ctx.batchUnits > 0
+      ? ctx.batchUnits + ' cups still ready — leftovers spoil at close'
+      : (prebatched ? 'no cups left on the bar' : 'no cups ready');
+    if (residual > 0) {
+      if (q <= 5 && residual < ECON.batchUnits / 2)
+        txt += ` · evening usually brings ~${residual} — hold is enough`;
+      else
+        txt += ` · evening usually brings ~${residual}`;
+    } else if (q <= 5) {
+      txt += ' — hold is enough';
+    }
+    left.textContent = txt;
+  }
+  const morrow = $('evening-morrow');
+  if (morrow) {
+    if (day === 1) {
+      forecastShown = true;
+      morrow.hidden = false;
+      morrow.textContent = 'Tomorrow the board opens near £' + priceForDay(2).toFixed(2) + '.';
+    } else { morrow.textContent = ''; morrow.hidden = true; }
+  }
+  const topup = $('evening-topup');
+  if (topup) {
+    // Top-up is only for a prep day — a price-cut day holds or closes.
+    const canTop = prebatched && !repriced;
+    topup.disabled = !canTop;
+    topup.style.display = canTop ? '' : 'none';
+  }
+  paused = true;
+  if ($('pause')) $('pause').textContent = 'resume';
+  modals.open('evening');
+}
+
+function partyLineText() {
+  if (!party) return '';
+  if (party.declined) return party.name + ' stayed away.';
+  return party.name + '’s group: ' + party.served + ' stayed, ' + party.walked + ' walked';
+}
+
+function resolveEvening(choice) {
+  if (eveningFast || phase !== 'trading' || closed) return;
+  if (choice === 'topup') {
+    if (!prebatched || repriced) choice = 'hold';
+    else {
+      till -= ECON.batchCost; batchSpend += ECON.batchCost;
+      ctx.batchUnits += ECON.batchUnits;
+      ctx.prebatched = true;
+      prebatched = true;
+    }
+  }
+  try { modals.close('evening'); } catch {}
+  paused = false;
+  if ($('pause')) $('pause').textContent = 'pause';
+  try { analytics.track('evening_call', { day, choice, batchUnits: ctx.batchUnits, party: party ? { name: party.name, served: party.served, walked: party.walked, declined: !!party.declined } : null }); } catch {}
+  if (choice === 'close') {
+    fx.card('GOLDEN HOUR', 'you let the evening go — the till is what you kept');
+    closeDay();
+    return;
+  }
+  fx.card('GOLDEN HOUR', choice === 'topup'
+    ? 'forty more cups — the evening serves itself'
+    : 'you hold the line — the evening runs on');
+  eveningFast = true;
 }
 
 function closeDay() {
@@ -529,7 +650,18 @@ function closeDay() {
   // Then resolveDay folds in the day's outcome and runs the friendship
   // contagion, so the network sees the drift through the social layer.
   applyExpectation(regulars, day);
+  // The person who asked at 11:00 — their group's stay/walk shifts their
+  // opinion before the friend graph spreads it.
+  if (party && !party.declined && party.name) {
+    const r = regulars.regulars.find(x => x.name === party.name);
+    if (r) {
+      if (party.served > party.walked) r.op = Math.min(1, r.op + 0.06);
+      else if (party.walked > party.served) r.op = Math.max(-1, r.op - 0.12);
+    }
+  }
   regulars.resolveDay({ served: servedN, balked, defections, priced: repriced });
+  batchWaste = Math.max(0, ctx.batchUnits | 0);
+  const wasteCost = batchWaste * (ECON.batchCupCost || 1);
   const ops = operatingCosts({
     till, served: servedN,
     staffing: ruthWasHome ? 'home' : hiredApprentice ? 'apprentice' : 'work',
@@ -551,6 +683,7 @@ function closeDay() {
   else if (ratio < 0.12) verdict = 'Held the line when it mattered.';
   else if (ratio < 0.2) verdict = 'You fed the chain across the road.';
   else verdict = 'The wave ate you alive.';
+  if (batchWaste >= 12) verdict += ' You bought matcha the wave didn’t drink.';
   if (netToday < 0) verdict += ' The till went backward — the nut came due anyway.';
   // The tab has a fuse: warn when the week's position can't cover tomorrow's
   // committed costs — the supplier calls it at zero.
@@ -585,7 +718,9 @@ function closeDay() {
   const receiptData = {
     lines: [
       [standName, playerName],
-      ['revenue', fmt(till)], ['bean cost', fmt(cogs)],
+      ['revenue', fmt(till + batchSpend)], ['bean cost', fmt(cogs)],
+      ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
+      ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
       ...(hedgedCups > 0 ? [['hedge benefit (before fees)', fmt(realizedHedgeSavings)],
                             ...(feeToday > 0 ? [['hedge net of the fee', fmt(realizedHedgeSavings - feeToday)]] : [])] : []),
       ['staff', fmt(ops.staff)], ['milk + cups' + (dayMods.suppliesDelta ? ' (incl. oat surcharge)' : ''), fmt(ops.supplies)],
@@ -598,6 +733,8 @@ function closeDay() {
       ...(interestToday > 0 ? [['supplier interest', fmt(interestToday)]] : []),
       ['street awareness', demand.pips()],
       ['the regulars', `rep ${regulars.reputation} · footfall ${regulars.footfallMul >= 1 ? '+' : ''}${Math.round((regulars.footfallMul - 1) * 100)}%`],
+      ...(party && !party.declined ? [[party.name + '’s group', `${party.served} stayed · ${party.walked} walked`]] : []),
+      ...(party && party.declined ? [[party.name, 'stayed away']] : []),
       ['first-timers', `${firstServed} tried · ${firstWalked} walked out`],
       ['word of mouth', `~${dtrace.returnees} back tomorrow`],
       ['debt', exchange.debt > 0 ? `${fmt(exchange.debt)} of ${fmt(CAMPAIGN.creditLimit)}` : fmt(0)],
@@ -1308,12 +1445,13 @@ function prepareDay(d) {
   rivalStrategy = strategyForDay(d, exchange.event?.tier);
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; patrons.repriced = false;
-  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; waveDebriefShown = false; closed = false;
+  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; closed = false;
   baristaCrisis = false;
   if (d === 1) { forecastShown = false; nudgedQueue = nudgedBalk = nudgedPrice = false; }
   if (baristaRested) { baristaRested = false; fx.toast('Ruth’s back — rested. The bar hums.', 'good'); }
   pendingGossip = null;
   offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
+  party = null; batchWaste = 0; batchSpend = 0; patrons.party = null; patrons.partyActive = false;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; solicitorAt = 0;
   briefChoice = null;
   world.setMatchaPrice(priceForDay(d).toFixed(2), false);
@@ -1544,26 +1682,29 @@ function updateHUD() {
   // Cheap per-tick state: progress bar + lever availability + queue bar +
   // batch countdown stay live so inputs never feel stale, even at 20×.
   $('progress').style.width = ((dayMin - DAY_START) / (DAY_END - DAY_START) * 100) + '%';
-  $('prebatch').disabled = (prebatched && ctx.batchUnits > 0) || dayMin >= 960 || closed;
-  $('reprice').disabled = repriced || closed;
+  // Morning prep is one press. During the rush the button opens again
+  // once the cups run down to 8, so topping up is a second decision.
+  // Prep and the price cut lock each other out for the day.
+  $('prebatch').disabled = dayMin >= 960 || closed || repriced || (prebatched && ctx.batchUnits > (dayMin >= 840 ? 8 : 0));
+  $('reprice').disabled = repriced || closed || prebatched || ctx.batchUnits > 0;
   // queue health bar: under 5 = ok → 5–10 = warm → 10+ = hot
   const qq = patrons.queueLength;
   const qHeat = qq > 10 ? 'hot' : qq > 5 ? 'warm' : 'ok';
-  const qPct = Math.min(100, Math.round(qq / 12 * 100));
+  const qPct = Math.min(100, Math.round(qq / 5 * 100));
   if ($('queuefill')) {
     $('queuefill').style.width = qPct + '%';
     const hb = qq > 10 ? ' hot heartbeat' : qq <= 5 ? ' ok purr' : '';
     $('queuefill').className = qHeat + hb;
   }
-  if ($('qlabel')) $('qlabel').textContent = `queue ${qq} / 12 ` + (qq <= 5 ? '— calm' : qq <= 10 ? '— watch it' : '— they\u2019ll walk');
+  if ($('qlabel')) $('qlabel').textContent = `${qq} in line — ` + (qq > 5 ? 'they’ll walk' : 'holding');
   try { world.setPlantHealth(qq); audio.purr(qq <= 5 && patrons.count > 2); } catch {}
   // the tape: the bean board as a visible object — yesterday's close →
   // today, the event that moved it, click-through to the wire
   if ($('tape')) {
-    if (started && day >= 1) {
+    if (started && day >= 2) {
       const pct = Math.round((exchange.beanIndex - tapePrev) * 100);
       $('tape').style.display = '';
-      $('tape').innerHTML = `beans <b>${exchange.beanIndex.toFixed(2)}</b> ${pct > 0 ? '↑' : pct < 0 ? '↓' : '→'} <b>${pct > 0 ? '+' : ''}${pct}%</b>` +
+      $('tape').innerHTML = `beans <b>${exchange.beanIndex.toFixed(2)}</b> ${pct > 0 ? '↑' : pct < 0 ? '↓' : '→'}` +
         (exchange.event ? ` · <span class="dim">${String(exchange.event.head).toLowerCase()}</span>` : '') +
         ` · <span class="dim" title="street awareness — work it at dawn">street ${demand.pips()}</span>` +
         (marketIntel ? ' <span class="dim">· wire ↗</span>' : '');
@@ -1571,33 +1712,55 @@ function updateHUD() {
   }
   // batch countdown: big number when batched, — otherwise
   if ($('batchcount')) {
-    const bc = ctx.prebatched ? String(ctx.batchUnits) : '—';
+    const bc = ctx.batchUnits > 0 ? String(ctx.batchUnits) : (dayMin >= 840 ? '0' : 'none');
     const el = $('batchcount');
     if (el.textContent !== bc) {
       el.textContent = bc;
       if (ctx.prebatched) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
-    } else if (!ctx.prebatched) { el.textContent = '—'; }
+    } else if (!ctx.batchUnits) { el.textContent = dayMin >= 840 ? '0' : 'none'; }
+    el.classList.toggle('low', dayMin >= 840 && dayMin < 1020 && ctx.batchUnits <= 8);
+    if ($('batchword')) $('batchword').textContent = dayMin >= 840 && dayMin < 1020 ? 'cups left' : 'cups ready';
   }
   // lever attention: pulse until first use on day 1
-  if (day === 1) {
+  const cutSmall = $('reprice') && $('reprice').querySelector('small');
+  if (cutSmall) {
+    if (prebatched || ctx.batchUnits > 0) cutSmall.textContent = 'locked — you bought the cups';
+    else if (repriced) cutSmall.textContent = `matcha is ${fmt(ECON.matchaDeal)} today`;
+    else {
+      const board = salePrice(exchange, false);
+      cutSmall.textContent = `down from £${board.toFixed(2)} · locks prep for today`;
+    }
+  }
+  const pb = $('prebatch');
+  if (pb && pb.querySelector) {
+    const inWave = dayMin >= 840 && dayMin < 960;
+    const nodes = pb.childNodes || [];
+    const label = nodes[0];
+    if (label && label.nodeType === 3) label.textContent = (inWave ? `Top up ${ECON.batchUnits} cups ` : `Buy ${ECON.batchUnits} cups `);
+    const sub = pb.querySelector('small');
+    if (sub) {
+      if (repriced) sub.textContent = 'locked — you cut the price';
+      else if (inWave) sub.textContent = `pay ${fmt(ECON.batchCost)} · leftovers spoil at close`;
+      else sub.textContent = `pay ${fmt(ECON.batchCost)} · fast bar · leftovers spoil`;
+    }
+  }
+  const waveLow = dayMin >= 840 && dayMin < 960 && ctx.batchUnits <= 8 && !repriced;
+  if (day === 1 && dayMin < 840 && !prebatched && !repriced) {
     if (!prebatched) $('prebatch').classList.add('attention'); else $('prebatch').classList.remove('attention');
     if (!repriced) $('reprice').classList.add('attention'); else $('reprice').classList.remove('attention');
-  } else {
+  } else if (!waveLow) {
     $('prebatch').classList.remove('attention');
     $('reprice').classList.remove('attention');
   }
+  if (waveLow && $('prebatch') && !$('prebatch').disabled) $('prebatch').classList.add('attention');
   // goal strip: swap from instruction to live status once the player acts
   if ($('goal')) {
-    // instruction → live status, straight from nextAction.js: the strip and
-    // the idle halo can never disagree
     const na = currentAction();
-    if (na.id === 'mail') {
-      $('goal').innerHTML = `📬 ${na.text} <span class="dim">— Idris answers those who post</span>`;
-    } else if (na.id === 'status') {
-      $('goal').innerHTML = `Day ${day}/${CAMPAIGN.days} — <b>${qq} in line</b> · ${na.text} <span class="dim">— 14:00 rush at ${qq <= 5 ? 'safe' : 'danger'}</span>`;
-    } else {
-      $('goal').innerHTML = `☕ ${na.text} · next: <b>14:00 rush</b> <span class="dim">— walk-outs feed GLASSHOUSE</span>`;
+    let html = na.id === 'mail' ? `📬 ${na.text}` : na.text;
+    if (party && !party.declined && dayMin >= 840 && dayMin < 1020) {
+      html = `<b>${party.name}</b> · ${party.served} stayed · ${party.walked} walked`;
     }
+    $('goal').innerHTML = html;
   }
   // Text + ticker redraws are the bottleneck at high speed (66 DOM writes/s
   // at 20×), so they run at ~5Hz wall-clock in the browser. Headless tests
@@ -1610,14 +1773,17 @@ function updateHUD() {
   const h = String(Math.floor(dayMin / 60)).padStart(2, '0'), m = String(dayMin % 60).padStart(2, '0');
   $('clock').textContent = (paused ? '❚❚ ' : '') + `${h}:${m}`;
   world.setRivalHeat(patrons.rivalQ.length);   // their sign burns as their line grows
-  if ($('daytag')) $('daytag').textContent = 'DAY ' + day + '/' + CAMPAIGN.days + '  ·  REP ' + regulars.reputation;
+  if ($('daytag')) $('daytag').textContent = 'DAY ' + day + '/' + CAMPAIGN.days + '  ·  regulars ' + regulars.reputation;
   $('till').textContent = fmt(till);
   $('balk').textContent = balked;
-  const q = patrons.queueLength;
-  const heat = q > 10 ? 'hot' : q > 5 ? 'warm' : 'ok';
-  $('status').innerHTML =
-    `queue <b class="${heat}">${q}</b> · matcha <b>${ctx.prebatched ? ctx.batchUnits : '—'}</b> · poured <b>${served}</b>` +
-    (defections ? ` · <b class="hot">${defections} → ${COPY.rivalName.toLowerCase()}</b>` : '');
+  if ($('poured')) $('poured').textContent = String(served + servedRetail);
+  if (defections) {
+    $('status').hidden = false;
+    $('status').innerHTML = `<b class="hot">${defections}</b> crossed to ${COPY.rivalName}`;
+  } else {
+    $('status').hidden = true;
+    $('status').textContent = '';
+  }
   // pressure dial: the gentrification drift. beanIndex creep since the
   // start of the campaign (1.00 → drift.maxIndex), and the day's matcha
   // till price. Always visible — even day 1, so the player can see the
@@ -1625,8 +1791,9 @@ function updateHUD() {
   if ($('pressure')) {
     const driftPct = Math.round((exchange.beanIndex - 1.0) * 100);
     const driftTxt = (driftPct >= 0 ? '+' : '') + driftPct + '%';
-    const dayPrice = exchange.matchaPrice ?? priceForDay(day);
-    $('pressure').innerHTML = `costs <b>${driftTxt}</b> · matcha <b>£${dayPrice.toFixed(2)}</b> · day <b>${day}/${CAMPAIGN.days}</b>` +
+    const dayPrice = salePrice(exchange, repriced);
+    const costBit = day >= 2 ? `costs <b>${driftTxt}</b> · ` : '';
+    $('pressure').innerHTML = `${costBit}matcha <b>£${dayPrice.toFixed(2)}</b>` +
       (exchange.debt > 0 ? ` · tab <b>${fmt(exchange.debt)}</b>/${fmt(CAMPAIGN.creditLimit)}` : '');
   }
   if (!closed) updateTicker();
@@ -1635,24 +1802,27 @@ function updateHUD() {
 // ---- levers ----------------------------------------------------------------------
 function doPrebatch() {
   if (closed || phase !== 'trading' || dayMin >= 960) return;
-  if (prebatched && ctx.batchUnits > 0) return;          // already warming
+  if (repriced) { fx.toast('you cut the price — prep is locked for today', 'warn'); return; }
+  const cap = dayMin >= 840 ? 8 : 0;
+  if (prebatched && ctx.batchUnits > cap) return;          // morning is one prep; the rush reopens under 8 cups
   markIntent();
   const topUp = prebatched || ctx.batchUnits > 0;
   const queueBefore = patrons.queueLength;
   const priceBefore = repriced ? ECON.matchaDeal : (exchange.matchaPrice ?? priceForDay(day));
-  prebatched = true; ctx.prebatched = true; ctx.batchUnits = ECON.batchUnits;
-  till -= ECON.batchCost;
+  prebatched = true; ctx.prebatched = true;
+  ctx.batchUnits = topUp ? ctx.batchUnits + ECON.batchUnits : ECON.batchUnits;
+  till -= ECON.batchCost; batchSpend += ECON.batchCost;
   fx.notebook(false);
-  fx.toast(topUp ? `PRE-BATCH topped up: ${ECON.batchUnits} units (−${fmt(ECON.batchCost)})` : `PRE-BATCH: ${ECON.batchUnits} matcha units ready (−${fmt(ECON.batchCost)})`, 'good');
+  fx.toast(topUp
+    ? `topped up — ${ECON.batchUnits} more cups (−${fmt(ECON.batchCost)}; leftovers spoil)`
+    : `${ECON.batchUnits} cups bought (−${fmt(ECON.batchCost)}) — fast bar, full price; leftovers spoil`, 'good');
   audio.clink();
   world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced);
   world.flashChalk('batch');
   try { audio.clink(); } catch {}
-  // prediction: queue drain preview — lifts the goal bar from instruction to live status
   if (queueBefore > 3) {
     const estAfter = Math.max(0, Math.round(queueBefore * 0.52));
-    fx.toast(`Chalkboard: ${queueBefore} in line → ~${estAfter} by 14:00 with 40 warm cups`, 'good');
-    $('goal').innerHTML = `Day ${day}/${CAMPAIGN.days} — <b>${queueBefore} in line → ~${estAfter} at 14:00</b> · batched ${ctx.batchUnits} <span class="dim">— they’ll sit, not walk</span>`;
+    fx.toast(`${queueBefore} in line → about ${estAfter} once the cups are ready`, 'good');
   }
   batchPulseUntil = performance.now() + 650;
   $('prebatch').classList.remove('attention'); $('reprice').classList.remove('attention');
@@ -1667,14 +1837,14 @@ function doPrebatch() {
 }
 function doReprice() {
   if (repriced || closed || phase !== 'trading') return;
+  if (prebatched || ctx.batchUnits > 0) { fx.toast('you prepped the cups — the price stays on the board', 'warn'); return; }
   markIntent();
   const queueBefore = patrons.queueLength;
   repriced = true; ctx.repriced = true; patrons.repriced = true;
-  world.setMatchaPrice('4.20', true);
+  world.setMatchaPrice(ECON.matchaDeal.toFixed(2), true);
   world.flashChalk('reprice');
   try { fx.chalkDust(-5.5, 2.75, -7.95); audio.chalkScreech(); } catch {}
-  fx.toast('the chalkboard changes — matcha £4.20 today', 'good');
-  if (queueBefore > 2) fx.toast(`New price holds the line — fewer walks at 14:00`, 'good');
+  fx.toast(`matcha is ${fmt(ECON.matchaDeal)} for the rest of today — prep is locked`, 'good');
   audio.clink();
   $('prebatch').classList.remove('attention'); $('reprice').classList.remove('attention');
   try {
@@ -1691,17 +1861,18 @@ function doReprice() {
 // dawn charge) so the deal has a tail.
 const OFFERS = [
   { who: 'Pip',    line: '“Mind if the study group lands at 14:00? Twenty of us — all matcha.”',
-    effect: 'say yes → the wave runs ~20% bigger — louder room, bigger till', yes: 'say yes',
-    accept() { offerWaveMul = 1.22; } },
+    effect: 'say yes → the wave runs ~20% bigger — and Pip’s group is counted on the evening card', yes: 'say yes',
+    accept() { offerWaveMul = 1.22; party = { name: 'Pip', cohort: 'students', left: 20, served: 0, walked: 0 }; },
+    decline() { party = { name: 'Pip', cohort: 'students', left: 0, served: 0, walked: 0, declined: true }; } },
   { who: 'Esther', line: '“A stamp card for the week — £15 today, and my cup’s on the house from tomorrow.”',
     effect: 'say yes → +£15 now · her cup’s free at every dawn after', yes: 'take the £15',
     accept() { till += 15; estherCard = true; } },
   { who: 'Olu',    line: '“Bridge club wants the corner at half twelve. We nurse our cups — but we pay up front.”',
-    effect: 'say yes → +£9 at 12:30 · and four more in your line', yes: 'book them in',
-    accept() { oluPayoutAt = 750; } },
+    effect: 'say yes → +£9 at 12:30 · four elders in your line, counted on the evening card', yes: 'book them in',
+    accept() { oluPayoutAt = 750; party = { name: 'Olu', cohort: 'elders', left: 4, served: 0, walked: 0 }; } },
   { who: 'Gwen',   line: '“My matcha plug can do twenty units for £6.40 — today only, cash.”',
-    effect: 'say yes → −£6.40 · 20 units warming now', yes: 'take the units',
-    accept() { till -= 6.4; ctx.batchUnits += 20; ctx.prebatched = true; prebatched = true; } },
+    effect: 'say yes → −£6.40 · 20 cups warming now (locks the price cut)', yes: 'take the units',
+    accept() { till -= 6.4; batchSpend += 6.4; ctx.batchUnits += 20; ctx.prebatched = true; prebatched = true; } },
   { who: 'Mara',   line: '“Office run — ten flat whites at 15:00. £28, but only if the line’s under six when we land.”',
     effect: 'say yes → queue under 6 at 15:00 pays +£28 · miss it and they cross the road', yes: 'tell her yes',
     accept() { officeRunAt = 900; } },
@@ -1788,6 +1959,9 @@ function resolveOffer(said) {
 }
 $('offer-yes').onclick = () => resolveOffer(true);
 $('offer-no').onclick = () => resolveOffer(false);
+if ($('evening-topup')) $('evening-topup').onclick = () => resolveEvening('topup');
+if ($('evening-hold')) $('evening-hold').onclick = () => resolveEvening('hold');
+if ($('evening-close')) $('evening-close').onclick = () => resolveEvening('close');
 $('tape').onclick = () => { if (marketIntel) desk.open(marketIntel); };
 
 function reset() {
@@ -1798,6 +1972,7 @@ function reset() {
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
+  party = null; batchWaste = 0; batchSpend = 0;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; cOps = 0;
   briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;
   realizedHedgeSavings = 0; hedgedCups = 0;
@@ -1911,12 +2086,22 @@ const defaultSpeedBtn = headless ? '300' : '60';
 document.querySelectorAll('#speeds button').forEach(b => {
   if (b.dataset.s === defaultSpeedBtn) b.classList.add('on');
   b.onclick = () => {
-    speed = +b.dataset.s;
+    const want = +b.dataset.s;
+    // 20× skips the cup countdown — keep it out of the rush (headless exempt).
+    if (!headless && want >= 1200 && dayMin >= 840 && dayMin < 1020 && phase === 'trading') {
+      fx.toast('20× waits until the evening call', 'warn');
+      return;
+    }
+    speed = want;
     document.querySelectorAll('#speeds button').forEach(x => x.classList.remove('on'));
     b.classList.add('on');
   };
 });
 addEventListener('keydown', e => {
+  if (modals.top() === 'evening') {
+    const pick = { '1': 'topup', '2': 'hold', '3': 'close' }[e.key];
+    if (pick) { e.preventDefault(); resolveEvening(pick); return; }
+  }
   if (modals.handleKey(e)) return;
   // typing belongs to the field — never let an email fire game keys
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
@@ -2099,9 +2284,7 @@ if ($('lic-sign')) $('lic-sign').onclick = signLicence;
 
 // ---- tutorial: 3 steps, then the floor runs. Headless + ?skipTutorial bypass it.
 const TUT_STEPS = [
-  { k: '1 of 3 — THE READ', t: 'WATCH THE CLOCK', b: 'At <b>14:00 every day</b> students flood in for matcha. 139 &rarr; 683 a week — the fastest item on the floor. Made to order, a matcha takes <b>4 minutes</b>.' },
-  { k: '2 of 3 — THE LEVER', t: 'BE READY', b: 'Before noon, hit <b>1 to pre-batch 40 cups (&pound;4.20)</b> or <b>2 to cut matcha to &pound;4.20</b>. The chalkboard changes. The queue doesn&apos;t.' },
-  { k: '3 of 3 — THE PAYOFF', t: 'KEEP FIVE', b: 'Keep the queue <b>under 5</b>. Over that, they walk to <b>GLASSHOUSE</b> across the road. Under, they sit — and your till sings.' },
+  { k: 'BEFORE YOU OPEN', t: 'THE LINE', b: `Students arrive at <b>14:00</b> for matcha. Made to order, each cup takes <b>4 minutes</b>. Buy ${ECON.batchUnits} cups for <b>${fmt(ECON.batchCost)}</b> (leftovers spoil) or cut the price to <b>${fmt(ECON.matchaDeal)}</b> — pick one. They walk once the line passes <b>5</b>.` },
 ];
 function showTutStep(n) {
   tutStep = n;
@@ -2135,7 +2318,7 @@ function dismissTutorialAndStart(fromSkip = false) {
   audio.start();
   openDay(1);
   rig.crane();
-  fx.card('DAY 1', 'a quiet street — watch the queue, hit 1 before noon');
+  fx.card('DAY 1', 'keep the line under 5 — 1 buys cups or 2 cuts the price');
   // The Brief owns day 1 too: once the crane settles, Brief pauses at 06:00.
   // (openDay() already queued showMorningBrief; this just unblocks the re-arm.)
   scheduleRun(() => {
@@ -2187,6 +2370,12 @@ function loop(now) {
     acc += dt * 1000;
     const msPerMin = 300 / (speed / 60);
     while (acc > msPerMin && phase === 'trading' && !paused && !closed) { acc -= msPerMin; tick(); }
+    // After the evening call the rest of the day resolves in a short burst
+    // instead of another stretch of watching.
+    if (eveningFast) {
+      let burst = 10;
+      while (burst-- && phase === 'trading' && !paused && !closed) tick();
+    }
   }
   vitality.tick();
   world.updateTimeOfDay(dayMin);
@@ -2220,7 +2409,7 @@ function loop(now) {
   if (!headless) postfx.render(now);   // headless harness skips GL
 }
   window.__grunds = {
-  stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count, phase, hedgedCups, hedgeSavings: realizedHedgeSavings,
+  stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count, phase, hedgedCups, hedgeSavings: realizedHedgeSavings, batchUnits: ctx.batchUnits, batchSpend, batchWaste,
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null,
     staffCondition: baristaCondition, staffing: planDraft ? planDraft.staffing : 'work', rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
     trainingSpend, sampleSpend, feeToday, interestToday, settleToday, marketingSpend,
@@ -2228,7 +2417,7 @@ function loop(now) {
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
   vitality, director, district, kitBeat, mailT,
-  openDay, applyReply, reset, togglePause,
+  openDay, applyReply, reset, togglePause, resolveEvening,
   prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
   patrons, modals,
   renderBrief() { if (phase === 'planning') showMorningBrief(); },
@@ -2247,7 +2436,37 @@ function loop(now) {
 // Playtest helper — paste __grunds.analytics.summary() after Day 1 in console
 try { window.__grunds.analytics = analytics; } catch {}
 
+function paintStaticCopy() {
+  // Keep HTML placeholders in sync with ECON so £40 / £4.20 never drift again.
+  const nb = $('notebook-body') || document.querySelector('#notebook p');
+  if (nb) nb.textContent = COPY.notebook;
+  const tbody = $('tbody');
+  if (tbody && TUT_STEPS[0]) tbody.innerHTML = TUT_STEPS[0].b;
+  const pb = $('prebatch');
+  if (pb) {
+    const nodes = pb.childNodes || [];
+    if (nodes[0] && nodes[0].nodeType === 3) nodes[0].textContent = `Buy ${ECON.batchUnits} cups `;
+    const sub = pb.querySelector && pb.querySelector('small');
+    if (sub) sub.textContent = `pay ${fmt(ECON.batchCost)} · fast bar · leftovers spoil`;
+  }
+  const rp = $('reprice');
+  if (rp) {
+    const nodes = rp.childNodes || [];
+    if (nodes[0] && nodes[0].nodeType === 3) nodes[0].textContent = `Sell matcha at ${fmt(ECON.matchaDeal)} `;
+    const sub = rp.querySelector && rp.querySelector('small');
+    if (sub) sub.textContent = 'down from the board price · locks prep';
+  }
+  const top = $('evening-topup');
+  if (top) {
+    const nodes = top.childNodes || [];
+    if (nodes[0] && nodes[0].nodeType === 3) nodes[0].textContent = 'Top up for the evening ';
+    const sub = top.querySelector && top.querySelector('small');
+    if (sub) sub.textContent = `−${fmt(ECON.batchCost)} · ${ECON.batchUnits} cups · leftovers spoil again`;
+  }
+}
+
 updateHUD();
+try { paintStaticCopy(); } catch {}
 try { modals.open('title'); } catch {}
 requestAnimationFrame(loop);
 
