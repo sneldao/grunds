@@ -42,7 +42,7 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Economy baseline | 13-week revenue ≈ GBP 157k; attach rate 8.2% preserved from source data |
 | Deterministic gate | loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`, so rail-adjacent assertions don't flake; `intel.mjs` pins bias + pity-under-bias |
 | Linkup citation | `intelLine` prints `Off the wire — <headline> (<domain>)` when sources arrive; absent offline | headless gate |
-| Gate scope | Node behavioral and structural suites plus TypeScript; no production build or deployment in this review. | Per-suite exit status is the evidence; source-string checks are not layout or gameplay proof. |
+| Gate scope | Node behavioral and structural suites plus TypeScript; the gate ran before the dev-deployment push and does not exercise deployed behavior. | Per-suite exit status is the evidence; source-string checks are not layout or gameplay proof. |
 
 ## Datasets
 
@@ -113,8 +113,10 @@ as appropriate. Layout geometry and deployed Convex behavior are not verified.
 Headless import may attempt the existing RevenueCat remote module and report a
 non-fatal unsupported-URL warning; do not describe the gate as universally
 no-network. `npm run build:dist` is intentionally not part of it (it deletes
-`dist/`). Native Convex codegen/deployment was not run; the hand-maintained
-`convex/_generated/api.d.ts` may differ from future generated output.
+`dist/`). After the gate, `npm run deploy:site` pushed functions and the
+static site to the dev deployment (`striped-anaconda-746`); codegen output
+matched the committed `convex/_generated/api.d.ts`. Deployed behavior itself
+is still outside the test evidence.
 
 Gameplay verification: commit a hedge before a known test market move and reconcile the per-cup savings and fee; exhaust its quota and verify spot fallback. Exercise all five days, both modal keyboard paths, a tired apprentice shift, and the day-two/day-three/day-four modifiers. Human playtesting of pacing, audio, and visual fit remains a separate, unperformed check.
 

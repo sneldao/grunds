@@ -136,10 +136,10 @@ Keep one reliable path, visible reset controls, and a fallback recording.
 **Convex phase (by Sept 22)** — status Sept 12:
 1. ~~Fresh repo, `npm create convex`, port signals/zone logic to TypeScript~~ — done:
    `convex/` holds schema, exchange, regulars, letters, apiCache + OpenAI/Firecrawl/
-   AgentMail actions, verified end-to-end on a cloud dev deployment (historical
-   deployment; the new `planSessions`/`dayDecisions` decision protocol in this
-   change has only been tested locally and requires a coordinated backend +
-   frontend deployment)
+   AgentMail actions, verified end-to-end on a cloud dev deployment; the
+   `planSessions`/`dayDecisions` decision protocol is deployed there too —
+   `npm run deploy:site` pushed the functions (new `dayDecisions`/`planSessions`
+   indexes) and re-uploaded the static site together
 2. ~~The Exchange: scheduled functions + Firecrawl news→event deck (with pity timers)~~ —
    deck + pity timers live server-side; Firecrawl pull live with 6h cache; nightly cron next
 3. ~~The Regulars: persistent patron memory + gossip propagation graph~~ — done server-side
