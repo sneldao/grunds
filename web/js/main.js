@@ -702,15 +702,16 @@ function markBriefChoice(id) {
     for (const b of [...document.querySelectorAll('#brief-actions button')]) {
       const on = b.dataset.id === id;
       b.style.borderColor = on ? 'var(--brass)' : '';
-      b.style.background = on ? 'rgba(201,162,39,.16)' : '';
+      b.style.background = on ? 'rgba(201,162,39,.3)' : '';
+      b.style.fontWeight = on ? '700' : '';
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
     const selTxt = $('brief-sel');
     if (selTxt) {
-      selTxt.textContent = id === 'hold' ? 'selected: ride the spot — no fee, no cover'
+      selTxt.textContent = id === 'hold' ? 'selected: riding the spot — free, but the dawn draw can still move the board'
         : id === 'settle' ? `selected: settle the tab (${fmt(exchange.debt)}) and ride the spot`
         : id ? `selected: ${String(id).replace('contract_', '')} contract at the board — ~${(hedgeTerms(id, contractFeeExtra)?.units || 0).toFixed(0)} cups, ${fmt(hedgeTerms(id, contractFeeExtra)?.fee || 0)} fee`
-        : 'Sizing is the position — contracts lock the board for their cups, hold rides the spot, settle pays the tab.';
+        : 'contracts lock the board for their cups · hold rides the spot free · settle pays the tab down.';
     }
   } catch {}
 }
@@ -915,13 +916,15 @@ function renderPlanQuote() {
   const pos = `campaign net position ${netPos < 0 ? '−' : ''}${fmt(Math.abs(netPos))}`;
   const committed = q.fixedMinimum + q.contractFee + q.interest;
   const bits = [
-    `fixed minimum ${fmt(q.fixedMinimum)} — wage ${fmt(q.wage)} · pitch floor ${fmt(q.ops.pitch)} · sundries ${fmt(CAMPAIGN.sundries)}${q.training ? ` · training ${fmt(q.training)}` : ''}${q.sampling ? ` · samples ${fmt(q.sampling)}` : ''}${q.marketing ? ` · street ${fmt(q.marketing)}` : ''}`,
-    `per cup — labour + supplies ${fmt(q.perCup)} · pitch takes ${(q.pitchPct * 100).toFixed(0)}% of take above the floor · cards ${(q.cardFeePct * 100).toFixed(1)}%`,
+    `the nut ${fmt(q.fixedMinimum)} — the daily bill before a cup pours · wage ${fmt(q.wage)} · pitch floor ${fmt(q.ops.pitch)} · sundries ${fmt(CAMPAIGN.sundries)}${q.training ? ` · training ${fmt(q.training)}` : ''}${q.sampling ? ` · samples ${fmt(q.sampling)}` : ''}${q.marketing ? ` · street ${fmt(q.marketing)}` : ''}`,
+    `each cup — labour + supplies ${fmt(q.perCup)} · pitch takes ${(q.pitchPct * 100).toFixed(0)}% above the floor · cards ${(q.cardFeePct * 100).toFixed(1)}%`,
     exchange.contract
       ? `beans — contracted at ${exchange.contract.price.toFixed(2)} (${exchange.contract.units} cups left)`
-      : `beans — spot ${exchange.beanIndex.toFixed(2)}${q.contractFee ? ` or locked for a ${fmt(q.contractFee)} fee on the tab` : ''}`,
-    `committed minimum ${fmt(committed)} = fixed ${fmt(q.fixedMinimum)} + fee ${fmt(q.contractFee)} + interest ${fmt(q.interest)}`,
+      : `beans — board ${exchange.beanIndex.toFixed(2)} spot${q.contractFee ? ` · insure for ${fmt(q.contractFee)} on the tab` : ''}`,
   ];
+  // the equation only earns a line when a fee or the tab's interest moves it
+  if (q.contractFee > 0 || q.interest > 0)
+    bits.push(`committed ${fmt(committed)} = nut ${fmt(q.fixedMinimum)} + fee ${fmt(q.contractFee)} + interest ${fmt(q.interest)}`);
   // The target, not just the cost: cups needed to cover the committed minimum
   // at today's price and last close's bean cost. "~" because the dawn roll
   // can move the bean price after this quote.
@@ -1121,7 +1124,7 @@ function showMorningBrief() {
       lines.push(`${MACRO_SHOCKS.dairy_crunch.name} — ${MACRO_SHOCKS.dairy_crunch.desc} · ${day === MACRO_SHOCKS.dairy_crunch.day ? 'new today' : 'still active'}`);
     if (!lines.length) lines.push('no district shock today');
     const strat = CAMPAIGN.rivalStrategies[rivalStrategy];
-    lines.push(`matcha £${priceForDay(day).toFixed(2)} on the curve · ${COPY.rivalName} runs ${strat ? strat.name : rivalStrategy} at £${strat ? strat.price.toFixed(2) : '—'}`);
+    lines.push(`your matcha £${priceForDay(day).toFixed(2)} · ${COPY.rivalName} — ${strat ? strat.name.toLowerCase() : rivalStrategy} at £${strat ? strat.price.toFixed(2) : '—'}`);
     risk.textContent = lines.join('\n');
     risk.style.whiteSpace = 'pre-wrap';
   }
@@ -1170,7 +1173,7 @@ function showMorningBrief() {
     const lab = document.createElement('div');
     lab.style.fontSize = '10px'; lab.style.letterSpacing = '.18em';
     lab.style.textTransform = 'uppercase'; lab.style.opacity = '.55';
-    lab.textContent = 'decide — size the position';
+    lab.textContent = 'the morning call';
     actions.appendChild(lab);
     const hint = document.createElement('div');
     hint.id = 'brief-sel';
@@ -1194,7 +1197,6 @@ function showMorningBrief() {
       fold.appendChild(fs);
       // a staged contract keeps the fold open so the selection stays visible
       if (planDraft && planDraft.hedge && planDraft.hedge.startsWith('contract')) fold.open = true;
-      actions.appendChild(fold);
     }
     for (const act of L.actions) {
       // a dead settle pill is noise — "nothing to settle" only appears once
@@ -1202,12 +1204,15 @@ function showMorningBrief() {
       if (act.id === 'settle' && act.disabled) continue;
       const b = document.createElement('button');
       b.dataset.id = act.id;
-      b.textContent = act.label + (act.explain ? '  \u00b7  ' + act.explain : '');
+      b.textContent = act.label + (act.explain ? '   ·  ' + act.explain : '');
       b.disabled = !!act.disabled;
       b.setAttribute('aria-pressed', 'false');
       b.onclick = () => { if (applyReply(act.id)) markBriefChoice(act.id); };
       (fold && act.id.startsWith('contract') ? fold : actions).appendChild(b);
     }
+    // the live moves (hold/settle) land first; the optional insurance fold
+    // sits beneath them, just above OPEN
+    if (fold) actions.appendChild(fold);
   }
   briefChoice = planDraft ? planDraft.hedge : null;
   markBriefChoice(briefChoice);

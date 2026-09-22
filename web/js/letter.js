@@ -153,7 +153,7 @@ export function composeLetter(s) {
       { ...LETTER.actions[0], disabled: !!contract || overTab('contract_light'), explain: contract ? 'already contracted' : overTab('contract_light') ? 'tab limit — settle first' : explain('contract_light') },
       { ...LETTER.actions[1], disabled: !!contract || overTab('contract'), explain: contract ? 'already contracted' : overTab('contract') ? 'tab limit — settle first' : explain('contract') },
       { ...LETTER.actions[2], disabled: !!contract || overTab('contract_heavy'), explain: contract ? 'already contracted' : overTab('contract_heavy') ? 'tab limit — settle first' : explain('contract_heavy') },
-      { ...LETTER.actions[3], disabled: false, explain: `ride ${s.index.toFixed(2)}` },
+      { ...LETTER.actions[3], disabled: false, explain: `ride ${s.index.toFixed(2)} · free · no cover` },
       { ...LETTER.actions[4], disabled: s.debt <= 0, explain: s.debt <= 0 ? 'nothing to settle' : `pay ${gbp(s.debt)}` },
     ] : [],
   };

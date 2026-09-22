@@ -356,7 +356,7 @@ console.log('STRUCTURE six modals share panel/header/body/footer; CSS scroll+foo
   check(allPills().find(b => b.dataset.id === 'contract').getAttribute('aria-pressed') === 'true', 'aria state persists through re-render');
   check(G.plan.hedge === 'contract', 'staged plan persists through re-render');
   const nut = registry.get('brief-nut').textContent;
-  check(/committed minimum/.test(nut) && /fixed/.test(nut), 'quote prints the committed-minimum breakdown');
+  check(/the nut £/.test(nut) && /pitch floor/.test(nut), 'quote prints the nut with its fixed breakdown');
   check(/cups just to cover/.test(nut), 'quote prints the breakeven cup target');
   check(!/campaign net position/.test(nut), 'day-1 quote holds the net position until there is history');
   const debtBefore = G.stats().debt;
