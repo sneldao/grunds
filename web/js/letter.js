@@ -24,7 +24,18 @@ function performance(s) {
 }
 function debtLine(s) {
   if (s.debt <= 0) return 'You owe me nothing. Rare sight.';
-  return `You're carrying ${gbp(s.debt)} in credit. It rolls on at closing unless you settle.`;
+  const cap = CAMPAIGN.creditLimit;
+  const rate = Math.round(CAMPAIGN.debtInterestRate * 1000) / 10;
+  if (s.debt >= cap * 0.6)
+    return `You're carrying ${gbp(s.debt)} of my ${gbp(cap)} tab — I'm patient, not a bank. Past the limit I stop extending, and a stand that owes more than it's worth is done.`;
+  return `You're carrying ${gbp(s.debt)} of my ${gbp(cap)} tab. ${rate}% a day until you settle.`;
+}
+function rumourLine(s) {
+  // Yesterday's rumour tilts today's deck (exchange.lastEventId → ×3 frost/
+  // drought weight). Say it plainly the morning after — the signal is worth
+  // acting on only if the player knows it exists.
+  if ((s.mode || 'planning') !== 'planning' || s.event?.id !== 'rumour_frost') return '';
+  return 'That rumour hasn’t gone away — today’s deck leans cold. A contract is cheap insurance while it’s still talk.';
 }
 function reputationLine(s) {
   if (s.reputation >= 80) return 'The regulars are telling their friends. Word of mouth is doing my job for me.';
@@ -129,6 +140,7 @@ export function composeLetter(s) {
       performance(s),
       debtLine(s),
       driftLine(s),
+      rumourLine(s),
       intelLine(s),
       neighborhoodLine(s),
       reputationLine(s),

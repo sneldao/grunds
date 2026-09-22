@@ -245,7 +245,7 @@ Keep 5 vs GLASSHOUSE, `Enter`/`Space`/`Esc`) then a 3.4s paused crane settle; da
 mornings are half-demand and gossip-throttled so eyes settle before the queue reads.
 The HUD is goal-first: a brass goal strip, a queue health bar (ok/warm/hot + "queue
 7/12 — watch it", **heartbeat at >10 and purr glow at ≤5**), a bean tape, and a batch countdown; levers pulse until first use and the
-chalkboard flashes on press (with a chalk-dust puff and `screech` on reprice). At 06:00 the **Morning Brief** pauses the floor for the day's hedge (sparkline + wire + 5 pills); at 11:00 a regular pauses it again for a y/n ask. At 17:00 a **14:00 wave debrief** card shows saved cups
+chalkboard flashes on press (with a chalk-dust puff and `screech` on reprice). At 06:00 the **Morning Brief** pauses the floor for the day's hedge (sparkline + wire + sized pills) — staged, so day 1 shows hold plus the contract row folded under one line while street work, staffing, and the net-position figure arrive as they earn a reason (day 2 for street work and net position, Ruth's row when she's actually fading, settle once a tab exists); at 11:00 a regular pauses it again for a y/n ask. At 17:00 a **14:00 wave debrief** card shows saved cups
 and `~£` vs GLASSHOUSE — a real save pops fanfare + a 3.5s counter crane + coin rain;
 an flop falls as a soft rain. At 17:30 and on day-1 close a **Day-2 forecast**
 toast + receipt stripe preview the next day's board to earn the replay. A local `analytics.js` tracks

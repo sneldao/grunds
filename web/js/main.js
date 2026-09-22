@@ -552,6 +552,11 @@ function closeDay() {
   else if (ratio < 0.2) verdict = 'You fed the chain across the road.';
   else verdict = 'The wave ate you alive.';
   if (netToday < 0) verdict += ' The till went backward — the nut came due anyway.';
+  // The tab has a fuse: warn when the week's position can't cover tomorrow's
+  // committed costs — the supplier calls it at zero.
+  const worthNow = cRev - cCost - cOps - settledPaid - exchange.debt;
+  if (worthNow <= 0) verdict += ' You owe more than the week is worth — Idris calls the tab.';
+  else if (worthNow < ops.total) verdict += ' Another day like this and Idris calls the tab.';
   if (prebatchHelped && waveBalked < 80) verdict += ' The notebook paid off.';
   // the street talks back: coasting shows up as a sentence, not just a number
   if (dtrace.after < 0.35) verdict += ' The street is forgetting you — work it at dawn.';
@@ -581,7 +586,8 @@ function closeDay() {
     lines: [
       [standName, playerName],
       ['revenue', fmt(till)], ['bean cost', fmt(cogs)],
-      ...(hedgedCups > 0 ? [['hedge benefit (before fees)', fmt(realizedHedgeSavings)]] : []),
+      ...(hedgedCups > 0 ? [['hedge benefit (before fees)', fmt(realizedHedgeSavings)],
+                            ...(feeToday > 0 ? [['hedge net of the fee', fmt(realizedHedgeSavings - feeToday)]] : [])] : []),
       ['staff', fmt(ops.staff)], ['milk + cups' + (dayMods.suppliesDelta ? ' (incl. oat surcharge)' : ''), fmt(ops.supplies)],
       ['pitch rent' + (dayMods.pitchMinDelta ? ' (incl. reval)' : ''), fmt(ops.pitch)], ['card fees', fmt(ops.fees)], ['sundries', fmt(ops.sundries)],
       ...(ops.training > 0 ? [['apprentice training', fmt(ops.training)]] : []),
@@ -591,9 +597,10 @@ function closeDay() {
       ...(feeToday > 0 ? [['contract fee', fmt(feeToday)]] : []),
       ...(interestToday > 0 ? [['supplier interest', fmt(interestToday)]] : []),
       ['street awareness', demand.pips()],
+      ['the regulars', `rep ${regulars.reputation} · footfall ${regulars.footfallMul >= 1 ? '+' : ''}${Math.round((regulars.footfallMul - 1) * 100)}%`],
       ['first-timers', `${firstServed} tried · ${firstWalked} walked out`],
       ['word of mouth', `~${dtrace.returnees} back tomorrow`],
-      ['debt', fmt(exchange.debt)],
+      ['debt', exchange.debt > 0 ? `${fmt(exchange.debt)} of ${fmt(CAMPAIGN.creditLimit)}` : fmt(0)],
       ['peak queue', peakQueue + ' deep'], ['walked to ' + COPY.rivalName, defections],
       ['chose ' + COPY.rivalName, patrons.rivalChoices], ['—', '—'],
       ['NET TODAY', fmt(netToday)],
@@ -687,6 +694,9 @@ function showLetter() {
 
 function markBriefChoice(id) {
   briefChoice = id;
+  // keyboard reply picked a contract? spring the day-1 fold open so the
+  // selection is visible, not buried
+  try { const f = $('brief-hedge-details'); if (f && id && id.startsWith('contract')) f.open = true; } catch {}
   // rebuild brief choice row highlight
   try {
     for (const b of [...document.querySelectorAll('#brief-actions button')]) {
@@ -912,12 +922,25 @@ function renderPlanQuote() {
       : `beans — spot ${exchange.beanIndex.toFixed(2)}${q.contractFee ? ` or locked for a ${fmt(q.contractFee)} fee on the tab` : ''}`,
     `committed minimum ${fmt(committed)} = fixed ${fmt(q.fixedMinimum)} + fee ${fmt(q.contractFee)} + interest ${fmt(q.interest)}`,
   ];
+  // The target, not just the cost: cups needed to cover the committed minimum
+  // at today's price and last close's bean cost. "~" because the dawn roll
+  // can move the bean price after this quote.
+  const cupPrice = salePrice(exchange);
+  const marginPerCup = cupPrice * (1 - q.cardFeePct) - q.perCup - exchange.costPerCup;
+  const breakeven = marginPerCup > 0 ? Math.ceil(committed / marginPerCup) : null;
+  bits.push(breakeven != null
+    ? `~${breakeven} cups just to cover it${exchange.debt > 0 ? ` · tab ${fmt(exchange.debt)} of ${fmt(CAMPAIGN.creditLimit)}` : ''}`
+    : `no cup count covers this plan — the margin is underwater`);
   if (q.settlement) bits.push(`debt payment ${fmt(q.settlement)} — settles the tab, off the P&L`);
-  const full = bits.join('\n') + `\n${pos}`;
+  // Net position means something once there's a day behind it — day 1 it's
+  // just the float, so it stays quiet until the campaign has a history (or
+  // until it goes red, which is never noise).
+  const showPos = day > 1 || netPos < 0;
+  const full = bits.join('\n') + (showPos ? `\n${pos}` : '');
   nutEl.textContent = full;
   const sum = $('brief-summary');
   if (sum) {
-    sum.textContent = `committed ${fmt(committed)}${q.settlement ? ` · settle ${fmt(q.settlement)}` : ''} · ${pos}`;
+    sum.textContent = `committed ${fmt(committed)}${q.settlement ? ` · settle ${fmt(q.settlement)}` : ''}${showPos ? ` · ${pos}` : ''}`;
     sum.title = full;
   }
 }
@@ -1034,11 +1057,24 @@ function showMorningBrief() {
   const demandRow = $('brief-demand');
   if (demandRow) {
     demandRow.textContent = '';
+    // Progressive disclosure: the street-work levers appear once the player
+    // has a day of demand behind them. Day 1 teaches open/price/serve; the
+    // lever arrives day 2 with its reason attached.
+    if (day < 2) { demandRow.style.display = 'none'; return; }
     demandRow.style.display = '';
     const t = document.createElement('div');
     t.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55';
     t.textContent = `work the street — awareness ${demand.pips()}`;
     demandRow.appendChild(t);
+    // first appearance gets its reason: yesterday's balked cups are the
+    // problem these levers solve.
+    if (day === 2 && lastDayStats) {
+      const intro = document.createElement('div');
+      intro.id = 'brief-demand-intro';
+      intro.style.cssText = 'font-size:10.5px;opacity:.7;font-style:italic;margin:2px 0 5px';
+      intro.textContent = `new lever — the street forgets overnight. Yesterday ${lastDayStats.balked} walked; this buys tomorrow’s crowd.`;
+      demandRow.appendChild(intro);
+    }
     const D = CAMPAIGN.demand;
     const defs = [
       { id: 'sample', label: `sample hour · ${fmt(D.sampleCost)} in cups · they taste, they return` },
@@ -1104,9 +1140,9 @@ function showMorningBrief() {
         ? 'Ruth hasn’t had a day off all week — she’s dead on her feet.'
         : 'Ruth’s dragging this morning — too many shifts back to back.';
       const home = document.createElement('button'); home.id = 'brief-staff-home';
-      home.textContent = 'send her home · bar −30% today, wage saved, fresh tomorrow';
+      home.textContent = `send her home · bar −30% today, ${fmt(CAMPAIGN.staffDayRate)} wage saved, fresh tomorrow`;
       const apprentice = document.createElement('button'); apprentice.id = 'brief-staff-apprentice';
-      apprentice.textContent = 'hire apprentice · a temp serves while Ruth recuperates off bar · wage £65 + £12 training, +4p waste a cup, recovery +0.25';
+      apprentice.textContent = `hire apprentice · a temp serves while Ruth recuperates off bar · ${fmt(CAMPAIGN.staff.apprenticeDayRate)} + ${fmt(CAMPAIGN.staff.apprenticeTrainingFee)} training, +${Math.round(CAMPAIGN.staff.apprenticeWasteExtra * 100)}p waste a cup`;
       const push = document.createElement('button'); push.id = 'brief-staff-push';
       push.textContent = 'push on · she’ll manage — probably';
       const sel = (mode, stage) => {
@@ -1141,14 +1177,36 @@ function showMorningBrief() {
     hint.style.fontSize = '10.5px'; hint.style.opacity = '.6'; hint.style.marginBottom = '4px';
     hint.textContent = 'Sizing is the position — contracts lock the board for their cups, hold rides the spot, settle pays the tab.';
     actions.appendChild(hint);
+    // Progressive disclosure: on a calm opening morning the contract pills
+    // fold into one line — the first lesson is open/price/serve, not hedging.
+    // Any threat (warn/bad/cata), an open position, or a live tab springs it
+    // back open: risk reveals the tool, never hides it.
+    const tier = exchange.event?.tier || 'calm';
+    const threat = tier === 'warn' || tier === 'bad' || tier === 'cata';
+    const foldContracts = day === 1 && !threat && !exchange.contract && !(exchange.debt > 0);
+    let fold = null;
+    if (foldContracts) {
+      fold = document.createElement('details');
+      fold.id = 'brief-hedge-details';
+      const fs = document.createElement('summary');
+      fs.textContent = 'insure the beans? — a contract locks the board price for its cups (optional today)';
+      fs.style.cssText = 'font-size:11px;opacity:.75;cursor:pointer';
+      fold.appendChild(fs);
+      // a staged contract keeps the fold open so the selection stays visible
+      if (planDraft && planDraft.hedge && planDraft.hedge.startsWith('contract')) fold.open = true;
+      actions.appendChild(fold);
+    }
     for (const act of L.actions) {
+      // a dead settle pill is noise — "nothing to settle" only appears once
+      // a tab exists; until then the move doesn't.
+      if (act.id === 'settle' && act.disabled) continue;
       const b = document.createElement('button');
       b.dataset.id = act.id;
       b.textContent = act.label + (act.explain ? '  \u00b7  ' + act.explain : '');
       b.disabled = !!act.disabled;
       b.setAttribute('aria-pressed', 'false');
       b.onclick = () => { if (applyReply(act.id)) markBriefChoice(act.id); };
-      actions.appendChild(b);
+      (fold && act.id.startsWith('contract') ? fold : actions).appendChild(b);
     }
   }
   briefChoice = planDraft ? planDraft.hedge : null;
@@ -1563,7 +1621,8 @@ function updateHUD() {
     const driftPct = Math.round((exchange.beanIndex - 1.0) * 100);
     const driftTxt = (driftPct >= 0 ? '+' : '') + driftPct + '%';
     const dayPrice = exchange.matchaPrice ?? priceForDay(day);
-    $('pressure').innerHTML = `costs <b>${driftTxt}</b> · matcha <b>£${dayPrice.toFixed(2)}</b> · day <b>${day}/${CAMPAIGN.days}</b>`;
+    $('pressure').innerHTML = `costs <b>${driftTxt}</b> · matcha <b>£${dayPrice.toFixed(2)}</b> · day <b>${day}/${CAMPAIGN.days}</b>` +
+      (exchange.debt > 0 ? ` · tab <b>${fmt(exchange.debt)}</b>/${fmt(CAMPAIGN.creditLimit)}` : '');
   }
   if (!closed) updateTicker();
 }

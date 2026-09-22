@@ -60,6 +60,7 @@ const fails = [];
 // ---- 3) the letter carries five replies: light / standard / heavy / hold / settle ---
 {
   const { composeLetter } = await import('../js/letter.js');
+  const { CAMPAIGN } = await import('../js/config.js');
   const L = composeLetter({
     day: 2, index: 1.15, indexPrev: 1.0, cost: 1.5, sold: 80, balked: 10,
     defections: 0, reputation: 70, debt: 22, contract: null, event: { tier: 'bad', head: 'X', line: 'y' },
@@ -74,7 +75,21 @@ const fails = [];
     defections: 0, reputation: 70, debt: 0, contract: null, event: {},
   });
   assert.ok(flat.body.includes('held flat'), 'flat day prints the flat line');
-  console.log('LETTER  5 replies (light/std/heavy/hold/settle) · spot delta + stack implication');
+  const rumoured = composeLetter({
+    day: 3, index: 1.0, indexPrev: 1.0, cost: 1.3, sold: 10, balked: 0,
+    defections: 0, reputation: 70, debt: 0, contract: null, mode: 'planning',
+    event: { id: 'rumour_frost', tier: 'warn', head: 'X', line: 'y' },
+  });
+  assert.ok(rumoured.body.includes('leans cold'), 'morning after a rumour, the letter names the tilt');
+  const levered = composeLetter({
+    day: 3, index: 1.0, indexPrev: 1.0, cost: 1.3, sold: 10, balked: 0,
+    defections: 0, reputation: 70, debt: CAMPAIGN.creditLimit, contract: null, mode: 'planning',
+    event: { tier: 'calm', head: 'X', line: 'y' },
+  });
+  assert.ok(levered.body.includes('not a bank'), 'near the cap, the letter says the tab has a fuse');
+  assert.ok(levered.actions[0].disabled && levered.actions[2].disabled, 'over the tab limit, contract replies disable');
+  assert.ok(!levered.actions[4].disabled, 'settle stays live over the cap');
+  console.log('LETTER  5 replies (light/std/heavy/hold/settle) · spot delta + stack implication · tab limit + rumour signal');
 }
 
 // ---- 4) the regular's ask ----------------------------------------------------------

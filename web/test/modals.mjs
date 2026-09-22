@@ -334,23 +334,31 @@ console.log('STRUCTURE six modals share panel/header/body/footer; CSS scroll+foo
   check(G.phase === 'planning', `expected planning, got ${G.phase}`);
   G.renderBrief();
   check(registry.get('brief').classList.contains('show'), 'renderBrief opened the brief');
+  // Day-1 disclosure: contracts fold into one details line, the dead settle
+  // pill hides, and hold is the only flat action. Pills inside the fold still
+  // take markBriefChoice's aria-pressed (querySelectorAll descends).
   const acts = () => registry.get('brief-actions').children.filter(c => c.tagName === 'BUTTON');
-  const settle = acts().find(b => b.dataset.id === 'settle');
-  check(!!settle, 'brief exposes the settle action');
-  check(settle && settle.disabled === true, 'settle disabled with zero debt');
-  check(acts().length === 5, `brief shows all five actions, got ${acts().length}`);
-  check(acts().filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.id).join(',') === 'hold', 'default draft presses only hold');
-  const contractBtn = acts().find(b => b.dataset.id === 'contract');
+  const fold = () => registry.get('brief-actions').children.find(c => c.id === 'brief-hedge-details');
+  const allPills = () => { const f = fold(); return acts().concat(f ? f.children.filter(c => c.tagName === 'BUTTON') : []); };
+  check(!!fold(), 'calm day-1 folds the contract pills');
+  check(!acts().some(b => b.dataset.id === 'settle'), 'day-1 hides the dead settle pill');
+  check(acts().map(b => b.dataset.id).join(',') === 'hold', `day-1 flat actions are just hold, got ${acts().map(b => b.dataset.id)}`);
+  check(allPills().length === 4, `day-1 keeps four live moves (3 folded contracts + hold), got ${allPills().length}`);
+  check(allPills().filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.id).join(',') === 'hold', 'default draft presses only hold');
+  const contractBtn = allPills().find(b => b.dataset.id === 'contract');
   contractBtn.click();
-  check(contractBtn.getAttribute('aria-pressed') === 'true', 'staged contract reads aria-pressed=true');
-  check(acts().find(b => b.dataset.id === 'hold').getAttribute('aria-pressed') === 'false', 'other actions unpressed');
+  check(contractBtn.getAttribute('aria-pressed') === 'true', 'staged contract reads aria-pressed=true inside the fold');
+  check(allPills().find(b => b.dataset.id === 'hold').getAttribute('aria-pressed') === 'false', 'other actions unpressed');
   check(G.stageDayPlan({ hedge: 'bogus' }) === false, 'invalid staging rejected');
+  { const e = registry.get('brief-actions'); if (e) e.children.length = 0; }   // shim: textContent='' doesn't clear children
   G.renderBrief();
-  check(acts().find(b => b.dataset.id === 'contract').getAttribute('aria-pressed') === 'true', 'aria state persists through re-render');
+  check(!!fold() && fold().open === true, 'a staged contract keeps the fold open through re-render');
+  check(allPills().find(b => b.dataset.id === 'contract').getAttribute('aria-pressed') === 'true', 'aria state persists through re-render');
   check(G.plan.hedge === 'contract', 'staged plan persists through re-render');
   const nut = registry.get('brief-nut').textContent;
   check(/committed minimum/.test(nut) && /fixed/.test(nut), 'quote prints the committed-minimum breakdown');
-  check(/campaign net position/.test(nut), 'quote uses campaign net position wording');
+  check(/cups just to cover/.test(nut), 'quote prints the breakeven cup target');
+  check(!/campaign net position/.test(nut), 'day-1 quote holds the net position until there is history');
   const debtBefore = G.stats().debt;
   for (const h of keyHandlers) h({ key: '2', target: null, preventDefault() {} });
   for (const h of keyHandlers) h({ key: 'r', target: null, preventDefault() {} });
