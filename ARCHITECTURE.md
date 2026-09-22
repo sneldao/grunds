@@ -18,7 +18,7 @@ transform.py ──→ square_item_sales.csv ──→ ingest ──→ spatial 
 | System | Responsibility | Phase |
 |---|---|---|
 | `ingest` | Parse Square CSV, map each row to (zone, time, item, cohort); emit wave schedules | today |
-| `spatial` | Three.js floor: **1024 honey-oak floor + slab pavement + aggregate road** (all `anisotropy 8`), **brick facades** (two-tone + mortar, white frames + sill, cornice + shopfront), **9-block skyline**, **512×320 brass-collar ticker**, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), 3-step tutorial + calm-open throttling (reactive `#goal` + 3 just-in-time nudges), goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), **Morning Brief `#brief` (520px linen: 76px sparkline + wire headlines/host/why + 5 pills → `OPEN`) + `briefPaused` clock gate**, wave debrief (fanfare/coin rain/crane) + forecast + wire desk (headlines free / tilt gated) + 11:00 offer / 14:55–16:55 incident modals (`offerPaused`), bean tape HUD + ticker sparkline + bias glow, living plant (HSL health + wilt), god rays + **motes** + mist, till drawer + stretching shadow, **bollards + street decal**, cat Miso, hover story card + photo mode, scuff decal + awning tie-downs, GLB cross-fade + shadow budget + bounce hemi | today |
+| `spatial` | Three.js floor: **1024 honey-oak floor + slab pavement + aggregate road** (all `anisotropy 8`), **brick facades** (two-tone + mortar, white frames + sill, cornice + shopfront), **9-block skyline**, **512×320 brass-collar ticker**, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), 3-step tutorial + calm-open throttling (reactive `#goal` + 3 just-in-time nudges), goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), **Morning Brief `#brief` (520px linen: 76px sparkline + wire headlines/host/why + 5 pills → `OPEN`) + `phase:'planning'` clock gate**, wave debrief (fanfare/coin rain/crane) + forecast + wire desk (headlines free / tilt gated) + 11:00 offer / 14:55–16:55 incident modals (same modal pause path), bean tape HUD + ticker sparkline + bias glow, living plant (HSL health + wilt), god rays + **motes** + mist, till drawer + stretching shadow, **bollards + street decal**, cat Miso, hover story card + photo mode, scuff decal + awning tie-downs, GLB cross-fade + shadow budget + bounce hemi | today |
 | `agent` | Patron decision loop (price/queue/rep) + barista levers (pre-batch/reprice + queue-drain prediction + chalk dust/screech) + named-Regular hat/bubble + wave + friend-graph gossip routing (throttled in calm open) + sitter sip at `dwell==4` + hover→story card (36px probe) + click-to-wave (+0.06 op) + cat spawn/sit/scatter + plant health + till slide | today |
 | `precedent` | Patron memory: opinions persist; gossip via named-friend graph; 5%/day `opContagion` (Map<i→op> + `Number.isFinite` guard for sparse rosters); local `analytics.js` (tutorial/lever/balk/debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`) + `desk.js` (The Wire — headlines free, tilt on `commodity_insider`) + `billing.js` (RevenueCat Web Billing → Test Store) | today |
 | `exchange` | Event deck (frost/harvest/hype, pity timers + Linkup `marketShift` bias clamped 0.2–3×); gentrification drift (per-day cost creep + matcha 4.80→5.40); forward contracts; supplier debt clock; hidden `geshaUnlocked` (`GRUNDS` → £7.80 wink, persists as toast) | today |
@@ -53,11 +53,17 @@ the payoff, at 17:30 and on the Z-read a Day-2 forecast earns the replay.
 
 ## Morning Brief — the Drug Wars turn (06:00 [PAUSED])
 
-At every `openDay(d)` after the 3-step tutorial, `main.js` builds a one-screen `#brief` before the tick: Idris prose (`forecastForDay` tilted by the same Linkup bias that moves the ticker) with a tape delta vs `tapePrev`, a 76px canvas sparkline from `exchange.history` (today's price en-dashed, red/green by `marketIntel.marketShift`), clickable wire headlines (href + host + why; Nebius gossip voice as copy when available, else a warm “no fresh wire” fallback), and five sized reply pills (`light £11 ~1200` / `standard £22 ~2400` / `heavy £44 ~4800` / `hold` / `settle`) that *stage* on click/1–5 then `commit` on `OPEN FOR DAY →` (`contractBeans(units, fee)` + `contractFeeExtra`, `dismissBriefAndStartDay` resumes at `06:00`). While open, `briefPaused` holds `loop` at 06:00 and skips spawn/hud/dawn logic; `_pricePreview(spot)` precomputes tonight's Letter price so the pills price honestly. Headless + `?skipBrief` never show the Brief — night Letter stays the 5-action API. The nightly `tapeLine` makes the turn explicit (“board up 12% → lock tonight buys tomorrow at ~today; falling → ride spot”), and `OFFERS` (5) + `INCIDENTS` (6, red-tinted) reuse the same `offerPaused` pause path mid-day so turns compose.
+`prepareDay(d)` (also exposed as `openDay`) enters planning at 06:00 without charging or rolling the market. The Brief shows known district pressure and rival posture, then staffing, five procurement choices, optional paid street work, and an itemized cost quote. Idris's prose, the 72px board sparkline, and research sources are secondary details. All variable content scrolls inside the shared modal body; a stable footer holds the summary and Open action. `stageDayPlan` is reversible and atomic. `commitDayPlan` resolves the pure `resolveDecision(snapshot, plan)` against the previous closing board, applies the result once, rolls the new market, and enters trading. Headless tests explicitly stage and commit through the same APIs; only rendering is stubbed. Closing computes the ledger once and leaves the receipt open until `continueFromReview`; Idris's letter is optional review, not a second procurement gate. Day five completes only after its trading and review phases.
 
-**The pitch licence.** Before the tutorial, `#licence` (z-33 paper card over the diorama) signs the player in: name + stand name (pen-line inputs, Enter/Escape signs with defaults — Sam, THE CORNER CUP), a cosmetic role, and one of four backgrounds carrying a single small perk — `ex-barista` (`perkStaffMul 1.08`), `ex-accountant` (`perkCostMul 0.85` on card fees + every incident payout), `new to the trade` (regulars open at op 0.25), `a market regular` (the Brief whispers the wire's *direction* — the × stays insider). Identity threads `composeLetter` (`Dear Ada,` / `…do, Ada?`), nightly + finale receipts, the tutorial's first title, and the Convex owner — `convexSync` reads `ownerName()` live so the district board lists the stand name at the next dawn. Persists via `localStorage` `grunds.identity`; `?skipLicence`/`?skipTutorial`/headless bypass.
+Contracts are price coverage, not stock: 1200/2400/4800 cups for baseline fees of £11/£22/£44, plus any announced surcharge. Each prepared cup captures its price and bean cost before consuming coverage; exhausted contracts fall back to spot. The receipt distinguishes operating profit, contract fees, interest, settlement, and realized hedge benefit. Unused cover does not spoil and uncovered cups do not starve. The retail price curve is charged, not just displayed.
 
-**Ruth — the staff layer.** One named barista, one hidden stat: `baristaCondition` drains −0.14 per worked shift (+0.08 if `peakQueue>50`, +0.06 if `balked>60`), recovers +0.45 on a sent-home day. When she fades under 0.55 the Brief carries a `#brief-staff` row — *send her home* (`staffMul 0.7`, her `staffDayRate` saved on the cost sheet, fresh tomorrow) vs *push on*; below 0.35 her legs slow the dawn bar to 0.8×, and pushed under 0.2 she breaks mid-afternoon — asleep at the counter (`staffMul 0.5`) or snapping at a regular (`adjustOpinions −0.2`). The sick-call incident reads her state: she can't call in on a day you already sent her home, and on fumes the call becomes a warning shot (−60% decline). No roster, no morale meter — the fiction carries the state; `staff_sent_home`/`staff_pushed`/`staff_crisis` land in analytics.
+Baseline bean drift is an increasing daily increment: 0.025 + 0.008 × (day − 1), capped before the market event. Day-two transit shifts morning commuter waves 30 minutes and increases dwell by 30%; quantities are preserved and the source schedule is never mutated. Pitch revaluation adds £20 to the rent floor and 3 percentage points to turnover rent from day three. The £0.18-per-cup supplies surcharge persists from day four. GLASSHOUSE's announced strategy uses the previous day's event tier; its price/cohort pull affects initial customer choice and its speed multiplier affects actual service. Initial rival choices and post-queue defections are counted separately. `OFFERS` (5) + `INCIDENTS` (6, red-tinted) reuse the same modal pause path mid-day so turns compose.
+
+**Managed decisions (connected mode).** When `?convex=` is live, `convexSync.js` runs the week through a per-run serialized queue — `begin → prepare → stage → commit → finish` on `POST /sync/plan`, authenticated by a 32-byte run token the HTTP layer SHA-256s before the internal mutations see it. `convex/decisions.ts` keeps one `dayDecisions` row per campaign-day: `prepare` pins the snapshot, `stage` updates the still-pending plan, `commit` (browser) and `handleInbound` (email, via a thread→`{campaignId, decisionId, day, recipient, postedPlan}` mapping) both funnel into `commitRecord` — first writer wins, every retry or loser re-reads the same committed result. `finish` validates and stores the closing state once (conflicting retries rejected, identical ones idempotent) and upserts the player's `stands` row; `abandon`/reset invalidates the session so delayed writes die. Legacy public mutations (`openDay`, `contractBeans`, `settleDebt`, `mirrorState`, `recordStand`) reject any campaign that has a `planSessions` row. If the endpoint is unreachable the Brief stays in planning with a retryable error; `start a local-only week` (`#brief-offline`) is the explicit opt-out — it disables managed sync and mail for the run rather than silently degrading. Scope note: the simulation stays client-side; the commit record arbitrates *intent*, it is not server-authoritative anti-cheat.
+
+**The pitch licence.** Before the tutorial, `#licence` (z-33 paper card over the diorama) signs the player in: name + stand name (pen-line inputs, activate the Sign button; Escape never signs or advances — Sam, THE CORNER CUP), a cosmetic role, and one of four backgrounds carrying a single small perk — `ex-barista` (`perkStaffMul 1.08`), `ex-accountant` (`perkCostMul 0.85` on card fees + every incident payout), `new to the trade` (regulars open at op 0.25), `a market regular` (the Brief whispers the wire's *direction* — the × stays insider). Identity threads `composeLetter` (`Dear Ada,` / `…do, Ada?`), nightly + finale receipts, the tutorial's first title, and the Convex owner — `convexSync` reads `ownerName()` live so the district board lists the stand name at the next dawn. Persists via `localStorage` `grunds.identity`; `?skipLicence`/`?skipTutorial`/headless bypass.
+
+**Ruth — the staff layer.** Ruth loses 0.14 condition per worked shift, plus 0.08 for peak queues above 50 and 0.06 for more than 60 balks. Below 0.55 on day two onward, the Brief offers work, home, or apprentice cover. Home saves the wage, runs the solo bar at 0.7x, and restores 0.45 condition; apprentice cover costs £65 wage plus £12 training and £0.04 extra supplies per served cup, runs at 1.05x before the identity perk, and restores 0.25. Home and apprentice modes prevent Ruth's exhaustion crisis and incompatible sick call. Working below 0.35 slows dawn pace; working below 0.2 risks an afternoon crisis — asleep at the counter (`staffMul 0.5`) or snapping at a regular (`adjustOpinions −0.2`). No roster, no morale meter — the fiction carries the state; `staff_sent_home`/`staff_pushed`/`staff_crisis` land in analytics.
 
 ## Delight spine — director + vitality (Sept 19)
 
@@ -157,25 +163,37 @@ stores per-patron opinion state.
    `commodity_insider` via `billing.js` (HUD `⚡ the wire ↗` when intel
    lands; bean tape click-through; Letter desklink where the choice
    happens; `#desk-edge` invite for free readers)
-6. `exchange` at `openDay(d)` applies gentrification drift (cost creep +
-   matcha curve + cohort expectation) *before* the pity-timer roll (+ Linkup `marketShift` bias clamped 0.2–3×), stashes `tapePrev` for the tape/sparkline/`tapeLine` delta, mints the `history` for the Brief sparkline, and `history` for the ticker; at `closeDay` it emits the **cost-sheet P&L** (staff+milk+rent+card+sundries → `cOps` → `netWorth`). Sized hedges `contractBeans(units, fee)` burn cup-by-cup via `consume(n)`; `GRUNDS` secret sets `geshaUnlocked` and
+6. `exchange.openDay(bias?)` runs *inside* `commitDayPlan` — after the staged
+   plan resolves — applying the increasing daily drift increment and matcha
+   curve *before* the pity-timer roll (+ Linkup `marketShift` bias clamped
+   0.2–3×), stashing `tapePrev` for the tape/sparkline/`tapeLine` delta and
+   minting `history` for the Brief sparkline and the ticker; at `closeDay` it
+   emits the **cost-sheet P&L** (staff+milk+rent+card+sundries → `cOps` → `netWorth`).
+   Sized hedges burn cup-by-cup via `consumeContract` — price coverage, not
+   stock; exhausted cover falls back to spot. `GRUNDS` secret sets `geshaUnlocked` and
    flashes £7.80 on the board (persists as a next-day toast)
 7. Demand (`web/js/demand.js`, pure/deterministic): awareness 0..1 multiplies
    the wave spawn 0.4×–1.3× via `spawnMul()`, decays 0.04/close (+0.04 on
    catastrophes); loyalty is reputation as a return rate (`Regulars.returnRate`,
    12% at rep 62, capped 35%) — yesterday's served × rate reappear spread
-   across today's waves. Dawn street work (chalk/sample/sponsor) stages in the
-   Brief (`#brief-demand` toggles, row-local re-render so the hedge choice
-   survives), commits costs with the hedge (cups → COGS, sponsor → `marketing`
-   ops line), and lands on tomorrow's awareness at `closeDay.resolveDay`.
-   Tape prints `street ●●●○○`; receipt prints awareness; verdicts talk back
-   under 0.35.
+   across today's waves. Routine chalk contributes its awareness gain
+   automatically. Sampling (£8) and sponsorship (£30, day three onward) are
+   reversible paid choices until commitment; their gains arrive at closing for
+   tomorrow. Paid marketing is disabled on day five. Staffing, sampling,
+   training, sponsorship, supplier fees, and interest all appear in the plan
+   quote and reconcile to closing accounts. Tape prints `street ●●●○○`;
+   receipt prints awareness; verdicts talk back under 0.35.
 
 ## Convex deployment (live since Sept 12)
 
 Backend and hosting are deployed to a cloud dev deployment; the local
 simulator (`web/js/*`) remains the deterministic reference and the
-headless gate pins both.
+headless gate pins both. This is a historical deployment: the new
+`planSessions`/`dayDecisions` decision schema and managed protocol in this
+change have only been tested locally (mocked DB/HTTP) and require a
+coordinated backend + frontend deployment. Native Convex codegen was not
+run for this change — `convex/_generated/api.d.ts` was updated by hand and
+may differ from future generated output.
 
 Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
 
@@ -228,11 +246,11 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   `https://striped-anaconda-746.convex.site` (43 files Sept 13, SPA fallback — adds `desk.js` + rebuilt `dist`);
   performance: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms, shadow budget at `queue>40`, GLB cross-fade, `tabular-nums` till + staggered/typewriter receipt, `P` photo + `GRUNDS` secret, **bounce hemi 0.22 lifts the bar**;
   delight wiring: `world.setPlantHealth`/`setGodRay`/`setMotes`/`spawnCat`/`updateCat`/`popTillDrawer`/`_updateDelight(now, dt)`/`jeerRival`, `audio.tick`/`waveFanfare`/`waveRain`/`chalkScreech`/`purr`/`meow`/`shutter`, `fx.chalkDust`/`coinRain`/`victoryBurst` + receipt stagger, `main` reactive `#goal` + nudges + haptics + hover card + Idris quips + rival jeer + desk/billing + `requestAnimationFrame(loop)` re-arm discipline;
-  app routes stay at root (`/sync/*`, `/ai/*`, `/agentmail/*`). The floor
-  mirrors each dawn into the campaign row plus a per-owner `stands` row
-  (stable `grunds.owner` id, `?stand=` override), polls server state for the
-  badge, and the dashboard + `topStands` leaderboard + `GET /sync/stands`
-  read live games.
+  app routes stay at root (`/sync/*`, `/ai/*`, `/agentmail/*`). On managed
+  runs the floor writes closing state through `sync.finishDay` (which also
+  upserts the per-owner `stands` row, stable `grunds.owner` id, `?stand=`
+  override), polls server state for the badge, and the dashboard +
+  `topStands` leaderboard + `GET /sync/stands` read live games.
 - Scheduled: `commodity-news-refresh` (Firecrawl, 06:00 UTC) +
   `linkup-intel-refresh` (Linkup, 06:15 UTC) + `wire-merge-refresh`
   (merged wire, 06:30 UTC — reads the freshly-warmed caches).

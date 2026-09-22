@@ -43,9 +43,9 @@ ok(/❚❚/.test(main), 'HUD has no paused marker');
 console.log('PAUSE   space pauses the sim clock, HUD shows ❚❚');
 
 // 5) Letter hotkeys: 1/2/3 click the matching enabled action.
-ok(/letter-actions button/.test(main), 'main.js has no letter-action hotkey wiring');
-ok(/\+e\.key - 1/.test(main), 'letter hotkeys do not map 1/2/3 to action index');
-console.log('KEYS    open letter answers to 1/2/3 (disabled skipped)');
+ok(/'letter-close'\)\.onclick/.test(main) && /modals\.close\('letter'\)/.test(main), 'main.js has no letter close wiring');
+ok(/t === 'letter'[\s\S]{0,200}modals\.open\('receipt'\)/.test(main), 'Escape on the letter does not restore the receipt');
+console.log('KEYS    letter dismisses to the receipt via close control and Escape');
 
 // 6) Sync badge reads clean in local mode.
 ok(/○ local'/.test(sync), 'convexSync.js local badge is not the short "○ local"');
@@ -101,7 +101,7 @@ const config = readFileSync(join(ROOT, 'web/js/config.js'), 'utf8');
 ok(/CLOSING TIME/.test(config) && /t: 1240/.test(config), 'no closing-time chapter at 1240');
 ok(/SOLD', 'a new tenant opens across the road'/.test(main), 'finale has no SOLD card');
 ok(/world\.focus\.newbuild/.test(main), 'finale does not visit the sold storefronts');
-ok(/setTimeout\(\(\) => \{\s*\n?\s*fx\.receipt/.test(main), 'verdict receipt is not staged after the finale beat');
+ok(/scheduleRun\(\(\) => \{[\s\S]{0,200}fx\.receipt\(\{ lines, verdict/.test(main), 'verdict receipt is not staged after the finale beat');
 ok(/newbuild: new THREE\.Vector3/.test(world), 'world has no newbuild focus point');
 ok(/updateRival/.test(world), 'world has no updateRival');
 ok(/world\.updateRival\(dt, now\)/.test(main), 'main loop does not drive rival silhouettes');

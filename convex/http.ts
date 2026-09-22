@@ -25,6 +25,9 @@ async function verifySvix(
   body: string,
 ): Promise<boolean> {
   if (!id || !ts || !sig || !secret.startsWith("whsec_")) return false;
+  const tsNum = Number(ts);
+  if (!Number.isFinite(tsNum) || !Number.isInteger(tsNum) || tsNum <= 0) return false;
+  if (Math.abs(Date.now() / 1000 - tsNum) > 300) return false;
   try {
     const keyBytes = Uint8Array.from(atob(secret.slice(6)), (c) => c.charCodeAt(0));
     const key = await crypto.subtle.importKey(
@@ -78,30 +81,27 @@ export const agentmailWebhook = httpAction(async (ctx, req) => {
     const body = m.text || m.preview || "";
     if (!body) return json({ error: "empty message" }, 400);
     try {
-      const campaignId = await ctx.runQuery(internal.agentmail.resolveThread, {
+      const mapping = await ctx.runQuery(internal.agentmail.resolveThread, {
         threadId: m.thread_id ?? "",
         from: m.from ?? "",
       });
-      if (!campaignId) return json({ error: "no campaign for this thread" }, 404);
-      const result = await ctx.runMutation(api.agentmail.handleInbound, {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        campaignId: campaignId as any,
+      if (!mapping) return json({ error: "no decision for this thread" }, 404);
+      const result = await ctx.runMutation(internal.agentmail.handleInbound, {
+        campaignId: mapping.campaignId,
+        decisionId: mapping.decisionId!,
+        day: mapping.day,
         subject: m.subject ?? "(no subject)",
         body,
         from: m.from,
+        deliveryId: req.headers.get("svix-id") ?? undefined,
+        postedPlan: mapping.postedPlan ?? undefined,
       });
       // Acknowledge by return post — Idris writes back.
-      if (m.from) {
-        await ctx.runAction(api.agentmail.sendLetter, {
+      if (m.from && result.ok && !result.duplicate) {
+        await ctx.runAction(internal.agentmail.sendLetter, {
           to: m.from.replace(/.*<([^>]+)>.*/, "$1"),
           subject: `RE: ${m.subject ?? "your note"}`,
-          body: result.action === "contract"
-            ? `Done — the beans are locked at today's board. You'll see it on tonight's receipt.\n\n— Idris`
-            : result.action === "settle"
-              ? `Settled. The slate is clean.\n\n— Idris`
-              : `Understood — you ride the spot market. Watch the wire.\n\n— Idris`,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          campaignId: campaignId as any,
+          body: `Recorded — ${result.action ?? "your reply"} plays when you open the day.\n\n— Idris`,
         });
       }
       return json(result);
@@ -113,20 +113,31 @@ export const agentmailWebhook = httpAction(async (ctx, req) => {
   // Legacy manual path — shared-secret POST for testing without Svix.
   if (req.headers.get("x-webhook-secret") !== secret)
     return json({ error: "unauthorized" }, 401);
-  let payload: { campaignId?: string; subject?: string; body?: string };
+  let payload: {
+    campaignId?: string;
+    decisionId?: string;
+    day?: number;
+    subject?: string;
+    body?: string;
+    from?: string;
+  };
   try {
     payload = JSON.parse(raw) as typeof payload;
   } catch {
     return json({ error: "bad json" }, 400);
   }
-  if (!payload.campaignId || !payload.body)
-    return json({ error: "campaignId and body required" }, 400);
+  if (!payload.campaignId || !payload.decisionId || typeof payload.day !== "number" || !payload.body)
+    return json({ error: "campaignId, decisionId, day and body required" }, 400);
   try {
-    const result = await ctx.runMutation(api.agentmail.handleInbound, {
+    const result = await ctx.runMutation(internal.agentmail.handleInbound, {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       campaignId: payload.campaignId as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      decisionId: payload.decisionId as any,
+      day: payload.day,
       subject: payload.subject ?? "(no subject)",
       body: payload.body,
+      from: payload.from,
     });
     return json(result);
   } catch (e) {
@@ -152,7 +163,9 @@ async function verifyTripo(
   const t = parts["t"];
   const v1 = parts["v1"];
   if (!t || !v1) return false;
-  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false; // replay guard
+  const tNum = Number(t);
+  if (!Number.isFinite(tNum) || !Number.isInteger(tNum) || tNum <= 0) return false;
+  if (Math.abs(Date.now() / 1000 - tNum) > 300) return false; // replay guard
   try {
     const keyHex = secret.startsWith("whsec_") ? secret.slice(6) : secret;
     const keyBytes = Uint8Array.from(
@@ -233,25 +246,128 @@ export const districtEnsure = httpAction(async (ctx, req) => {
 // mapping recorded in agentmail.sendLetter.
 export const mailLetter = httpAction(async (ctx, req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  let payload: { to?: string; subject?: string; body?: string; campaignId?: string };
+  let payload: { to?: string; token?: string; decisionId?: string } | null;
   try {
     payload = (await req.json()) as typeof payload;
   } catch {
     return json({ error: "bad json" }, 400);
   }
-  if (!payload.to || !payload.body || !payload.to.includes("@"))
-    return json({ error: "to and body required" }, 400);
+  if (!payload || typeof payload !== "object" || Array.isArray(payload))
+    return json({ error: "bad json" }, 400);
+  if (typeof payload.to !== "string" || !payload.to.includes("@") || typeof payload.decisionId !== "string")
+    return json({ error: "to and decisionId required" }, 400);
+  if (typeof payload.token !== "string" || !/^[a-f0-9]{64}$/.test(payload.token))
+    return json({ error: "bad token" }, 400);
   try {
-    const result = await ctx.runAction(api.agentmail.sendLetter, {
-      to: payload.to.slice(0, 200),
-      subject: (payload.subject ?? "A note from your roaster").slice(0, 200),
-      body: payload.body.slice(0, 4000),
+    const result = await ctx.runAction(internal.agentmail.sendPlanMail, {
+      tokenHash: await sha256hex(payload.token),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      campaignId: payload.campaignId as any,
+      decisionId: payload.decisionId as any,
+      to: payload.to.slice(0, 200),
     });
     return json(result, result.ok ? 200 : 503);
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
+async function sha256hex(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export const syncPlan = httpAction(async (ctx, req) => {
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  let payload: {
+    op?: string;
+    token?: string;
+    seed?: number;
+    day?: number;
+    snapshot?: Record<string, unknown>;
+    plan?: Record<string, unknown>;
+    state?: Record<string, unknown>;
+    ownerName?: string;
+  } | null;
+  try {
+    payload = (await req.json()) as typeof payload;
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload))
+    return json({ error: "bad json" }, 400);
+  if (typeof payload.token !== "string" || !/^[a-f0-9]{64}$/.test(payload.token))
+    return json({ error: "bad token" }, 400);
+  const tokenHash = await sha256hex(payload.token);
+  try {
+    switch (payload.op) {
+      case "begin":
+        return json(
+          await ctx.runMutation(internal.decisions.begin, {
+            tokenHash,
+            seed: typeof payload.seed === "number" ? payload.seed : undefined,
+          }),
+        );
+      case "prepare": {
+        if (!payload.snapshot || !payload.plan)
+          return json({ error: "snapshot and plan required" }, 400);
+        return json(
+          await ctx.runMutation(internal.decisions.prepare, {
+            tokenHash,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            snapshot: payload.snapshot as any,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            plan: payload.plan as any,
+          }),
+        );
+      }
+      case "stage": {
+        if (typeof payload.day !== "number" || !payload.plan)
+          return json({ error: "day and plan required" }, 400);
+        return json(
+          await ctx.runMutation(internal.decisions.stage, {
+            tokenHash,
+            day: payload.day,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            plan: payload.plan as any,
+          }),
+        );
+      }
+      case "commit": {
+        if (typeof payload.day !== "number" || !payload.plan)
+          return json({ error: "day and plan required" }, 400);
+        return json(
+          await ctx.runMutation(internal.decisions.commit, {
+            tokenHash,
+            day: payload.day,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            plan: payload.plan as any,
+          }),
+        );
+      }
+      case "finish": {
+        if (typeof payload.day !== "number" || !payload.state)
+          return json({ error: "day and state required" }, 400);
+        return json(
+          await ctx.runMutation(internal.decisions.finish, {
+            tokenHash,
+            day: payload.day,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            state: payload.state as any,
+            ownerName: typeof payload.ownerName === "string"
+              ? payload.ownerName.trim().slice(0, 40) || undefined
+              : undefined,
+          }),
+        );
+      }
+      case "abandon":
+        return json(await ctx.runMutation(internal.decisions.abandon, { tokenHash }));
+      default:
+        return json({ error: "bad op" }, 400);
+    }
+  } catch {
+    return json({ error: "request failed" }, 400);
   }
 });
 
@@ -415,6 +531,7 @@ http.route({ path: "/agentmail/letter", method: "POST", handler: mailLetter });
 http.route({ path: "/agentmail/inbox", method: "GET", handler: agentmailInbox });
 http.route({ path: "/sync/state", method: "GET", handler: syncState });
 http.route({ path: "/sync/snapshot", method: "POST", handler: syncSnapshot });
+http.route({ path: "/sync/plan", method: "POST", handler: syncPlan });
 http.route({ path: "/sync/stands", method: "GET", handler: syncStands });
 http.route({ path: "/ai/letter", method: "POST", handler: aiLetter });
 http.route({ path: "/ai/gossip", method: "POST", handler: aiGossip });

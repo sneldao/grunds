@@ -57,7 +57,7 @@ check('inbox index by_campaign_dir_created', /by_campaign_dir_created\",\s*\[\"c
 const agentmailSrc = src('convex/agentmail.ts');
 check('outbound stamped dir:"out" + createdAt', /dir:\s*"out"/.test(agentmailSrc));
 check('inbound stamped dir:"in" + action + from', /dir:\s*"in"/.test(agentmailSrc)
-  && /\baction,\s*\n?\s*from:/.test(agentmailSrc));
+  && /\baction[:,]/.test(agentmailSrc) && /\bfrom:/.test(agentmailSrc));
 check('latestInbox query with after cursor', /export const latestInbox = query/.test(agentmailSrc)
   && /after/.test(agentmailSrc.split('latestInbox')[1] || ''));
 check('latestInbox skips pre-migration rows', /typeof r\.createdAt === "number"/.test(agentmailSrc));
@@ -78,6 +78,8 @@ globalThis.fetch = (u) => {
   fetchCalls++; lastUrl = String(u);
   if (inboxMode === 'throw') return Promise.reject(new Error('boom'));
   if (inboxMode === 'bad') return Promise.resolve({ ok: false, json: async () => ({}) });
+  if (String(u).includes('/sync/plan'))
+    return Promise.resolve({ ok: true, json: async () => ({ ok: true, campaignId: 'campaign1' }) });
   return Promise.resolve({ ok: true, json: async () => ({ letter: { head: 'RE: x', body: 'Inbound reply (contract): done', action: 'contract', createdAt: 123 } }) });
 };
 globalThis.location = { search: '', hostname: 'localhost', origin: 'http://localhost' };
@@ -93,6 +95,9 @@ globalThis.location = { search: '?convex=http://test', hostname: 'x', origin: 'h
 const syncLive = initSync();
 check('live inbox builds cursor URL', true);   // exercised below
 fetchCalls = 0; inboxMode = 'ok';
+const beforeBegin = await syncLive.inbox(50);
+check('inbox gated until begin yields a campaignId', beforeBegin === null && fetchCalls === 0, `res=${JSON.stringify(beforeBegin)} fetch=${fetchCalls}`);
+await syncLive.beginRun(7);
 const letter = await syncLive.inbox(50);
 check('inbox hits /agentmail/inbox with campaign+after',
   /http:\/\/test\/agentmail\/inbox\?campaignId=campaign1&after=50$/.test(lastUrl), lastUrl);

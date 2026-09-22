@@ -31,7 +31,7 @@ export function wireHint(intel) {
   }[s.eventId] ?? 'stirs';
 }
 
-export function initDesk({ billing, analytics } = {}) {
+export function initDesk({ billing, analytics, modals } = {}) {
   const $ = (id) => document.getElementById(id);
   const track = (name, payload) => {
     try {
@@ -133,8 +133,8 @@ export function initDesk({ billing, analytics } = {}) {
     lastIntel = intel;
     const subscribed = billing.isSubscribed();
     renderDesk(intel, subscribed);
-    $('paywall').classList.remove('show');
-    $('desk').classList.add('show');
+    if (modals) { modals.close('paywall'); modals.open('desk'); }
+    else { $('paywall').classList.remove('show'); $('desk').classList.add('show'); }
     track(subscribed ? 'desk_opened' : 'desk_opened_free', {
       shifts: (intel.marketShift || []).length,
       sources: (intel.sources || []).length,
@@ -150,7 +150,7 @@ export function initDesk({ billing, analytics } = {}) {
         edge.textContent = 'District Insider sharpens this — deck tilt multipliers + the roaster\'s private note. ';
         const a = document.createElement('a');
         a.href = '#'; a.textContent = 'peek the edge →';
-        a.onclick = (e) => { e.preventDefault(); $('desk').classList.remove('show'); $('paywall').classList.add('show');
+        a.onclick = (e) => { e.preventDefault(); if (modals) { modals.open('paywall'); } else { $('desk').classList.remove('show'); $('paywall').classList.add('show'); }
           const mode = $('pw-mode');
           if (mode) mode.textContent = billing.mode === 'web billing' ? 'via RevenueCat Web Billing' : billing.mode === 'test store · live SDK' ? 'RevenueCat SDK · Test Store checkout' : 'demo checkout · RevenueCat Web Test Store';
           billing.priceLabel().then((p) => { if (buy && !buy.disabled) buy.textContent = `subscribe · ${p}`; });
@@ -163,8 +163,8 @@ export function initDesk({ billing, analytics } = {}) {
   }
 
   function close() {
-    $('desk').classList.remove('show');
-    $('paywall').classList.remove('show');
+    if (modals) { modals.close('paywall'); modals.close('desk'); }
+    else { $('desk').classList.remove('show'); $('paywall').classList.remove('show'); }
   }
 
   const buy = $('pw-buy');
@@ -197,7 +197,8 @@ export function initDesk({ billing, analytics } = {}) {
   if (pwClose)
     pwClose.onclick = (e) => {
       e.preventDefault();
-      close();
+      if (modals) modals.close('paywall');
+      else $('paywall').classList.remove('show');
     };
   const deskClose = $('desk-close');
   if (deskClose) deskClose.onclick = close;

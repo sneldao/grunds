@@ -13,6 +13,11 @@ export const recordStand = mutation({
     reputation: v.number(),
   },
   handler: async (ctx, args) => {
+    const control = await ctx.db
+      .query("planSessions")
+      .withIndex("by_campaign", (q) => q.eq("campaignId", args.campaignId))
+      .unique();
+    if (control) throw new Error("managed campaign");
     const rows = await ctx.db
       .query("stands")
       .withIndex("by_campaign", (q) => q.eq("campaignId", args.campaignId))

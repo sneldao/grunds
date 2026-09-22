@@ -17,11 +17,15 @@ import { PatronSystem } from './patrons.js';
 import { FX } from './fx.js';
 import { CameraRig } from './camera.js';
 import { AudioEngine } from './audio.js';
-import { Exchange } from './exchange.js';
+import { Exchange, seeded } from './exchange.js';
+import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan } from './economy.js';
 import { Regulars } from './regulars.js';
-import { Demand } from './demand.js';
+import { Demand, DEMAND_ACTIONS } from './demand.js';
 import { composeLetter } from './letter.js';
-import { applyExpectation, priceForDay } from './gentrification.js';
+import { applyExpectation, priceForDay, modifiersForDay, wavesForDay, getMacroShockForDay, calculateNonLinearDrift, MACRO_SHOCKS } from './gentrification.js';
+import { strategyForDay } from './rival.js';
+import { canChooseStaffing, canHaveStaffCrisis } from './staffing.js';
+import { resolveDecision } from './decision.js';
 import { initSync } from './convexSync.js';
 import { buildMailTheater } from './mailTheater.js';
 import { calculateCampaignBadge, openShareToX, formatShareText } from './share.js';
@@ -29,6 +33,7 @@ import { buildShareCard, CARD_W, CARD_H } from './shareCard.js';
 import { createAnalytics } from './analytics.js';
 import { billing } from './billing.js';
 import { initDesk, wireHint } from './desk.js';
+import { createModalController } from './modals.js';
 
 const urlParams = new URLSearchParams(location.search);
 const _liteFlag = urlParams.has('lite');
@@ -96,6 +101,7 @@ if (sync.live && sync.intel) sync.intel().then(r => {
   marketIntel = r;
   if (r && $('wirebtn')) $('wirebtn').style.display = '';
 });
+if (sync.managed && sync.managed()) sync.beginRun(SEED).catch(() => {});
 
 const fx = new FX(scene, null, lite);   // patrons wired in just below
 // ---- idle guidance ------------------------------------------------------------
@@ -117,6 +123,7 @@ const mailT = buildMailTheater({
   world, scene, audio, fx, sync, headless, reducedMotion,
   onArrive: (letter) => {
     mailPending = false;
+    if (phase === 'planning') fx.toast('reply recorded — Open uses the recorded plan', 'good');
     const msg = String(letter.body || '').replace(/^Inbound reply \(\w+\)( from [^:]+)?:\s*/, '');
     if ($('letter') && $('letter').classList.contains('show')) {
       const sign = $('letter-sign');
@@ -143,15 +150,71 @@ fx.patrons = patrons;
 const analytics = createAnalytics();
 // expose playtest script on boot — QA can copy/paste from console
 try { console.log(analytics.playtestScript()); } catch {}
+let deskHeldPause = false;
+const modals = createModalController({
+  onEscape: (t) => {
+    if (t === 'desk') desk.close();
+    else if (t === 'paywall') modals.close('paywall');
+    else if (t === 'letter') {
+      modals.close('letter');
+      if (phase === 'review' && lastDayReceipt) modals.open('receipt');
+    } else if (t === 'receipt') {
+      const back = $('receipt-back');
+      if (phase === 'planning' && back && back.style.display !== 'none') back.click();
+    }
+  },
+  onShortcut: (t, e) => {
+    // Morning Brief answers to 1/2/3/4/5 (commit a choice) then Enter opens
+    if (t === 'brief') {
+      if (e.key >= '1' && e.key <= '5') {
+        const b = [...document.querySelectorAll('#brief-actions button')][+e.key - 1];
+        if (b && !b.disabled) b.click();
+      } else if (e.key === 'Enter') {
+        const o = $('brief-open'); if (o) o.click();
+      }
+    } else if (t === 'offer') {
+      // a regular's ask answers to y/n while it's open
+      if (e.key === 'y' || e.key === 'Y') resolveOffer(true);
+      else if (e.key === 'n' || e.key === 'N') resolveOffer(false);
+    } else if (t === 'tutorial') {
+      if (e.key === 'Enter') { const n = $('tnext'); if (n) n.click(); }
+    }
+  },
+  onActiveChange: (t) => {
+    if (t === 'desk' || t === 'paywall') {
+      if (phase === 'trading' && !paused && !deskHeldPause) {
+        deskHeldPause = true;
+        paused = true; if ($('pause')) $('pause').textContent = 'resume';
+      }
+    } else if (deskHeldPause) {
+      deskHeldPause = false;
+      if (phase === 'trading' && !closed) { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
+    }
+  },
+});
+fx.modals = modals;
 // District Insider Pass: the research desk gates on the entitlement; the
 // stand owner doubles as the RevenueCat appUserId so a pass travels with it.
-const desk = initDesk({ billing, analytics });
+const desk = initDesk({ billing, analytics, modals });
 billing.configure(sync.owner);
 
 // ---- game state ---------------------------------------------------------------
 const DAY_START = 360, DAY_END = 1260;
 let schedule = null, waveIdx = 0, chapterIdx = 0;
 let day = 0, dayMin = DAY_START, speed = [60, 300, 1200].includes(urlSpeed) ? urlSpeed : 60, started = false, closed = false, paused = false;
+let phase = 'onboarding';
+let runGen = 0;
+function scheduleRun(cb, delay) {
+  const gen = runGen;
+  return setTimeout(() => { if (gen === runGen) cb(); }, delay);
+}
+let planDraft = null;
+let realizedHedgeSavings = 0, hedgedCups = 0;
+let lastDayReceipt = null;
+let dayWaves = [];
+let preparedCups = 0, trainingSpend = 0, sampleSpend = 0;
+let feeToday = 0, interestToday = 0, settleToday = 0;
+let lastOps = null;
 // calm-open state: first 12 sim-min are thinned + tutorial gates the clock
 let tutorialActive = false, tutStep = 0;
 let batchPulseUntil = 0;
@@ -182,7 +245,7 @@ let lastDayStats = null;   // yesterday's counters — the Brief's letter reads 
 // Ruth — your barista. One hidden condition stat; the fiction carries it.
 // Worked days drain (harder on brutal floors), sent-home days recover.
 let baristaCondition = 1.0, baristaHomeToday = false, baristaRested = false, baristaStaged = false, baristaCrisis = false;
-let apprenticeHiredToday = false, rivalStrategy = 'DEFAULT';
+let apprenticeHiredToday = false, rivalStrategy = 'DEFAULT', dayMods = {};
 // the pitch licence — who you are, signed before the first dawn. Identity
 // threads the letter, the receipt, the district board; the background pick
 // carries one small mechanical perk (not a class — the arc is one role).
@@ -198,18 +261,19 @@ const CALM_UNTIL_MIN = DAY_START + 12;
 
 // ---- the day ------------------------------------------------------------------
 function tick() {
+  if (phase !== 'trading' || paused || closed) return;
   if (dayMin >= DAY_END) { closeDay(); return; }
   dayMin++;
   // spawn the wave — day-1 mornings are half-demand so newcomers can read the floor
-  while (waveIdx < schedule.waves.length && schedule.waves[waveIdx].t < dayMin) {
-    const w = schedule.waves[waveIdx++];
+  while (waveIdx < dayWaves.length && dayWaves[waveIdx].t < dayMin) {
+    const w = dayWaves[waveIdx++];
     const morningCalm = (day === 1 && w.t < 600) ? 0.52 : 1;
     const settleThin = (day === 1 && dayMin < CALM_UNTIL_MIN) ? 0.5 : 1;
     const mul = (exchange.event?.demand || 1) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1);
     // loyalty made visible: yesterday's served × return rate reappear,
     // spread evenly so the wave keeps its shape and just runs deeper
-    const returnBonus = demand.todayReturnees > 0 && schedule.waves.length
-      ? Math.round(demand.todayReturnees / schedule.waves.length) : 0;
+    const returnBonus = demand.todayReturnees > 0 && dayWaves.length
+      ? Math.round(demand.todayReturnees / dayWaves.length) : 0;
     let firstSpawn = true;
     for (const s of w.spawns) {
       const n = Math.max(1, Math.round(s.q * ECON.spawnScale * mul)) + (firstSpawn ? returnBonus : 0);
@@ -229,14 +293,18 @@ function tick() {
   let sales = 0, balks = 0;
   for (const e of events) {
     if (e.type === 'served') {
+      preparedCups++;
       // cash-only day: a share of sales die at the till — no card, no sale
       if (cashOnly && Math.random() < cashOnly) {
+        cogs += e.beanCost ?? 0;
+        if (e.hedged) { hedgedCups++; realizedHedgeSavings += e.spotCost - e.beanCost; }
         balked++; balks++;
         if (dayMin >= 840 && dayMin <= 1020) waveBalked++;
         if (!cashOnlyToast) { cashOnlyToast = true; fx.toast('no card, no sale — they leave the cup on the counter', 'warn'); }
         continue;
       }
-      till += e.price; cogs += exchange.costPerCup; sales++;
+      till += e.price; cogs += e.beanCost ?? 0; sales++;
+      if (e.hedged) { hedgedCups++; realizedHedgeSavings += e.spotCost - e.beanCost; }
       if (e.viaRegister) servedRetail++; else served++;
       if (e.p && e.p.regularIdx < 0) {
         firstServed++;
@@ -320,11 +388,11 @@ function beats() {
   // Day-2 forecast tease: ~17:30 day 1, once per campaign. Gives a reason to replay.
   if (day === 1 && !forecastShown && dayMin >= 1050 && !closed) {
     forecastShown = true;
-    const nextPrice = (priceForDay(2) ?? 0).toFixed(2);
-    const nextIdx = (1 + CAMPAIGN.drift.perDay * 2).toFixed(2);
+    const nextPrice = priceForDay(2).toFixed(2);
+    const nextIdx = (exchange.beanIndex + calculateNonLinearDrift(2)).toFixed(2);
     const fore = exchange.event?.id === 'rumour_frost' || exchange.event?.id === 'frost_minas'
-      ? 'Forecast Day 2: cold front building — bean ' + nextIdx + ' · matcha £' + nextPrice + '. Contract now? (you\'ll choose at closing)'
-      : 'Forecast Day 2: costs up to ' + nextIdx + ' · matcha £' + nextPrice + '. Lock the price before closing?';
+      ? 'Forecast Day 2: the wire mutters frost — the board drifts toward ' + nextIdx + ' before the dawn card · matcha £' + nextPrice + '. The contract choice comes at closing.'
+      : 'Forecast Day 2: matcha £' + nextPrice + ' on the curve · the board rolls at dawn — the contract choice comes at closing.';
     fx.toast(fore, 'warn');
     try { analytics.track('forecast_shown', { day, dayMin, event: exchange.event?.id || null, nextPrice, nextIdx }); } catch {}
   }
@@ -394,10 +462,10 @@ function beats() {
     $('reprice').classList.add('attention');
   }
   // a regular's ask — once per day at 11:00, pauses the floor for a yes/no
-  if (!headless && !offerShown && dayMin >= 660 && dayMin < 840) { offerShown = true; showOffer(); }
+  if (!offerShown && dayMin >= 660 && dayMin < 840) { offerShown = true; showOffer(); }
   // the floor bites back — one incident per day from day 2, post-wave
   // (14:55+), when the rush is done and the mess lands. Same pause/yes-no.
-  if (!headless && day >= 2 && !incidentShown && dayMin >= 895 && dayMin < 1015 &&
+  if (day >= 2 && !incidentShown && dayMin >= 895 && dayMin < 1015 &&
       !$('offer').classList.contains('show')) { incidentShown = true; showIncident(); }
   // deferred offer consequences
   if (oluPayoutAt && dayMin >= oluPayoutAt) {
@@ -420,7 +488,7 @@ function beats() {
   }
   // Ruth breaks — pushed under a fifth of her condition and worked anyway,
   // she fails on the floor: asleep at the counter or sharp with a regular.
-  if (!headless && day >= 2 && !baristaCrisis && !baristaHomeToday && baristaCondition < 0.2 && dayMin >= 900 && dayMin < 1030) {
+  if (canHaveStaffCrisis({ day, staffing: baristaHomeToday ? 'home' : apprenticeHiredToday ? 'apprentice' : 'work', condition: baristaCondition, crisis: baristaCrisis, dayMin })) {
     baristaCrisis = true;
     if (Math.random() < 0.5) { patrons.staffMul = 0.5; fx.toast('Ruth’s gone quiet — she’s asleep on the back counter. The bar crawls.', 'bad'); }
     else { regulars.adjustOpinions(-0.2); fx.toast('Ruth snapped at a regular — the room went cold.', 'bad'); }
@@ -429,8 +497,9 @@ function beats() {
 }
 
 function closeDay() {
-  if (closed) return;
+  if (closed || phase !== 'trading') return;
   closed = true;
+  phase = 'review';
   audio.closing();
   if ($('again')) $('again').style.display = 'none';   // mid-campaign: the letter drives the next day, not this button
   if ($('shareWeek')) $('shareWeek').style.display = 'none';
@@ -456,18 +525,23 @@ function closeDay() {
   const dtrace = demand.resolveDay({ served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier });
   vitality.recompute();   // the evening settles on the block's true mood
   try { analytics.track('demand_resolved', { day, ...dtrace }); } catch {}
-  const ops = {
-    staff: (ruthWasHome ? 0 : hiredApprentice ? (CAMPAIGN.staff?.apprenticeDayRate || 65) : CAMPAIGN.staffDayRate) + servedN * CAMPAIGN.staffPerCup,
-    supplies: servedN * (CAMPAIGN.suppliesPerCup + (hiredApprentice ? (CAMPAIGN.staff?.apprenticeWasteExtra || 0.04) : 0)),
-    pitch: Math.max(CAMPAIGN.pitchMin, till * CAMPAIGN.pitchPct),
-    fees: till * CAMPAIGN.cardFeePct * perkCostMul,
-    sundries: CAMPAIGN.sundries,
+  // gentrification pressure first: cohort expectations drift by `day * delta`.
+  // Then resolveDay folds in the day's outcome and runs the friendship
+  // contagion, so the network sees the drift through the social layer.
+  applyExpectation(regulars, day);
+  regulars.resolveDay({ served: servedN, balked, defections, priced: repriced });
+  const ops = operatingCosts({
+    till, served: servedN,
+    staffing: ruthWasHome ? 'home' : hiredApprentice ? 'apprentice' : 'work',
     marketing: marketingSpend,   // the sponsor invoice arrives with the milk bill
-  };
+    training: trainingSpend, sampling: sampleSpend,
+    perkCostMul, modifiers: dayMods,
+  });
+  lastOps = ops;
   marketingSpend = 0;
-  ops.total = ops.staff + ops.supplies + ops.pitch + ops.fees + ops.sundries + ops.marketing;
   cOps += ops.total;
-  const net = till - cogs - ops.total;        // today's take-home — debt is a *campaign* figure below
+  const operatingNet = till - cogs - ops.total;
+  const netToday = operatingNet - feeToday - interestToday;   // today's take-home — settlement rides the balance sheet, not the P&L
   rig.focus(world.focus.wide, 27, 6);
   const total = served + servedRetail + balked;
   const ratio = total ? balked / total : 0;
@@ -485,17 +559,14 @@ function closeDay() {
   let forecast = null;
   if (day === 1 && day < CAMPAIGN.days) {
     const np = priceForDay(2).toFixed(2);
-    const ni = (1 + CAMPAIGN.drift.perDay * 2).toFixed(2);
-    forecast = `Day 2 forecast: rumour of frost · board ${ni} · matcha £${np} — you'll choose contract at closing`;
+    const ni = (exchange.beanIndex + calculateNonLinearDrift(2)).toFixed(2);
+    forecast = `Day 2: matcha £${np} on the curve · the board drifts toward ${ni} before the dawn card — the contract choice comes at opening`;
   }
   // causal trace — name the contract payoff on the receipt's forecast line
-  if (exchange.contract) {
-    const savedPerCup = (exchange.beanIndex - exchange.contract.price) * CAMPAIGN.beanBaseCost;
-    const estServed = served + servedRetail;
-    const savedEst = Math.round(Math.min(exchange.contract.units + estServed, estServed * 1.1) * Math.abs(savedPerCup) * 10) / 10;
-    if (savedPerCup > 0.02) forecast = `Contract at ${exchange.contract.price.toFixed(2)} saved ~£${savedEst.toFixed(2)} today vs riding the spot (${exchange.beanIndex.toFixed(2)}).`;
-    else if (savedPerCup < -0.02) forecast = `Spot (${exchange.beanIndex.toFixed(2)}) undercut your contract (${exchange.contract.price.toFixed(2)}) today — the spot ride paid off.`;
-    else forecast = forecast || `Contract at ${exchange.contract.price.toFixed(2)} — the board held near your lock (${exchange.beanIndex.toFixed(2)}).`;
+  if (hedgedCups > 0) {
+    forecast = realizedHedgeSavings >= 0
+      ? `Your contract covered ${hedgedCups} cups — saved ${fmt(realizedHedgeSavings)} vs the spot (${exchange.beanIndex.toFixed(2)}).`
+      : `Your contract covered ${hedgedCups} cups — the spot ran ${fmt(-realizedHedgeSavings)} cheaper (${exchange.beanIndex.toFixed(2)}).`;
   }
   // when market intel tilted the deck, cite the link in the debrief for click-through
   if (marketIntel?.sources?.[0] && marketIntel?.marketShift?.[0]) {
@@ -505,34 +576,59 @@ function closeDay() {
     const line = `Wire: ${cite}`;
     forecast = forecast ? forecast + ' \n' + line : line;
   }
-  fx.receipt({
+  const receiptData = {
     lines: [
       [standName, playerName],
       ['revenue', fmt(till)], ['bean cost', fmt(cogs)],
-      ['staff', fmt(ops.staff)], ['milk + cups', fmt(ops.supplies)],
-      ['pitch rent', fmt(ops.pitch)], ['card fees', fmt(ops.fees)], ['sundries', fmt(ops.sundries)],
+      ...(hedgedCups > 0 ? [['hedge benefit (before fees)', fmt(realizedHedgeSavings)]] : []),
+      ['staff', fmt(ops.staff)], ['milk + cups' + (dayMods.suppliesDelta ? ' (incl. oat surcharge)' : ''), fmt(ops.supplies)],
+      ['pitch rent' + (dayMods.pitchMinDelta ? ' (incl. reval)' : ''), fmt(ops.pitch)], ['card fees', fmt(ops.fees)], ['sundries', fmt(ops.sundries)],
+      ...(ops.training > 0 ? [['apprentice training', fmt(ops.training)]] : []),
+      ...(ops.sampling > 0 ? [['sample hour', fmt(ops.sampling)]] : []),
       ...(ops.marketing > 0 ? [['street work', fmt(ops.marketing)]] : []),
+      ['operations', fmt(ops.total)],
+      ...(feeToday > 0 ? [['contract fee', fmt(feeToday)]] : []),
+      ...(interestToday > 0 ? [['supplier interest', fmt(interestToday)]] : []),
       ['street awareness', demand.pips()],
       ['first-timers', `${firstServed} tried · ${firstWalked} walked out`],
       ['word of mouth', `~${dtrace.returnees} back tomorrow`],
       ['debt', fmt(exchange.debt)],
-      ['peak queue', peakQueue + ' deep'], ['walked to ' + COPY.rivalName, defections], ['—', '—'],
-      ['NET TODAY', fmt(net)],
+      ['peak queue', peakQueue + ' deep'], ['walked to ' + COPY.rivalName, defections],
+      ['chose ' + COPY.rivalName, patrons.rivalChoices], ['—', '—'],
+      ['NET TODAY', fmt(netToday)],
+      ...(settleToday > 0 ? [['debt settled (balance payment)', fmt(settleToday)]] : []),
     ],
     verdict,
     forecast,
-  });
+    netToday, operatingNet, ops, hedgeSavings: realizedHedgeSavings, fees: ops.fees,
+  };
+  lastDayReceipt = { ...receiptData, day };
+  fx.receipt(receiptData);
+  if ($('review-continue')) {
+    $('review-continue').style.display = '';
+    $('review-continue').textContent = day >= CAMPAIGN.days ? 'the week’s verdict →' : 'open day ' + (day + 1) + ' →';
+  }
+  if ($('review-letter')) $('review-letter').style.display = '';
+  if ($('receipt-back')) $('receipt-back').style.display = 'none';
   refreshStands();
+  if (sync.managed && sync.managed()) {
+    sync.finishDay(day, {
+      index: exchange.beanIndex,
+      debt: exchange.debt,
+      contract: exchange.contract ? { price: exchange.contract.price, units: exchange.contract.units, fee: exchange.contract.fee } : null,
+      till: cRev + till,
+      rep: regulars.reputation,
+      matchaPrice: exchange.matchaPrice,
+    }).catch(() => {});
+  }
   // the between-days phase: the roaster writes. The mailbox flag goes up.
-  setTimeout(showLetter, 4200);
 }
 
 // ---- the Roaster's Letter (reply-to-command) ---------------------------------
 function showLetter() {
-  if (day >= CAMPAIGN.days) { campaignClose(); return; }
   world.setMail(true);
   const snap = {
-    day: day + 1,                            // the letter speaks to the day ahead
+    day: phase === 'review' ? day : Math.min(day + 1, CAMPAIGN.days),   // the letter speaks to the day ahead
     event: exchange.event,
     index: exchange.beanIndex,
     cost: exchange.costPerCup,
@@ -542,21 +638,17 @@ function showLetter() {
     contract: exchange.contract ? exchange.contract.price : null,
     indexPrev: tapePrev, player: playerName,
     intel: marketIntel,
+    extraFee: contractFeeExtra,
+    mode: phase === 'review' ? 'review' : 'planning',
+    units: exchange.contract ? exchange.contract.units : null,
   };
   const L = composeLetter(snap);
   $('letter-head').textContent = L.head;
   $('letter-body').textContent = L.body;
   $('letter-sign').textContent = L.sign;
   const btns = $('letter-actions'); btns.innerHTML = '';
-  L.actions.forEach(act => {
-    const b = document.createElement('button');
-    b.textContent = act.label + (act.explain ? '  ·  ' + act.explain : '');
-    b.disabled = !!act.disabled;
-    b.onclick = () => applyReply(act.id);
-    btns.appendChild(b);
-  });
-  $('receipt').classList.remove('show');
-  $('letter').classList.add('show');
+  modals.close('receipt');
+  modals.open('letter');
   // Nebius polish: the templated letter is the source of truth; if the live
   // backend answers, Idris's rewrite lands over it. Fire-and-forget.
   if (sync.live) {
@@ -590,78 +682,173 @@ function showLetter() {
       dl.style.display = 'none';
     }
   }
-  // the letter by post — AgentMail carries the same body to a real inbox;
-  // a reply of contract/hold/settle plays the same move through the webhook.
-  const lm = $('letter-mail');
-  if (lm) {
-    lm.style.display = sync.live ? '' : 'none';
-    const addr = $('letter-mail-addr'), mb = $('letter-mail-btn');
-    if (addr && !addr.value) { try { addr.value = localStorage.getItem('grunds.mail') || ''; } catch {} }
-    if (mb) mb.onclick = () => {
-      const to = (addr?.value || '').trim();
-      if (!to || !to.includes('@')) { fx.toast('an address first — where does the post go?', 'warn'); return; }
-      mb.disabled = true; mb.textContent = 'posting…';
-      fetch(sync.url + '/agentmail/letter', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to, subject: $('letter-head').textContent || 'A note from your roaster',
-          body: $('letter-body').textContent + '\n\n— Idris\n(reply: contract · hold · settle)',
-          campaignId: sync.campaignId,
-        }),
-      }).then(r => (r.ok ? r.json() : null)).then(d => {
-        if (d && d.ok) {
-          try { localStorage.setItem('grunds.mail', to); } catch {}
-          mb.textContent = 'posted ✓';
-          fx.toast(`the letter is in the post — reply to play from your inbox`, 'good');
-          mailPending = true;
-          mailT.arm(Date.now());   // await a reply newer than this posting
-          try { analytics.track('letter_mailed', { day }); } catch {}
-        } else { mb.disabled = false; mb.textContent = 'post it'; }
-      }).catch(() => { mb.disabled = false; mb.textContent = 'post it'; });
-    };
-  }
+}
+
+function markBriefChoice(id) {
+  briefChoice = id;
+  // rebuild brief choice row highlight
+  try {
+    for (const b of [...document.querySelectorAll('#brief-actions button')]) {
+      const on = b.dataset.id === id;
+      b.style.borderColor = on ? 'var(--brass)' : '';
+      b.style.background = on ? 'rgba(201,162,39,.16)' : '';
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    const selTxt = $('brief-sel');
+    if (selTxt) {
+      selTxt.textContent = id === 'hold' ? 'selected: ride the spot — no fee, no cover'
+        : id === 'settle' ? `selected: settle the tab (${fmt(exchange.debt)}) and ride the spot`
+        : id ? `selected: ${String(id).replace('contract_', '')} contract at the board — ~${(hedgeTerms(id, contractFeeExtra)?.units || 0).toFixed(0)} cups, ${fmt(hedgeTerms(id, contractFeeExtra)?.fee || 0)} fee`
+        : 'Sizing is the position — contracts lock the board for their cups, hold rides the spot, settle pays the tab.';
+    }
+  } catch {}
 }
 
 function applyReply(id) {
-  if (day >= CAMPAIGN.days) { campaignClose(); return; }   // the roaster's last letter is the verdict
-  if ($('brief') && $('brief').classList.contains('show')) {
-    briefChoice = id;
-    // rebuild brief choice row highlight
-    try {
-      for (const b of [...document.querySelectorAll('#brief-actions button')]) {
-        const on = b.dataset.id === id;
-        b.style.borderColor = on ? 'var(--brass)' : '';
-        b.style.background = on ? 'rgba(201,162,39,.16)' : '';
-      }
-      const open = $('brief-open');
-      if (open) {
-        const label = id === 'hold' ? 'OPEN — ride the spot →' : id === 'settle' ? 'OPEN — settle + ride the spot →' : `OPEN — ${String(id).toUpperCase()} at ${exchange.beanIndex.toFixed(2)} →`;
-        open.textContent = label;
-      }
-    } catch {}
-    return;
+  if (phase !== 'planning') return false;
+  return stageDayPlan({ hedge: id });
+}
+
+const HEDGE_CHOICES = ['hold', 'settle', 'contract_light', 'contract', 'contract_heavy'];
+const STAFFING_CHOICES = ['work', 'home', 'apprentice'];
+
+function stageDayPlan(patch = {}) {
+  if (phase !== 'planning' || !planDraft) return false;
+  for (const k of Object.keys(patch)) if (k !== 'hedge' && k !== 'staffing' && k !== 'marketing') return false;
+  const cand = { hedge: planDraft.hedge, staffing: planDraft.staffing, marketing: { ...planDraft.marketing } };
+  if (patch.hedge !== undefined) {
+    if (!HEDGE_CHOICES.includes(patch.hedge)) return false;
+    cand.hedge = patch.hedge;
   }
+  if (patch.staffing !== undefined) {
+    if (!STAFFING_CHOICES.includes(patch.staffing)) return false;
+    if (patch.staffing !== 'work' && !canChooseStaffing(day, baristaCondition)) return false;
+    cand.staffing = patch.staffing;
+  }
+  if (patch.marketing !== undefined) {
+    if (typeof patch.marketing !== 'object' || patch.marketing === null) return false;
+    for (const [k, v] of Object.entries(patch.marketing)) {
+      if (!DEMAND_ACTIONS.includes(k) || typeof v !== 'boolean') return false;
+      if (v && !demand.canStage(k, day)) return false;
+      cand.marketing[k] = v;
+    }
+  }
+  planDraft.hedge = cand.hedge;
+  planDraft.staffing = cand.staffing;
+  planDraft.marketing = cand.marketing;
+  demand.staged.sample = !!cand.marketing.sample;
+  demand.staged.sponsor = !!cand.marketing.sponsor;
+  renderPlanQuote();
+  if (sync.managed && sync.managed()) {
+    const gen = runGen, dd = day;
+    sync.stagePlan(normalizePlan(planDraft), dd).catch(() => {
+      if (gen === runGen && day === dd && phase === 'planning') briefSyncError('Plan not saved yet — OPEN will retry.', true);
+    });
+  }
+  return true;
+}
+
+function planSnapshot() {
+  return {
+    day,
+    index: exchange.beanIndex,
+    debt: exchange.debt,
+    contract: exchange.contract ? { price: exchange.contract.price, units: exchange.contract.units, fee: exchange.contract.fee } : null,
+    extraFee: contractFeeExtra,
+    staffCondition: baristaCondition,
+  };
+}
+
+function normalizePlan(p) {
+  return {
+    hedge: p.hedge || 'hold',
+    staffing: p.staffing || 'work',
+    marketing: { sample: !!(p.marketing && p.marketing.sample), sponsor: !!(p.marketing && p.marketing.sponsor) },
+  };
+}
+
+function briefSyncError(msg, offerLocal) {
+  const el = $('brief-error'); if (el) { el.textContent = msg || ''; el.style.display = msg ? '' : 'none'; }
+  const off = $('brief-offline'); if (off) off.style.display = msg && offerLocal ? '' : 'none';
+}
+
+function applyCommittedPlan(res) {
+  const d = day;
+  phase = 'committing';
+  started = true;
+  const hedge = res.plan.hedge;
+  settledPaid += res.settlement; settleToday = res.settlement;
+  interestToday = res.interest; feeToday = res.fee;
+  exchange.debt = res.debt;
+  exchange.contract = res.contract;
+  contractFeeExtra = res.extraFee;
   let msg = '';
-  if (id === 'contract_light' || id === 'contract' || id === 'contract_heavy') {
-    const heavy = id === 'contract_heavy', light = id === 'contract_light';
-    const units = heavy ? CAMPAIGN.contractUnits * 2 : light ? CAMPAIGN.contractUnits / 2 : CAMPAIGN.contractUnits;
-    const baseFee = heavy ? CAMPAIGN.contractFee * 2 : light ? CAMPAIGN.contractFee / 2 : CAMPAIGN.contractFee;
-    const fee = baseFee + contractFeeExtra;      // a COD incident rides on the next contract
-    const r = exchange.contractBeans(units, fee);
-    if (r.ok) contractFeeExtra = 0;
-    const tag = heavy ? 'heavy' : light ? 'light' : 'standard';
-    msg = r.ok ? `CONTRACTED ${tag} at ${exchange.beanIndex.toFixed(2)} — ~${units} cups · ${fmt(fee)}` : r.why;
+  if (hedge === 'settle') {
+    msg = 'DEBT cleared' + (res.settlement ? ' (' + fmt(res.settlement) + ')' : '');
+  } else if (hedge !== 'hold') {
+    const tag = hedge === 'contract_heavy' ? 'heavy' : hedge === 'contract_light' ? 'light' : 'standard';
+    msg = `CONTRACTED ${tag} at ${exchange.beanIndex.toFixed(2)} — ~${res.contract ? res.contract.units : 0} cups · ${fmt(res.fee)}`;
+  } else msg = 'HOLDING — you ride the spot price';
+  if (msg) fx.toast(msg, hedge.startsWith('contract') ? 'good' : '');
+  // Ruth's shift lands here — staged in the Brief, committed with the hedge.
+  // Sent home: bar −30% today, her wage saved tonight, she recovers at close.
+  // Apprentice: hire temp barista, Ruth half-day rest, extra speed.
+  baristaHomeToday = res.plan.staffing === 'home';
+  apprenticeHiredToday = res.plan.staffing === 'apprentice';
+  baristaStaged = false;
+  // Street work lands here too — staged at dawn, paid today, felt tomorrow.
+  // Sampling burns cups out of today's COGS; sponsoring invoices the ops sheet.
+  if (res.plan.marketing.sample) { sampleSpend += CAMPAIGN.demand.sampleCost; fx.toast(`Sampling today — ${fmt(CAMPAIGN.demand.sampleCost)} in cups for the street`, ''); }
+  if (res.plan.marketing.sponsor) { marketingSpend += CAMPAIGN.demand.sponsorCost; fx.toast(`Stall sponsored — ${fmt(CAMPAIGN.demand.sponsorCost)} on the sheet, the street hears`, 'good'); }
+  if (baristaHomeToday) fx.toast('Ruth’s off — you’re solo on the bar today', 'warn');
+  else if (apprenticeHiredToday) {
+    trainingSpend += (CAMPAIGN.staff?.apprenticeTrainingFee || 12);
+    patrons.apprenticeActive = true;
+    fx.toast('Apprentice hired — fast hands, Ruth rests in the back', 'good');
   }
-  else if (id === 'hold') msg = 'HOLDING — you ride the spot price';
-  else if (id === 'settle') { const r = exchange.settle(exchange.debt); settledPaid += r.paid; msg = 'DEBT cleared' + (r.paid ? ' (' + fmt(r.paid) + ')' : ''); }
-  fx.toast(msg, id.startsWith('contract') ? 'good' : '');
-  $('letter').classList.remove('show');
-  // gentrification pressure first: cohort expectations drift by `day * delta`.
-  // Then resolveDay folds in the day's outcome and runs the friendship
-  // contagion, so the network sees the drift through the social layer.
-  applyExpectation(regulars, day);
-  regulars.resolveDay({ served: served + servedRetail, balked, defections, priced: repriced });
-  openDay(day + 1);
+  if (d >= 2 && baristaCondition < 0.55) try { analytics.track(baristaHomeToday ? 'staff_sent_home' : apprenticeHiredToday ? 'staff_apprentice' : 'staff_pushed', { day: d, condition: Math.round(baristaCondition * 100) / 100 }); } catch {}
+  try { analytics.track('brief_committed', { day: d, choice: hedge, debt: exchange.debt, index: exchange.beanIndex, streetWork: { ...res.plan.marketing } }); } catch {}
+  planDraft = { day: d, hedge: res.plan.hedge, staffing: res.plan.staffing, marketing: { ...res.plan.marketing } };
+  demand.staged.sample = res.plan.marketing.sample;
+  demand.staged.sponsor = res.plan.marketing.sponsor;
+  startTradingDay(d);
+  try { modals.close('brief'); } catch {}
+  briefSyncError('');
+  return { ok: true };
+}
+
+function commitDayPlan() {
+  if (phase !== 'planning' || !planDraft) return { ok: false, why: 'not planning' };
+  const plan = normalizePlan(planDraft);
+  if (sync.managed && sync.managed()) {
+    phase = 'committing';
+    const gen = runGen;
+    briefSyncError('saving the plan…');
+    const ob = $('brief-open'), mb = $('letter-mail-btn');
+    if (ob) ob.disabled = true; if (mb) mb.disabled = true;
+    const fail = (why) => {
+      phase = 'planning';
+      briefSyncError('Could not save the plan. Retry or start a local-only week.', true);
+      if (ob) ob.disabled = false; if (mb) mb.disabled = false;
+      return { ok: false, why };
+    };
+    return sync.commitPlan(plan, day).then(res => {
+      if (gen !== runGen) return { ok: false, why: 'run reset' };
+      if (!res || !res.ok || !res.result || !res.result.ok) return fail((res && res.why) || 'commit failed');
+      if (ob) ob.disabled = false; if (mb) mb.disabled = false;
+      return applyCommittedPlan(res.result);
+    }).catch(() => gen === runGen ? fail('offline') : { ok: false, why: 'run reset' });
+  }
+  const r = resolveDecision(planSnapshot(), plan);
+  if (!r.ok) { fx.toast(r.why, 'warn'); return r; }
+  return applyCommittedPlan(r);
+}
+
+function continueFromReview() {
+  if (phase !== 'review') return false;
+  if (day < CAMPAIGN.days) { prepareDay(day + 1); return true; }
+  campaignClose();   // the roaster's last letter is the verdict
+  return true;
 }
 
 // ---- Morning Brief: the Drug Wars turn — paused at 06:00 -----------------------
@@ -700,6 +887,33 @@ function drawBriefSparkline(hist, curIdx) {
   g.fillText('beans — 5-day', c.width / 2, y0 + h + 12);
 }
 
+function renderPlanQuote() {
+  const nutEl = $('brief-nut'); if (!nutEl || !planDraft) return;
+  const q = quoteDayPlan({
+    day, hedge: planDraft.hedge, staffing: planDraft.staffing, marketing: planDraft.marketing,
+    debt: exchange.debt, extraFee: contractFeeExtra, perkCostMul, modifiers: modifiersForDay(day),
+  });
+  const netPos = cRev - cCost - cOps - settledPaid - exchange.debt;
+  const pos = `campaign net position ${netPos < 0 ? '−' : ''}${fmt(Math.abs(netPos))}`;
+  const committed = q.fixedMinimum + q.contractFee + q.interest;
+  const bits = [
+    `fixed minimum ${fmt(q.fixedMinimum)} — wage ${fmt(q.wage)} · pitch floor ${fmt(q.ops.pitch)} · sundries ${fmt(CAMPAIGN.sundries)}${q.training ? ` · training ${fmt(q.training)}` : ''}${q.sampling ? ` · samples ${fmt(q.sampling)}` : ''}${q.marketing ? ` · street ${fmt(q.marketing)}` : ''}`,
+    `per cup — labour + supplies ${fmt(q.perCup)} · pitch takes ${(q.pitchPct * 100).toFixed(0)}% of take above the floor · cards ${(q.cardFeePct * 100).toFixed(1)}%`,
+    exchange.contract
+      ? `beans — contracted at ${exchange.contract.price.toFixed(2)} (${exchange.contract.units} cups left)`
+      : `beans — spot ${exchange.beanIndex.toFixed(2)}${q.contractFee ? ` or locked for a ${fmt(q.contractFee)} fee on the tab` : ''}`,
+    `committed minimum ${fmt(committed)} = fixed ${fmt(q.fixedMinimum)} + fee ${fmt(q.contractFee)} + interest ${fmt(q.interest)}`,
+  ];
+  if (q.settlement) bits.push(`debt payment ${fmt(q.settlement)} — settles the tab, off the P&L`);
+  const full = bits.join('\n') + `\n${pos}`;
+  nutEl.textContent = full;
+  const sum = $('brief-summary');
+  if (sum) {
+    sum.textContent = `committed ${fmt(committed)}${q.settlement ? ` · settle ${fmt(q.settlement)}` : ''} · ${pos}`;
+    sum.title = full;
+  }
+}
+
 function showMorningBrief() {
   const el = $('brief'); if (!el) return;
   const snap = {
@@ -708,6 +922,8 @@ function showMorningBrief() {
     defections: lastDayStats ? lastDayStats.defections : 0, reputation: regulars.reputation,
     debt: exchange.debt, contract: exchange.contract ? exchange.contract.price : null,
     indexPrev: tapePrev, intel: marketIntel, player: playerName,
+    extraFee: contractFeeExtra, mode: 'planning',
+    units: exchange.contract ? exchange.contract.units : null,
   };
   // MakeReadable: if the player hasn't seen headlines yet, the Brief is the
   // first place the wire's strongest tilt is explained — not just hinted.
@@ -715,19 +931,18 @@ function showMorningBrief() {
   const head = $('brief-kicker');
   try {
     const tilt = marketIntel?.marketShift?.[0];
-    const hint = tilt ? wireHint(marketIntel) : null;
     // highlight the bean tape when a tilt is active
     const tape = $('tape');
     if (tape && tilt) tape.style.color = (EVENTS[tilt.eventId]?.tier === 'good' ? '#9ad89a' : '#e07a7a');
-    head.textContent = hint ? `06:00 · day ${day}/${CAMPAIGN.days} — the wire ${hint} · · · tap the wire for sources` : `06:00 · day ${day}/${CAMPAIGN.days} — the street is still · read, then commit`;
-  } catch { if (head) head.textContent = `06:00 · day ${day}/${CAMPAIGN.days} — the street is still · read, then commit`; }
+    if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`;
+  } catch { if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`; }
   const body = $('brief-letter');
   if (body) {
     // Progressive disclosure (stage 1 = the news only): the sizing explainer
     // paragraph and the wire citation live on as buttons (stage 3) and the
     // collapsed wire (stage 2) — the visible letter stays the news, not the manual.
     body.textContent = L.body.split('\n')
-      .filter(ln => !ln.includes('Light covers half the wave. Standard covers tomorrow.')
+      .filter(ln => !ln.includes('A contract locks the board price')
         && !ln.startsWith('Off the wire — '))
       .join('\n').replace(/\n{3,}/g, '\n\n');
   }
@@ -818,19 +1033,25 @@ function showMorningBrief() {
     demandRow.appendChild(t);
     const D = CAMPAIGN.demand;
     const defs = [
-      { id: 'chalk', label: `chalk the board · free · the street notices` },
       { id: 'sample', label: `sample hour · ${fmt(D.sampleCost)} in cups · they taste, they return` },
       { id: 'sponsor', label: day >= D.sponsorDay
         ? `sponsor the market stall · ${fmt(D.sponsorCost)} · the whole street hears`
         : `sponsor the market stall · the stall only takes sponsors day ${D.sponsorDay}+` },
     ];
+    if (day >= CAMPAIGN.days) {
+      const note = document.createElement('div');
+      note.style.cssText = 'font-size:10px;opacity:.55;font-style:italic';
+      note.textContent = 'benefits tomorrow; this is the final day';
+      demandRow.appendChild(note);
+    }
     for (const def of defs) {
       const b = document.createElement('button');
       b.id = 'brief-demand-' + def.id;
       b.textContent = (demand.staged[def.id] ? '✓ ' : '') + def.label;
       b.disabled = !demand.canStage(def.id, day);
+      b.setAttribute('aria-pressed', demand.staged[def.id] ? 'true' : 'false');
       if (demand.staged[def.id]) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; }
-      b.onclick = () => { demand.stage(def.id, day); renderDemandRow(); };
+      b.onclick = () => { stageDayPlan({ marketing: { [def.id]: !planDraft.marketing[def.id] } }); renderDemandRow(); };
       demandRow.appendChild(b);
     }
   }
@@ -841,10 +1062,24 @@ function showMorningBrief() {
   const nutEl = $('brief-nut');
   if (nutEl) {
     nutEl.style.display = '';
-    const nutFixed = CAMPAIGN.staffDayRate + CAMPAIGN.pitchMin + CAMPAIGN.sundries;
-    const inHand = till + cRev - cCost - cOps - settledPaid - exchange.debt;
-    const pos = inHand >= 0 ? `you’re ${fmt(inHand)} in hand` : `you’re ${fmt(-inHand)} underwater`;
-    nutEl.textContent = `the nut — ${fmt(nutFixed)} a day before a cup pours · wage ${fmt(CAMPAIGN.staffDayRate)} · pitch ${fmt(CAMPAIGN.pitchMin)}+ · sundries ${fmt(CAMPAIGN.sundries)} — ${pos}`;
+    renderPlanQuote();
+  }
+  const risk = $('brief-risk');
+  if (risk) {
+    risk.style.display = '';
+    const mods = modifiersForDay(day);
+    const lines = [];
+    if (mods.commuterDelayMinutes || mods.dwellBonus)
+      lines.push(`${MACRO_SHOCKS.transit_delay.name} — ${MACRO_SHOCKS.transit_delay.desc} · new today`);
+    if (mods.pitchPctDelta || mods.pitchMinDelta)
+      lines.push(`${MACRO_SHOCKS.pitch_reval.name} — ${MACRO_SHOCKS.pitch_reval.desc} · ${day === MACRO_SHOCKS.pitch_reval.day ? 'new today' : 'still active'}`);
+    if (mods.suppliesDelta)
+      lines.push(`${MACRO_SHOCKS.dairy_crunch.name} — ${MACRO_SHOCKS.dairy_crunch.desc} · ${day === MACRO_SHOCKS.dairy_crunch.day ? 'new today' : 'still active'}`);
+    if (!lines.length) lines.push('no district shock today');
+    const strat = CAMPAIGN.rivalStrategies[rivalStrategy];
+    lines.push(`matcha £${priceForDay(day).toFixed(2)} on the curve · ${COPY.rivalName} runs ${strat ? strat.name : rivalStrategy} at £${strat ? strat.price.toFixed(2) : '—'}`);
+    risk.textContent = lines.join('\n');
+    risk.style.whiteSpace = 'pre-wrap';
   }
   // Ruth — the one staffing call the week can carry. When she's fading the
   // Brief offers a choice: send her home (slow bar, saved wage, she recovers)
@@ -853,7 +1088,7 @@ function showMorningBrief() {
   if (staffRow) {
     staffRow.textContent = '';
     baristaStaged = false;
-    if (day >= 2 && baristaCondition < 0.55) {
+    if (canChooseStaffing(day, baristaCondition)) {
       staffRow.style.display = '';
       const t = document.createElement('div');
       t.style.cssText = 'font-size:10.5px;opacity:.78;margin-bottom:5px;font-style:italic';
@@ -863,24 +1098,27 @@ function showMorningBrief() {
       const home = document.createElement('button'); home.id = 'brief-staff-home';
       home.textContent = 'send her home · bar −30% today, wage saved, fresh tomorrow';
       const apprentice = document.createElement('button'); apprentice.id = 'brief-staff-apprentice';
-      apprentice.textContent = 'hire apprentice · £65 wage, bar +5%, Ruth rests half-day (+0.25)';
+      apprentice.textContent = 'hire apprentice · a temp serves while Ruth recuperates off bar · wage £65 + £12 training, +4p waste a cup, recovery +0.25';
       const push = document.createElement('button'); push.id = 'brief-staff-push';
       push.textContent = 'push on · she’ll manage — probably';
-      const sel = mode => {
+      const sel = (mode, stage) => {
+        if (stage) stageDayPlan({ staffing: mode === 'push' ? 'work' : mode });
         baristaStaged = mode;
         home.style.borderColor = mode === 'home' ? 'var(--brass)' : ''; home.style.background = mode === 'home' ? 'rgba(201,162,39,.16)' : '';
         apprentice.style.borderColor = mode === 'apprentice' ? 'var(--brass)' : ''; apprentice.style.background = mode === 'apprentice' ? 'rgba(201,162,39,.16)' : '';
         push.style.borderColor = mode === 'push' ? 'var(--brass)' : ''; push.style.background = mode === 'push' ? 'rgba(201,162,39,.16)' : '';
+        home.setAttribute('aria-pressed', mode === 'home' ? 'true' : 'false');
+        apprentice.setAttribute('aria-pressed', mode === 'apprentice' ? 'true' : 'false');
+        push.setAttribute('aria-pressed', mode === 'push' ? 'true' : 'false');
       };
-      sel('push');
-      home.onclick = () => sel('home');
-      apprentice.onclick = () => sel('apprentice');
-      push.onclick = () => sel('push');
+      sel(planDraft && planDraft.staffing !== 'work' ? planDraft.staffing : 'push', false);
+      home.onclick = () => sel('home', true);
+      apprentice.onclick = () => sel('apprentice', true);
+      push.onclick = () => sel('push', true);
       staffRow.append(t, home, apprentice, push);
     } else staffRow.style.display = 'none';
   }
   // choice row: sizing is the position — header says what this means in one line
-  // Brief offers the hedge only (light/std/heavy/hold); settle stays on the night Letter
   const actions = $('brief-actions'); if (actions) {
     actions.textContent = '';
     // Progressive disclosure (stage 3 = the decision): a section label so the
@@ -891,21 +1129,26 @@ function showMorningBrief() {
     lab.textContent = 'decide — size the position';
     actions.appendChild(lab);
     const hint = document.createElement('div');
+    hint.id = 'brief-sel';
     hint.style.fontSize = '10.5px'; hint.style.opacity = '.6'; hint.style.marginBottom = '4px';
-    hint.textContent = 'Sizing is the position — light wastes less, heavy covers tomorrow, spot pays no fee.';
+    hint.textContent = 'Sizing is the position — contracts lock the board for their cups, hold rides the spot, settle pays the tab.';
     actions.appendChild(hint);
-    for (const act of L.actions.filter(a => a.id !== 'settle')) {
+    for (const act of L.actions) {
       const b = document.createElement('button');
       b.dataset.id = act.id;
       b.textContent = act.label + (act.explain ? '  \u00b7  ' + act.explain : '');
       b.disabled = !!act.disabled;
-      b.onclick = () => applyReply(act.id);
+      b.setAttribute('aria-pressed', 'false');
+      b.onclick = () => { if (applyReply(act.id)) markBriefChoice(act.id); };
       actions.appendChild(b);
     }
   }
-  briefChoice = null;
+  briefChoice = planDraft ? planDraft.hedge : null;
+  markBriefChoice(briefChoice);
   const open = $('brief-open');
   if (open) open.textContent = 'OPEN FOR DAY →';
+  const rl = $('review-last');
+  if (rl) rl.style.display = lastDayReceipt ? '' : 'none';
   const desklink = $('brief-desklink');
   if (desklink) {
     // Quiet days have no wire details, so the footer button is the only door
@@ -919,94 +1162,123 @@ function showMorningBrief() {
       desklink.onclick = () => desk.open(marketIntel);
     } else desklink.style.display = 'none';
   }
+  const bm = $('brief-mail');
+  if (bm) {
+    bm.style.display = sync.managed && sync.managed() ? '' : 'none';
+    // the letter by post — AgentMail carries the same body to a real inbox;
+    // a reply of contract/hold/settle plays the same move through the webhook.
+    const addr = $('letter-mail-addr'), mb = $('letter-mail-btn');
+    if (addr && !addr.value) { try { addr.value = localStorage.getItem('grunds.mail') || ''; } catch {} }
+    if (mb) {
+      mb.disabled = false; mb.textContent = 'post it';
+      mb.onclick = () => {
+        const to = (addr?.value || '').trim();
+        if (!to || !to.includes('@')) { fx.toast('an address first — where does the post go?', 'warn'); return; }
+        mb.disabled = true; mb.textContent = 'posting…';
+        const gen = runGen, dd = day;
+        sync.sendPlanMail(to, planDraft ? normalizePlan(planDraft) : null, dd).then(d => {
+          if (gen !== runGen || day !== dd) return;
+          if (d && d.ok) {
+            try { localStorage.setItem('grunds.mail', to); } catch {}
+            mb.textContent = 'posted ✓';
+            fx.toast(`the plan is in the post — reply to play from your inbox`, 'good');
+            mailPending = true;
+            mailT.arm(Date.now());   // await a reply newer than this posting
+            try { analytics.track('letter_mailed', { day }); } catch {}
+          } else { mb.disabled = false; mb.textContent = 'post it'; briefSyncError('Could not post the plan — try again.', true); }
+        }).catch(() => { if (gen === runGen && day === dd) { mb.disabled = false; mb.textContent = 'post it'; briefSyncError('Could not post the plan — try again.', true); } });
+      };
+    }
+  }
   drawBriefSparkline(exchange.history, exchange.beanIndex);
   // pause the floor — the Brief owns the clock until OPEN
   paused = true; if ($('pause')) $('pause').textContent = 'resume';
-  el.classList.add('show');
+  modals.open('brief');
   try { analytics.track('brief_shown', { day, event: exchange.event ? exchange.event.id : null, index: exchange.beanIndex, hasWire: !!marketIntel }); } catch {}
 }
 
 function dismissBriefAndStartDay() {
   const el = $('brief'); if (!el) return;
-  let id = briefChoice;
-  // default: hold (free) — the Brief never forces a debt, but it forces a choice
-  if (!id) id = 'hold';
-  // resolve the choice through the letter's mutation path so the contract/debt
-  // + reputation + expectation all land through the single gate
-  let msg = '';
-  if (id === 'contract_light' || id === 'contract' || id === 'contract_heavy') {
-    const heavy = id === 'contract_heavy', light = id === 'contract_light';
-    const units = heavy ? CAMPAIGN.contractUnits * 2 : light ? CAMPAIGN.contractUnits / 2 : CAMPAIGN.contractUnits;
-    const baseFee = heavy ? CAMPAIGN.contractFee * 2 : light ? CAMPAIGN.contractFee / 2 : CAMPAIGN.contractFee;
-    const fee = baseFee + contractFeeExtra;
-    const r = exchange.contractBeans(units, fee);
-    if (r.ok) contractFeeExtra = 0;
-    const tag = heavy ? 'heavy' : light ? 'light' : 'standard';
-    msg = r.ok ? `CONTRACTED ${tag} at ${exchange.beanIndex.toFixed(2)} — ~${units} cups \u00b7 ${fmt(fee)}` : r.why;
-  } else if (id === 'hold') msg = 'HOLDING — you ride the spot price';
-  else if (id === 'settle') { const r = exchange.settle(exchange.debt); settledPaid += r.paid; msg = 'DEBT cleared' + (r.paid ? ' (' + fmt(r.paid) + ')' : ''); }
-  fx.toast(msg, id.startsWith('contract') ? 'good' : '');
-  // Ruth's shift lands here — staged in the Brief, committed with the hedge.
-  // Sent home: bar −30% today, her wage saved tonight, she recovers at close.
-  // Apprentice: hire temp barista, Ruth half-day rest, extra speed.
-  baristaHomeToday = (baristaStaged === 'home' || baristaStaged === true);
-  apprenticeHiredToday = (baristaStaged === 'apprentice');
-  baristaStaged = false;
-  // Street work lands here too — staged at dawn, paid today, felt tomorrow.
-  // Sampling burns cups out of today's COGS; sponsoring invoices the ops sheet.
-  if (demand.staged.sample) { cogs += CAMPAIGN.demand.sampleCost; fx.toast(`Sampling today — ${fmt(CAMPAIGN.demand.sampleCost)} in cups for the street`, ''); }
-  if (demand.staged.sponsor) { marketingSpend += CAMPAIGN.demand.sponsorCost; fx.toast(`Stall sponsored — ${fmt(CAMPAIGN.demand.sponsorCost)} on the sheet, the street hears`, 'good'); }
-  if (baristaHomeToday) { patrons.staffMul = 0.7; fx.toast('Ruth’s off — you’re solo on the bar today', 'warn'); }
-  else if (apprenticeHiredToday) {
-    cogs += (CAMPAIGN.staff?.apprenticeTrainingFee || 12);
-    patrons.staffMul = (CAMPAIGN.staff?.apprenticeStaffMul || 1.05) * perkStaffMul;
-    patrons.apprenticeActive = true;
-    fx.toast('Apprentice hired — fast hands, Ruth rests in the back', 'good');
-  }
-  if (day >= 2 && baristaCondition < 0.55) try { analytics.track(baristaHomeToday ? 'staff_sent_home' : apprenticeHiredToday ? 'staff_apprentice' : 'staff_pushed', { day, condition: Math.round(baristaCondition * 100) / 100 }); } catch {}
-  // expectation already landed via the Letter's applyReply between days;
-  // Brief commits the hedge for *today*, not the next day's drift
-  // resolveDay needs "some balls in the air" — use a neutral claim for dawn
-  // so opinion only moves on the brief's drift, not a fabricated day outcome
-  // (real served/balk fold in at closeDay → next showLetter cycle).
-  // We intentionally DO NOT call openDay here — the day is already open.
-  el.classList.remove('show');
-  briefChoice = null;
-  paused = false; if ($('pause')) $('pause').textContent = 'pause';
-  // wire highlight fades once committed
-  try { const t = $('tape'); if (t) t.style.color = ''; } catch {}
-  try { analytics.track('brief_committed', { day, choice: id, debt: exchange.debt, index: exchange.beanIndex, streetWork: { ...demand.staged } }); } catch {}
-  updateHUD();
+  const r = commitDayPlan();
+  Promise.resolve(r).then(res => {
+    if (!res || !res.ok) return;
+    briefChoice = null;
+    // wire highlight fades once committed
+    try { const t = $('tape'); if (t) t.style.color = ''; } catch {}
+    updateHUD();
+  }).catch(() => {});
 }
 
 if ($('brief-open')) $('brief-open').onclick = () => dismissBriefAndStartDay();
 if ($('brief-desklink')) $('brief-desklink').onclick = () => { if (marketIntel) desk.open(marketIntel); };
+if ($('brief-offline')) $('brief-offline').onclick = () => { if (sync.disableRun) sync.disableRun(); reset(); };
 
 // ---- dawns -------------------------------------------------------------------
-function openDay(d) {
+function prepareDay(d) {
+  if (phase !== 'onboarding' && phase !== 'review') return false;
+  if (d !== exchange.day + 1 || d < 1 || d > CAMPAIGN.days) return false;
+  phase = 'planning';
   day = d;
+  // default: hold (free) — the Brief never forces a debt, but it forces a choice
+  planDraft = { day: d, hedge: 'hold', staffing: 'work', marketing: {} };
   if (d === 1) kitPendingAtOpen = !district.grown;   // the kit is an event only if it grows during play
   coached = d !== 1;   // the lever hint only coaches day 1, once per campaign
   patrons.reset(); fx.reset();
-  waveIdx = 0; chapterIdx = 0; dayMin = DAY_START;
+  waveIdx = 0; chapterIdx = 0; dayMin = DAY_START; acc = 0;
   till = 0; cogs = 0; balked = 0; served = 0; servedRetail = 0; defections = 0; rivalServed = 0;
+  realizedHedgeSavings = 0; hedgedCups = 0; preparedCups = 0;
+  marketingSpend = 0; trainingSpend = 0; sampleSpend = 0; lastOps = null;
+  feeToday = 0; interestToday = 0; settleToday = 0;
+  firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
+  demand.staged.sample = false; demand.staged.sponsor = false;
+  dayMods = modifiersForDay(d);
+  dayWaves = wavesForDay(schedule.waves, d);
+  patrons.dwellMul = 1 + (dayMods.dwellBonus || 0);
+  rivalStrategy = strategyForDay(d, exchange.event?.tier);
+  try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; waveDebriefShown = false; closed = false;
   baristaCrisis = false;
   if (d === 1) { forecastShown = false; nudgedQueue = nudgedBalk = nudgedPrice = false; }
   if (baristaRested) { baristaRested = false; fx.toast('Ruth’s back — rested. The bar hums.', 'good'); }
-  world.setMatchaPrice('4.80', false);
+  pendingGossip = null;
+  offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
+  incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; solicitorAt = 0;
+  briefChoice = null;
+  world.setMatchaPrice(priceForDay(d).toFixed(2), false);
+  updateTicker();
   fx.receipt(null); fx.notebook(false);
+  try { modals.close('letter'); modals.close('receipt'); } catch {}
+  paused = true; if ($('pause')) $('pause').textContent = 'resume';
+  updateHUD();
+  if (sync.managed && sync.managed()) {
+    const gen = runGen, dd = d;
+    sync.preparePlan(planSnapshot(), normalizePlan(planDraft)).then(r => {
+      if (gen === runGen && day === dd && phase === 'planning' && (!r || !r.ok)) briefSyncError('Could not save the plan. Retry or start a local-only week.', true);
+    }).catch(() => { if (gen === runGen && day === dd && phase === 'planning') briefSyncError('Could not save the plan. Retry or start a local-only week.', true); });
+  }
+  // Morning Brief — the Drug Wars turn: at 06:00 the floor pauses so the
+  // player reads commodity → price → choice, then commits with OPEN.
+  // Headless and tutorial-driven opens skip it (they own their own clock).
+  if (!headless && !tutorialActive) {
+    // open the Brief on the next microtask so the DOM/HUD is painted first
+    scheduleRun(() => { if (phase === 'planning') showMorningBrief(); }, 120);
+  }
+  return true;
+}
+const openDay = prepareDay;
+
+function startTradingDay(d) {
   // the wire tilts the deck: live Linkup research multiplies event weights
   // (clamped inside roll), never replaces the seeded draw
   const intelBias = marketIntel && Array.isArray(marketIntel.marketShift)
     ? Object.fromEntries(marketIntel.marketShift.map(s => [s.eventId, s.weightMul]))
     : null;
   tapePrev = exchange.history.length ? exchange.history[exchange.history.length - 1].index : 1.0;
-  offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
-  incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; solicitorAt = 0;
   // Ruth's pace at dawn — exhausted legs move slower until she's rested or sent home
   patrons.staffMul = (baristaCondition < 0.35 ? 0.8 : 1) * perkStaffMul; patrons.balkMul = 1;
+  if (baristaHomeToday) patrons.staffMul = 0.7;
+  else if (apprenticeHiredToday) patrons.staffMul = (CAMPAIGN.staff?.apprenticeStaffMul || 1.05) * perkStaffMul;
   const ev = exchange.openDay(intelBias);    // drift first, then roll the market + the event
   if (d === 1 && marketIntel && marketIntel.marketShift && marketIntel.marketShift.length) {
     fx.toast('market intel · ' + String(marketIntel.marketShift[0].reason).slice(0, 90), 'warn');
@@ -1030,20 +1302,12 @@ function openDay(d) {
   }
   // chalkboard: matcha day-price reflects the gentrification curve (4.80 → 5.40)
   if (exchange.matchaPrice) world.setMatchaPrice(exchange.matchaPrice.toFixed(2), repriced);
-  if (d > 1 && exchange.debt > 0) exchange.debt += CAMPAIGN.debtInterest;   // the debt clock ticks at dawn
 
   // Dynamic rival strategy:
-  const stratKeys = Object.keys(CAMPAIGN.rivalStrategies || {});
-  if (stratKeys.length) {
-    if (d === 1) rivalStrategy = 'DEFAULT';
-    else if (exchange.event?.tier === 'cata') rivalStrategy = 'ROASTER_PIVOT';
-    else if (d === 3 || exchange.event?.tier === 'good') rivalStrategy = 'PRICE_WAR';
-    else rivalStrategy = stratKeys[(d + (exchange.day || 0)) % stratKeys.length];
-    patrons.rivalStrategy = rivalStrategy;
-    if (d >= 2 && rivalStrategy !== 'DEFAULT' && !headless) {
-      const stratDef = CAMPAIGN.rivalStrategies[rivalStrategy];
-      if (stratDef) fx.toast(`${COPY.rivalName} moves: ${stratDef.name} (£${stratDef.price.toFixed(2)})`, 'warn');
-    }
+  patrons.rivalStrategy = rivalStrategy;
+  if (d >= 2 && rivalStrategy !== 'DEFAULT' && !headless) {
+    const stratDef = CAMPAIGN.rivalStrategies[rivalStrategy];
+    if (stratDef) fx.toast(`${COPY.rivalName} moves: ${stratDef.name} (£${stratDef.price.toFixed(2)})`, 'warn');
   }
   if (estherCard) { till -= 2; fx.toast('esther’s stamp card: −£2', ''); }  // her cup's on the house
   world.setMail(false);
@@ -1072,8 +1336,9 @@ function openDay(d) {
   // moves only for regulars who actually showed up today.
   rig.resetView();
   updateTicker();
-  // Mirror the dawn to Convex when configured (fire-and-forget, never blocks).
-  sync.mirror({ seed: SEED, day: d, beanIndex: exchange.beanIndex, matchaPrice: exchange.matchaPrice, till: cRev + till, reputation: regulars.reputation, debt: exchange.debt }).then(refreshStands);
+  // Managed runs mirror through sync.finishDay at close; unmanaged/local runs
+  // never write — the leaderboard is still refreshed read-only.
+  refreshStands();
   fx.toast('DAY ' + day + '/' + CAMPAIGN.days + ' — ' + (ev.head || 'a new day'), ev.tier === 'cata' ? 'bad' : ev.tier === 'good' ? 'good' : '');
   fx.card('DAY ' + day, ev.line || (ev.head || 'the district stirs'));
   try { world._onCatMeow = () => { try { audio.meow(); } catch {} }; } catch {}
@@ -1082,22 +1347,17 @@ function openDay(d) {
     fx.toast('Gwen\'s still asking about the gesha — GRUNDS unlocked', 'warn');
   }
   vitality.recompute();   // dawn re-skins the block with the fresh numbers
+  phase = 'trading';
+  closed = false;
+  paused = false; if ($('pause')) $('pause').textContent = 'pause';
   updateHUD();
-  // Morning Brief — the Drug Wars turn: at 06:00 the floor pauses so the
-  // player reads commodity → price → choice, then commits with OPEN.
-  // Headless and tutorial-driven opens skip it (they own their own clock).
-  if (!headless && !tutorialActive) {
-    // open the Brief on the next microtask so the DOM/HUD is painted first
-    setTimeout(() => showMorningBrief(), 120);
-  }
 }
 
 function updateTicker() {
   // The day's matcha price is set by applyDrift() at dawn. ECON.matchaFull
   // stays the static 4.80 baseline; the live `matchaPrice` reads from the
   // gentrification curve.
-  const dayPrice = exchange.matchaPrice ?? priceForDay(day);
-  const tillPrice = repriced ? ECON.matchaDeal : dayPrice;
+  const tillPrice = phase === 'planning' ? priceForDay(day) : salePrice(exchange, repriced);
   // the wire's strongest tilt, as price pressure: a boosted bad card glows
   // red (beans dearer), a boosted good card glows green (relief).
   const topShift = marketIntel?.marketShift?.[0];
@@ -1116,8 +1376,13 @@ function updateTicker() {
 }
 
 function campaignClose() {
+  if (campaignDone || phase !== 'review' || day < CAMPAIGN.days || exchange.day < CAMPAIGN.days) return;
   closed = true;
   campaignDone = true;
+  phase = 'finale';
+  if ($('review-continue')) $('review-continue').style.display = 'none';
+  if ($('review-letter')) $('review-letter').style.display = 'none';
+  if ($('receipt-back')) $('receipt-back').style.display = 'none';
   audio.closing();
   const net = cRev - cCost - cOps - settledPaid - exchange.debt;   // the week, after the whole cost sheet
   const rep = regulars.reputation;
@@ -1139,7 +1404,7 @@ function campaignClose() {
   rig.focus(world.focus.newbuild, 17, 7, Math.PI);
   fx.card('SOLD', 'a new tenant opens across the road');
   fx.toast('opening soon — for or against you, that\'s the question', 'warn');
-  setTimeout(() => {
+  scheduleRun(() => {
     fx.receipt({ lines, verdict: v });
     refreshStands();
     if ($('again')) { $('again').style.display = ''; $('again').textContent = '↺ run another week'; }
@@ -1301,7 +1566,7 @@ function updateHUD() {
 
 // ---- levers ----------------------------------------------------------------------
 function doPrebatch() {
-  if (closed || dayMin >= 960) return;
+  if (closed || phase !== 'trading' || dayMin >= 960) return;
   if (prebatched && ctx.batchUnits > 0) return;          // already warming
   markIntent();
   const topUp = prebatched || ctx.batchUnits > 0;
@@ -1333,7 +1598,7 @@ function doPrebatch() {
   updateHUD();
 }
 function doReprice() {
-  if (repriced || closed) return;
+  if (repriced || closed || phase !== 'trading') return;
   markIntent();
   const queueBefore = patrons.queueLength;
   repriced = true; ctx.repriced = true; patrons.repriced = true;
@@ -1419,7 +1684,7 @@ function showIncident() {
   // Ruth can't call in sick on a day you already sent her home — and when
   // she's on fumes the call isn't a sick day, it's a warning shot.
   if (o.who === 'Ruth, your barista') {
-    if (baristaHomeToday) o = INCIDENTS[(idx + 1) % INCIDENTS.length];
+    if (baristaHomeToday || apprenticeHiredToday) o = INCIDENTS[(idx + 1) % INCIDENTS.length];
     else if (baristaCondition < 0.4) o = { ...o,
       line: '“I can’t do another one like yesterday.” Ruth’s voice is flat — she’s on fumes.',
       effect: '£55 agency cover · or she pushes on — the bar runs ~60% slower',
@@ -1439,13 +1704,14 @@ function presentBeat(o, kicker, incident) {
   $('offer').classList.toggle('incident', !!incident);
   offerWasPaused = paused; paused = true; if ($('pause')) $('pause').textContent = 'resume';
   try { audio.card(); } catch {}
-  $('offer').classList.add('show');
+  modals.open('offer');
 }
 
 function resolveOffer(said) {
-  const o = activeBeat || OFFERS[(day - 1) % OFFERS.length];
+  const o = activeBeat;
+  if (!o || phase !== 'trading' || modals.top() !== 'offer') return;
   const wasIncident = $('offer').classList.contains('incident');
-  $('offer').classList.remove('show'); $('offer').classList.remove('incident');
+  modals.close('offer'); $('offer').classList.remove('incident');
   if (!offerWasPaused) { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
   if (said) { o.accept(); fx.toast(o.who + ': ' + o.yes, 'good'); }
   else { if (o.decline) o.decline(); fx.toast(wasIncident ? o.who + ' — you take the hit as it comes' : o.who + ' shrugs — maybe tomorrow', wasIncident ? 'warn' : ''); }
@@ -1459,21 +1725,29 @@ $('tape').onclick = () => { if (marketIntel) desk.open(marketIntel); };
 function reset() {
   // full campaign restart: the market and the regulars rewind to their start state
   const wasFinale = campaignDone;   // restarting from the verdict gets a send-off
-  exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = [];
+  runGen++;
+  exchange.rng = seeded(SEED);
+  exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   tapePrev = 1.0; offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; cOps = 0;
-  briefChoice = null; lastDayStats = null;
+  briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;
+  realizedHedgeSavings = 0; hedgedCups = 0;
+  phase = 'onboarding';
   demand.reset(); marketingSpend = 0;
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
   apprenticeHiredToday = false; rivalStrategy = 'DEFAULT';
-  try { const b = $('brief'); if (b) b.classList.remove('show'); } catch {}
-  $('offer').classList.remove('show');
+  try { modals.closeAll(); } catch {}
+  deskHeldPause = false;
+  mailPending = false;
+  try { mailT.disarm(); } catch {}
+  briefSyncError('');
+  { const ob = $('brief-open'), mb = $('letter-mail-btn'); if (ob) ob.disabled = false; if (mb) mb.disabled = false; }
+  if (sync.abandonRun) { sync.abandonRun(); if (sync.live && !sync.runDisabled) sync.beginRun(SEED).catch(() => {}); }
   for (const r of regulars.regulars) { r.op = perkBg === 'newcomer' ? 0.25 : 0.15; r.seen = false; r.served = 0; r.balked = 0; }
   cRev = cCost = cBalked = cServed = cDef = settledPaid = 0; campaignDone = false; paused = false;
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   if ($('pause')) $('pause').textContent = 'pause';
-  $('receipt').classList.remove('show'); $('letter').classList.remove('show');
-  openDay(1);
+  prepareDay(1);
   if (wasFinale) {
     rig.crane();   // swoop home from the sold street into the new week
     fx.toast('a new week on the floor — same street, new regulars', '');
@@ -1527,7 +1801,7 @@ renderer.domElement.addEventListener('click', e => {
 // Space pauses the floor mid-day (rendering + camera keep breathing; the
 // sim clock stops). The letter/receipt phases are already still.
 function togglePause() {
-  if (!started || closed || campaignDone) return paused;
+  if (!started || closed || campaignDone || phase !== 'trading') return paused;
   markIntent();
   paused = !paused;
   if ($('pause')) $('pause').textContent = paused ? 'resume' : 'pause';
@@ -1541,6 +1815,25 @@ $('reprice').onclick = doReprice;
 $('pause').onclick = () => togglePause();
 $('reset').onclick = reset;
 $('again').onclick = reset;
+if ($('review-continue')) $('review-continue').onclick = () => continueFromReview();
+if ($('review-letter')) $('review-letter').onclick = () => { if (phase === 'review') showLetter(); };
+if ($('letter-close')) $('letter-close').onclick = () => {
+  modals.close('letter');
+  if (phase === 'review' && lastDayReceipt) modals.open('receipt');
+};
+if ($('review-last')) $('review-last').onclick = () => {
+  if (!lastDayReceipt || phase !== 'planning') return;
+  modals.close('brief');
+  fx.receipt(lastDayReceipt);
+  if ($('receipt-back')) $('receipt-back').style.display = '';
+  if ($('review-continue')) $('review-continue').style.display = 'none';
+  if ($('review-letter')) $('review-letter').style.display = 'none';
+};
+if ($('receipt-back')) $('receipt-back').onclick = () => {
+  modals.close('receipt');
+  $('receipt-back').style.display = 'none';
+  if (phase === 'planning' && !headless && !tutorialActive) modals.open('brief');
+};
 $('mute').onclick = () => { $('mute').textContent = audio.toggleMute() ? 'sound off' : 'sound on'; };
 $('wirebtn').onclick = () => desk.open(marketIntel);
 $('camreset').onclick = () => rig.resetView();
@@ -1555,39 +1848,10 @@ document.querySelectorAll('#speeds button').forEach(b => {
   };
 });
 addEventListener('keydown', e => {
-  // the licence: typing lives in the inputs; Enter/Escape signs (defaults ok)
-  if ($('licence') && $('licence').classList.contains('show')) {
-    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); signLicence(); }
-    return;
-  }
+  if (modals.handleKey(e)) return;
   // typing belongs to the field — never let an email fire game keys
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
   markIntent();   // any game key is intent: the idle halo retires
-  // Morning Brief answers to 1/2/3/4/5 (commit a choice) then Enter opens
-  if ($('brief') && $('brief').classList.contains('show')) {
-    if (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4' || e.key === '5') {
-      const btns = [...document.querySelectorAll('#brief-actions button')];
-      const b = btns[+e.key - 1];
-      if (b && !b.disabled) b.click();
-      return;
-    }
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const o = $('brief-open'); if (o) o.click(); return; }
-    if (e.key === 'Escape') { e.preventDefault(); const o = $('brief-open'); if (o) o.click(); return; }
-  }
-  // a regular's ask answers to y/n while it's open
-  if ($('offer').classList.contains('show')) {
-    if (e.key === 'y' || e.key === 'Y') { resolveOffer(true); return; }
-    if (e.key === 'n' || e.key === 'N' || e.key === 'Escape') { resolveOffer(false); return; }
-  }
-  // the letter answers to 1/2/3/4/5 (skipping disabled actions) while it's open
-  if ($('letter').classList.contains('show')) {
-    if (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4' || e.key === '5') {
-      const btns = [...document.querySelectorAll('#letter-actions button')];
-      const b = btns[+e.key - 1];
-      if (b && !b.disabled) b.click();
-      return;
-    }
-  }
   if (e.key === '1') doPrebatch();
   else if (e.key === '2') doReprice();
   else if (e.key === ' ' && started && !closed) { e.preventDefault(); togglePause(); }
@@ -1598,10 +1862,11 @@ addEventListener('keydown', e => {
 });
 // photo mode: freeze at golden hour, print a stamped share card, act on it
 function doPhoto() {
+  if (phase !== 'trading') return;
   try { audio.shutter(); } catch {}
   const wasPaused = paused; paused = true; if ($('pause')) $('pause').textContent = 'resume';
-  dayMin = Math.max(dayMin, 1080);
-  try { world.updateTimeOfDay(dayMin); } catch {}
+  const photoMin = Math.max(dayMin, 1080);
+  try { world.updateTimeOfDay(photoMin); } catch {}
   try { document.body.classList.add('photo'); } catch {}
   fx.toast('📷 photo — golden hour', 'good');
   const badge = calculateCampaignBadge({
@@ -1634,7 +1899,7 @@ function doPhoto() {
     if (ended) return; ended = true;
     if (row) row.classList.remove('show');
     try { document.body.classList.remove('photo'); } catch {}
-    if (!wasPaused && !closed) { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
+    if (!wasPaused && !closed && phase === 'trading') { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
   };
   const act = (id, fn) => {
     const b = $(id);
@@ -1737,7 +2002,7 @@ function showLicence() {
     b.onclick = () => { licBg = i; [...bgs.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
     bgs.appendChild(b);
   });
-  el.classList.add('show');
+  modals.open('licence');
   setTimeout(() => { try { (nameEl.value ? standEl : nameEl).focus(); } catch {} }, 350);
   try { analytics.track('licence_shown'); } catch {}
 }
@@ -1755,7 +2020,7 @@ function signLicence() {
     localStorage.setItem('grunds.owner', standName);   // the district board lists the stand, not a hash
   } catch {}
   applyPerk();
-  $('licence').classList.remove('show');
+  modals.close('licence');
   try { analytics.track('licence_signed', { role: playerRole, bg: perkBg, defaults: playerName === 'Sam' && standName === 'THE CORNER CUP' }); } catch {}
   fx.toast('licence signed — ' + standName + ' opens Monday', 'good');
   if (wantTutorial) openTutorial();
@@ -1780,13 +2045,11 @@ function showTutStep(n) {
 function openTutorial() {
   tutorialActive = true;
   showTutStep(0);
-  $('tutorial').classList.add('show');
-  $('tutorial').setAttribute('aria-hidden', 'false');
+  modals.open('tutorial');
 }
 function closeTutorial() {
   tutorialActive = false;
-  $('tutorial').classList.remove('show');
-  $('tutorial').setAttribute('aria-hidden', 'true');
+  modals.close('tutorial');
 }
 function dismissTutorialAndStart(fromSkip = false) {
   const fromStep = tutStep + 1;
@@ -1806,10 +2069,11 @@ function dismissTutorialAndStart(fromSkip = false) {
   fx.card('DAY 1', 'a quiet street — watch the queue, hit 1 before noon');
   // The Brief owns day 1 too: once the crane settles, Brief pauses at 06:00.
   // (openDay() already queued showMorningBrief; this just unblocks the re-arm.)
-  setTimeout(() => {
+  scheduleRun(() => {
     // if the Brief is still open when the crane settles, it owns the pause —
     // unpausing here would run the floor behind the modal
-    if ($('brief') && $('brief').classList.contains('show')) return;
+    if (phase !== 'trading') return;
+    if (modals.top()) return;
     paused = false; if ($('pause')) $('pause').textContent = 'pause';
   }, 3400);
 }
@@ -1819,16 +2083,12 @@ $('tnext').onclick = () => {
 };
 $('tskip').onclick = () => dismissTutorialAndStart(true);
 $('tclose').onclick = () => dismissTutorialAndStart(true);
-addEventListener('keydown', e => {
-  if (!tutorialActive) return;
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('tnext').click(); }
-  else if (e.key === 'Escape') { e.preventDefault(); dismissTutorialAndStart(true); }
-});
 
 $('open').onclick = () => {
   if (!schedule) return;
+  modals.close('title');
   $('title').classList.add('gone');
-  setTimeout(() => $('title').remove(), 1400);
+  setTimeout(() => { try { if ($('title')) $('title').remove(); } catch {} }, 1400);
   // the licence is the first beat: who you are, signed before the tutorial.
   // headless / ?skipTutorial / ?skipLicence → defaults, straight in.
   if (!skipLicence) { showLicence(); return; }
@@ -1854,10 +2114,10 @@ function loop(now) {
   // shadow budget: at peak queue shadows are noise — save the fill rate
   try { renderer.shadowMap.enabled = (lite || _liteSwitched) ? false : (patrons.queueLength <= 40); } catch {}
   // numbers snap to RAF, not tick: jank-free even at 20× (see updateHUD throttle)
-  if (started && !closed && !paused && !tutorialActive && schedule) {
+  if (started && !closed && !paused && !tutorialActive && schedule && phase === 'trading') {
     acc += dt * 1000;
     const msPerMin = 300 / (speed / 60);
-    while (acc > msPerMin) { acc -= msPerMin; tick(); }
+    while (acc > msPerMin && phase === 'trading' && !paused && !closed) { acc -= msPerMin; tick(); }
   }
   vitality.tick();
   world.updateTimeOfDay(dayMin);
@@ -1876,7 +2136,7 @@ function loop(now) {
   if (halo) {
     let show = false;
     const lastIntent = Math.max(rig.lastUser || 0, _lastIntentAt || 0);
-    const modalsOpen = ['brief', 'offer', 'letter', 'licence', 'tutorial', 'receipt', 'desk', 'paywall'].some(id => $(id) && $(id).classList.contains('show'));
+    const modalsOpen = !!modals.top();
     if (shouldHalo({ started, closed, paused, photo: document.body.classList.contains('photo'), modalsOpen, headless, busy: kitBeat.isActive, idleMs: now - lastIntent })) {
       const spot = HALO_SPOTS[currentAction().target];
       if (spot) { halo.showAt(spot, now); show = true; }
@@ -1891,17 +2151,34 @@ function loop(now) {
   if (!headless) postfx.render(now);   // headless harness skips GL
 }
   window.__grunds = {
-  stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count,
-    index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null }),
+  stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count, phase, hedgedCups, hedgeSavings: realizedHedgeSavings,
+    index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null,
+    staffCondition: baristaCondition, staffing: planDraft ? planDraft.staffing : 'work', rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
+    trainingSpend, sampleSpend, feeToday, interestToday, settleToday, marketingSpend,
+    awareness: demand ? demand.awareness : 0, ops: lastOps, demand }),
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
   vitality, director, district, kitBeat, mailT,
   openDay, applyReply, reset, togglePause,
+  prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
+  patrons, modals,
+  renderBrief() { if (phase === 'planning') showMorningBrief(); },
+  get phase() { return phase; },
+  get plan() { return planDraft ? { ...planDraft, marketing: { ...demand.staged } } : null; },
+  get lastDayReceipt() { return lastDayReceipt; },
+  get quote() {
+    return planDraft ? quoteDayPlan({
+      day, hedge: planDraft.hedge, staffing: planDraft.staffing, marketing: planDraft.marketing,
+      debt: exchange.debt, extraFee: contractFeeExtra, perkCostMul, modifiers: modifiersForDay(day),
+    }) : null;
+  },
   get paused() { return paused; },
+  ...(headless ? { testState: ({ baristaCondition: c } = {}) => { if (typeof c === 'number') baristaCondition = c; } } : {}),
 };
 // Playtest helper — paste __grunds.analytics.summary() after Day 1 in console
 try { window.__grunds.analytics = analytics; } catch {}
 
 updateHUD();
+try { modals.open('title'); } catch {}
 requestAnimationFrame(loop);
 

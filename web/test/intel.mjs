@@ -108,8 +108,9 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
   const am = read('convex/agentmail.ts');
   assert.ok(am.includes('api.agentmail.to/v0') && am.includes('messages/send'),
     'sendLetter posts through the real AgentMail API');
-  assert.ok(am.includes('agentmail:thread:') && am.includes('agentmail:rcpt:'),
-    'thread + recipient mappings resolve replies to campaigns');
+  assert.ok(am.includes('agentmail:thread:') && am.includes('recipient')
+    && am.includes('addr !== m.recipient'),
+    'thread mapping embeds the recipient and resolveThread matches the sender');
   assert.ok(am.includes('export const sendLetter') && am.includes('export const resolveThread'),
     'sendLetter + resolveThread exist');
   const http = read('convex/http.ts');
@@ -119,7 +120,9 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
     'webhook parses message.received + /agentmail/letter send route exists');
   assert.ok(http.includes('self-delivery'), 'self-delivery loop guard present');
   const main = read('web/js/main.js');
-  assert.ok(main.includes('letter-mail-addr') && main.includes('/agentmail/letter'),
+  const syncSrc = read('web/js/convexSync.js');
+  assert.ok(main.includes('letter-mail-addr') && main.includes('sendPlanMail')
+    && syncSrc.includes('/agentmail/letter'),
     'letter modal posts the letter to a real inbox');
   console.log('MAIL    letter→inbox · reply→command→campaign · Idris acks · audit in letters');
 }

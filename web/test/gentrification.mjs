@@ -13,7 +13,7 @@
 //      drift is wired, not a dead module).
 //
 // Run: node web/test/gentrification.mjs
-import { applyDrift, applyExpectation, priceForDay } from '../js/gentrification.js';
+import { applyDrift, applyExpectation, priceForDay, calculateNonLinearDrift } from '../js/gentrification.js';
 import { Exchange } from '../js/exchange.js';
 import { Regulars } from '../js/regulars.js';
 import { CAMPAIGN } from '../js/config.js';
@@ -28,12 +28,12 @@ applyDrift(ex1, 1);
 const day1 = ex1.beanIndex;
 applyDrift(ex1, 2);
 const day2 = ex1.beanIndex;
-if (!(Math.abs(day1 - beforeDay1 - CAMPAIGN.drift.perDay) < 1e-12))
-  fails.push(`day 1 drift: ${day1} - ${beforeDay1} = ${day1 - beforeDay1}, expected ${CAMPAIGN.drift.perDay}`);
-if (!(Math.abs(day2 - day1 - CAMPAIGN.drift.perDay) < 1e-12))
-  fails.push(`day 2 drift: ${day2 - day1}, expected ${CAMPAIGN.drift.perDay}`);
+if (!(Math.abs(day1 - beforeDay1 - calculateNonLinearDrift(1)) < 1e-12))
+  fails.push(`day 1 drift: ${day1} - ${beforeDay1} = ${day1 - beforeDay1}, expected ${calculateNonLinearDrift(1)}`);
+if (!(Math.abs(day2 - day1 - calculateNonLinearDrift(2)) < 1e-12))
+  fails.push(`day 2 drift: ${day2 - day1}, expected ${calculateNonLinearDrift(2)} (accelerating)`);
 console.log('DRIFT   beanIndex', baseline, '→ day1', day1, '→ day2', day2,
-  `(+${CAMPAIGN.drift.perDay}/day)`);
+  `(+${calculateNonLinearDrift(1)}/+${calculateNonLinearDrift(2)} — accelerating)`);
 
 // 2) priceForDay walks 4.80 → 5.40 monotonically.
 const prices = [priceForDay(1), priceForDay(2), priceForDay(3), priceForDay(4), priceForDay(5)];
@@ -95,13 +95,13 @@ const ex6 = new Exchange(7);
 const before6 = ex6.beanIndex;
 const ev = ex6.openDay();
 const after6 = ex6.beanIndex;
-const expectedDelta = CAMPAIGN.drift.perDay + ev.dIndex;
+const expectedDelta = calculateNonLinearDrift(ex6.day) + ev.dIndex;
 if (Math.abs(after6 - before6 - expectedDelta) > 1e-12)
-  fails.push(`openDay() drift+event mismatch: beanIndex moved ${after6 - before6}, expected ${expectedDelta} (drift ${CAMPAIGN.drift.perDay} + event ${ev.dIndex})`);
+  fails.push(`openDay() drift+event mismatch: beanIndex moved ${after6 - before6}, expected ${expectedDelta} (drift ${calculateNonLinearDrift(ex6.day)} + event ${ev.dIndex})`);
 if (typeof ex6.matchaPrice !== 'number' || ex6.matchaPrice < 4.79 || ex6.matchaPrice > 5.41)
   fails.push(`openDay() did not set matchaPrice: ${ex6.matchaPrice}`);
 console.log('WIRED   openDay() day1: beanIndex', before6, '→', after6,
-  `(drift ${CAMPAIGN.drift.perDay} + event ${ev.dIndex}) | matchaPrice £` + ex6.matchaPrice.toFixed(2));
+  `(drift ${calculateNonLinearDrift(ex6.day)} + event ${ev.dIndex}) | matchaPrice £` + ex6.matchaPrice.toFixed(2));
 
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
 console.log('\nPASS — drift is deterministic, capped, wired into openDay, and pulls cohort expectations');

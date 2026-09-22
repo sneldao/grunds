@@ -56,7 +56,7 @@ let _rs = 987654321;
 Math.random = () => { _rs = (_rs * 1664525 + 1013904223) >>> 0; return _rs / 4294967296; };
 const wait = r => new Promise(r);
 let now = 1000;
-function runFrames(n) { for (let f = 0; f < n; f++) { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); } }
+function runFrames(n) { for (let f = 0; f < n; f++) { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); const off = reg.get('offer'); if (off && off.classList.contains('show')) reg.get('offer-no').click(); } }
 
 await import('../js/main.js');
 await new Promise(r => setTimeout(r, 40));
@@ -72,7 +72,7 @@ const fails = [];
 // who can possibly be marked seen. Mara's op should change; Tomas (creative)
 // should be untouched because markSeen never picks him up.
 G.reset();
-reg.get('open').click(); await new Promise(r => setTimeout(r, 10));
+G.commitDayPlan(); await new Promise(r => setTimeout(r, 10));
 // Keep Mara + commuters intact; remove the creatives from the named roster
 // so the patrons of cohort 'creatives' spawn anonymously.
 const mara = G.reg.regulars[0];   // Mara, commuters
@@ -83,7 +83,6 @@ const removedCreatives = G.reg.regulars.filter(r => r.coh === 'creatives');
 G.reg.regulars = G.reg.regulars.filter(r => r.coh !== 'creatives');
 mara.seen = true;  // pre-flag so resolveDay definitely touches her
 runFrames(220);
-G.applyReply('hold');
 const maraDelta = mara.op - maraOpBefore;
 const tomasDelta = tomas.op - tomasOpBefore;
 console.log('PERSON  Mara Δop =', maraDelta.toFixed(3), '| Tomas Δop =', tomasDelta.toFixed(3));
@@ -96,7 +95,7 @@ G.reg.regulars.push(...removedCreatives);
 // 2) Contract expires on cup count, not on dawns.
 // ============================================================
 G.reset();
-reg.get('open').click(); await new Promise(r => setTimeout(r, 10));
+G.commitDayPlan(); await new Promise(r => setTimeout(r, 10));
 G.exc.beanIndex = 1.0; G.exc.contractBeans();
 if (!G.exc.contract) fails.push('contract not created');
 const startUnits = G.exc.contract.units;
@@ -113,13 +112,14 @@ console.log('UNITS   contract lasted', startUnits, '→', partialUnits, '→', G
 // 3) Settle survives the dawn interest guard.
 // ============================================================
 G.reset();
-reg.get('open').click(); await new Promise(r => setTimeout(r, 10));
-runFrames(220); G.applyReply('contract');
-runFrames(220); G.applyReply('settle');
+G.stageDayPlan({ hedge: 'contract' }); G.commitDayPlan();
+runFrames(220); G.continueFromReview();
+G.stageDayPlan({ hedge: 'settle' }); G.commitDayPlan();
 if (G.stats().debt !== 0) fails.push('settle did not clear debt to 0: ' + G.stats().debt);
 // run another day — interest must NOT be added to a 0 balance (the guard is
 // `if (d > 1 && exchange.debt > 0)`).
-runFrames(220); G.applyReply('hold');
+runFrames(220); G.continueFromReview();
+G.stageDayPlan({ hedge: 'hold' }); G.commitDayPlan();
 if (G.stats().debt !== 0) fails.push('interest accrued on a settled-zero debt: ' + G.stats().debt);
 console.log('SETTLE  debt =', G.stats().debt, 'after settle + 1 dawn');
 
@@ -127,10 +127,11 @@ console.log('SETTLE  debt =', G.stats().debt, 'after settle + 1 dawn');
 // 4) The 5-day campaign lands in a verdict band (net > 600 = 'held' or better).
 // ============================================================
 G.reset();
-reg.get('open').click(); await new Promise(r => setTimeout(r, 10));
 for (let d = 1; d <= CAMPAIGN.days; d++) {
+  G.stageDayPlan({ hedge: d === 1 ? 'contract' : 'hold' });
+  G.commitDayPlan();
   runFrames(220);
-  G.applyReply(d === 1 ? 'contract' : 'hold');
+  G.continueFromReview();
 }
 const end = G.stats();
 console.log('FLOW    campaignDone =', end.campaignDone, '| netWorth =', end.netWorth.toFixed(0), '| rep =', end.rep);

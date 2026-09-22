@@ -1,7 +1,9 @@
 // Patrons — hundreds of little people, 8 draw calls, one real queue line.
 // The line out the door IS the chart.
 import * as THREE from '../vendor/three.module.js';
-import { COHORTS, LAYOUT, ECON, counterSlot, registerSlot, rivalSlot, MAX_VISIBLE_QUEUE } from './config.js';
+import { COHORTS, LAYOUT, ECON, CAMPAIGN, counterSlot, registerSlot, rivalSlot, MAX_VISIBLE_QUEUE } from './config.js';
+import { salePrice } from './economy.js';
+import { rivalChoiceProbability } from './rival.js';
 
 const MAXP = ECON.maxPatrons;
 const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];
@@ -10,7 +12,7 @@ const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const RED = new THREE.Color(0xd0503a);
 
 export class PatronSystem {
-  constructor(scene, world, regulars = null, exchange = null, fx = null) {
+  constructor(scene, world, regulars = null, exchange = null, fx = null, { random = Math.random } = {}) {
     this.world = world;
     this.regulars = regulars;     // for named-patron flagging
     this.exchange = exchange;     // for contract unit consumption
@@ -19,7 +21,11 @@ export class PatronSystem {
     this.free = [];
     this.counterQ = []; this.registerQ = []; this.rivalQ = [];
     this.rivalClock = 0;
+    this.rivalCredit = 0;
+    this.rivalChoices = 0;
     this.rivalStrategy = 'DEFAULT';
+    this.dwellMul = 1;
+    this.random = random;
     this.apprenticeActive = false;
     this.staffMul = 1;   // <1 short-staffed — the bar spends fewer prep-points a tick
     this.balkMul = 1;    // >1 impatient floor — they walk sooner
@@ -78,9 +84,19 @@ export class PatronSystem {
       regularName: null, regularIdx: -1, greeted: false,
       regularFriends: null,   // Set<string> of friend names, populated if named
     };
+    let toRival = false;
+    if (zone === 'counter' && this.rivalQ.length < 42) {
+      const ourPrice = this.exchange ? salePrice(this.exchange, this.repriced) : ECON.matchaFull;
+      const op = this.regulars ? (this.regulars.reputation - 50) / 50 : 0;
+      const pr = rivalChoiceProbability({
+        strategy: this.rivalStrategy, cohort, ourPrice, op,
+        ourQueue: this.queueLength, rivalQueue: this.rivalQ.length,
+      });
+      if (this.random() < pr) toRival = true;
+    }
     // Is this spawn a named Regular? If so, mark seen, tag the patron, and
     // emit a one-line greeting when they actually join the queue.
-    if (this.regulars && zone === 'counter') {
+    if (!toRival && this.regulars && zone === 'counter') {
       const r = this.regulars.markSeen(cohort);
       if (r.found) {
         p.regularName = r.name; p.regularIdx = r.idx; p.hasHat = true;
@@ -95,7 +111,16 @@ export class PatronSystem {
     }
     this.patrons.push(p);
     const door = V3(LAYOUT.door.x + (Math.random() - 0.5) * 2.2, 0, LAYOUT.door.z + 0.5);
-    if (zone === 'counter') {
+    if (toRival) {
+      p.rivalOrigin = 'choice'; p.queueRef = 'rival'; this.rivalChoices++;
+      this.rivalQ.push(p);
+      p.goal = this._slotPos(rivalSlot, this.rivalQ.length - 1, p);
+      if (quick) { p.state = 'inRivalQ'; p.pos.set(p.goal.x + (Math.random() - 0.5), 0, p.goal.z + 0.6 + Math.random() * 0.4); }
+      else {
+        p.state = 'defecting';
+        p.path = [V3(LAYOUT.crossX, 0, LAYOUT.pavementZ), V3(LAYOUT.crossX, 0, 14.6)];
+      }
+    } else if (zone === 'counter') {
       p.queueRef = 'counter'; this.counterQ.push(p);
       p.goal = this._slotPos(counterSlot, this.counterQ.length - 1, p);
       if (quick) {  // at speed the crowd is just there — step out of it, keep arrival = spawn rate
@@ -142,8 +167,8 @@ export class PatronSystem {
       this.counterQ.splice(i, 1); points -= cost; servedN++;
       if (p.wantsMatcha && ctx.prebatched) ctx.batchUnits = Math.max(0, ctx.batchUnits - 1);
       p.hasCup = true; p.cupGreen = p.wantsMatcha; p.colorDirty = true;
-      ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: p.wantsMatcha ? (ctx.repriced ? ECON.matchaDeal : ECON.matchaFull) : ECON.other });
-      if (this.exchange) this.exchange.consume(1);   // burn one contract unit per cup
+      const cup = this.exchange ? this.exchange.purchaseCup() : { beanCost: 0, spotCost: 0, hedged: false };   // burn one contract unit per cup
+      ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: p.wantsMatcha ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull) : ECON.other, ...cup });
       this._afterServe(p);
     }
     this._layoutQ(this.counterQ, counterSlot);
@@ -157,7 +182,7 @@ export class PatronSystem {
         p.flash = 1; p.colorDirty = true;
         ev.push({ type: 'balked', p });
         if (Math.random() < 0.7 && this.rivalQ.length < 42) {
-          p.state = 'defecting'; p.queueRef = 'rival'; this.rivalQ.push(p);
+          p.state = 'defecting'; p.queueRef = 'rival'; p.rivalOrigin = 'defection'; this.rivalQ.push(p);
           p.goal = this._slotPos(rivalSlot, this.rivalQ.length - 1, p);
           p.path = [
             V3(LAYOUT.door.x, 0, LAYOUT.door.z + 0.6),
@@ -180,7 +205,8 @@ export class PatronSystem {
       if (p.state !== 'inRegisterQ') { i++; continue; }
       if (p.waitMin >= 1) {
         this.registerQ.splice(i, 1); regN++;
-        ev.push({ type: 'served', p, isMatcha: false, price: ECON.other, viaRegister: true });
+        const cup = this.exchange ? this.exchange.purchaseCup() : { beanCost: 0, spotCost: 0, hedged: false };
+        ev.push({ type: 'served', p, isMatcha: false, price: ECON.other, viaRegister: true, ...cup });
         if (Math.random() < 0.12) this._afterServe(p); else this._leave(p);
       } else i++;
     }
@@ -201,16 +227,18 @@ export class PatronSystem {
     }
 
     // the chain serves slowly — one every two minutes
-    if (++this.rivalClock % 2 === 0 && this.rivalQ.length) {
-      const p = this.rivalQ[0];
-      if (p.state === 'inRivalQ') {
-        this.rivalQ.shift();
-        p.state = 'leaving'; p.queueRef = null;
-        p.path = [V3(p.pos.x + 5, 0, 15.4)];
-        ev.push({ type: 'rivalServed', p });
-        this._layoutQ(this.rivalQ, rivalSlot);
-      }
+    const stratDef = CAMPAIGN.rivalStrategies[this.rivalStrategy] || {};
+    const rivalReady = this.rivalQ.length > 0 && this.rivalQ[0].state === 'inRivalQ';
+    this.rivalCredit += 0.5 * (stratDef.speedMul || 1);
+    if (!rivalReady) this.rivalCredit = Math.min(1, this.rivalCredit);
+    while (this.rivalCredit >= 1 - 1e-9 && this.rivalQ.length && this.rivalQ[0].state === 'inRivalQ') {
+      const p = this.rivalQ.shift();
+      this.rivalCredit = Math.max(0, this.rivalCredit - 1);
+      p.state = 'leaving'; p.queueRef = null;
+      p.path = [V3(p.pos.x + 5, 0, 15.4)];
+      ev.push({ type: 'rivalServed', p });
     }
+    this._layoutQ(this.rivalQ, rivalSlot);
     return ev;
   }
 
@@ -240,7 +268,7 @@ export class PatronSystem {
     switch (p.state) {
       case 'walkingIn': p.state = 'toQueue'; break;   // through the door — now drift to your slot
       case 'toBrowse': p.state = 'browse'; p.dwell = 2 + (Math.random() * 4 | 0); break;
-      case 'toSeat': p.state = 'sit'; p.dwell = 8 + (Math.random() * 14 | 0); p.face = p.seat.face; p.sipAt = p.dwell - 4; break;
+      case 'toSeat': p.state = 'sit'; p.dwell = Math.round((8 + (Math.random() * 14 | 0)) * this.dwellMul); p.face = p.seat.face; p.sipAt = Math.max(1, p.dwell - 4); break;
       case 'defecting': p.state = 'inRivalQ'; break;
       case 'leaving': this._despawn(p); break;
     }
@@ -402,8 +430,8 @@ export class PatronSystem {
 
   reset() {
     for (let i = this.patrons.length - 1; i >= 0; i--) this._despawn(this.patrons[i]);
-    this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.rivalClock = 0;
-    this.staffMul = 1; this.balkMul = 1;
+    this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.rivalClock = 0; this.rivalCredit = 0; this.rivalChoices = 0;
+    this.staffMul = 1; this.balkMul = 1; this.dwellMul = 1;
   }
 }
 

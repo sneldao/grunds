@@ -48,7 +48,7 @@ Math.random = () => { _rs = (_rs * 1664525 + 1013904223) >>> 0; return _rs / 429
 const wait = r => new Promise(r);
 
 let now = 1000;
-function runFrames(n) { for (let f = 0; f < n; f++) { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); } }
+function runFrames(n) { for (let f = 0; f < n; f++) { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); const off = reg.get('offer'); if (off && off.classList.contains('show')) reg.get('offer-no').click(); } }
 
 await import('../js/main.js');
 await new Promise(r => setTimeout(r, 40));
@@ -57,11 +57,13 @@ const fails = [];
 
 // === CONNECTION 1: a frost hits the spot; contracting first wins ===
 reg.get('open').click(); await new Promise(r => setTimeout(r, 10));
+G.commitDayPlan();                                     // HOLD the default plan
 G.exc.beanIndex = 1.8; G.exc.contract = null;          // HOLD through the spike
 runFrames(220);
 const A = G.stats(), netHold = A.till - A.cogs;
 
 G.reset(); await new Promise(r => setTimeout(r, 10));
+G.commitDayPlan();
 G.exc.beanIndex = 1.0; G.exc.contractBeans();          // CONTRACT at 1.0 before the spike (+£22 debt)
 G.exc.beanIndex = 1.8;                                 // then frost hits the spot
 runFrames(220);
@@ -73,13 +75,16 @@ if (!(B.cogs < A.cogs * 0.7)) fails.push(`locked cost not cheaper: ${B.cogs.toFi
 
 // === CONNECTION 2: the 5-day campaign + the debt clock ===
 G.reset(); await new Promise(r => setTimeout(r, 10));
-reg.get('open').click(); await new Promise(r => setTimeout(r, 10));
 for (let d = 1; d <= CAMPAIGN.days; d++) {
+  G.stageDayPlan({ hedge: d === 1 ? 'contract' : 'hold' });
+  const cr = G.commitDayPlan();
+  if (!cr.ok) fails.push(`day ${d}: commit failed ${JSON.stringify(cr)}`);
   runFrames(220);
   const s = G.stats();
   if (s.day !== d) fails.push(`flow: expected day ${d}, got ${s.day}`);
   if (s.cogs <= 0) fails.push(`day ${d}: no COGS — cost not wired`);
-  G.applyReply(d === 1 ? 'contract' : 'hold');
+  if (G.phase !== 'review') fails.push(`day ${d}: expected review, got ${G.phase}`);
+  G.continueFromReview();
 }
 const end = G.stats();
 console.log('FLOW   5 days done | final debt', end.debt.toFixed(0), '| netWorth', end.netWorth.toFixed(0));
@@ -91,9 +96,9 @@ if (!(end.debt > CAMPAIGN.contractFee)) fails.push('debt interest never accrued:
 
 // === CONNECTION 3: settle clears the debt ===
 G.reset(); await new Promise(r => setTimeout(r, 10));
-reg.get('open').click(); await new Promise(r => setTimeout(r, 10));
-runFrames(220); G.applyReply('contract');
-runFrames(220); G.applyReply('settle');
+G.stageDayPlan({ hedge: 'contract' }); G.commitDayPlan();
+runFrames(220); G.continueFromReview();
+G.stageDayPlan({ hedge: 'settle' }); G.commitDayPlan();
 if (G.stats().debt !== 0) fails.push('settle did not clear debt: ' + G.stats().debt);
 console.log('SETTLE debt cleared =', G.stats().debt);
 

@@ -1,4 +1,6 @@
 import { query, mutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import {
   CAMPAIGN_TUNING,
@@ -42,50 +44,62 @@ export const costPerCup = query({
   },
 });
 
+export async function createCampaignState(ctx: MutationCtx, seed: number) {
+  const now = Date.now();
+  const campaignId = await ctx.db.insert("campaigns", {
+    seed,
+    day: 0,
+    beanIndex: 1.0,
+    lastTier: undefined,
+    matchaPrice: priceForDay(1),
+    debt: 0,
+    contractPrice: undefined,
+    contractUnits: undefined,
+    contractFee: undefined,
+    till: 0,
+    reputation: CAMPAIGN_TUNING.startReputation,
+    status: "open",
+    createdAt: now,
+  });
+  for (const r of REGULAR_ROSTER) {
+    await ctx.db.insert("regulars", {
+      campaignId,
+      name: r.name,
+      coh: r.coh,
+      quirk: r.quirk,
+      op: 0.15,
+      seen: false,
+      served: 0,
+      balked: 0,
+    });
+  }
+  const seenPairs = new Set<string>();
+  for (const r of REGULAR_ROSTER) {
+    for (const f of r.friends) {
+      const key = [r.name, f].sort().join("|");
+      if (seenPairs.has(key)) continue;
+      seenPairs.add(key);
+      await ctx.db.insert("friendships", { campaignId, a: [r.name, f].sort()[0], b: [r.name, f].sort()[1] });
+    }
+  }
+  return campaignId;
+}
+
+async function rejectIfManaged(ctx: MutationCtx, campaignId: Id<"campaigns">) {
+  const control = await ctx.db
+    .query("planSessions")
+    .withIndex("by_campaign", (q) => q.eq("campaignId", campaignId))
+    .unique();
+  if (control) throw new Error("managed campaign");
+}
+
 // Create a campaign + seed its regulars and friendship edges in one mutation
 // so the first client never sees a half-built district.
 export const createCampaign = mutation({
   args: { seed: v.optional(v.number()) },
+  returns: v.id("campaigns"),
   handler: async (ctx, args) => {
-    const seed = args.seed ?? 7;
-    const now = Date.now();
-    const campaignId = await ctx.db.insert("campaigns", {
-      seed,
-      day: 0,
-      beanIndex: 1.0,
-      lastTier: undefined,
-      matchaPrice: priceForDay(1),
-      debt: 0,
-      contractPrice: undefined,
-      contractUnits: undefined,
-      contractFee: undefined,
-      till: 0,
-      reputation: CAMPAIGN_TUNING.startReputation,
-      status: "open",
-      createdAt: now,
-    });
-    for (const r of REGULAR_ROSTER) {
-      await ctx.db.insert("regulars", {
-        campaignId,
-        name: r.name,
-        coh: r.coh,
-        quirk: r.quirk,
-        op: 0.15,
-        seen: false,
-        served: 0,
-        balked: 0,
-      });
-    }
-    const seenPairs = new Set<string>();
-    for (const r of REGULAR_ROSTER) {
-      for (const f of r.friends) {
-        const key = [r.name, f].sort().join("|");
-        if (seenPairs.has(key)) continue;
-        seenPairs.add(key);
-        await ctx.db.insert("friendships", { campaignId, a: [r.name, f].sort()[0], b: [r.name, f].sort()[1] });
-      }
-    }
-    return campaignId;
+    return await createCampaignState(ctx, args.seed ?? 7);
   },
 });
 
@@ -93,13 +107,21 @@ export const createCampaign = mutation({
 // persist the marketEvents row. Deterministic per seed+day.
 export const openDay = mutation({
   args: { campaignId: v.id("campaigns") },
+  returns: v.object({
+    day: v.number(),
+    eventId: v.string(),
+    tier: v.string(),
+    beanIndex: v.number(),
+    matchaPrice: v.number(),
+  }),
   handler: async (ctx, args) => {
     const c = await ctx.db.get(args.campaignId);
     if (!c) throw new Error("campaign not found");
     if (c.status !== "open") throw new Error("campaign is done");
+    await rejectIfManaged(ctx, args.campaignId);
 
     const day = c.day + 1;
-    const beanAfterDrift = Math.min(DRIFT.maxIndex, c.beanIndex + DRIFT.perDay);
+    const beanAfterDrift = Math.min(DRIFT.maxIndex, c.beanIndex + DRIFT.perDay + DRIFT.accel * Math.max(0, day - 1));
     const matchaPrice = priceForDay(day);
 
     // The merged wire (Linkup + Firecrawl, OpenAI-annotated) caches a
@@ -173,9 +195,13 @@ export const openDay = mutation({
 // Reply-to-command: lock today's price into a forward contract (debt clock).
 export const contractBeans = mutation({
   args: { campaignId: v.id("campaigns") },
+  returns: v.union(
+    v.object({ ok: v.boolean(), debt: v.optional(v.number()), why: v.optional(v.string()) }),
+  ),
   handler: async (ctx, args) => {
     const c = await ctx.db.get(args.campaignId);
     if (!c) throw new Error("campaign not found");
+    await rejectIfManaged(ctx, args.campaignId);
     if (c.contractUnits !== undefined) return { ok: false as const, why: "already contracted" };
     await ctx.db.patch(args.campaignId, {
       contractPrice: c.beanIndex,
@@ -190,9 +216,11 @@ export const contractBeans = mutation({
 // Burn contract units per cup served. Clears exactly at zero.
 export const consumeContract = mutation({
   args: { campaignId: v.id("campaigns"), n: v.optional(v.number()) },
+  returns: v.object({ consumed: v.boolean(), left: v.optional(v.number()) }),
   handler: async (ctx, args) => {
     const c = await ctx.db.get(args.campaignId);
     if (!c) throw new Error("campaign not found");
+    await rejectIfManaged(ctx, args.campaignId);
     if (c.contractUnits === undefined) return { consumed: false as const };
     const left = Math.max(0, c.contractUnits - (args.n ?? 1));
     if (left === 0) {
@@ -210,9 +238,11 @@ export const consumeContract = mutation({
 
 export const settleDebt = mutation({
   args: { campaignId: v.id("campaigns"), amount: v.number() },
+  returns: v.object({ ok: v.boolean(), paid: v.number(), debt: v.number() }),
   handler: async (ctx, args) => {
     const c = await ctx.db.get(args.campaignId);
     if (!c) throw new Error("campaign not found");
+    await rejectIfManaged(ctx, args.campaignId);
     const paid = Math.min(args.amount, c.debt);
     await ctx.db.patch(args.campaignId, { debt: c.debt - paid });
     return { ok: true as const, paid, debt: c.debt - paid };
@@ -233,9 +263,11 @@ export const mirrorState = mutation({
     reputation: v.optional(v.number()),
     debt: v.optional(v.number()),
   },
+  returns: v.object({ ok: v.boolean() }),
   handler: async (ctx, args) => {
     const c = await ctx.db.get(args.campaignId);
     if (!c) throw new Error("campaign not found");
+    await rejectIfManaged(ctx, args.campaignId);
     const patch: {
       day?: number;
       beanIndex?: number;

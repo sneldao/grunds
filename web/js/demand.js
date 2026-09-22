@@ -12,7 +12,7 @@ import { CAMPAIGN } from './config.js';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
-export const DEMAND_ACTIONS = ['chalk', 'sample', 'sponsor'];
+export const DEMAND_ACTIONS = ['sample', 'sponsor'];
 
 export class Demand {
   constructor() {
@@ -20,7 +20,7 @@ export class Demand {
   }
   reset() {
     this.awareness = CAMPAIGN.demand.start;
-    this.staged = { chalk: false, sample: false, sponsor: false };
+    this.staged = { sample: false, sponsor: false };
     this.todayReturnees = 0;
     this.lastReturnRate = 0;
   }
@@ -40,13 +40,13 @@ export class Demand {
   // cups at commit, sponsor costs till at commit and unlocks sponsorDay+).
   // Returns false when the action can't stage (already staged / locked).
   canStage(id, day) {
-    if (!DEMAND_ACTIONS.includes(id) || this.staged[id]) return false;
+    if (!DEMAND_ACTIONS.includes(id) || day >= CAMPAIGN.days) return false;
     if (id === 'sponsor' && day < CAMPAIGN.demand.sponsorDay) return false;
     return true;
   }
   stage(id, day) {
     if (!this.canStage(id, day)) return false;
-    this.staged[id] = true;
+    this.staged[id] = !this.staged[id];
     return true;
   }
   // Close-of-day: decay awareness (catastrophes scare extra), land the
@@ -60,13 +60,12 @@ export class Demand {
     this.todayReturnees = Math.max(0, Math.round(served * rate));
     let decay = d.decay;
     if (eventTier === 'cata') decay += d.cataExtra;
-    let gain = 0;
-    if (this.staged.chalk) gain += d.chalkGain;
+    let gain = d.chalkGain;
     if (this.staged.sample) gain += d.sampleGain;
     if (this.staged.sponsor) gain += d.sponsorGain;
     this.awareness = clamp(before - decay + gain, 0, 1);
     const staged = { ...this.staged };
-    this.staged = { chalk: false, sample: false, sponsor: false };
+    this.staged = { sample: false, sponsor: false };
     return { before, after: this.awareness, decay, gain, staged, returnees: this.todayReturnees, returnRate: rate };
   }
   // Awareness pips for the HUD tape: ●●●○○.

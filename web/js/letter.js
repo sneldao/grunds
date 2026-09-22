@@ -3,6 +3,7 @@
 // contract beans, ride the spot, or pay the debt. The reply mutates the exchange
 // — the Gamble clock turns. No LLM; every line templated from state.
 import { LETTER, CAMPAIGN } from './config.js';
+import { hedgeTerms } from './economy.js';
 
 const gbp = n => '£' + Math.max(0, n).toFixed(2);
 
@@ -73,8 +74,8 @@ function tapeLine(s) {
   const pct = Math.round((s.index - s.indexPrev) * 100);
   if (!pct) return 'Spot held flat through the day.';
   const carry = pct > 0
-    ? 'Moves like that tend to carry — a lock tonight buys tomorrow at today’s board.'
-    : 'A dip like that usually holds a day — riding the spot costs little.';
+    ? 'Moves like that have carried before; whether this one does, the dawn card decides.'
+    : 'Dips have held a day before — no promise the board agrees twice.';
   return `Spot closed ${pct > 0 ? 'up' : 'down'} ${Math.abs(pct)}% today. ${carry}`;
 }
 function greeting(e) {
@@ -90,18 +91,34 @@ export function composeLetter(s) {
   const e = s.event || {};
   const rose = (s.index - 1);
   const contract = s.contract;
+  const mode = s.mode || 'planning';
+  const extraFee = s.extraFee || 0;
+  const cover = id => hedgeTerms(id, extraFee);
+  const sizing = `A contract locks the board price for the cups it covers — no shortage, no waste; what it doesn’t cover you buy at the spot. Light ${cover('contract_light').units} cups, standard ${cover('contract').units}, heavy ${cover('contract_heavy').units}. Fees ride on your tab until you settle.`;
+  const boardLine = mode === 'planning'
+    ? `Previous close: ${s.index.toFixed(2)} — ${trendPhrase(rose)} on the spot. The opening market has not been drawn; a hedge locks this quoted board before it moves.`
+    : `The board's at ${s.index.toFixed(2)} — ${trendPhrase(rose)} on the spot.`;
+  const coverage = contract != null && s.units != null
+    ? `Your contract still covers ${s.units} cups at ${Number(contract).toFixed(2)}.`
+    : '';
+  const explain = id => {
+    const t = cover(id);
+    return `lock ${s.index.toFixed(2)} · ${t.units} cups · ${gbp(t.fee)} credit` + (extraFee > 0 ? ` (incl. ${gbp(extraFee)} COD)` : '');
+  };
   return {
     from: LETTER.from,
     sign: LETTER.sign,
     head: e.head || 'A NOTE FROM YOUR ROASTER',
     body: [
       s.player ? `Dear ${s.player},` : '',
-      `Day ${s.day} of ${CAMPAIGN.days}. ${greeting(e)}`,
-      e.line || '',
+      mode === 'review' ? `Day ${s.day} closed.` : `Day ${s.day} of ${CAMPAIGN.days}. ${greeting(e)}`,
+      mode === 'planning' && e.head ? `Previous close: ${e.head}` : (e.line || ''),
       '',
-      `The board's at ${s.index.toFixed(2)} — ${trendPhrase(rose)} on the spot.`,
+      boardLine,
       tapeLine(s),
-      'Light covers half the wave. Standard covers tomorrow. Heavy rides two days — over-order and you eat waste; under-order and the wave starves you.',
+      mode === 'planning' ? sizing : '',
+      coverage,
+      extraFee > 0 ? `The COD invoice rides along — +${gbp(extraFee)} on the next contract fee.` : '',
       performance(s),
       debtLine(s),
       driftLine(s),
@@ -109,14 +126,16 @@ export function composeLetter(s) {
       neighborhoodLine(s),
       reputationLine(s),
       '',
-      s.player ? `What do you want to do, ${s.player}?` : 'What do you want to do?',
+      mode === 'planning'
+        ? (s.player ? `What do you want to do, ${s.player}?` : 'What do you want to do?')
+        : 'That’s the day on paper. Tomorrow’s board lands at dawn.',
     ].join('\n'),
-    actions: [
-      { ...LETTER.actions[0], disabled: !!contract, explain: contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee / 2)} credit` },
-      { ...LETTER.actions[1], disabled: !!contract, explain: contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee)} credit` },
-      { ...LETTER.actions[2], disabled: !!contract, explain: contract ? 'already contracted' : `lock ${s.index.toFixed(2)} · ${gbp(CAMPAIGN.contractFee * 2)} credit` },
+    actions: mode === 'planning' ? [
+      { ...LETTER.actions[0], disabled: !!contract, explain: contract ? 'already contracted' : explain('contract_light') },
+      { ...LETTER.actions[1], disabled: !!contract, explain: contract ? 'already contracted' : explain('contract') },
+      { ...LETTER.actions[2], disabled: !!contract, explain: contract ? 'already contracted' : explain('contract_heavy') },
       { ...LETTER.actions[3], disabled: false, explain: `ride ${s.index.toFixed(2)}` },
       { ...LETTER.actions[4], disabled: s.debt <= 0, explain: s.debt <= 0 ? 'nothing to settle' : `pay ${gbp(s.debt)}` },
-    ],
+    ] : [],
   };
 }

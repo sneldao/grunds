@@ -11,6 +11,7 @@
 import type * as agentmail from "../agentmail.js";
 import type * as apiCache from "../apiCache.js";
 import type * as crons from "../crons.js";
+import type * as decisions from "../decisions.js";
 import type * as district from "../district.js";
 import type * as exchange from "../exchange.js";
 import type * as firecrawl from "../firecrawl.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   agentmail: typeof agentmail;
   apiCache: typeof apiCache;
   crons: typeof crons;
+  decisions: typeof decisions;
   district: typeof district;
   exchange: typeof exchange;
   firecrawl: typeof firecrawl;

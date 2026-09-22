@@ -33,8 +33,10 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8');
     'licence is the first beat after the title — before the tutorial');
   assert.ok(main.includes('openTutorial()'), 'signing routes into the tutorial');
   // Enter/Escape both sign — one keystroke accepts the defaults
-  assert.ok(main.includes("e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); signLicence(); }"),
-    'one keystroke signs with defaults');
+  assert.ok(main.includes("$('lic-sign')).onclick = signLicence") || main.includes("$('lic-sign')") && main.includes('.onclick = signLicence'),
+    'the Sign button activates signLicence');
+  assert.ok(!/e\.key === '(Enter|Escape)'[^)]*signLicence/.test(main),
+    'no keyboard shortcut signs the licence');
   assert.ok(main.includes("const skipLicence = headless"), 'licence is headless-gated');
   assert.ok(main.includes("urlParams.has('skipLicence')") && main.includes('!wantTutorial'),
     '?skipLicence and ?skipTutorial both bypass');

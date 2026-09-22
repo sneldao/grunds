@@ -85,6 +85,10 @@ async function runDay({ levers = false, query = '', frames = 950, step = 16.7 } 
   const open = registry.get('open');
   if (open.disabled) throw new Error('open button still disabled — schedule fetch failed?');
   open.click();   // gesture: starts audio + crane + clock
+  const G0 = globalThis.__grunds;
+  if (G0.phase !== 'planning') throw new Error(`expected planning after open, got ${G0.phase}`);
+  const cr = G0.commitDayPlan();
+  if (!cr.ok) throw new Error('commit failed: ' + JSON.stringify(cr));
   let batched = false;
   let now = 1000;
   for (let f = 0; f < frames; f++) {
@@ -92,6 +96,7 @@ async function runDay({ levers = false, query = '', frames = 950, step = 16.7 } 
     const cb = rafCb; rafCb = null;
     if (!cb) throw new Error('render loop stopped re-registering');
     cb(now);
+    const off = registry.get('offer'); if (off && off.classList.contains('show')) registry.get('offer-no').click();
     if (f % 300 === 0) console.error(`  …frame ${f} clock=${registry.get('clock').textContent}`);
     if (levers && registry.get('clock').textContent >= '12:30') {
       if (!batched) { batched = true; registry.get('reprice').click(); }

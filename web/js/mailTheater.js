@@ -25,15 +25,18 @@ export function buildMailTheater({ world, scene, audio, fx, sync, headless, redu
     _nextPoll: 0,
     _flagTarget: null,   // rotation.z we're lerping the flag toward
     _env: null,          // { mesh, vy, spin, landed }
+    gen: 0,
   };
 
   function arm(seenAt = 0) {
     if (headless || !sync || !sync.live) return;
+    state.gen++;
     state.armed = true;
     state.seenAt = Math.max(state.seenAt, seenAt || 0);
     state._nextPoll = 0;   // poll on the next frame, not 8 s out
   }
   function disarm() {
+    state.gen++;
     state.armed = false;
     clearEnvelope();
     state._flagTarget = null;
@@ -80,8 +83,9 @@ export function buildMailTheater({ world, scene, audio, fx, sync, headless, redu
     // poll — self-throttled; one in flight at a time
     if (now >= state._nextPoll) {
       state._nextPoll = now + POLL_MS;
+      const g = state.gen;
       Promise.resolve(sync.inbox(state.seenAt)).then((letter) => {
-        if (letter && state.armed) arrive(letter);
+        if (letter && state.armed && g === state.gen) arrive(letter);
       }).catch(() => {});
     }
     // flag lerp (world.setMail snaps; the theater wants it to rise)

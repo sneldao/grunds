@@ -5,6 +5,7 @@
 
 export const DRIFT = {
   perDay: 0.025,
+  accel: 0.008,
   maxIndex: 1.8,
   priceFloor: 4.8,
   priceCeiling: 5.4,

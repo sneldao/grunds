@@ -136,7 +136,10 @@ Keep one reliable path, visible reset controls, and a fallback recording.
 **Convex phase (by Sept 22)** — status Sept 12:
 1. ~~Fresh repo, `npm create convex`, port signals/zone logic to TypeScript~~ — done:
    `convex/` holds schema, exchange, regulars, letters, apiCache + OpenAI/Firecrawl/
-   AgentMail actions, verified end-to-end on a cloud dev deployment
+   AgentMail actions, verified end-to-end on a cloud dev deployment (historical
+   deployment; the new `planSessions`/`dayDecisions` decision protocol in this
+   change has only been tested locally and requires a coordinated backend +
+   frontend deployment)
 2. ~~The Exchange: scheduled functions + Firecrawl news→event deck (with pity timers)~~ —
    deck + pity timers live server-side; Firecrawl pull live with 6h cache; nightly cron next
 3. ~~The Regulars: persistent patron memory + gossip propagation graph~~ — done server-side
@@ -207,6 +210,10 @@ node web/test/next-action.mjs         # next-action priority + #goal renders fro
 node web/test/halo.mjs                # guidance halo: shouldHalo predicate, idle timer, reduced motion
 node web/test/mail-inbox.mjs          # Idris inbox mirror: latestInbox, /agentmail/inbox, arrival theater
 node web/test/share-card.mjs          # stamped print share card: layout, composition order, doPhoto wiring
+node web/test/modals.mjs              # modal a11y: focus trap, stack z-order/inert, shortcut routing
+node web/test/lifecycle-accounting.mjs # planning→trading→review lifecycle, per-cup hedge accounting, reconciled P&L
+node --experimental-vm-modules web/test/decisions.mjs  # managed decision protocol: resolver, Convex handlers (mock DB), client lifecycle
+node web/test/balance-policies.mjs    # diagnostic policy comparison across fixed seeds (fresh-process replay)
 ```
 
 The floor is a **connected 5-day campaign**, not a closed loop. The three nested clocks
@@ -214,8 +221,10 @@ now meet the floor: the Exchange rolls a pity-timer event deck at each dawn (fro
 Minas Gerais, East Africa drought, clean harvest, matcha hype) that moves the bean
 benchmark; your cost-of-goods (anchored to `benchmark_corpus.json` — ~30% COGS for a UK
 independent) eats the margin shown on an in-world **ticker board**; the **Roaster's
-Letter** arrives at each close as a reply-to-command (contract / hold / settle) you
-answer from the **mailbox** in the street; **persistent Regulars** carry opinion across
+Letter** arrives at each close for review — on connected runs you can post the
+morning's plan to Idris's real inbox and answer by email (contract / hold / settle),
+with replies committing through the same day-scoped record as the browser;
+**persistent Regulars** carry opinion across
 days into a reputation meter that modulates footfall and tips. World events pass through
 commodity economics into patrons' pockets into your till — every link visible in 3D.
 
@@ -224,12 +233,12 @@ arc), **brick district facades** (two-tone bricks + mortar, framed windows, corn
 mailbox, a **512×320 brass-collar ticker** with linen grain, weather mist + **warm dust motes (180, amber) in sun-shaft god rays after a frost or harvest**, **7 bollards** + a *THE DISTRICT* street decal, and a
 street **cat Miso** that walks once a day — rendered through a
 core-Three **post-FX** bloom/vignette/grain pipeline (auto-disabled on low-RAM/low-core + dynamic shadow budget at `queue>40` + GLB cross-fade-in). Controls: `1` pre-batch, `2` reprice, `space` pause — title prints the live set.
-Morning Brief answers to `1`/`2`/`3`/`4`/`5` → `Enter` (the Letter keeps all five at night). Hidden delight: type `GRUNDS` for Gwen's gesha reserve. URL params: `?lite`
+Morning Brief answers to `1`/`2`/`3`/`4`/`5` → `Enter`. Hidden delight: type `GRUNDS` for Gwen's gesha reserve. URL params: `?lite`
 (no shadows/post-FX, 1× pixels, now also auto on ≤4 cores / ≤4GB), `?speed=60|300|1200` (default 1×; headless stays 5×),
-`?seed=N` (campaign seed), `?skipLicence` (bypass the pitch licence — defaults), `?skipTutorial`/`?notutorial` (bypass licence + 3-step onboarding), `?skipBrief` (bypass Morning Brief).
+`?seed=N` (campaign seed), `?skipLicence` (bypass the pitch licence — defaults), `?skipTutorial`/`?notutorial` (bypass licence + 3-step onboarding).
 
 Onboarding: new players sign the **pitch licence** (name + stand + role + a one-perk
-background — Enter takes the defaults), then land at 1× through a 3-step tutorial (Read 14:00 / Lever 1+2 /
+background — activate the Sign button; Escape never signs or advances), then land at 1× through a 3-step tutorial (Read 14:00 / Lever 1+2 /
 Keep 5 vs GLASSHOUSE, `Enter`/`Space`/`Esc`) then a 3.4s paused crane settle; day-1
 mornings are half-demand and gossip-throttled so eyes settle before the queue reads.
 The HUD is goal-first: a brass goal strip, a queue health bar (ok/warm/hot + "queue
@@ -252,15 +261,16 @@ grunds/
 ├── package.json                 # convex + static-hosting (npm run typecheck/build:dist/deploy:site)
 ├── tsconfig.json
 ├── convex/                      # live backend (cloud dev deployment, verified end-to-end)
-│   ├── schema.ts                # campaigns, marketEvents, regulars, friendships, letters, stands, apiCache
+│   ├── schema.ts                # campaigns, marketEvents, regulars, friendships, letters, stands, apiCache, planSessions, dayDecisions
 │   ├── gameConfig.ts            # drift, event deck, roster, seeded RNG (ported from web/js/config.js)
-│   ├── exchange.ts              # dawns, contracts, debt — drift-then-pity-roll
+│   ├── exchange.ts              # dawns, contracts, debt — drift-then-pity-roll (rejects writes to managed campaigns)
+│   ├── decisions.ts             # managed per-day commit records — begin/prepare/stage/commit/finish/abandon, browser+email first-writer arbitration
 │   ├── regulars.ts              # seen-marks, expectation pressure, 5% contagion
 │   ├── letters.ts               # templated Letter preview + archive
 │   ├── apiCache.ts              # TTL response cache (Firecrawl 6h, OpenAI 7d)
 │   ├── openai.ts                # enhanceLetter + personaLine (gpt-4o-mini, key-gated)
 │   ├── firecrawl.ts             # commodity-news → deck weights (live)
-│   ├── agentmail.ts + http.ts   # signed webhook → reply-to-command + latestInbox mirror; /sync/* bridge; static catch-all
+│   ├── agentmail.ts + http.ts   # Svix-signed webhook → thread-mapped reply-to-command (frozen posted plan) + latestInbox mirror; /sync/* bridge incl. /sync/plan token ops; static catch-all
 │   └── convex.config.ts         # registers @convex-dev/static-hosting
 ├── tools/build-dist.sh          # web/ → dist/ + schedule snapshot for site upload
 ├── data/
@@ -287,8 +297,13 @@ grunds/
 │   │   ├── mailTheater.js       # Idris reply arrives: poll /agentmail/inbox, knock, flag, dropped envelope
 │   │   ├── shareCard.js         # stamped-print 1280×720 photo card (paper border + rubber seed stamp)
 │   │   ├── demand.js            # awareness stock (decay + street work) + loyalty return rate
+│   │   ├── economy.js           # shared sale price / operating costs / hedge terms / plan quote
+│   │   ├── rival.js             # GLASSHOUSE strategy: price posture, cohort draw, service speed
+│   │   ├── staffing.js          # Ruth/apprentice staffing predicates + crisis eligibility
+│   │   ├── modals.js            # shared modal controller: focus trap, inert stack, top-layer keys
+│   │   ├── decision.js          # pure resolveDecision(snapshot, plan) — local + managed commit path
 │   │   ├── districtGen.js       # seed → generated 3D kit cross-fade (?classicDistrict / failure → procedural)
-│   │   ├── convexSync.js        # optional dawn-mirror to Convex (auto on *.convex.site, ?convex= override) + Linkup intel + inbox poll
+│   │   ├── convexSync.js        # optional connected mode (auto on *.convex.site, ?convex= override): managed plan queue + Linkup intel + inbox poll
 │   │   ├── analytics.js         # local playtest analytics (tutorial/lever/balk/debrief/forecast) + localStorage + console
 │   │   ├── desk.js + billing.js # The Wire research desk (headlines free, tilt on District Insider) + RevenueCat Web Billing
 │   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist, scaffolds) + chalkboard flash
@@ -322,7 +337,7 @@ grunds/
 │   ├── behavioral.mjs             # decoy anchoring, pastry/cacao attachments, tip jar social proof
 │   └── share.mjs                  # Z-read share cards, campaign badges, replayable seed links + outcome framing
 │   │   (…plus demand, district, vitality, kit-arrival, next-action, halo,
-│   │      mail-inbox, share-card — full list with one-liners in the test
+│   │      mail-inbox, share-card, modals, decisions, lifecycle-accounting — full list with one-liners in the test
 │   │      commands above)
 │   ├── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)
 │   └── assets/                  # Kenney CC0 GLB props + SOURCES.md
@@ -385,7 +400,7 @@ queue bar + batch countdown + `tabular-nums` till + bean **tape**), narrative (t
 Day-2 forecast + The Wire desk + sized hedge + cost sheet), physical (honey-oak floor + slab pavement + aggregate road + awning eyelets + facades/cornice/shopfront + bollards/decal + scaffolds/tarps + chalkboard flash + till drawer + shadow + arcing coins + sipping sitters + motes/god rays), audible
 (saw + hammer + till/coins + 90Hz clock tick at 1× + chalk screech + fanfare/rain + 38Hz purr + meow + shutter), animated (drifting dust + 3D conversation
 lines + cat Miso + living plant + god rays + rival lean/jeer + photo vignette). Onboarding lands at 1× with a 3-step tutorial + calm-open throttling;
-**06:00 Drug Wars turn** pauses the floor for the Morning Brief (sparkline + wire headlines + 5 sized pills → `OPEN FOR DAY`); `analytics.js` measures every brief choice, balk and first lever for the playtest. Performance is intent: auto- + dynamic-`lite` (no shadows/post-FX on weak devices, shadow budget at `queue>40`), GLB cross-fade, `tabular-nums` + staggered receipt typewriter. **26/26**
+**06:00 Drug Wars turn** pauses the floor for the Morning Brief (sparkline + wire headlines + 5 sized pills → `OPEN FOR DAY`); `analytics.js` measures every brief choice, balk and first lever for the playtest. Performance is intent: auto- + dynamic-`lite` (no shadows/post-FX on weak devices, shadow budget at `queue>40`), GLB cross-fade, `tabular-nums` + staggered receipt typewriter. **30/30**
 headless tests run green on every merge (new `vitality/kit-arrival/next-action/halo/mail-inbox/share-card` are the delight-pass gates).
 
 ## Live on Convex (Sept 12–19)
@@ -410,11 +425,12 @@ The Convex phase shipped as working backend + hosting, not a plan:
   an Idris ack by return post and the whole correspondence in `letters`.
 - **Hosting**: the floor deploys via `@convex-dev/static-hosting` to
   https://striped-anaconda-746.convex.site (38 files, no bundler — `web/`
-  *is* the dist plus a schedule snapshot). The game auto-mirrors each
-  dawn to Convex when hosted there (HUD badge flips `● LIVE`).
+  *is* the dist plus a schedule snapshot). When hosted there the game runs
+  the managed decision protocol — each day's plan commits through
+  `POST /sync/plan`, day-scoped and retry-safe (HUD badge flips `● LIVE`).
 - **Game feel**: bubbles capped at 10 and clamped on-screen, sign-aware
   numbers ("down 6%", never "up -6%" — now `tabular-nums` so the till never jitters), `space` or button pauses the sim
-  clock, the Letter answers to `1`/`2`/`3`; `P`/`📷` freezes a golden-hour **stamped print** — a 1280×720 share card (cream paper border, cover-cropped post-FX snapshot, a rotated red "GRUNDS · SEED N" rubber stamp) with a `↓ save · 𝕏 share · ⧉ copy` action row (Web Share Level 2 where available, X-intent + clipboard fallbacks); type `GRUNDS` for Gwen's £7.80 gesha wink. A day-1 12:00 coach nudges the
+  clock, the Brief answers to `1`–`5` + `Enter`; `P`/`📷` freezes a golden-hour **stamped print** — a 1280×720 share card (cream paper border, cover-cropped post-FX snapshot, a rotated red "GRUNDS · SEED N" rubber stamp) with a `↓ save · 𝕏 share · ⧉ copy` action row (Web Share Level 2 where available, X-intent + clipboard fallbacks); type `GRUNDS` for Gwen's £7.80 gesha wink. A day-1 12:00 coach nudges the
   levers before the student wave (was 13:00), beat cameras hold still at 20×
   and breath is calm-gated 7s + `prefers-reduced-motion`-aware, and the rival
   lives — their sign burns with their queue, **leans -0.08rad at heat>6 and jeers at 5 defections via `world.jeerRival()`**, the camera shows first blood,
@@ -441,12 +457,13 @@ The Convex phase shipped as working backend + hosting, not a plan:
   first lever, every balk, debrief and forecast for the playtest
   (`__grunds.analytics.summary()` + boot 5-question script). Loop tests are
   RNG-seeded, so the **26-test** gate is deterministic.
-- **Drug Wars turn**: `main.js` Morning Brief at `06:00 [PAUSED]` (`#brief` 520px linen: Idris prose + 76px sparkline + wire headlines/host/why + 5 pills; `briefPaused` freezes `loop`, `dismissBriefAndStartDay` calls `exchange.contractBeans(units, fee)`; `?skipBrief`, `_pricePreview(spot)`); `OFFERS` (5) at `11:00` — same `offerPaused` path, each with a real payoff; `INCIDENTS` (6) `14:55–16:55` days 2+ (red tint, rotated) and a **cost-sheet P&L** at `closeDay` (staff+milk+rent+card+sundries → `~£8.9k net` headless). `agency.mjs` Drug Wars gate.
-- **The pitch licence**: before the tutorial, the district office hands you a licence — your name, the stand's name, a title (`the new owner` / `the manager` / `the name on the lease`), and a background with one small perk (`ex-barista` paces the bar ~8%, `ex-accountant` trims fees & payouts 15%, `new to the trade` warms the regulars, `a market regular` hears the wire's lean in the Brief). Enter signs with defaults; the signature threads the letter (*Dear Ada… what do you want to do, Ada?*), both receipts, the tutorial greeting, and the Convex district board (`grunds.owner` reads live). Persists via `localStorage`; `?skipLicence` bypasses.
-- **Ruth, your barista**: one named staffer, one hidden `baristaCondition` — worked shifts drain it (brutal floors drain faster), a sent-home day restores it. When she's fading the Brief adds a `home / push on` row: home means a −30% solo bar today but her wage is saved and she's fresh tomorrow; push on keeps pace now and risks her breaking mid-shift (asleep at the counter, or snapping at a regular — rep hit). Her sick-call incident can't fire on a day she's already home, and on fumes it becomes a warning shot. No roster, no morale meter — the fiction carries the state.
+- **Drug Wars turn**: `main.js` Morning Brief at `06:00` (`#brief` 520px linen: Idris prose + 76px sparkline + wire headlines/host/why + 5 pills; `phase:'planning'` freezes `loop`, `stageDayPlan` is reversible, `commitDayPlan` resolves the day through the shared pure `resolveDecision` *before* the market rolls — on connected runs the server's per-day commit record arbitrates browser vs email, first writer wins, retries return the same result); `OFFERS` (5) at `11:00` — same modal pause path, each with a real payoff; `INCIDENTS` (6) `14:55–16:55` days 2+ (red tint, rotated) and a **cost-sheet P&L** at `closeDay` (staff+milk+rent+card+sundries + contract fees + interest + realized hedge benefit). Outcomes are measured by the reproducible policy comparison, not a promised profit target. `agency.mjs` Drug Wars gate.
+- **The pitch licence**: before the tutorial, the district office hands you a licence — your name, the stand's name, a title (`the new owner` / `the manager` / `the name on the lease`), and a background with one small perk (`ex-barista` paces the bar ~8%, `ex-accountant` trims fees & payouts 15%, `new to the trade` warms the regulars, `a market regular` hears the wire's lean in the Brief). Signing is explicit activation only — the Sign button; Escape never signs or advances; the signature threads the letter (*Dear Ada… what do you want to do, Ada?*), both receipts, the tutorial greeting, and the Convex district board (`grunds.owner` reads live). Persists via `localStorage`; `?skipLicence` bypasses.
+- **Ruth, your barista**: one named staffer, one hidden `baristaCondition` — Ruth loses 0.14 condition per worked shift (+0.08 for peak queues above 50, +0.06 for 60+ balks). Below 0.55 from day two, the Brief offers work / home / apprentice cover: home saves the wage, runs the bar at 0.7×, restores 0.45; apprentice cover costs £65 wage + £12 training + £0.04 extra supplies a cup, runs 1.05×, restores 0.25. Push on keeps pace now and risks her breaking mid-shift (asleep at the counter, or snapping at a regular — rep hit). Home/apprentice days prevent the crisis and the sick-call incident. No roster, no morale meter — the fiction carries the state.
 - **Delight pass (Sept 19) — five features, one spine**: `web/js/director.js` runs ordered modulation layers *after* `world.updateTimeOfDay`/`sky.update`/`audio.update` overwrite their targets each frame (read-modify-write, replace-by-id, try/catch per layer). **Vitality** (`vitality.js`: `0.65·awareness + 0.35·reputation/100`, lerped) is the audiovisual skin only — pendants, lamps, windows and the sign dim and brighten, the sky's sun and stars follow, the street murmur and pad sink with it — and provably never touches `demand.spawnMul()`. **Guidance halo** (`nextAction.js` + `halo.js`): one pure priority rule feeds both the brass `#goal` strip and a pulsing ground ring under the right object (chalkboard, mailbox, till) after ~5s idle — the words and the light cannot drift apart. **Kit arrival beat** (`kitArrival.js` + `districtGen.onGrown`): when a seed's generated kit finishes growing on a first visit, a cart rolls in and the lanterns light one by one before the toast. **Idris's letter arrives as theater**: `letters` gains `dir`/`action`/`from`/`createdAt` + a `by_campaign_dir_created` index; `latestInbox` + a read-only `GET /agentmail/inbox` mirror the mailbox for the client; `mailTheater.js` polls it, triple-knocks, raises the flag and drops an envelope on the pavement — the server's `handleInbound` stays the only applier (mirror ≠ second writer). **Stamped share card** (`shareCard.js`): `doPhoto` now captures *after* `postfx.render`, so the printed card carries the same bloom and vignette the player saw. Six new test suites pin all of it.
 - **Performance**: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms frames, shadow budget at `queue>40`, GLB cross-fade (`opacity 0→1`), RAF slot discipline (`requestAnimationFrame(loop)` re-arms first, receipt + loader use `setTimeout` in headless so the game loop isn't stolen), `tabular-nums` till, staggered receipt — fixed two real regressions (reputation `NaN` via sparse `opContagion`, RAF steal at close) — both caught by the headless gate.
-- Still to do: full live-query sync (mirror today), Convex Auth, Nebius voicing of the 11:00 ask (gossip pipe already serves it), prod deploy, social post + submission. Demo video v1 lives in `videos/grunds-demo` — recorded gameplay + HyperFrames; `npm run render` re-renders, captures/renders are gitignored.
+- **Managed decision protocol + modal system**: connected runs play the same week through `convexSync`'s per-run queue (`begin → prepare → stage → commit → finish` over `POST /sync/plan`, 32-byte run token hashed server-side). The Brief stages the plan, `OPEN` commits it — `decisions.ts` holds an immutable per-day record, so a browser click and an Idris email reply race to one winner and every retry returns that result; `finishDay` mirrors the closing state and upserts the stand. A lost response is safe to retry, a reset abandons the run and rotates the token, and `start a local-only week` is an explicit choice — never a silent fallback. Local simulation stays client-side (the commit record is not an anti-cheat boundary). Modals share one controller (`modals.js`): focus trap + wrap, stacked inert underlayers with real z-order, Escape/shortcut routing to the top layer only, focus restored on close.
+- Still to do: Convex Auth, Nebius voicing of the 11:00 ask (gossip pipe already serves it), prod deploy, social post + submission. Demo video v1 lives in `videos/grunds-demo` — recorded gameplay + HyperFrames; `npm run render` re-renders, captures/renders are gitignored.
 
 See `hackathon.md` for the build log.
 

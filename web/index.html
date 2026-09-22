@@ -11,6 +11,7 @@
     --brass: #c9a227; --matcha: #86a860; --neg: #d0603b; --teal: #7fb3b0;
     --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --modal-pad: 24px; --modal-gap: 12px; --modal-body-size: 13px; --modal-leading: 1.5;
   }
   * { box-sizing: border-box; }
   body { margin: 0; overflow: hidden; background: #0b0e14; font-family: var(--mono); color: var(--paper); }
@@ -118,7 +119,7 @@
     background: rgba(10, 8, 6, .55); backdrop-filter: blur(4px);
     opacity: 0; pointer-events: none; transition: opacity .8s ease .9s; }
   #receipt.show { opacity: 1; pointer-events: auto; }
-  #receipt .paper { width: 320px; background: var(--cream); color: var(--ink); padding: 26px 26px 20px;
+  #receipt .paper { --modal-width: 320px; background: var(--cream); color: var(--ink);
     font-size: 13px; box-shadow: 0 24px 70px rgba(0,0,0,.6); transform: translateY(14px); transition: transform .8s cubic-bezier(.2,1.2,.4,1) .9s;
     clip-path: polygon(0 8px, 4% 0, 8% 8px, 12% 0, 16% 8px, 20% 0, 24% 8px, 28% 0, 32% 8px, 36% 0, 40% 8px, 44% 0, 48% 8px, 52% 0, 56% 8px, 60% 0, 64% 8px, 68% 0, 72% 8px, 76% 0, 80% 8px, 84% 0, 88% 8px, 92% 0, 96% 8px, 100% 0, 100% 100%, 0 100%); }
   #receipt.show .paper { transform: none; }
@@ -127,7 +128,7 @@
   #receipt .rsub { text-align: center; font-size: 11px; opacity: .6; margin: 4px 0 16px; }
   .rl { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed rgba(23,19,16,.18); }
   #r-lines .rl:last-of-type { border-bottom: 2px solid var(--ink); font-weight: 700; font-size: 15px; padding-top: 8px; }
-  #r-verdict { font-family: var(--serif); font-style: italic; font-size: 14.5px; line-height: 1.5; margin: 16px 0; }
+  #r-verdict { font-family: var(--serif); font-style: italic; font-size: var(--modal-body-size); line-height: 1.5; margin: 16px 0; }
   #r-stands { margin-top: 14px; display: none; }
   #r-stands.show { display: block; }
   #r-stands h4 { margin: 0 0 6px; font-family: var(--serif); font-size: 10.5px; letter-spacing: .3em; color: #7a5a2a; text-transform: uppercase; }
@@ -141,13 +142,12 @@
     background: rgba(10,8,6,.6); backdrop-filter: blur(5px); opacity: 0; pointer-events: none;
     transition: opacity .7s ease; }
   #letter.show { opacity: 1; pointer-events: auto; }
-  .l-paper { width: 440px; max-width: 92vw; background: linear-gradient(176deg,#f6efe0,#e8dcc2); color:#2a241c;
-    padding: 30px 32px 24px; box-shadow: 0 26px 70px rgba(0,0,0,.6); transform: translateY(16px) rotate(-.4deg);
+  .l-paper { background: linear-gradient(176deg,#f6efe0,#e8dcc2); color:#2a241c;
+    box-shadow: 0 26px 70px rgba(0,0,0,.6);
     transition: transform .7s cubic-bezier(.2,1.2,.4,1); border-top: 4px double #c9a227; }
-  #letter.show .l-paper { transform: translateY(0) rotate(-.4deg); }
   .l-head { font-family: var(--serif); font-size: 13px; letter-spacing: .32em; color: #7a2a18; text-align: center; }
   .l-kicker { text-align: center; font-size: 10.5px; letter-spacing: .18em; opacity: .55; margin: 4px 0 18px; text-transform: uppercase; }
-  #letter-body { font-family: var(--serif); font-size: 14.5px; line-height: 1.62; white-space: pre-wrap; margin: 0 0 8px; }
+  #letter-body { font-family: var(--serif); font-size: var(--modal-body-size); line-height: 1.62; white-space: pre-wrap; margin: 0 0 8px; }
   .l-sign { font-family: var(--serif); font-style: italic; font-size: 13px; opacity: .7; margin-bottom: 16px; text-align: right; }
   .l-actions { display: flex; flex-direction: column; gap: 8px; }
   .l-actions button { text-align: left; font-size: 13px; }
@@ -173,29 +173,42 @@
   #wirebtn { margin-top: 6px; padding: 5px 10px; font-size: 11px; letter-spacing: .08em; }
   #tape { cursor: pointer; }
   #tape:hover { opacity: 1; }
+  /* ---- standardized modal system: fixed tiering, consistent sizing, progressive disclosure ---- */
   #brief { position: fixed; inset: 0; z-index: 31; display: grid; place-items: center;
-    background: rgba(10,8,6,.58); backdrop-filter: blur(5px); opacity: 0; pointer-events: none;
-    transition: opacity .55s ease; }
+    background: rgba(10,8,6,.62); backdrop-filter: blur(6px); opacity: 0; pointer-events: none;
+    transition: opacity .4s ease; }
   #brief.show { opacity: 1; pointer-events: auto; }
-  #brief .l-paper { width: 520px; max-width: 94vw; max-height: 88vh; overflow: auto; }
-  #brief-canvas { width: 100%; height: 76px; display: block; margin: 10px 0 8px; border: 1px solid rgba(201,162,39,.22); border-radius: 3px; background: #0c0f14; }
-  #brief-wire { font-size: 11.5px; line-height: 1.5; margin: 8px 0; padding: 8px 10px; background: rgba(29,74,72,.08); border-left: 3px solid var(--teal); border-radius: 3px; }
+  /* Scrollable Tier 2 (Content & Progressive Drawers) */
+  .modal-tier-scroll { scrollbar-width: thin; }
+  .modal-tier-scroll::-webkit-scrollbar { width: 4px; }
+  .modal-tier-scroll::-webkit-scrollbar-thumb { background: rgba(201,162,39,.3); border-radius: 2px; }
+
+  #brief-canvas { width: 100%; height: 72px; display: block; margin: 6px 0 6px; border: 1px solid rgba(201,162,39,.22); border-radius: 3px; background: #0c0f14; flex-shrink: 0; }
+
+  /* Progressive disclosure drawers */
+  #brief-wire, #brief-staff, #brief-demand, #brief-nut {
+    font-size: 11.5px; line-height: 1.5; margin: 6px 0; padding: 7px 10px; border-radius: 3px;
+    border-left: 3px solid var(--brass); background: rgba(201,162,39,.06);
+  }
+  #brief-wire { border-left-color: var(--teal); background: rgba(29,74,72,.08); }
   #brief-wire a { color: #1d4a48; text-decoration: underline; }
-  #brief-wire summary { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; opacity: .6; cursor: pointer; }
-  #brief-wire details[open] summary { margin-bottom: 4px; }
-  #brief-staff { margin: 8px 0; padding: 8px 10px; background: rgba(160,60,50,.07); border-left: 3px solid #a0522d; border-radius: 3px; }
-  #brief-staff button { display: block; width: 100%; margin-top: 4px; font-size: 11.5px; text-align: left; }
-  #brief-demand { margin: 8px 0; padding: 8px 10px; background: rgba(134,168,96,.08); border-left: 3px solid var(--matcha); border-radius: 3px; }
-  #brief-demand button { display: block; width: 100%; margin-top: 4px; font-size: 11.5px; text-align: left; }
+  #brief-wire summary, #brief-demand summary { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; opacity: .75; cursor: pointer; font-weight: 600; }
+  #brief-wire details[open] summary, #brief-demand details[open] summary { margin-bottom: 4px; }
+
+  #brief-staff { border-left-color: #a0522d; background: rgba(160,60,50,.07); }
+  #brief-staff button { display: block; width: 100%; margin-top: 4px; font-size: 11px; text-align: left; padding: 6px 9px; }
+
+  #brief-demand { border-left-color: var(--matcha); background: rgba(134,168,96,.08); }
+  #brief-demand button { display: block; width: 100%; margin-top: 4px; font-size: 11px; text-align: left; padding: 6px 9px; }
   #brief-demand button:disabled { opacity: .45; }
-  #brief-nut { margin: 8px 0; padding: 8px 10px; background: rgba(201,162,39,.06); border-left: 3px solid var(--brass); border-radius: 3px; font-size: 11.5px; line-height: 1.5; opacity: .88; }
-  #brief-actions { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 12px; }
-  #brief-actions button { font-size: 12.5px; text-align: left; }
-  #brief-open { width: 100%; font-size: 13px; letter-spacing: .14em; border-color: var(--brass); }
+
+  #brief-actions { display: flex; flex-direction: column; gap: 5px; margin: 6px 0 10px; flex-shrink: 0; }
+  #brief-actions button { font-size: 12px; text-align: left; padding: 8px 12px; }
+  #brief-open { width: 100%; font-size: 13px; letter-spacing: .14em; border-color: var(--brass); flex-shrink: 0; }
   #licence { position: fixed; inset: 0; z-index: 33; display: grid; place-items: center;
     background: rgba(10,8,6,.55); backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity .5s; }
   #licence.show { opacity: 1; pointer-events: auto; }
-  .lic-paper { width: 470px; }
+  .lic-paper { --modal-width: 520px; }
   .lic-field { display: block; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; opacity: .7; margin: 12px 0 4px; }
   .lic-field input { display: block; width: 100%; margin-top: 4px; background: none; border: none;
     border-bottom: 1.5px solid rgba(42,36,28,.4); font-family: var(--serif); font-size: 19px;
@@ -207,23 +220,22 @@
   .lic-pills button.on { border-color: #7a2a18; background: rgba(122,42,24,.12); }
   .lic-bgs button { flex: 1 1 46%; text-align: left; }
   .lic-bgs button small { display: block; opacity: .62; font-size: 10px; margin-top: 2px; }
-  #lic-sign { width: 100%; margin-top: 18px; letter-spacing: .16em; border-color: var(--brass); }
+  #lic-sign { width: 100%; margin-top: 0; letter-spacing: .16em; border-color: var(--brass); }
   .lic-hint { text-align: center; font-size: 10px; opacity: .5; margin-top: 8px; font-style: italic; }
   #desk, #paywall, #offer { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center;
     background: rgba(10,8,6,.55); backdrop-filter: blur(4px); opacity: 0; pointer-events: none;
     transition: opacity .5s ease; }
   #desk.show, #paywall.show, #offer.show { opacity: 1; pointer-events: auto; }
-  #offer .d-paper { border-top-color: var(--brass); width: 380px; }
+  #offer .d-paper { border-top-color: var(--brass); --modal-width: 420px; }
   #offer.incident .d-paper { border-top-color: #a04434; }
-  #offer-line { font-family: var(--serif); font-size: 14px; line-height: 1.55; white-space: pre-wrap; margin: 4px 0 6px; }
+  #offer-line { font-family: var(--serif); font-size: var(--modal-body-size); line-height: 1.55; white-space: pre-wrap; margin: 4px 0 6px; }
   #offer-effect { font-size: 11px; opacity: .65; margin-bottom: 12px; }
-  .d-paper { width: 420px; max-width: 92vw; max-height: 80vh; overflow: auto;
-    background: linear-gradient(176deg,#f6efe0,#e8dcc2); color:#2a241c;
-    padding: 26px 28px 20px; box-shadow: 0 26px 70px rgba(0,0,0,.6);
+  .d-paper { background: linear-gradient(176deg,#f6efe0,#e8dcc2); color:#2a241c;
+    box-shadow: 0 26px 70px rgba(0,0,0,.6);
     border-top: 4px double var(--teal); }
   .d-paper .l-head { color: #1d4a48; }
   #desk-body { font-size: 12.5px; }
-  .d-sum { font-family: var(--serif); font-style: italic; font-size: 13.5px; margin: 0 0 12px; }
+  .d-sum { font-family: var(--serif); font-style: italic; font-size: var(--modal-body-size); margin: 0 0 12px; }
   .d-paper h5 { margin: 14px 0 6px; font-size: 10px; letter-spacing: .3em; text-transform: uppercase; color: #7a5a2a; }
   .d-row, .d-src { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0;
     border-bottom: 1px dashed rgba(23,19,16,.15); font-size: 12px; }
@@ -232,7 +244,7 @@
   #desk-edge { font-size: 11px; line-height: 1.5; opacity: .7; margin-top: 12px; padding-top: 10px;
     border-top: 1px solid rgba(29,74,72,.18); }
   #desk-edge a { color: #1d4a48; }
-  .d-close { margin-top: 14px; width: 100%; }
+  .d-close { margin-top: 0; width: 100%; }
   .pw-perks { margin: 14px 0; padding: 0; list-style: none; font-size: 12.5px; line-height: 1.8; }
   .pw-perks li::before { content: '☕ '; }
   #pw-buy { width: 100%; }
@@ -243,6 +255,43 @@
   .l-desktoggle { display: block; margin: 8px auto 0; background: none; border: none; color: #7a5a2a;
     font-size: 11.5px; letter-spacing: .1em; text-decoration: underline; padding: 4px; }
   .l-desktoggle:hover:enabled { background: none; transform: none; color: #a3762f; }
+
+  .modal { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); overflow: auto; }
+  .modal:not(.show) { visibility: hidden; }
+  .modal-panel {
+    display: flex; flex-direction: column;
+    width: var(--modal-width, 520px); max-width: 100%; min-height: 0;
+    max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+    padding: 0; overflow: hidden; transform: none;
+  }
+  .modal-header, .modal-footer { flex: none; padding: var(--modal-pad); }
+  .modal-header { padding-bottom: var(--modal-gap); }
+  .modal-body {
+    flex: 1 1 auto; min-height: 0; overflow: auto;
+    padding: 0 var(--modal-pad) var(--modal-gap);
+    overflow-wrap: anywhere;
+    font-size: var(--modal-body-size); line-height: var(--modal-leading);
+  }
+  .modal-footer { padding-top: var(--modal-gap); border-top: 1px solid rgba(42,36,28,.15); }
+  .modal :focus-visible, .modal-panel:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+  #brief .modal-panel { height: min(760px, 86vh); height: min(760px, 86dvh); }
+  #brief-summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 20px; height: 20px; margin-bottom: 8px; }
+  #brief-open { min-height: 44px; white-space: nowrap; }
+  #brief-context summary { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; opacity: .75; cursor: pointer; font-weight: 600; margin: 6px 0; }
+  #letter-mail { font-size: 11px; letter-spacing: .06em; margin-top: 10px; }
+  @media (max-width: 640px) { :root { --modal-pad: 18px; --modal-gap: 10px; } }
+  @media (max-height: 480px) {
+    :root { --modal-pad: 12px; --modal-gap: 8px; }
+    .modal { overflow-y: auto; }
+    #brief .modal-panel { height: calc(100vh - 24px); height: calc(100dvh - 24px); }
+    .modal-header .l-kicker { margin-bottom: 0; }
+  }
+  @media (max-height: 240px) {
+    .modal { align-items: start; }
+    .modal-panel { min-height: 220px; max-height: none; }
+    #brief .modal-panel { height: auto; }
+  }
+  #brief-letter { font-family: var(--serif); font-size: var(--modal-body-size); line-height: var(--modal-leading); white-space: pre-wrap; margin: 4px 0 0; }
 
   /* ---- controls ---- */
   button { font-family: var(--mono); font-size: 13px; padding: 10px 14px; cursor: pointer;
@@ -280,10 +329,10 @@
   /* ---- tutorial overlay ---- */
   #tutorial { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(8,6,4,.62); backdrop-filter: blur(6px); }
   #tutorial.show { display: grid; }
-  #tutorial .tcard { width: 460px; max-width: 92vw; background: linear-gradient(176deg,#f6efe0,#e8dcc2); color: #2a241c; padding: 28px 28px 22px; border-radius: 4px; box-shadow: 0 26px 70px rgba(0,0,0,.6); border-top: 4px double var(--brass); }
+  #tutorial .tcard { --modal-width: 460px; background: linear-gradient(176deg,#f6efe0,#e8dcc2); color: #2a241c; border-radius: 4px; box-shadow: 0 26px 70px rgba(0,0,0,.6); border-top: 4px double var(--brass); }
   #tutorial .stepk { font-size: 10px; letter-spacing: .35em; color: #7a5a2a; text-transform: uppercase; text-align: center; }
   #tutorial h3 { margin: 8px 0 10px; font-family: var(--serif); font-size: 22px; letter-spacing: .14em; text-align: center; }
-  #tutorial p { font-family: var(--serif); font-size: 14px; line-height: 1.65; margin: 0 0 12px; }
+  #tutorial p { font-family: var(--serif); font-size: var(--modal-body-size); line-height: 1.65; margin: 0 0 12px; }
   #tutorial .trow { display: flex; gap: 8px; margin-top: 16px; }
   #tutorial .trow button { flex: 1; }
   #tutorial .skip { display: block; margin: 14px auto 0; background: transparent; border-color: transparent; color: #7a5a2a; font-size: 11px; text-decoration: underline; }
@@ -302,7 +351,6 @@
     #levers button { font-size: 11px; padding: 9px 10px; flex: 1 1 auto; }
     #notebook { width: 86vw; right: 12px; bottom: 172px; }
     #chapter .ck { font-size: 24px; }
-    .l-paper { padding: 22px 20px 18px; }
     #letter-body { font-size: 13px; }
     .t-controls { padding: 0 12px; }
   }
@@ -345,111 +393,160 @@ Made to order, a matcha takes 4 minutes.
 <em>Pre-batch</em> and the wave hits a warm till.</p>
   </aside>
 
-  <div id="receipt">
-    <div class="paper">
-      <h2>GRUNDS</h2>
-      <div class="rsub">end of day · Z-read</div>
-      <div id="r-forecast" style="display:none"></div>
-      <div id="r-lines"></div>
-      <div id="r-stands"></div>
-      <p id="r-seed" style="display:none; margin-top:10px; font-family: var(--serif); font-size: 11px; color: #7a5a2a;">
-        <span style="letter-spacing:.25em; text-transform:uppercase">seed</span>
-      </p>
-      <p id="r-verdict"></p>
-      <button id="again">↺ open again tomorrow</button>
-      <button id="shareWeek" style="display:none; margin-top:8px;">⚔ challenge a friend — same seed</button>
+  <div id="receipt" class="modal" role="dialog" aria-labelledby="receipt-heading" aria-hidden="true" inert>
+    <div class="paper modal-panel" tabindex="-1">
+      <header class="modal-header"><h2 id="receipt-heading">GRUNDS</h2><div class="rsub">end of day · Z-read</div></header>
+      <div class="modal-body">
+        <div id="r-forecast" style="display:none"></div>
+        <div id="r-lines"></div>
+        <div id="r-stands"></div>
+        <p id="r-seed" style="display:none; margin-top:10px; font-family: var(--serif); font-size: 11px; color: #7a5a2a;">
+          <span style="letter-spacing:.25em; text-transform:uppercase">seed</span>
+        </p>
+        <p id="r-verdict"></p>
+      </div>
+      <footer class="modal-footer">
+        <button id="review-continue" style="display:none">open tomorrow →</button>
+        <button id="review-letter" style="display:none; margin-top:8px;">read Idris’s letter →</button>
+        <button id="receipt-back" style="display:none; margin-top:8px;">← back to the brief</button>
+        <button id="again">↺ open again tomorrow</button>
+        <button id="shareWeek" style="display:none; margin-top:8px;">⚔ challenge a friend — same seed</button>
+      </footer>
     </div>
   </div>
 
   <!-- The Roaster's Letter — the inbox between days. Reply-to-command. -->
-  <div id="letter">
-    <div class="l-paper">
-      <div class="l-head" id="letter-head"></div>
-      <div class="l-kicker">a letter arrives · the roaster writes</div>
-      <pre id="letter-body"></pre>
-      <div class="l-sign" id="letter-sign"></div>
-      <div id="letter-actions" class="l-actions"></div>
-      <button id="desklink" class="l-desktoggle" style="display:none"></button>
-      <div id="letter-mail" style="display:none; margin-top:10px; font-size:11px; letter-spacing:.06em;">
-        <input id="letter-mail-addr" type="email" placeholder="post this letter to…" spellcheck="false"
-          style="width:62%; padding:3px 0; background:transparent; border:0; border-bottom:1px solid rgba(122,90,42,.45);
-          font-family:var(--serif); font-size:12px; color:#2a241c; letter-spacing:.03em; outline:none;">
-        <button id="letter-mail-btn" style="margin-left:8px; padding:4px 10px; font-size:10.5px; letter-spacing:.1em;">post it</button>
+  <div id="letter" class="modal" role="dialog" aria-labelledby="letter-head" aria-hidden="true" inert>
+    <div class="l-paper modal-panel" tabindex="-1">
+      <header class="modal-header">
+        <div class="l-head" id="letter-head"></div>
+        <div class="l-kicker">a letter arrives · the roaster writes</div>
+      </header>
+      <div class="modal-body">
+        <pre id="letter-body"></pre>
+        <div class="l-sign" id="letter-sign"></div>
+        <div id="letter-actions" class="l-actions"></div>
+        <button id="desklink" class="l-desktoggle" style="display:none"></button>
       </div>
+      <footer class="modal-footer"><button id="letter-close">← back to the receipt</button></footer>
     </div>
   </div>
 
   <!-- the wire — headlines are free (the education); the quantitative tilt is insider -->
-  <div id="desk">
-    <div class="d-paper">
-      <div class="l-head">THE WIRE</div>
-      <div class="l-kicker">market desk — headlines free; the quantitative tilt is insider</div>
-      <div id="desk-body"></div>
-      <div id="desk-edge" style="display:none"></div>
-      <button id="desk-close" class="d-close">close the desk</button>
+  <div id="desk" class="modal" role="dialog" aria-labelledby="desk-heading" aria-hidden="true" inert>
+    <div class="d-paper modal-panel" tabindex="-1">
+      <header class="modal-header">
+        <div class="l-head" id="desk-heading">THE WIRE</div>
+        <div class="l-kicker">market desk — headlines free; the quantitative tilt is insider</div>
+      </header>
+      <div class="modal-body">
+        <div id="desk-body"></div>
+        <div id="desk-edge" style="display:none"></div>
+      </div>
+      <footer class="modal-footer"><button id="desk-close" class="d-close">close the desk</button></footer>
     </div>
   </div>
 
-  <div id="paywall">
-    <div class="d-paper">
-      <div class="l-head">DISTRICT INSIDER PASS</div>
-      <div class="l-kicker">the full wire, every morning</div>
-      <ul class="pw-perks">
-        <li>Exact deck-tilt multipliers behind every headline</li>
-        <li>Per-card reasoning — which event the news is loading</li>
-        <li>The roaster’s private reasoning, all week</li>
-      </ul>
-      <button id="pw-buy">subscribe · £4.99/mo</button>
-      <div id="pw-note"></div>
-      <div class="pw-links"><a href="#" id="pw-restore">restore purchase</a> · <a href="#" id="pw-close">not now</a></div>
-      <div id="pw-mode"></div>
+  <div id="paywall" class="modal" role="dialog" aria-labelledby="paywall-heading" aria-hidden="true" inert style="--modal-width:460px">
+    <div class="d-paper modal-panel" tabindex="-1">
+      <header class="modal-header">
+        <div class="l-head" id="paywall-heading">DISTRICT INSIDER PASS</div>
+        <div class="l-kicker">the full wire, every morning</div>
+      </header>
+      <div class="modal-body">
+        <ul class="pw-perks">
+          <li>Exact deck-tilt multipliers behind every headline</li>
+          <li>Per-card reasoning — which event the news is loading</li>
+          <li>The roaster’s private reasoning, all week</li>
+        </ul>
+        <div id="pw-note"></div>
+        <div id="pw-mode"></div>
+      </div>
+      <footer class="modal-footer">
+        <button id="pw-buy">subscribe · £4.99/mo</button>
+        <div class="pw-links"><a href="#" id="pw-restore">restore purchase</a> · <a href="#" id="pw-close">not now</a></div>
+      </footer>
     </div>
   </div>
 
   <!-- Morning Brief — the Drug Wars turn: paused at 06:00, commit then open -->
-  <div id="brief">
-    <div class="l-paper">
-      <div class="l-head">THE MORNING BRIEF</div>
-      <div class="l-kicker" id="brief-kicker">06:00 · the street is still · read, then commit</div>
-      <pre id="brief-letter" style="font-family:var(--serif); font-size:14px; line-height:1.58; white-space:pre-wrap; margin:6px 0 0;"></pre>
-      <canvas id="brief-canvas" width="480" height="76" aria-hidden="true"></canvas>
-      <div id="brief-wire" style="display:none"></div>
-      <div id="brief-demand" style="display:none"></div>
-      <div id="brief-nut" style="display:none"></div>
-      <div id="brief-staff" style="display:none"></div>
-      <div id="brief-actions"></div>
-      <button id="brief-open">OPEN FOR DAY →</button>
-      <button id="brief-desklink" class="l-desktoggle" style="display:none">⚡ open the full wire desk</button>
+  <div id="brief" class="modal" role="dialog" aria-labelledby="brief-heading" aria-hidden="true" inert>
+    <div class="l-paper modal-panel" tabindex="-1">
+      <!-- Tier 1: Fixed Header & Lede -->
+      <header class="modal-header">
+        <div class="l-head" id="brief-heading">THE MORNING BRIEF</div>
+        <div class="l-kicker" id="brief-kicker">Day 1/5 · plan before opening</div>
+      </header>
+
+      <!-- Tier 2: Scrollable Progressive Drawers -->
+      <div class="modal-body modal-tier-scroll">
+        <div id="brief-risk" style="display:none"></div>
+        <div id="brief-staff" style="display:none"></div>
+        <div id="brief-actions"></div>
+        <div id="brief-demand" style="display:none"></div>
+        <div id="brief-nut" style="display:none"></div>
+        <details id="brief-context"><summary>Idris, the board and the wire</summary>
+          <pre id="brief-letter"></pre>
+          <canvas id="brief-canvas" width="480" height="72" aria-hidden="true"></canvas>
+          <div id="brief-wire" style="display:none"></div>
+          <button id="brief-desklink" class="l-desktoggle" style="display:none">⚡ open the full wire desk</button>
+          <div id="brief-mail" style="display:none; margin-top:10px; font-size:11px; letter-spacing:.06em;">
+            <input id="letter-mail-addr" type="email" placeholder="post this plan to…" spellcheck="false"
+              style="width:62%; padding:3px 0; background:transparent; border:0; border-bottom:1px solid rgba(122,90,42,.45);
+              font-family:var(--serif); font-size:12px; color:#2a241c; letter-spacing:.03em; outline:none;">
+            <button id="letter-mail-btn" style="margin-left:8px; padding:4px 10px; font-size:10.5px; letter-spacing:.1em;">post it</button>
+          </div>
+        </details>
+        <button id="review-last" style="display:none">yesterday’s receipt →</button>
+      </div>
+
+      <!-- Tier 3: Anchored Actions & Commit -->
+      <footer class="modal-footer">
+        <div id="brief-error" role="status" style="display:none; font-size:11px; color:#8a4a2a; margin-bottom:6px;"></div>
+        <div id="brief-summary" aria-live="polite"></div>
+        <button id="brief-open">OPEN FOR DAY →</button>
+        <button id="brief-offline" style="display:none; margin-top:6px; font-size:10.5px; letter-spacing:.08em;">start a local-only week</button>
+      </footer>
     </div>
   </div>
 
   <!-- the pitch licence — sign yourself into the week before the tutorial -->
-  <div id="licence">
-    <div class="l-paper lic-paper">
-      <div class="l-head">PITCH LICENCE</div>
-      <div class="l-kicker">the district office · one week, one stand · sign below</div>
-      <label class="lic-field">name on the licence<input id="lic-name" maxlength="16" placeholder="Sam" autocomplete="off"></label>
-      <label class="lic-field">the stand<input id="lic-stand" maxlength="22" placeholder="THE CORNER CUP" autocomplete="off"></label>
-      <div class="lic-label">signed as</div>
-      <div id="lic-roles" class="lic-pills"></div>
-      <div class="lic-label">you were, before this</div>
-      <div id="lic-bgs" class="lic-pills lic-bgs"></div>
-      <button id="lic-sign">SIGN THE WEEK →</button>
-      <div class="lic-hint">enter signs — leave it blank and the district decides</div>
+  <div id="licence" class="modal" role="dialog" aria-labelledby="licence-heading" aria-hidden="true" inert>
+    <div class="l-paper lic-paper modal-panel" tabindex="-1">
+      <header class="modal-header">
+        <div class="l-head" id="licence-heading">PITCH LICENCE</div>
+        <div class="l-kicker">the district office · one week, one stand · sign below</div>
+      </header>
+      <div class="modal-body">
+        <label class="lic-field">name on the licence<input id="lic-name" maxlength="16" placeholder="Sam" autocomplete="off"></label>
+        <label class="lic-field">the stand<input id="lic-stand" maxlength="22" placeholder="THE CORNER CUP" autocomplete="off"></label>
+        <div class="lic-label">signed as</div>
+        <div id="lic-roles" class="lic-pills"></div>
+        <div class="lic-label">you were, before this</div>
+        <div id="lic-bgs" class="lic-pills lic-bgs"></div>
+      </div>
+      <footer class="modal-footer">
+        <button id="lic-sign">SIGN THE WEEK →</button>
+        <div class="lic-hint">leave it blank and the district decides</div>
+      </footer>
     </div>
   </div>
 
   <!-- a regular's ask — one mid-day offer, a real yes/no with a cost -->
-  <div id="offer">
-    <div class="d-paper">
-      <div class="l-head" id="offer-who"></div>
-      <div class="l-kicker" id="offer-kicker">a regular asks · y / n</div>
-      <pre id="offer-line"></pre>
-      <div id="offer-effect"></div>
-      <div class="l-actions">
+  <div id="offer" class="modal" role="dialog" aria-labelledby="offer-who" aria-hidden="true" inert>
+    <div class="d-paper modal-panel" tabindex="-1">
+      <header class="modal-header">
+        <div class="l-head" id="offer-who"></div>
+        <div class="l-kicker" id="offer-kicker">a regular asks · y / n</div>
+      </header>
+      <div class="modal-body">
+        <pre id="offer-line"></pre>
+        <div id="offer-effect"></div>
+      </div>
+      <footer class="modal-footer"><div class="l-actions">
         <button id="offer-yes"></button>
         <button id="offer-no">not today</button>
-      </div>
+      </div></footer>
     </div>
   </div>
 
@@ -473,17 +570,18 @@ Made to order, a matcha takes 4 minutes.
     <button id="pc-copy" title="Copy the caption">⧉ copy</button>
   </div>
 
-  <div id="tutorial" aria-hidden="true">
-    <div class="tcard">
-      <div class="stepk" id="tstep">1 of 3</div>
-      <h3 id="ttitle">READ THE STREET</h3>
-      <p id="tbody">At <b>14:00 every day</b> students flood in for matcha. 139 → 683 a week — the fastest item on the floor. Made to order, a matcha takes <b>4 minutes</b>.</p>
-      <div class="trow"><button id="tnext">Next →</button><button id="tskip" class="secondary">Skip — start the day</button></div>
-      <button id="tclose" class="skip">skip tutorial (?skipTutorial to always skip)</button>
+  <div id="tutorial" class="modal" role="dialog" aria-labelledby="ttitle" aria-hidden="true" inert>
+    <div class="tcard modal-panel" tabindex="-1">
+      <header class="modal-header"><div class="stepk" id="tstep">1 of 3</div><h3 id="ttitle">READ THE STREET</h3></header>
+      <div class="modal-body"><p id="tbody">At <b>14:00 every day</b> students flood in for matcha. 139 → 683 a week — the fastest item on the floor. Made to order, a matcha takes <b>4 minutes</b>.</p></div>
+      <footer class="modal-footer">
+        <div class="trow"><button id="tnext">Next →</button><button id="tskip" class="secondary">Skip — start the day</button></div>
+        <button id="tclose" class="skip">skip tutorial (?skipTutorial to always skip)</button>
+      </footer>
     </div>
   </div>
 
-  <div id="title">
+  <div id="title" class="modal show">
     <div class="t-inner">
       <div class="t-kicker">a day on the floor</div>
       <h1>GRUNDS</h1>

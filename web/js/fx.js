@@ -357,7 +357,8 @@ export class FX {
   notebook(show) { document.getElementById('notebook').classList.toggle('show', show); }
   receipt(stats) {
     const el = document.getElementById('receipt');
-    if (!stats) { el.classList.remove('show'); return; }
+    const gen = this._receiptGen = (this._receiptGen || 0) + 1;
+    if (!stats) { if (this.modals) this.modals.close('receipt'); else el.classList.remove('show'); return; }
     // stagger: till prints line-by-line, not instant spreadsheet
     const linesEl = document.getElementById('r-lines');
     linesEl.innerHTML = '';
@@ -365,6 +366,7 @@ export class FX {
     const isHeadless = typeof globalThis !== 'undefined' && !!globalThis.__headless;
     stats.lines.forEach((l, i) => {
       const renderRow = () => {
+        if (gen !== this._receiptGen) return;
         const row = document.createElement('div');
         row.className = 'rl'; row.innerHTML = `<span>${l[0]}</span><span>${l[1]}</span>`;
         row.style.opacity = '0'; row.style.transform = 'translateY(4px)';
@@ -383,6 +385,7 @@ export class FX {
       verdictEl.textContent = '';
       let ci = 0;
       const iv = setInterval(() => {
+        if (gen !== this._receiptGen) { clearInterval(iv); return; }
         verdictEl.textContent = stats.verdict.slice(0, ci++);
         if (ci > stats.verdict.length) clearInterval(iv);
       }, 18);
@@ -393,7 +396,7 @@ export class FX {
       if (stats.forecast) { fc.textContent = stats.forecast; fc.style.display = ''; }
       else { fc.textContent = ''; fc.style.display = 'none'; }
     }
-    el.classList.add('show');
+    if (this.modals) this.modals.open('receipt'); else el.classList.add('show');
   }
 }
 

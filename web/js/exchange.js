@@ -70,6 +70,14 @@ export class Exchange {
     return true;
   }
 
+  purchaseCup() {
+    const beanCost = this.costPerCup;
+    const spotCost = this.beanIndex * CAMPAIGN.beanBaseCost;
+    const hedged = !!this.contract;
+    this.consume(1);
+    return { beanCost, spotCost, hedged };
+  }
+
   // Day open: drift first (the baseline pressure), then roll the event on
   // top. The drift is the *baseline* cost creep; the event is the *deviation*.
   // That ordering matters: a frost on a drifting index is a bigger shock than

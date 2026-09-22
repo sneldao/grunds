@@ -65,7 +65,7 @@ const fails = [];
   assert.deepEqual(L.actions.map(a => a.id), ['contract_light', 'contract', 'contract_heavy', 'hold', 'settle'],
     'replies are light / standard / heavy / hold / settle');
   assert.ok(L.body.includes('Spot closed up 15%'), 'letter names today’s spot move');
-  assert.ok(L.body.includes('lock tonight') || L.body.includes('over-order'), 'letter says what the move implies');
+  assert.ok(L.body.includes('carried before'), 'letter says what the move implies');
   const flat = composeLetter({
     day: 2, index: 1.0, indexPrev: 1.0, cost: 1.3, sold: 10, balked: 0,
     defections: 0, reputation: 70, debt: 0, contract: null, event: {},
@@ -87,7 +87,9 @@ const fails = [];
   assert.ok(main.includes('oluPayoutAt = 750'), 'Olu’s 12:30 payout is deferred');
   assert.ok(main.includes('officeRunAt = 900'), 'Mara’s 15:00 queue check is deferred');
   assert.ok(main.includes('estherCard'), 'Esther’s stamp card carries forward');
-  assert.ok(main.includes('!headless && !offerShown'), 'offer is headless-gated (no stall)');
+  assert.ok(main.includes('!offerShown && dayMin >= 660'), 'offer fires once at 11:00');
+  assert.ok(main.includes("phase !== 'trading' || modals.top() !== 'offer'"),
+    'resolveOffer only resolves the live top offer');
   assert.ok(main.includes("resolveOffer(true)") && main.includes("resolveOffer(false)"),
     'y/n keys resolve the offer');
   console.log('ASK     modal, 5 offers, deferred consequences, headless gate — all wired');
@@ -141,7 +143,7 @@ const fails = [];
     main.indexOf('// ---- dawns'));
   assert.ok(!briefBlock.includes('openDay(day + 1)'),
     'Brief commit stays on today — only the letter advances the day');
-  assert.ok(briefBlock.includes('paused = false'), 'Brief OPEN resumes the floor');
+  assert.ok(/function startTradingDay[\s\S]{0,6000}paused = false/.test(main), 'Brief OPEN resumes the floor through startTradingDay');
   // Street work: three dawn toggles with real costs, committed with the hedge
   assert.ok(main.includes('brief-demand-'),
     'Brief carries the street-work row (chalk/sample/sponsor)');
@@ -157,17 +159,19 @@ const fails = [];
   const main = read('web/js/main.js');
   assert.ok(main.includes('baristaCondition'), 'hidden condition state exists');
   // the choice only surfaces when she's fading — and never on day 1
-  assert.ok(main.includes('day >= 2 && baristaCondition < 0.55'), 'staff row is condition-gated, day-2+');
-  assert.ok(main.includes('brief-staff-home') && main.includes('brief-staff-push'), 'home/push buttons exist');
+  const staffing = read('web/js/staffing.js');
+  assert.ok(main.includes('canChooseStaffing(day, baristaCondition)') && staffing.includes('day >= 2 && condition < .55'),
+    'staff row is condition-gated, day-2+');
+  assert.ok(main.includes('brief-staff-home') && main.includes('brief-staff-push') && main.includes('brief-staff-apprentice'), 'home/apprentice/push buttons exist');
   // both branches carry a real trade: home slows the bar but saves the wage and recovers her
-  assert.ok(main.includes('baristaHomeToday = baristaStaged'), 'Brief commit lands the staff choice');
+  assert.ok(main.includes("baristaHomeToday = res.plan.staffing === 'home'"), 'Brief commit lands the staff choice');
   assert.ok(main.includes('patrons.staffMul = 0.7'), 'sent home → solo bar runs −30%');
   assert.ok(main.includes('baristaCondition + 0.45'), 'sent home → she recovers at close');
-  assert.ok(main.includes('ruthWasHome ? 0 : CAMPAIGN.staffDayRate'), 'sent home → wage saved on the cost sheet');
+  assert.ok(read('web/js/economy.js').includes("staffing === 'home' ? 0"), 'sent home → wage saved on the cost sheet');
   assert.ok(main.includes('baristaCondition - 0.14'), 'a worked day drains her');
   // neglect has teeth: exhausted legs slow the bar, pushed under a fifth she breaks
   assert.ok(main.includes('baristaCondition < 0.35 ? 0.8 : 1'), 'exhausted dawn → slower bar');
-  assert.ok(main.includes('baristaCrisis') && main.includes('baristaCondition < 0.2'), 'crisis fires under a fifth');
+  assert.ok(main.includes('baristaCrisis') && staffing.includes('condition < .2'), 'crisis fires under a fifth');
   assert.ok(main.includes('patrons.staffMul = 0.5'), 'crisis: she falls asleep — bar crawls');
   assert.ok(main.includes('adjustOpinions(-0.2)'), 'crisis: she snaps at a regular — rep hit');
   // the incident table reads her state: home → she can't call in sick; fumes → worse terms

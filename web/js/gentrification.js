@@ -22,7 +22,7 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 // matcha till price for the chalkboard.
 export function applyDrift(exchange, day = exchange.day, shock = 0) {
   const { drift } = CAMPAIGN;
-  const delta = drift.perDay + shock;
+  const delta = calculateNonLinearDrift(day) + shock;
   exchange.beanIndex = Math.min(drift.maxIndex, exchange.beanIndex + delta);
   exchange.matchaPrice = priceForDay(day);
   return exchange.matchaPrice;
@@ -38,8 +38,29 @@ export function calculateNonLinearDrift(day, base = CAMPAIGN.drift.perDay, accel
 export const MACRO_SHOCKS = {
   pitch_reval:   { day: 3, name: 'PITCH REVALUATION', desc: 'District Council increases pitch turnover rate (+3%)', pitchPctDelta: +0.03, pitchMinDelta: +20 },
   dairy_crunch:  { day: 4, name: 'OAT MILK SURCHARGE', desc: 'Packaging & dairy supply bottleneck (+£0.18/cup)', suppliesDelta: +0.18 },
-  transit_delay: { day: 2, name: 'TUBE LINE DISRUPTION', desc: 'Commuter morning wave delayed, table dwell increases', commuterShift: -0.25, dwellBonus: +0.3 },
+  transit_delay: { day: 2, name: 'TUBE LINE DISRUPTION', desc: 'Commuter morning wave delayed, table dwell increases', commuterDelayMinutes: 30, dwellBonus: +0.3 },
 };
+
+export function modifiersForDay(day) {
+  return {
+    pitchPctDelta: day >= MACRO_SHOCKS.pitch_reval.day ? MACRO_SHOCKS.pitch_reval.pitchPctDelta : 0,
+    pitchMinDelta: day >= MACRO_SHOCKS.pitch_reval.day ? MACRO_SHOCKS.pitch_reval.pitchMinDelta : 0,
+    suppliesDelta: day >= MACRO_SHOCKS.dairy_crunch.day ? MACRO_SHOCKS.dairy_crunch.suppliesDelta : 0,
+    commuterDelayMinutes: day === MACRO_SHOCKS.transit_delay.day ? MACRO_SHOCKS.transit_delay.commuterDelayMinutes : 0,
+    dwellBonus: day === MACRO_SHOCKS.transit_delay.day ? MACRO_SHOCKS.transit_delay.dwellBonus : 0,
+  };
+}
+
+export function wavesForDay(waves, day) {
+  const { commuterDelayMinutes: delay } = modifiersForDay(day);
+  const byTime = new Map();
+  for (const w of waves) for (const s of w.spawns) {
+    const t = w.t + (s.c === 'commuters' && w.t >= 420 && w.t < 600 ? delay : 0);
+    if (!byTime.has(t)) byTime.set(t, []);
+    byTime.get(t).push({ ...s });
+  }
+  return [...byTime].sort(([a], [b]) => a - b).map(([t, spawns]) => ({ t, spawns }));
+}
 
 export function getMacroShockForDay(day) {
   for (const [id, shock] of Object.entries(MACRO_SHOCKS)) {

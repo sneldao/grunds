@@ -72,9 +72,98 @@ export default defineSchema({
     action: v.optional(v.string()), // inbound command: contract|hold|settle
     from: v.optional(v.string()),
     createdAt: v.optional(v.number()),
+    decisionId: v.optional(v.id("dayDecisions")),
+    deliveryId: v.optional(v.string()),
   })
     .index("by_campaign_day", ["campaignId", "day"])
     .index("by_campaign_dir_created", ["campaignId", "dir", "createdAt"]),
+
+  planSessions: defineTable({
+    tokenHash: v.string(),
+    campaignId: v.id("campaigns"),
+    day: v.number(),
+    phase: v.union(
+      v.literal("review"),
+      v.literal("planning"),
+      v.literal("trading"),
+      v.literal("done"),
+      v.literal("abandoned"),
+    ),
+    expiresAt: v.number(),
+  })
+    .index("by_token", ["tokenHash"])
+    .index("by_campaign", ["campaignId"]),
+
+  dayDecisions: defineTable({
+    campaignId: v.id("campaigns"),
+    day: v.number(),
+    sessionId: v.id("planSessions"),
+    status: v.union(v.literal("pending"), v.literal("committed")),
+    snapshot: v.object({
+      day: v.number(),
+      index: v.number(),
+      debt: v.number(),
+      contract: v.union(
+        v.null(),
+        v.object({ price: v.number(), units: v.number(), fee: v.number() }),
+      ),
+      extraFee: v.number(),
+      staffCondition: v.number(),
+    }),
+    plan: v.object({
+      hedge: v.union(
+        v.literal("hold"),
+        v.literal("settle"),
+        v.literal("contract_light"),
+        v.literal("contract"),
+        v.literal("contract_heavy"),
+      ),
+      staffing: v.union(v.literal("work"), v.literal("home"), v.literal("apprentice")),
+      marketing: v.object({ sample: v.boolean(), sponsor: v.boolean() }),
+    }),
+    result: v.optional(
+      v.object({
+        ok: v.boolean(),
+        plan: v.object({
+          hedge: v.union(
+            v.literal("hold"),
+            v.literal("settle"),
+            v.literal("contract_light"),
+            v.literal("contract"),
+            v.literal("contract_heavy"),
+          ),
+          staffing: v.union(v.literal("work"), v.literal("home"), v.literal("apprentice")),
+          marketing: v.object({ sample: v.boolean(), sponsor: v.boolean() }),
+        }),
+        index: v.number(),
+        debt: v.number(),
+        contract: v.union(
+          v.null(),
+          v.object({ price: v.number(), units: v.number(), fee: v.number() }),
+        ),
+        extraFee: v.number(),
+        fee: v.number(),
+        interest: v.number(),
+        settlement: v.number(),
+      }),
+    ),
+    source: v.optional(v.union(v.literal("browser"), v.literal("email"))),
+    closingState: v.optional(
+      v.object({
+        index: v.number(),
+        debt: v.number(),
+        contract: v.union(
+          v.null(),
+          v.object({ price: v.number(), units: v.number(), fee: v.number() }),
+        ),
+        till: v.number(),
+        rep: v.number(),
+        matchaPrice: v.number(),
+      }),
+    ),
+    createdAt: v.number(),
+    committedAt: v.optional(v.number()),
+  }).index("by_campaign_day", ["campaignId", "day"]),
 
   // Player stands — multiplayer till/reputation per campaign. Minimal today,
   // expanded when the floor goes live-sync.
@@ -83,7 +172,9 @@ export default defineSchema({
     ownerName: v.string(),
     till: v.number(),
     reputation: v.number(),
-  }).index("by_campaign", ["campaignId"]),
+  })
+    .index("by_campaign", ["campaignId"])
+    .index("by_campaign_owner", ["campaignId", "ownerName"]),
 
   // Tripo-generated assets (Tripothon S1 — the Generative District).
   // Content-addressed: `key` is a hash of the full generation spec, so

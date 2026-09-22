@@ -363,6 +363,19 @@ export function buildWorld(scene, renderer, lite) {
   const rvSignTex = shopSign(COPY.rivalName, '#e8f0ee', '#27403c', '600 40px Georgia, serif');
   W.rivalSignMat = new THREE.MeshStandardMaterial({ map: rvSignTex, emissive: 0xbfe8e2, emissiveMap: rvSignTex, emissiveIntensity: 0.25, roughness: 0.7 });
   plane(rv, 3.4, 0.64, W.rivalSignMat, 0, 2.05, -1.07, { ry: Math.PI });
+  const rvStratC = document.createElement('canvas'); rvStratC.width = 512; rvStratC.height = 64;
+  const rvStratG = rvStratC.getContext('2d');
+  const rvStratTex = new THREE.CanvasTexture(rvStratC); rvStratTex.colorSpace = THREE.SRGBColorSpace;
+  const rvStratMat = new THREE.MeshStandardMaterial({ map: rvStratTex, emissive: 0xbfe8e2, emissiveMap: rvStratTex, emissiveIntensity: 0.3, roughness: 0.7 });
+  plane(rv, 3.2, 0.4, rvStratMat, 0, 1.58, -1.07, { ry: Math.PI });
+  W.setRivalStrategy = (name, price) => {
+    rvStratG.fillStyle = '#1d2a24'; rvStratG.fillRect(0, 0, 512, 64);
+    rvStratG.strokeStyle = 'rgba(201,162,39,.6)'; rvStratG.lineWidth = 2; rvStratG.strokeRect(4, 4, 504, 56);
+    rvStratG.fillStyle = '#e8f0ee'; rvStratG.font = '600 26px Georgia, serif'; rvStratG.textAlign = 'center'; rvStratG.textBaseline = 'middle';
+    rvStratG.fillText(name + ' · £' + (+price).toFixed(2), 256, 34);
+    rvStratTex.needsUpdate = true;
+  };
+  W.setRivalStrategy('BALANCED', 4.50);
   const rvAwn = new THREE.MeshStandardMaterial({ map: awning('#27403c', '#dfe3e2'), roughness: 0.9, side: THREE.DoubleSide });
   plane(rv, 5, 1.6, rvAwn, 0, 2.9, -1.5, { rx: -Math.PI / 2 + 0.3 });
   box(rv, 0.9, 1.9, 0.14, 0x111418, -1.4, 1.15, -1.06, { em: 0xbfe8e2, emi: 0.5, cast: false }); // their lightbox menu

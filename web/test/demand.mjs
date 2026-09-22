@@ -44,7 +44,7 @@ const D = CAMPAIGN.demand;
   const d = new Demand();
   const t = d.resolveDay({ served: 100, reputation: 62, eventTier: 'calm' });
   ok(close(t.decay, D.decay), 'calm close decays the base rate');
-  ok(close(d.awareness, D.start - D.decay), 'coasting visibly loses the street');
+  ok(close(d.awareness, D.start - D.decay + D.chalkGain), 'coasting nets decay against automatic chalk');
   const d2 = new Demand();
   const t2 = d2.resolveDay({ served: 100, reputation: 62, eventTier: 'cata' });
   ok(close(t2.decay, D.decay + D.cataExtra), 'catastrophe scares extra');
@@ -52,12 +52,18 @@ const D = CAMPAIGN.demand;
 
 // 4) dawn actions land their gains
 {
-  for (const [id, gain] of [['chalk', D.chalkGain], ['sample', D.sampleGain], ['sponsor', D.sponsorGain]]) {
+  {
     const d = new Demand();
-    ok(d.stage(id, 5), `${id} stages on day 5`);
     const t = d.resolveDay({ served: 100, reputation: 62, eventTier: 'calm' });
-    ok(close(t.gain, gain), `${id} lands +${gain}`);
-    ok(close(d.awareness, D.start - D.decay + gain), `${id} nets against decay`);
+    ok(close(t.gain, D.chalkGain), `chalk gain is automatic: +${D.chalkGain}`);
+    ok(close(d.awareness, D.start - D.decay + D.chalkGain), 'chalk nets against decay');
+  }
+  for (const [id, gain] of [['sample', D.sampleGain], ['sponsor', D.sponsorGain]]) {
+    const d = new Demand();
+    ok(d.stage(id, Math.min(D.sponsorDay, CAMPAIGN.days - 1)), `${id} stages`);
+    const t = d.resolveDay({ served: 100, reputation: 62, eventTier: 'calm' });
+    ok(close(t.gain, D.chalkGain + gain), `${id} lands +${gain} on top of chalk`);
+    ok(close(d.awareness, D.start - D.decay + D.chalkGain + gain), `${id} nets against decay`);
   }
 }
 
@@ -72,10 +78,10 @@ const D = CAMPAIGN.demand;
 // 6) returnees counted + staged flags clear
 {
   const d = new Demand();
-  d.stage('chalk', 1);
+  d.stage('sample', 1);
   const t = d.resolveDay({ served: 200, reputation: 62, eventTier: 'calm' });
   ok(t.returnees === Math.round(200 * D.returnBase), `returnees = served × rate (got ${t.returnees})`);
-  ok(!d.staged.chalk && !d.staged.sample && !d.staged.sponsor, 'staged flags clear at close');
+  ok(!d.staged.sample && !d.staged.sponsor, 'staged flags clear at close');
 }
 
 // 7) sponsor gate + double-stage
@@ -84,8 +90,12 @@ const D = CAMPAIGN.demand;
   ok(!d.canStage('sponsor', 1), 'sponsor locked before sponsorDay');
   ok(!d.stage('sponsor', 1), 'locked sponsor refuses to stage');
   ok(d.stage('sponsor', D.sponsorDay), 'sponsor stages on sponsorDay');
-  ok(!d.stage('chalk', 1) === false, 'chalk stages (sanity)');
-  ok(!d.stage('chalk', 1), 'double-staging rejected');
+  ok(d.stage('sample', 1), 'sample stages');
+  ok(d.staged.sample, 'sample flagged');
+  ok(d.stage('sample', 1), 're-tap returns true');
+  ok(!d.staged.sample, 'toggle twice restores false');
+  ok(!d.canStage('sample', CAMPAIGN.days), 'paid actions locked on the final day');
+  ok(!d.stage('sample', CAMPAIGN.days), 'final-day staging refused');
 }
 
 // 8) one number, two doors
@@ -97,10 +107,10 @@ const D = CAMPAIGN.demand;
 // 9) wiring in main.js
 {
   const main = read('web/js/main.js');
-  ok(main.includes("import { Demand } from './demand.js'"), 'main imports Demand');
+  ok(main.includes("import { Demand"), 'main imports Demand');
   ok(main.includes('demand.spawnMul()'), 'tick multiplies the wave by awareness');
   ok(main.includes('demand.resolveDay'), 'closeDay resolves demand');
-  ok(main.includes('brief-demand-'), 'Brief carries the three street-work buttons');
+  ok(main.includes('brief-demand-'), 'Brief carries the paid street-work buttons');
   ok(main.includes('demand.reset()'), 'campaign reset rewinds awareness');
   ok(main.includes('street ${demand.pips()}') || main.includes('demand.pips()'), 'tape prints awareness pips');
   const html = read('web/index.html');
