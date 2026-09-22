@@ -160,6 +160,9 @@ const wantTutorial = !headless && !urlParams.has('skipTutorial') && !urlParams.h
 // or headless all bypass it (the district assigns defaults: Sam, THE CORNER CUP)
 const skipLicence = headless || urlParams.has('skipLicence') || !wantTutorial;
 let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0, rivalServed = 0;
+// first-timers = walk-ins the Regulars graph doesn't know (regularIdx < 0).
+// The new-shop arc lives on these numbers: tried, walked, told a friend.
+let firstServed = 0, firstWalked = 0, firstServedToast = 0, firstWalkedToast = 0;
 let prebatched = false, repriced = false, batchUnits = 0;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let coached = false;   // day-1 lever hint, once per campaign
@@ -179,6 +182,7 @@ let lastDayStats = null;   // yesterday's counters — the Brief's letter reads 
 // Ruth — your barista. One hidden condition stat; the fiction carries it.
 // Worked days drain (harder on brutal floors), sent-home days recover.
 let baristaCondition = 1.0, baristaHomeToday = false, baristaRested = false, baristaStaged = false, baristaCrisis = false;
+let apprenticeHiredToday = false, rivalStrategy = 'DEFAULT';
 // the pitch licence — who you are, signed before the first dawn. Identity
 // threads the letter, the receipt, the district board; the background pick
 // carries one small mechanical perk (not a class — the arc is one role).
@@ -234,10 +238,18 @@ function tick() {
       }
       till += e.price; cogs += exchange.costPerCup; sales++;
       if (e.viaRegister) servedRetail++; else served++;
+      if (e.p && e.p.regularIdx < 0) {
+        firstServed++;
+        if (firstServedToast < 2) { firstServedToast++; fx.toast('a first-timer — the street’s trying you', 'good'); }
+      }
       if (dayMin >= 840 && dayMin <= 1020) waveServed++;
       audio.clink();
     } else if (e.type === 'balked') {
       balked++; balks++;
+      if (e.p && e.p.regularIdx < 0) {
+        firstWalked++;
+        if (firstWalkedToast < 2) { firstWalkedToast++; fx.toast('a first-timer walked — first impressions travel', 'warn'); }
+      }
       if (dayMin >= 840 && dayMin <= 1020) { waveBalked++; if (prebatched) prebatchHelped = false; }
       audio.balk();
       fx.huff(e.p.pos.x, 1.5, e.p.pos.z);
@@ -426,11 +438,15 @@ function closeDay() {
   lastDayStats = { sold: served + servedRetail, balked, defections };   // the Brief reads these at dawn
   // Ruth's ledger — a worked day drains (harder on a brutal floor), a
   // sent-home day recovers. The cost is real: her wage is saved but the
-  // bar runs a third slower while she's off.
+  // bar runs a third slower while she's off. Apprentice gives partial rest.
   const ruthWasHome = baristaHomeToday;
+  const hiredApprentice = apprenticeHiredToday;
   if (ruthWasHome) { baristaCondition = Math.min(1, baristaCondition + 0.45); baristaRested = true; }
+  else if (hiredApprentice) { baristaCondition = Math.min(1, baristaCondition + (CAMPAIGN.staff?.ruthApprenticeRest || 0.25)); baristaRested = true; }
   else baristaCondition = Math.max(0, baristaCondition - 0.14 - (peakQueue > 50 ? 0.08 : 0) - (balked > 60 ? 0.06 : 0));
   baristaHomeToday = false;
+  apprenticeHiredToday = false;
+  if (patrons) patrons.apprenticeActive = false;
   // the cost sheet — a real stand pays more than beans. Labour, milk+cups,
   // turnover-linked pitch rent, card fees, sundries: the day's true P&L.
   const servedN = served + servedRetail;
@@ -441,8 +457,8 @@ function closeDay() {
   vitality.recompute();   // the evening settles on the block's true mood
   try { analytics.track('demand_resolved', { day, ...dtrace }); } catch {}
   const ops = {
-    staff: (ruthWasHome ? 0 : CAMPAIGN.staffDayRate) + servedN * CAMPAIGN.staffPerCup,
-    supplies: servedN * CAMPAIGN.suppliesPerCup,
+    staff: (ruthWasHome ? 0 : hiredApprentice ? (CAMPAIGN.staff?.apprenticeDayRate || 65) : CAMPAIGN.staffDayRate) + servedN * CAMPAIGN.staffPerCup,
+    supplies: servedN * (CAMPAIGN.suppliesPerCup + (hiredApprentice ? (CAMPAIGN.staff?.apprenticeWasteExtra || 0.04) : 0)),
     pitch: Math.max(CAMPAIGN.pitchMin, till * CAMPAIGN.pitchPct),
     fees: till * CAMPAIGN.cardFeePct * perkCostMul,
     sundries: CAMPAIGN.sundries,
@@ -497,6 +513,8 @@ function closeDay() {
       ['pitch rent', fmt(ops.pitch)], ['card fees', fmt(ops.fees)], ['sundries', fmt(ops.sundries)],
       ...(ops.marketing > 0 ? [['street work', fmt(ops.marketing)]] : []),
       ['street awareness', demand.pips()],
+      ['first-timers', `${firstServed} tried · ${firstWalked} walked out`],
+      ['word of mouth', `~${dtrace.returnees} back tomorrow`],
       ['debt', fmt(exchange.debt)],
       ['peak queue', peakQueue + ' deep'], ['walked to ' + COPY.rivalName, defections], ['—', '—'],
       ['NET TODAY', fmt(net)],
@@ -818,6 +836,16 @@ function showMorningBrief() {
   }
   };
   renderDemandRow();
+  // The nut — the fixed daily bill, shown before a cup is poured. Consequence
+  // made legible: wage + pitch floor + sundries, against what's in hand.
+  const nutEl = $('brief-nut');
+  if (nutEl) {
+    nutEl.style.display = '';
+    const nutFixed = CAMPAIGN.staffDayRate + CAMPAIGN.pitchMin + CAMPAIGN.sundries;
+    const inHand = till + cRev - cCost - cOps - settledPaid - exchange.debt;
+    const pos = inHand >= 0 ? `you’re ${fmt(inHand)} in hand` : `you’re ${fmt(-inHand)} underwater`;
+    nutEl.textContent = `the nut — ${fmt(nutFixed)} a day before a cup pours · wage ${fmt(CAMPAIGN.staffDayRate)} · pitch ${fmt(CAMPAIGN.pitchMin)}+ · sundries ${fmt(CAMPAIGN.sundries)} — ${pos}`;
+  }
   // Ruth — the one staffing call the week can carry. When she's fading the
   // Brief offers a choice: send her home (slow bar, saved wage, she recovers)
   // or push on (full pace now, she drains further — and below a fifth, she breaks).
@@ -834,16 +862,21 @@ function showMorningBrief() {
         : 'Ruth’s dragging this morning — too many shifts back to back.';
       const home = document.createElement('button'); home.id = 'brief-staff-home';
       home.textContent = 'send her home · bar −30% today, wage saved, fresh tomorrow';
+      const apprentice = document.createElement('button'); apprentice.id = 'brief-staff-apprentice';
+      apprentice.textContent = 'hire apprentice · £65 wage, bar +5%, Ruth rests half-day (+0.25)';
       const push = document.createElement('button'); push.id = 'brief-staff-push';
       push.textContent = 'push on · she’ll manage — probably';
-      const sel = on => {
-        baristaStaged = on;
-        home.style.borderColor = on ? 'var(--brass)' : ''; home.style.background = on ? 'rgba(201,162,39,.16)' : '';
-        push.style.borderColor = on ? '' : 'var(--brass)'; push.style.background = on ? '' : 'rgba(201,162,39,.16)';
+      const sel = mode => {
+        baristaStaged = mode;
+        home.style.borderColor = mode === 'home' ? 'var(--brass)' : ''; home.style.background = mode === 'home' ? 'rgba(201,162,39,.16)' : '';
+        apprentice.style.borderColor = mode === 'apprentice' ? 'var(--brass)' : ''; apprentice.style.background = mode === 'apprentice' ? 'rgba(201,162,39,.16)' : '';
+        push.style.borderColor = mode === 'push' ? 'var(--brass)' : ''; push.style.background = mode === 'push' ? 'rgba(201,162,39,.16)' : '';
       };
-      sel(false);
-      home.onclick = () => sel(true); push.onclick = () => sel(false);
-      staffRow.append(t, home, push);
+      sel('push');
+      home.onclick = () => sel('home');
+      apprentice.onclick = () => sel('apprentice');
+      push.onclick = () => sel('push');
+      staffRow.append(t, home, apprentice, push);
     } else staffRow.style.display = 'none';
   }
   // choice row: sizing is the position — header says what this means in one line
@@ -915,13 +948,22 @@ function dismissBriefAndStartDay() {
   fx.toast(msg, id.startsWith('contract') ? 'good' : '');
   // Ruth's shift lands here — staged in the Brief, committed with the hedge.
   // Sent home: bar −30% today, her wage saved tonight, she recovers at close.
-  baristaHomeToday = baristaStaged; baristaStaged = false;
+  // Apprentice: hire temp barista, Ruth half-day rest, extra speed.
+  baristaHomeToday = (baristaStaged === 'home' || baristaStaged === true);
+  apprenticeHiredToday = (baristaStaged === 'apprentice');
+  baristaStaged = false;
   // Street work lands here too — staged at dawn, paid today, felt tomorrow.
   // Sampling burns cups out of today's COGS; sponsoring invoices the ops sheet.
   if (demand.staged.sample) { cogs += CAMPAIGN.demand.sampleCost; fx.toast(`Sampling today — ${fmt(CAMPAIGN.demand.sampleCost)} in cups for the street`, ''); }
   if (demand.staged.sponsor) { marketingSpend += CAMPAIGN.demand.sponsorCost; fx.toast(`Stall sponsored — ${fmt(CAMPAIGN.demand.sponsorCost)} on the sheet, the street hears`, 'good'); }
   if (baristaHomeToday) { patrons.staffMul = 0.7; fx.toast('Ruth’s off — you’re solo on the bar today', 'warn'); }
-  if (day >= 2 && baristaCondition < 0.55) try { analytics.track(baristaHomeToday ? 'staff_sent_home' : 'staff_pushed', { day, condition: Math.round(baristaCondition * 100) / 100 }); } catch {}
+  else if (apprenticeHiredToday) {
+    cogs += (CAMPAIGN.staff?.apprenticeTrainingFee || 12);
+    patrons.staffMul = (CAMPAIGN.staff?.apprenticeStaffMul || 1.05) * perkStaffMul;
+    patrons.apprenticeActive = true;
+    fx.toast('Apprentice hired — fast hands, Ruth rests in the back', 'good');
+  }
+  if (day >= 2 && baristaCondition < 0.55) try { analytics.track(baristaHomeToday ? 'staff_sent_home' : apprenticeHiredToday ? 'staff_apprentice' : 'staff_pushed', { day, condition: Math.round(baristaCondition * 100) / 100 }); } catch {}
   // expectation already landed via the Letter's applyReply between days;
   // Brief commits the hedge for *today*, not the next day's drift
   // resolveDay needs "some balls in the air" — use a neutral claim for dawn
@@ -989,6 +1031,20 @@ function openDay(d) {
   // chalkboard: matcha day-price reflects the gentrification curve (4.80 → 5.40)
   if (exchange.matchaPrice) world.setMatchaPrice(exchange.matchaPrice.toFixed(2), repriced);
   if (d > 1 && exchange.debt > 0) exchange.debt += CAMPAIGN.debtInterest;   // the debt clock ticks at dawn
+
+  // Dynamic rival strategy:
+  const stratKeys = Object.keys(CAMPAIGN.rivalStrategies || {});
+  if (stratKeys.length) {
+    if (d === 1) rivalStrategy = 'DEFAULT';
+    else if (exchange.event?.tier === 'cata') rivalStrategy = 'ROASTER_PIVOT';
+    else if (d === 3 || exchange.event?.tier === 'good') rivalStrategy = 'PRICE_WAR';
+    else rivalStrategy = stratKeys[(d + (exchange.day || 0)) % stratKeys.length];
+    patrons.rivalStrategy = rivalStrategy;
+    if (d >= 2 && rivalStrategy !== 'DEFAULT' && !headless) {
+      const stratDef = CAMPAIGN.rivalStrategies[rivalStrategy];
+      if (stratDef) fx.toast(`${COPY.rivalName} moves: ${stratDef.name} (£${stratDef.price.toFixed(2)})`, 'warn');
+    }
+  }
   if (estherCard) { till -= 2; fx.toast('esther’s stamp card: −£2', ''); }  // her cup's on the house
   world.setMail(false);
   mailT.disarm();                 // the wait for a reply never crosses into a live floor
@@ -1409,10 +1465,12 @@ function reset() {
   briefChoice = null; lastDayStats = null;
   demand.reset(); marketingSpend = 0;
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
+  apprenticeHiredToday = false; rivalStrategy = 'DEFAULT';
   try { const b = $('brief'); if (b) b.classList.remove('show'); } catch {}
   $('offer').classList.remove('show');
   for (const r of regulars.regulars) { r.op = perkBg === 'newcomer' ? 0.25 : 0.15; r.seen = false; r.served = 0; r.balked = 0; }
   cRev = cCost = cBalked = cServed = cDef = settledPaid = 0; campaignDone = false; paused = false;
+  firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   if ($('pause')) $('pause').textContent = 'pause';
   $('receipt').classList.remove('show'); $('letter').classList.remove('show');
   openDay(1);

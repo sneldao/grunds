@@ -25,7 +25,7 @@ export class Demand {
     this.lastReturnRate = 0;
   }
   // Wave spawn multiplier for this dawn: 0.4× (regulars only) .. 1.3×.
-  // Opening awareness (0.55) reads ≈0.9× — the street hasn't decided yet.
+  // Opening awareness (0.28) reads ≈0.65× — a handful try you on a whim.
   spawnMul() {
     const d = CAMPAIGN.demand;
     return d.spawnMin + (d.spawnMax - d.spawnMin) * clamp(this.awareness, 0, 1);

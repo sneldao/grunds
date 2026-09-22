@@ -19,6 +19,8 @@ export class PatronSystem {
     this.free = [];
     this.counterQ = []; this.registerQ = []; this.rivalQ = [];
     this.rivalClock = 0;
+    this.rivalStrategy = 'DEFAULT';
+    this.apprenticeActive = false;
     this.staffMul = 1;   // <1 short-staffed — the bar spends fewer prep-points a tick
     this.balkMul = 1;    // >1 impatient floor — they walk sooner
     this._d = new THREE.Object3D();

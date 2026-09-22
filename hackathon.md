@@ -12,9 +12,21 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-19T18:54:00Z
+- **Last updated:** 2026-09-22T01:55:00Z
 
 ## Log
+
+### 2026-09-22 - Working tree - The new-shop arc: consequence made legible
+Playtest critique answered: the stand read as making money automatically — no felt costs, no slow open.
+- **Quiet open:** `CAMPAIGN.demand.start` 0.55 → 0.28 — day-1 spawn ≈0.65× (was ≈0.9×), a trickle of curious walk-ins instead of a going concern; street work now visibly buys tomorrow's crowd. Day-1 letter reframed: "the street doesn't know your name — a few will try you on a whim."
+- **The nut (`#brief-nut`):** the Morning Brief prints the fixed daily bill before a cup pours — wage £96 + pitch £180+ + sundries £48 = £324 — against what's in hand ("you're £N in hand / underwater"), computed live from the campaign ledger.
+- **First-timers:** patrons the Regulars graph doesn't know (`regularIdx < 0`) are counted through the served/balked event stream — "a first-timer — the street's trying you" / "a first-timer walked — first impressions travel" toasts (2/day caps) plus two receipt lines: "first-timers N tried · M walked out" and "word of mouth ~R back tomorrow" from the demand return-rate.
+- Gate 27/27, `tsc` clean, deployed and verified live (`config.js` serves `start: 0.28`).
+
+### 2026-09-22 - Working tree - The demo re-cut: the Sep-19 build on camera
+- **`videos/grunds-demo/scripts/record2.mjs` (new):** three more scripted Playwright passes against the live site. `d-halo` idles the floor until the brass halo pulses under the same target the goal strip names. `e-photo-card` presses `p`, waits out the bake, then drives the `pc-save` download so `capture/assets/share-card.png` is the real `buildShareCard` output — the composition shows the card itself, not a mockup. `f-letter-theater` plays a full day at 20×, posts the letter to the second AgentMail inbox, then fires an inbound reply through the `/agentmail/webhook` shared-secret path — the reply lands mid-read and the letter grows a "✉ Idris replied" line while the flag/knock/envelope play behind the modal.
+- **Recording hardening:** Playwright's video finalize hung on `ctx.close()` with a saturated encode (one ~28-minute hang silently ate the theater tail). Both record scripts now race context/browser close against a watchdog and screenshot the end state to `capture/shots/`, so a hung pipe can't eat the evidence.
+- **The new cut:** `index.html` rebuilt to 108 s across 11 beats — title → licence → brief → 20× day → halo → letter post → reply theater → wire desk → live board → photo mode → the stamped card → end card. `npm run check` clean; rendered `renders/grunds-demo_2026-09-22_02-48-00.mp4` (48.7 MB, 1:48). The full sponsor loop is now on camera: Firecrawl wire → OpenAI why → Convex live state → AgentMail round-trip.
 
 ### 2026-09-19 - 534eef6 - The delight pass: five durable features, one architecture spine
 Five committed features (206a5a4 → 534eef6), each with its own headless suite — the gate grew 20 → 26/26, `tsc` clean, functions + site redeployed and verified live.

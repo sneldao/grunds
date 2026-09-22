@@ -20,11 +20,32 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 //
 // `day` is 1-indexed (1 = first dawn of the campaign). Returns the new
 // matcha till price for the chalkboard.
-export function applyDrift(exchange, day = exchange.day) {
+export function applyDrift(exchange, day = exchange.day, shock = 0) {
   const { drift } = CAMPAIGN;
-  exchange.beanIndex = Math.min(drift.maxIndex, exchange.beanIndex + drift.perDay);
+  const delta = drift.perDay + shock;
+  exchange.beanIndex = Math.min(drift.maxIndex, exchange.beanIndex + delta);
   exchange.matchaPrice = priceForDay(day);
   return exchange.matchaPrice;
+}
+
+// Calculate non-linear accelerated drift for advanced volatility scenarios
+export function calculateNonLinearDrift(day, base = CAMPAIGN.drift.perDay, accel = CAMPAIGN.drift.accel || 0) {
+  if (day <= 1) return base;
+  return base + accel * (day - 1);
+}
+
+// Secondary macro shocks affecting cost lines and operating variables
+export const MACRO_SHOCKS = {
+  pitch_reval:   { day: 3, name: 'PITCH REVALUATION', desc: 'District Council increases pitch turnover rate (+3%)', pitchPctDelta: +0.03, pitchMinDelta: +20 },
+  dairy_crunch:  { day: 4, name: 'OAT MILK SURCHARGE', desc: 'Packaging & dairy supply bottleneck (+£0.18/cup)', suppliesDelta: +0.18 },
+  transit_delay: { day: 2, name: 'TUBE LINE DISRUPTION', desc: 'Commuter morning wave delayed, table dwell increases', commuterShift: -0.25, dwellBonus: +0.3 },
+};
+
+export function getMacroShockForDay(day) {
+  for (const [id, shock] of Object.entries(MACRO_SHOCKS)) {
+    if (shock.day === day) return { id, ...shock };
+  }
+  return null;
 }
 
 // Matcha till price on the given (1-indexed) day. Linear interpolation

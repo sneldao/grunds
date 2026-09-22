@@ -122,11 +122,27 @@ export const CAMPAIGN = {
   // customer). The drift is the *baseline*; the event deck still adds its
   // own ±swings on top, so a frost day on a drifting index is a bigger shock.
   drift: {
-    perDay: 0.025,          // +2.5% to beanIndex every dawn, regardless of event
+    perDay: 0.025,          // +2.5% base to beanIndex every dawn, regardless of event
+    accel: 0.008,           // non-linear compounding acceleration per day beyond day 1
     maxIndex: 1.80,         // hard ceiling; event-deck spikes ride on top
     priceFloor: 4.80,       // matcha day-1 till price
     priceCeiling: 5.40,     // matcha day-5 till price (player can hold below)
     priceDays: 5,           // how many days the curve spans
+  },
+  // Staffing depth — apprentice / temp options when Ruth is fatigued.
+  staff: {
+    apprenticeDayRate: 65,     // day wage for a hired casual barista
+    apprenticeTrainingFee: 12, // upfront training fee deducted at dawn
+    apprenticeStaffMul: 1.05,  // combined throughput bonus
+    apprenticeWasteExtra: 0.04,// minor clumsiness increases waste
+    ruthApprenticeRest: 0.25,  // partial rest Ruth gains when backed by a temp
+  },
+  // Rival AI archetypes — GLASSHOUSE adopts dynamic strategies across the week.
+  rivalStrategies: {
+    DEFAULT:         { name: 'BALANCED', price: 4.50, studentPull: 0.0, desc: 'Standard chain operation' },
+    PRICE_WAR:       { name: 'PRICE WAR', price: 3.80, studentPull: 0.22, desc: 'Aggressive matcha discount undercut' },
+    ROASTER_PIVOT:   { name: 'GUEST ROASTER', price: 5.20, studentPull: -0.05, creativePull: 0.15, desc: 'Specialty single-origin focus' },
+    EFFICIENCY_RUSH: { name: 'EXPRESS BAR', price: 4.20, studentPull: 0.10, speedMul: 1.4, desc: 'High-velocity 60-second prep' },
   },
   // Demand — awareness brings them, loyalty brings them back. Awareness
   // 0..1 multiplies the wave spawn rate (spawnMin..spawnMax); it decays
@@ -134,7 +150,7 @@ export const CAMPAIGN = {
   // existing reputation stock, re-explained as a return rate: yesterday's
   // served × returnRate reappear spread across today's waves.
   demand: {
-    start: 0.55,          // opening-day awareness — the street hasn't decided yet
+    start: 0.28,          // opening-day awareness — nobody knows the stand yet
     spawnMin: 0.4,        // spawn multiplier at zero awareness (regulars only)
     spawnMax: 1.3,        // spawn multiplier at full awareness (the street queues)
     decay: 0.04,          // awareness lost per close when coasting
