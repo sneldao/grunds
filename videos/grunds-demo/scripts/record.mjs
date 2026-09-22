@@ -38,8 +38,10 @@ async function clip(name, url, fn) {
   } catch (e) {
     console.error(`clip ${name} error:`, e.message);
   }
-  await ctx.close();
-  await browser.close();
+  // video finalize can hang on a saturated encode — never let it eat the run
+  await Promise.race([ctx.close(), new Promise(r => setTimeout(r, 25000))]).catch(() => {});
+  await Promise.race([browser.close(), new Promise(r => setTimeout(r, 8000))]).catch(() => {});
+  try { process.kill(browser.process()?.pid ?? 0, 'SIGKILL'); } catch {}
   log(`recorded ${name}`);
 }
 

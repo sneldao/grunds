@@ -73,6 +73,19 @@
         margin-top: 40px; font-size: 17px; letter-spacing: .22em;
         color: #847a68; text-transform: uppercase;
       }
+
+      /* ---- the stamped share card, shown as evidence ---- */
+      .cardshot {
+        display: flex; align-items: center; justify-content: center;
+        background:
+          radial-gradient(ellipse at 50% 40%, rgba(201,162,39,.08), transparent 62%),
+          #0a0806;
+      }
+      .cardshot img {
+        width: 1280px; height: 720px;
+        box-shadow: 0 30px 90px rgba(0,0,0,.65);
+        transform: rotate(-.4deg);
+      }
       .letterbox { position: absolute; left: 0; right: 0; height: 90px; background: #0a0806; }
       .lb-top { top: 0; } .lb-bot { bottom: 0; }
     </style>
@@ -82,11 +95,11 @@
       id="root"
       data-composition-id="main"
       data-start="0"
-      data-duration="94.7"
+      data-duration="108"
       data-width="1920"
       data-height="1080"
     >
-      <!-- 0.0–4.5 title card -->
+      <!-- 0–4.5 title card -->
       <div class="clip card" id="card-1" data-start="0" data-duration="4.5" data-track-index="0">
         <div class="c-in">
           <div class="over">a day on the floor</div>
@@ -95,71 +108,103 @@
         </div>
       </div>
 
-      <!-- 4.5–19.5 licence -->
-      <video id="v-a1-licence" class="clip" src="capture/clips/a1-licence.mp4" muted data-start="4.5" data-duration="15" data-track-index="0"></video>
-      <div class="cap clip" id="cap-1" data-start="6.5" data-duration="11">
+      <!-- 4.5–14.5 licence -->
+      <video id="v-a1-licence" class="clip" src="capture/clips/a1-licence.mp4" muted data-start="4.5" data-duration="10" data-track-index="0"></video>
+      <div class="cap clip" id="cap-1" data-start="6.5" data-duration="7">
         <div class="cap-inner">
           <div class="k">the pitch licence</div>
           <div class="t">sign yourself in — a name, a stand, a past life that changes how you play</div>
         </div>
       </div>
 
-      <!-- 19.5–31.5 tutorial + morning brief -->
-      <video id="v-a2-brief" class="clip" src="capture/clips/a2-brief.mp4" muted data-start="19.5" data-duration="12" data-track-index="0"></video>
-      <div class="cap clip" id="cap-2" data-start="21.5" data-duration="8.5">
+      <!-- 14.5–21.5 morning brief -->
+      <video id="v-a2-brief" class="clip" src="capture/clips/a2-brief.mp4" muted data-start="14.5" data-duration="7" data-track-index="0"></video>
+      <div class="cap clip" id="cap-2" data-start="15.3" data-duration="5.7">
         <div class="cap-inner">
           <div class="k">06:00 — the morning brief</div>
           <div class="t">the wire smells like drought — Firecrawl crawled the commodity news overnight</div>
         </div>
       </div>
 
-      <!-- 31.5–48.5 the day at 20× -->
-      <video id="v-b1-day" class="clip" src="capture/clips/b1-day.mp4" muted data-start="31.5" data-duration="17" data-track-index="0"></video>
-      <div class="cap clip" id="cap-3" data-start="33.5" data-duration="13">
+      <!-- 21.5–33.5 the day at 20× -->
+      <video id="v-f1-day" class="clip" src="capture/clips/f1-day.mp4" muted data-start="21.5" data-duration="12" data-track-index="0"></video>
+      <div class="cap clip" id="cap-3" data-start="23" data-duration="9.5">
         <div class="cap-inner">
           <div class="k">the floor runs</div>
           <div class="t">queues build, the 14:00 wave lands — walk-outs feed the chain across the road</div>
         </div>
       </div>
 
-      <!-- 48.5–60.8 letter + post -->
-      <video id="v-b2-letter-post" class="clip" src="capture/clips/b2-letter-post.mp4" muted data-start="48.5" data-duration="17" data-track-index="0"></video>
-      <div class="cap clip" id="cap-4" data-start="50" data-duration="14">
+      <!-- 33.5–42.5 idle halo -->
+      <video id="v-d1-halo" class="clip" src="capture/clips/d1-halo.mp4" muted data-start="33.5" data-duration="9" data-track-index="0"></video>
+      <div class="cap clip" id="cap-4" data-start="34.8" data-duration="7">
         <div class="cap-inner">
-          <div class="k">at close, the roaster writes</div>
-          <div class="t">the letter is a real email — reply contract, hold, or settle and the campaign moves</div>
+          <div class="k">go idle — the district points</div>
+          <div class="t">one next-action source feeds the goal strip and a brass halo on the pavement</div>
         </div>
       </div>
 
-      <!-- 60.8–67.6 wire desk -->
-      <video id="v-c1-desk" class="clip" src="capture/clips/c1-desk.mp4" muted data-start="65.5" data-duration="6.8" data-track-index="0"></video>
-      <div class="cap clip" id="cap-5" data-start="66.3" data-duration="5.4">
+      <!-- 42.5–56.5 the letter, posted for real -->
+      <video id="v-f2-letter" class="clip" src="capture/clips/f2-letter-post.mp4" muted data-start="42.5" data-duration="14" data-track-index="0"></video>
+      <div class="cap clip" id="cap-5" data-start="44" data-duration="11.5">
+        <div class="cap-inner">
+          <div class="k">at close, the roaster writes</div>
+          <div class="t">the letter is a real email — posted to a real AgentMail inbox</div>
+        </div>
+      </div>
+
+      <!-- 56.5–69.5 the reply lands as theater -->
+      <video id="v-f3-reply" class="clip" src="capture/clips/f3-reply.mp4" muted data-start="56.5" data-duration="13" data-track-index="0"></video>
+      <div class="cap clip" id="cap-6" data-start="58.5" data-duration="9.5">
+        <div class="cap-inner">
+          <div class="k">the reply lands mid-read</div>
+          <div class="t">flag up, a knock, an envelope on the pavement — contract, hold, or settle moves the campaign</div>
+        </div>
+      </div>
+
+      <!-- 69.5–75 wire desk -->
+      <video id="v-c1-desk" class="clip" src="capture/clips/c1-desk.mp4" muted data-start="69.5" data-duration="5.5" data-track-index="0"></video>
+      <div class="cap clip" id="cap-7" data-start="70" data-duration="4.5">
         <div class="cap-inner">
           <div class="k">the wire desk</div>
           <div class="t">Linkup research + Firecrawl headlines, merged — the why is written for you</div>
         </div>
       </div>
 
-      <!-- 67.6–79.6 floor live board -->
-      <video id="v-a3-floor" class="clip" src="capture/clips/a3-floor.mp4" muted data-start="72.3" data-duration="12" data-track-index="0"></video>
-      <div class="cap clip" id="cap-6" data-start="73.7" data-duration="9">
+      <!-- 75–84 live district board -->
+      <video id="v-a3-floor" class="clip" src="capture/clips/a3-floor.mp4" muted data-start="75" data-duration="9" data-track-index="0"></video>
+      <div class="cap clip" id="cap-8" data-start="76.5" data-duration="6.5">
         <div class="cap-inner">
           <div class="k">one district, one board</div>
           <div class="t">every stand races on the same live board — the week is persistent, not a demo</div>
         </div>
       </div>
 
-      <!-- 79.6–90 end card -->
-      <div class="clip card" id="card-2" data-start="84.3" data-duration="10.4" data-track-index="0">
+      <!-- 84–93.5 photo mode -->
+      <video id="v-e1-photo" class="clip" src="capture/clips/e1-photo.mp4" muted data-start="84" data-duration="9.5" data-track-index="0"></video>
+      <div class="cap clip" id="cap-9" data-start="85.5" data-duration="7">
+        <div class="cap-inner">
+          <div class="k">photo mode</div>
+          <div class="t">one key freezes golden hour and prints a stamped card — save it, share it, post it</div>
+        </div>
+      </div>
+
+      <!-- 93.5–98.5 the card it printed -->
+      <div class="clip cardshot" id="cardshot" data-start="93.5" data-duration="5" data-track-index="0">
+        <img src="capture/assets/share-card.png" alt="the stamped share card" />
+      </div>
+
+      <!-- 98.5–108 end card -->
+      <div class="clip card" id="card-2" data-start="98.5" data-duration="9.5" data-track-index="0">
         <div class="c-in">
           <div class="over">grunds — the district</div>
           <div class="url">striped-anaconda-746.convex.site</div>
           <div class="sub">the wire is real. the rent is due friday.</div>
-          <div class="sponsors">convex · openai · firecrawl · agentmail · linkup · nebius · revenuecat</div>
+          <div class="sponsors">convex · openai · firecrawl · agentmail · linkup · nebius · mint</div>
         </div>
       </div>
 
-      <audio id="bed" src="capture/audio/bed.m4a" data-start="0" data-duration="94.7"></audio>
+      <audio id="bed" src="capture/audio/bed108.m4a" data-start="0" data-duration="108"></audio>
     </div>
     <script>
       const tl = gsap.timeline({ paused: true });
@@ -174,6 +219,9 @@
         const at = parseFloat(host.dataset.start);
         tl.fromTo(el, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }, at);
       });
+      // the share card rises and settles
+      const shot = document.querySelector('#cardshot img');
+      tl.fromTo(shot, { opacity: 0, y: 60, rotate: -3 }, { opacity: 1, y: 0, rotate: -0.4, duration: 0.9, ease: 'power3.out' }, 93.5);
       window.__timelines['main'] = tl;
       tl.seek(0);
     </script>
