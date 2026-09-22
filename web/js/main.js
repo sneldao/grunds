@@ -99,7 +99,7 @@ const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(lo
 let marketIntel = null;
 if (sync.live && sync.intel) sync.intel().then(r => {
   marketIntel = r;
-  if (r && $('wirebtn')) $('wirebtn').style.display = '';
+  if (r && $('wirebtn') && day >= 2) $('wirebtn').style.display = '';
 });
 if (sync.managed && sync.managed()) sync.beginRun(SEED).catch(() => {});
 
@@ -143,7 +143,7 @@ district.onGrown = (slots) => {
   if (kitPendingAtOpen) kitBeat.start(slots, SEED);
 };
 function currentAction() {
-  return computeNextAction({ dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending, offerShown, eveningFast });
+  return computeNextAction({ dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending, offerShown, eveningFast, rushFast });
 }
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
 fx.patrons = patrons;
@@ -234,7 +234,8 @@ let coached = false;   // day-1 lever hint, once per campaign
 // condition is on screen — teach at the moment of need, not at boot
 let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false;
 
-let eveningCallShown = false, eveningFast = false;
+let eveningCallShown = false, eveningFast = false, rushFast = false;
+let offerResolved = false;   // the 11:00 ask has been answered — skip may jump to 14:00
 let forecastShown = false;     // day-2 forecast tease, once per campaign (day 1 evening)
 let pendingGossip = null;      // a named regular's Nebius take on the market, one per day
 let tapePrev = 1.0;            // yesterday's bean-index close — the tape's delta
@@ -396,7 +397,7 @@ function tick() {
 function beats() {
   while (chapterIdx < CHAPTERS.length && dayMin >= CHAPTERS[chapterIdx].t) {
     const ch = CHAPTERS[chapterIdx++];
-    if (eveningFast) continue;
+    if (eveningFast || (rushFast && ch.t < 840)) continue;
     fx.card(ch.k, ch.sub); audio.card();
     // Beat push-ins only at readable speeds — at 20× the chapters fly by and
     // the camera would whip around every few seconds. Cards still show.
@@ -447,7 +448,7 @@ function beats() {
     fx.toast('line’s past 5 — press 1 to prep cups', 'warn');
     $('prebatch').classList.add('attention');
   }
-  if (!nudgedPrice && dayMin >= 800 && dayMin < 840 && !repriced) {
+  if (!rushFast && !nudgedPrice && dayMin >= 800 && dayMin < 840 && !repriced) {
     nudgedPrice = true;
     fx.toast(`14:00 is close — 2 sells matcha at ${fmt(ECON.matchaDeal)}`, 'warn');
     $('reprice').classList.add('attention');
@@ -1445,12 +1446,12 @@ function prepareDay(d) {
   rivalStrategy = strategyForDay(d, exchange.event?.tier);
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; patrons.repriced = false;
-  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; closed = false;
+  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false;
   baristaCrisis = false;
   if (d === 1) { forecastShown = false; nudgedQueue = nudgedBalk = nudgedPrice = false; }
   if (baristaRested) { baristaRested = false; fx.toast('Ruth’s back — rested. The bar hums.', 'good'); }
   pendingGossip = null;
-  offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
+  offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
   party = null; batchWaste = 0; batchSpend = 0; patrons.party = null; patrons.partyActive = false;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; solicitorAt = 0;
   briefChoice = null;
@@ -1700,6 +1701,14 @@ function updateHUD() {
   try { world.setPlantHealth(qq); audio.purr(qq <= 5 && patrons.count > 2); } catch {}
   // the tape: the bean board as a visible object — yesterday's close →
   // today, the event that moved it, click-through to the wire
+  if ($('batchline')) $('batchline').hidden = day < 2 && !(prebatched || ctx.batchUnits > 0);
+  if ($('skiprush')) $('skiprush').hidden = !canSkipToRush();
+  if ($('wirebtn')) $('wirebtn').style.display = (day >= 2 && marketIntel) ? '' : 'none';
+  if ($('floorstats')) $('floorstats').hidden = day < 2;
+  if ($('syncbadge')) $('syncbadge').hidden = day < 2;
+  if ($('district')) $('district').hidden = day < 2;
+  if ($('pressure')) $('pressure').hidden = day < 2 && !repriced;
+  if ($('status') && day < 2) $('status').hidden = true;
   if ($('tape')) {
     if (started && day >= 2) {
       const pct = Math.round((exchange.beanIndex - tapePrev) * 100);
@@ -1777,24 +1786,24 @@ function updateHUD() {
   $('till').textContent = fmt(till);
   $('balk').textContent = balked;
   if ($('poured')) $('poured').textContent = String(served + servedRetail);
-  if (defections) {
+  if (day >= 2 && defections) {
     $('status').hidden = false;
     $('status').innerHTML = `<b class="hot">${defections}</b> crossed to ${COPY.rivalName}`;
   } else {
     $('status').hidden = true;
     $('status').textContent = '';
   }
-  // pressure dial: the gentrification drift. beanIndex creep since the
-  // start of the campaign (1.00 → drift.maxIndex), and the day's matcha
-  // till price. Always visible — even day 1, so the player can see the
-  // clock at 0% and feel the clock ticking.
+  // Day 1 shows the price only after the cut. From day 2 the cost drift
+  // sits on this line again.
   if ($('pressure')) {
-    const driftPct = Math.round((exchange.beanIndex - 1.0) * 100);
-    const driftTxt = (driftPct >= 0 ? '+' : '') + driftPct + '%';
-    const dayPrice = salePrice(exchange, repriced);
-    const costBit = day >= 2 ? `costs <b>${driftTxt}</b> · ` : '';
-    $('pressure').innerHTML = `${costBit}matcha <b>£${dayPrice.toFixed(2)}</b>` +
-      (exchange.debt > 0 ? ` · tab <b>${fmt(exchange.debt)}</b>/${fmt(CAMPAIGN.creditLimit)}` : '');
+    if (day >= 2 || repriced) {
+      const driftPct = Math.round((exchange.beanIndex - 1.0) * 100);
+      const driftTxt = (driftPct >= 0 ? '+' : '') + driftPct + '%';
+      const dayPrice = salePrice(exchange, repriced);
+      const costBit = day >= 2 ? `costs <b>${driftTxt}</b> · ` : '';
+      $('pressure').innerHTML = `${costBit}matcha <b>£${dayPrice.toFixed(2)}</b>` +
+        (exchange.debt > 0 ? ` · tab <b>${fmt(exchange.debt)}</b>/${fmt(CAMPAIGN.creditLimit)}` : '');
+    }
   }
   if (!closed) updateTicker();
 }
@@ -1833,8 +1842,23 @@ function doPrebatch() {
     if (isFirst) { analytics.firstLeverAt = { lever: 'batch', day, dayMin, wallMs: Date.now() }; analytics.track('first_lever_at_min', { lever: 'batch', day, dayMin, wallMs: Date.now(), queue: queueBefore }); }
     analytics.track('lever_batch', { day, dayMin, queue: queueBefore, ...payload });
   } catch {}
+  lastHudText = 0;
   updateHUD();
 }
+
+function canSkipToRush() {
+  return phase === 'trading' && !closed && !rushFast && dayMin < 840
+    && (prebatched || repriced) && offerResolved;
+}
+
+function skipToRush() {
+  if (!canSkipToRush()) return false;
+  rushFast = true;
+  lastHudText = 0;
+  updateHUD();
+  return true;
+}
+
 function doReprice() {
   if (repriced || closed || phase !== 'trading') return;
   if (prebatched || ctx.batchUnits > 0) { fx.toast('you prepped the cups — the price stays on the board', 'warn'); return; }
@@ -1844,6 +1868,7 @@ function doReprice() {
   world.setMatchaPrice(ECON.matchaDeal.toFixed(2), true);
   world.flashChalk('reprice');
   try { fx.chalkDust(-5.5, 2.75, -7.95); audio.chalkScreech(); } catch {}
+  fx.notebook(false);
   fx.toast(`matcha is ${fmt(ECON.matchaDeal)} for the rest of today — prep is locked`, 'good');
   audio.clink();
   $('prebatch').classList.remove('attention'); $('reprice').classList.remove('attention');
@@ -1852,6 +1877,7 @@ function doReprice() {
     if (isFirst) { analytics.firstLeverAt = { lever: 'reprice', day, dayMin, wallMs: Date.now() }; analytics.track('first_lever_at_min', { lever: 'reprice', day, dayMin, wallMs: Date.now(), queue: queueBefore }); }
     analytics.track('lever_reprice', { day, dayMin, queue: queueBefore, till });
   } catch {}
+  lastHudText = 0;
   updateHUD();
 }
 // ---- a regular's ask -----------------------------------------------------------
@@ -1956,12 +1982,14 @@ function resolveOffer(said) {
   else { if (o.decline) o.decline(); fx.toast(wasIncident ? o.who + ' — you take the hit as it comes' : o.who + ' shrugs — maybe tomorrow', wasIncident ? 'warn' : ''); }
   try { analytics.track(said ? (wasIncident ? 'incident_paid' : 'offer_accepted') : (wasIncident ? 'incident_risked' : 'offer_declined'), { day, who: o.who }); } catch {}
   activeBeat = null;
+  if (!wasIncident) offerResolved = true;
 }
 $('offer-yes').onclick = () => resolveOffer(true);
 $('offer-no').onclick = () => resolveOffer(false);
 if ($('evening-topup')) $('evening-topup').onclick = () => resolveEvening('topup');
 if ($('evening-hold')) $('evening-hold').onclick = () => resolveEvening('hold');
 if ($('evening-close')) $('evening-close').onclick = () => resolveEvening('close');
+if ($('skiprush')) $('skiprush').onclick = () => skipToRush();
 $('tape').onclick = () => { if (marketIntel) desk.open(marketIntel); };
 
 function reset() {
@@ -1971,7 +1999,8 @@ function reset() {
   exchange.rng = seeded(SEED);
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
-  tapePrev = 1.0; offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
+  tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
+  rushFast = false;
   party = null; batchWaste = 0; batchSpend = 0;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; cOps = 0;
   briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;
@@ -2376,6 +2405,11 @@ function loop(now) {
       let burst = 10;
       while (burst-- && phase === 'trading' && !paused && !closed) tick();
     }
+    if (rushFast) {
+      let burst = 12;
+      while (burst-- && phase === 'trading' && !paused && !closed && dayMin < 840) tick();
+      if (dayMin >= 840) rushFast = false;
+    }
   }
   vitality.tick();
   world.updateTimeOfDay(dayMin);
@@ -2410,14 +2444,14 @@ function loop(now) {
 }
   window.__grunds = {
   stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count, phase, hedgedCups, hedgeSavings: realizedHedgeSavings, batchUnits: ctx.batchUnits, batchSpend, batchWaste,
-    index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null,
+    index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null, rushFast, eveningFast,
     staffCondition: baristaCondition, staffing: planDraft ? planDraft.staffing : 'work', rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
     trainingSpend, sampleSpend, feeToday, interestToday, settleToday, marketingSpend,
     awareness: demand ? demand.awareness : 0, ops: lastOps, demand }),
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
   vitality, director, district, kitBeat, mailT,
-  openDay, applyReply, reset, togglePause, resolveEvening,
+  openDay, applyReply, reset, togglePause, resolveEvening, skipToRush,
   prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
   patrons, modals,
   renderBrief() { if (phase === 'planning') showMorningBrief(); },

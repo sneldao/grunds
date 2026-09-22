@@ -367,7 +367,7 @@
     <div id="goal" class="line">keep the line under <b>5</b> before the <b>14:00</b> rush</div>
     <div id="queuebar" aria-hidden="true"><div id="queuefill" class="ok" style="width:0%"></div><span id="qlabel">0 in line — holding</span></div>
     <div class="line" id="batchline"><span id="batchword">cups ready</span>: <b id="batchcount">none</b></div>
-    <div class="line">till <span id="till">£0.00</span> · walked <span id="balk">0</span> · poured <span id="poured">0</span></div>
+    <div class="line" id="tillline">till <span id="till">£0.00</span><span id="floorstats"> · walked <span id="balk">0</span> · poured <span id="poured">0</span></span></div>
     <div class="line" id="status" hidden></div>
     <div class="line" id="pressure"></div>
     <div class="line" id="tape" style="display:none" title="the district wire — open the market desk"></div>
@@ -574,6 +574,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
   <div id="levers">
     <button id="prebatch">Buy cups <kbd>1</kbd><small>fast bar · leftovers spoil</small></button>
     <button id="reprice">Sell matcha cheaper <kbd>2</kbd><small>down from the board price · locks prep</small></button>
+    <button id="skiprush" hidden>Skip to 14:00</button>
     <button id="reset">↺ day <kbd>R</kbd></button>
   </div>
 

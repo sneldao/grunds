@@ -11,7 +11,7 @@ export function computeNextAction(s = {}) {
   const {
     dayMin = 0, queue = 0,
     prebatched = false, repriced = false, batchUnits = 0,
-    mailPending = false, offerShown = false, eveningFast = false,
+    mailPending = false, offerShown = false, eveningFast = false, rushFast = false,
   } = s;
   const price = repriced ? 'matcha £4.20' : 'matcha full price';
   // between days, once a letter is posted: the box is the only move that matters
@@ -21,6 +21,10 @@ export function computeNextAction(s = {}) {
   // the evening call has been made: the rest of the day resolves itself
   if (eveningFast) {
     return { id: 'status', target: 'street', text: 'the evening’s running — the receipt is next' };
+  }
+  // lever is locked and the morning is skipping forward to 14:00
+  if (rushFast) {
+    return { id: 'status', target: 'street', text: 'skipping to the rush' };
   }
   // 14:00–16:00: the stock is the decision. Low cups are a second press.
   if (dayMin >= 840 && dayMin < 960) {

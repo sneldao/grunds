@@ -152,6 +152,17 @@ ok(/revenue', fmt\(till \+ batchSpend\)/.test(main), 'receipt revenue is not gro
 ok(/matcha batch bought/.test(main), 'receipt has no batch-bought line');
 ok(!/estBalkNoBatchWave|waveBalked \+ \(prebatched \|\| repriced \? 12/.test(main),
   'waveRead still invents a fixed +12 saved count');
+ok(/\$\('batchline'\)\) \$\('batchline'\)\.hidden = day < 2 && !\(prebatched \|\| ctx\.batchUnits > 0\)/.test(main),
+  'day-1 cups line stays up before a lever');
+ok(/\$\('floorstats'\)\) \$\('floorstats'\)\.hidden = day < 2/.test(main),
+  'walked and poured stay on the day-1 till line');
+ok(/\$\('pressure'\)\) \$\('pressure'\)\.hidden = day < 2 && !repriced/.test(main),
+  'day-1 price line shows before the cut');
+ok(/day >= 2 && marketIntel/.test(main), 'wire button can show on day 1');
+ok(/function doReprice\(\) \{[\s\S]*?fx\.notebook\(false\)/.test(main), 'reprice leaves the notebook up');
+ok(/id="skiprush"/.test(index) && /function skipToRush/.test(main) && /skipping to the rush/.test(readFileSync(join(ROOT, 'web/js/nextAction.js'), 'utf8')),
+  'no skip-to-14:00 after the lever');
+ok(/id="floorstats"/.test(index), 'walked and poured cannot be hidden apart from the till');
 console.log('COPY    ECON owns £40/£4.20; receipt shows batch spend; waveRead is honest; evening hints residual demand');
 
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }

@@ -30,6 +30,8 @@ const a6b = computeNextAction({ dayMin: 900, queue: 4, prebatched: true, batchUn
 check('wave with stock → cups left', a6b.id === 'status' && /30 cups left/.test(a6b.text), JSON.stringify(a6b));
 const a6c = computeNextAction({ dayMin: 1000, eveningFast: true });
 check('evening fast-forward is a status, not a new lever', a6c.id === 'status' && /receipt is next/.test(a6c.text), JSON.stringify(a6c));
+const a6d = computeNextAction({ dayMin: 720, rushFast: true, prebatched: true, batchUnits: 40 });
+check('rush skip is a status, not a new lever', a6d.id === 'status' && /skipping to the rush/.test(a6d.text), JSON.stringify(a6d));
 const a7 = computeNextAction({ dayMin: 900, queue: 2, prebatched: true, mailPending: true });
 check('mailPending outranks everything → mailbox', a7.id === 'mail' && a7.target === 'mailbox', JSON.stringify(a7));
 const a8 = computeNextAction();
@@ -54,7 +56,7 @@ const mainSrc = readFileSync(join(ROOT, 'web', 'js', 'main.js'), 'utf8');
 check('main.js imports computeNextAction', /import \{ computeNextAction \}/.test(mainSrc), 'not imported');
 check('goal strip reads na.id/na.text', /const na = currentAction\(\);/.test(mainSrc) && /na\.id === 'mail'/.test(mainSrc) && /na\.text/.test(mainSrc), 'strip not re-pointed');
 check('no inline directive left in main.js', !/keep the line under <b>5<\/b>/.test(mainSrc), 'copy duplicated — drift is back');
-check('currentAction feeds mailPending', /mailPending, offerShown, eveningFast \}/.test(mainSrc), 'mail not threaded');
+check('currentAction feeds mailPending', /mailPending, offerShown, eveningFast, rushFast \}/.test(mainSrc), 'mail not threaded');
 
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
 console.log('\nPASS — nextAction: one answer per moment, strip and halo read the same source');

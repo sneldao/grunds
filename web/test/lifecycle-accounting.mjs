@@ -354,6 +354,21 @@ await new Promise(r => setTimeout(r, 5400));
 {
   G.stageDayPlan({ hedge: 'hold' });
   if (!G.commitDayPlan().ok) fails.push('evening-fixture commit failed');
+  if (!registry.get('pressure').hidden) fails.push('day 1 should hide the price line before a cut');
+  if (!registry.get('batchline').hidden) fails.push('day 1 should hide cups before a lever');
+  if (!registry.get('floorstats').hidden) fails.push('day 1 should hide walked and poured');
+  if (G.skipToRush()) fails.push('skip before a lever should refuse');
+  registry.get('prebatch').click();
+  if (registry.get('batchline').hidden) fails.push('prep should show the cups line');
+  if (!registry.get('pressure').hidden) fails.push('a prep day should keep the price line hidden');
+  if (G.skipToRush()) fails.push('skip before the 11:00 ask should refuse');
+  runTo(700);
+  if (!G.skipToRush()) fails.push('skipToRush should arm after the ask');
+  { let g = 0; while (G.stats().dayMin < 840 && G.phase === 'trading' && g++ < 80) runFrames(1); }
+  if (G.stats().dayMin < 840) fails.push(`skip should reach 14:00, got ${G.stats().dayMin}`);
+  if (G.phase !== 'trading') fails.push(`skip should still be trading, got ${G.phase}`);
+  if (G.stats().eveningFast) fails.push('skip to the rush set eveningFast');
+  if (G.stats().rushFast) fails.push('rushFast should clear once 14:00 lands');
   runTo(1025);
   if (G.phase !== 'trading') fails.push(`evening fixture expected trading past the rush, got ${G.phase}@${G.stats().dayMin}`);
   G.resolveEvening('close');
