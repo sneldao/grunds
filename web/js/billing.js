@@ -8,8 +8,25 @@
 // 'grunds.rcKey'. Web Billing *public* SDK keys are designed to ship in
 // client code — secret keys never enter the repo.
 
+// PR-4 — multi-tier catalog: a monthly pass, a yearly pass (≈33% off per
+// month), and a one-time Founder's pass (non-consumable — buys you the day-5
+// replay-with-new-seed CTA + brass stamp on the share card forever).
 export const ENTITLEMENT_ID = "commodity_insider";
-export const PRODUCT_ID = "rc_district_insider_monthly";
+export const ENTITLEMENTS = {
+  insider: "commodity_insider",          // the Wire desk tilt + ad-free Wire
+  founder: "district_founder",           // day-5 replay-with-new-seed + brass share card
+};
+export const PRODUCTS = {
+  monthly: "rc_district_insider_monthly",
+  yearly:  "rc_district_insider_yearly",
+  founder: "rc_district_founder_one_time",
+};
+// Display fallbacks for the Web Test Store (real offerings carry live price)
+export const TIER_PRICING = {
+  monthly: '£4.99/mo',
+  yearly:  '£39.99/yr',
+  founder: '£49.99 once',
+};
 
 // Public SDK key — safe to ship in client code by design. This is the Test
 // Store key: the real purchases-js SDK and real entitlement checks run, but
@@ -42,7 +59,12 @@ function configuredKey() {
 
 class BillingManager {
   constructor() {
+    // PR-4 — multi-entitlement state. `subscribed` keeps the legacy
+    // semantics for code that still asks `billing.isSubscribed()`. The
+    // granular `insider` + `founder` flags drive the new surfaces.
     this.subscribed = store()?.getItem("grunds_subscribed") === "true";
+    this.insider = store()?.getItem("grunds_insider") === "true" || this.subscribed;
+    this.founder = store()?.getItem("grunds_founder") === "true";
     this.listeners = new Set();
     this.purchases = null; // live Purchases instance when a key is configured
     this.testKey = false; // test_ key → real SDK, simulated checkout
@@ -54,9 +76,9 @@ class BillingManager {
     return this.testKey ? "test store · live SDK" : "web billing";
   }
 
-  isSubscribed() {
-    return this.subscribed;
-  }
+  isSubscribed() { return this.subscribed; }   // legacy alias
+  isInsider()    { return this.insider || this.founder; }   // founders get all insider perks
+  isFounder()    { return this.founder; }
 
   onChange(fn) {
     this.listeners.add(fn);
@@ -64,16 +86,31 @@ class BillingManager {
   }
 
   notify() {
-    for (const fn of this.listeners) fn(this.subscribed);
+    const snap = { subscribed: this.subscribed, insider: this.isInsider(), founder: this.founder };
+    for (const fn of this.listeners) fn(snap);
   }
 
   setSubscribed(v) {
-    this.subscribed = v;
+    this.subscribed = !!v;
+    this.insider = !!v || this.insider;
     try {
-      store()?.setItem("grunds_subscribed", String(v));
-    } catch {
-      /* private mode */
+      store()?.setItem("grunds_subscribed", String(this.subscribed));
+      store()?.setItem("grunds_insider", String(this.insider));
+    } catch {}
+    this.notify();
+  }
+
+  setEntitlement(entId, v) {
+    if (entId === ENTITLEMENTS.founder) {
+      this.founder = !!v;
+      try { store()?.setItem("grunds_founder", String(this.founder)); } catch {}
+    } else if (entId === ENTITLEMENTS.insider) {
+      this.insider = !!v;
+      try { store()?.setItem("grunds_insider", String(this.insider)); } catch {}
     }
+    // every entitlement change refreshes the legacy `subscribed` flag
+    this.subscribed = this.isInsider();
+    try { store()?.setItem("grunds_subscribed", String(this.subscribed)); } catch {}
     this.notify();
   }
 
@@ -92,7 +129,9 @@ class BillingManager {
       });
       this.testKey = key.startsWith("test_");
       const info = await this.purchases.getCustomerInfo();
-      this.setSubscribed(Boolean(info?.entitlements?.active?.[ENTITLEMENT_ID]));
+      // honour BOTH entitlements off the same customer info object
+      this.setEntitlement(ENTITLEMENTS.insider, Boolean(info?.entitlements?.active?.[ENTITLEMENTS.insider]));
+      this.setEntitlement(ENTITLEMENTS.founder, Boolean(info?.entitlements?.active?.[ENTITLEMENTS.founder]));
     } catch (err) {
       console.warn("RevenueCat init failed — Web Test Store stays active:", err);
       this.purchases = null;
@@ -100,40 +139,62 @@ class BillingManager {
     return this.mode;
   }
 
-  // Live price from the configured offering ("$9.99/mo"), or the display
-  // price when the SDK isn't loaded.
-  async priceLabel() {
+  // Live price from the configured offering for the requested tier, or the
+  // display fallback when the SDK isn't loaded. `tier` is one of: monthly,
+  // yearly, founder.
+  async priceLabel(tier = 'monthly') {
     if (this.purchases) {
       try {
         const off = await this.purchases.getOfferings();
-        const pkg = this._pickPackage(off);
+        const pkg = this._pickPackage(off, tier);
         const prod = pkg?.rcBillingProduct ?? pkg?.product;
         const fmt = prod?.currentPrice?.formattedPrice;
-        if (fmt) return `${fmt}/mo`;
+        if (fmt) {
+          const isOneTime = (prod?.productType ?? '').toLowerCase().includes('one_time') || tier === 'founder';
+          return isOneTime ? `${fmt} once` : tier === 'yearly' ? `${fmt}/yr` : `${fmt}/mo`;
+        }
       } catch {
         /* fall through to display price */
       }
     }
-    return "£4.99/mo";
+    return TIER_PRICING[tier] || TIER_PRICING.monthly;
   }
 
-  _pickPackage(offerings) {
+  // PR-4 — pick the offering package that matches the requested tier. When
+  // the live offerings don't carry a matching package, fall back to a label
+  // heuristic so the demo never crashes if RevenueCat's offering names drift.
+  _pickPackage(offerings, tier) {
     const pkgs = offerings?.current?.availablePackages ?? [];
-    return pkgs.find((p) => /month/i.test(p.identifier ?? "")) ?? pkgs[0];
+    const target = PRODUCTS[tier];
+    if (!target) return pkgs[0];
+    const idLower = target.toLowerCase();
+    const exact = pkgs.find((p) => (p.identifier ?? '').toLowerCase() === idLower);
+    if (exact) return exact;
+    // fall back to identifier-based heuristics
+    const fallbackHeuristic = (() => {
+      if (tier === 'yearly')  return pkgs.find((p) => /year|annual|12mo/i.test(p.identifier ?? ''));
+      if (tier === 'founder') return pkgs.find((p) => /found|lifetime|once|onetime|one_time/i.test(p.identifier ?? ''));
+      return pkgs.find((p) => /month/i.test(p.identifier ?? '')) ?? pkgs[0];
+    })();
+    return fallbackHeuristic ?? pkgs[0];
   }
 
-  async purchasePass() {
+  // PR-4 — single-tier purchase entry points. Default `purchasePass()` is
+  // the monthly pass for back-compat; the new `purchaseYearly()` and
+  // `purchaseFounder()` are called from the multi-tier paywall.
+  async _purchase(tier) {
     if (this.purchases) {
       try {
-        const pkg = this._pickPackage(await this.purchases.getOfferings());
+        const pkg = this._pickPackage(await this.purchases.getOfferings(), tier);
         if (!pkg) return { success: false, error: "no offering configured" };
-        const { customerInfo } = await this.purchases.purchase({
-          rcPackage: pkg,
-        });
-        this.setSubscribed(
-          Boolean(customerInfo?.entitlements?.active?.[ENTITLEMENT_ID]),
-        );
-        return { success: this.subscribed, entitlement: ENTITLEMENT_ID };
+        const { customerInfo } = await this.purchases.purchase({ rcPackage: pkg });
+        const entitlements = customerInfo?.entitlements?.active ?? {};
+        // propagate ALL active entitlements (one purchase may grant several)
+        for (const ent of Object.values(ENTITLEMENTS)) {
+          if (entitlements[ent]) this.setEntitlement(ent, true);
+        }
+        const entId = tier === 'founder' ? ENTITLEMENTS.founder : ENTITLEMENTS.insider;
+        return { success: this.isInsider() || this.isFounder(), entitlement: entId, tier };
       } catch (err) {
         if (/cancel/i.test(String(err?.errorCode ?? err)))
           return { success: false, cancelled: true };
@@ -141,23 +202,30 @@ class BillingManager {
         return { success: false, error: err };
       }
     }
-    // Web Test Store — same entitlement shape, simulated checkout.
+    // Web Test Store — simulate the appropriate entitlement
     await new Promise((r) => setTimeout(r, 400));
-    this.setSubscribed(true);
-    return { success: true, entitlement: ENTITLEMENT_ID };
+    if (tier === 'founder') this.setEntitlement(ENTITLEMENTS.founder, true);
+    else                    this.setEntitlement(ENTITLEMENTS.insider, true);
+    return { success: true, tier, entitlement: tier === 'founder' ? ENTITLEMENTS.founder : ENTITLEMENTS.insider };
   }
+
+  purchasePass()    { return this._purchase('monthly'); }
+  purchaseYearly()  { return this._purchase('yearly');  }
+  purchaseFounder() { return this._purchase('founder'); }
 
   async restorePass() {
     if (this.purchases) {
       try {
         const info = await this.purchases.getCustomerInfo();
-        this.setSubscribed(Boolean(info?.entitlements?.active?.[ENTITLEMENT_ID]));
+        for (const ent of Object.values(ENTITLEMENTS)) {
+          this.setEntitlement(ent, Boolean(info?.entitlements?.active?.[ent]));
+        }
       } catch {
         /* keep current state */
       }
-      return { success: this.subscribed };
+      return { success: this.isInsider() || this.isFounder() };
     }
-    this.setSubscribed(true);
+    this.setEntitlement(ENTITLEMENTS.insider, true);
     return { success: true };
   }
 
@@ -167,9 +235,8 @@ class BillingManager {
     this.setSubscribed(false);
     try {
       store()?.removeItem("grunds_subscribed");
-    } catch {
-      /* private mode */
-    }
+      store()?.removeItem("grunds_insider");
+    } catch {}
     return { success: true };
   }
 }

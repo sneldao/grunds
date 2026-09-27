@@ -469,6 +469,77 @@ The Convex phase shipped as working backend + hosting, not a plan:
 
 See `hackathon.md` for the build log.
 
+## Recent updates (post-Sept 22) — RevenueCat depth + Ship-a-ton surface
+
+Eleven PRs landed in one stretch — each with its own headless suite. The build log
+tells the story in chronological order; this block is the field guide.
+
+### Game-design passes
+
+- **Asymmetric bias clamp + pity split.** The Linkup bias no longer compresses
+  variance — a high bias passes through, a low bias still floors at 0.2×
+  (so the deck never stops entirely). Pity timer is now gated on `day < 4`
+  so the first three days are learnable, the last two are the gamble.
+  `web/test/clamp-asymmetry.mjs`.
+- **Perk nerfs.** `ex-accountant` 0.85 → 0.90, `newcomer` opWarm 0.25 →
+  0.18. Real measured spread across the four perks is **£132** — well below
+  the £1,500 "game-wrecking" threshold. `web/test/perk-balance.mjs`.
+- **Time-locked levers.** Once the Morning Brief commits, the prep / reprice
+  levers lock for the rest of the day. Pressing either mid-rush costs **£4.20**
+  plus a 0.06 opinion hit on every named regular. The morning prep carries
+  weight now; the override is a real price. `web/test/time-locked-levers.mjs`.
+- **Visible cohort rituals.** Each cohort now declares a `props` rig, a
+  preferred table, a `dwellMul`, and a `walkSpeed`. The five cohorts read as
+  five rooms — commuters walk fastest and stay shortest, creatives linger,
+  elders walk slowest and claim the same table, students carry backpacks,
+  tourists carry cameras. `_afterServe` consults the cohort's seat preference
+  before falling back to a random free seat. `web/test/cohort-rituals.mjs`.
+
+### Sponsor + per-beat attribution
+
+- **Five per-beat "powered by" captions.** Brief, offer, wave, evening,
+  verdict — each now carries its sponsor tag in a `.beat-powered` slot.
+  `web/test/sponsor-captions.mjs`.
+
+### RevenueCat surface (Ship-a-ton depth)
+
+- **Yearly tier + free trial** in `web/js/billing.js`. `ENTITLEMENTS`,
+  `PRODUCTS`, `TIER_PRICING` map; `_pickPackage()` with identifier
+  heuristics so the Web Test Store and the native SDK converge on the same
+  SKUs. `web/test/billing-products.mjs`.
+- **Founder entitlement + SOLD-sign gating.** A one-time lifetime SKU
+  (`district_founder`) unlocks a `SEED_OVERRIDE` for replay-with-the-same-seed,
+  a gold-leaf stamp on the share card, and a SOLD finale. `web/test/founder-edge.mjs`.
+- **Multi-placement paywall.** The Insider upsell surfaces in the brief, the
+  offer, and the verdict; the Founder upsell in the player center — not as
+  blocking modals but as `#*upsell` strips wired to `billing.onChange()`.
+  `web/test/paywall-placements.mjs`.
+- **Web Customer Center embed.** `#customer-center` modal: status header,
+  restore button, test-cancel button, portal link. Tier-label contract is
+  `founder > insider > free`. `web/test/customer-center.mjs`.
+- **Convex backend sync.** `convex/revenuecat.ts` + new `entitlements` table
+  (indexed by `appUserId`). `POST /revenuecat/webhook` (bearer-auth, returns
+  503 when `REVENUECAT_WEBHOOK_SECRET` is unconfigured) accepts the dashboard's
+  event stream; `GET /sync/entitlements?appUserId=…` lets the client poll for
+  reconciliation. Idempotent by `event.id`. `web/test/revenuecat-sync.mjs`.
+
+### Demo
+
+- **`?demo=1` showfloor autoplay.** A one-key self-running demo for the
+  showfloor screen — resolves brief/offer/evening/letter/paywall/desk/
+  licence modals with a 1.5s grace, fires `doPhoto()` at dayMin 1080, and
+  yields to any keypress. `web/test/showfloor-autoplay.mjs`.
+
+### Ship-a-ton honest read
+
+The RevenueCat **surface** is submission-ready: full entitlement
+state machine, multi-tier pricing, multi-placement paywall, customer center,
+idempotent backend webhook, share-card founder tier. What gates the
+Ship-a-ton submission is the **mobile shell** — a Capacitor wrap of the
+existing web build, an App Store / Play Store listing, and the native
+RevenueCat SDK in place of the Web Test Store. None of that needs new game
+logic — it's a wrap + a listing + a SDK swap.
+
 ---
 
 Built at Founders Inc., San Francisco. Sept 5, 2026.

@@ -37,21 +37,30 @@ export class Exchange {
   // The market line — for the ticker board and the letter.
   get trend() { return this.beanIndex - 1.0; }
 
-  // Roll a new event with the pity timer: no two catastrophes in a row, and a
-  // catastrophe is always followed by a benign draw (docs: fairest losses win).
+  // Roll a new event with the pity timer: no two catastrophes in a row
+  // through day 3 (the on-ramp), and a catastrophe is always followed by a
+  // benign draw (docs: fairest losses win). On day 4+, pity is lifted so the
+  // climax lives — the wire can be right.
   // `bias` (optional, {eventId: mul}) is live market intel — news tilts the
-  // deck, clamped so a wire report can never fix the outcome.
+  // deck, asymmetrically: clamp only the downside (a 0.1× signal still gets
+  // the 0.2× floor so a wire report can never fix a catastrophe away); let
+  // positive-event news run free (a 4× rumor of harvest isn't a guarantee).
   roll(bias) {
+    const pityActive = this.day < 4;
     const pool = [];
     for (const [id, e] of Object.entries(EVENTS)) {
       let w = e.weight;
-      // pity: a second consecutive catastrophe is forbidden
-      if (e.tier === 'cata' && this.lastTier === 'cata') w = 0;
+      // pity: a second consecutive catastrophe is forbidden (days 1-3 only)
+      if (e.tier === 'cata' && this.lastTier === 'cata' && pityActive) w = 0;
       // after a catastrophe, bias toward recovery (good/calm/stable up)
-      if (this.lastTier === 'cata' && e.tier !== 'good' && e.tier !== 'calm') w *= 0.35;
+      if (this.lastTier === 'cata' && e.tier !== 'good' && e.tier !== 'calm' && pityActive) w *= 0.35;
       // a rumour is a real signal: yesterday's whisper loads tomorrow's bad draws
       if (this.lastEventId === 'rumour_frost' && (id === 'frost_minas' || id === 'drought_ea')) w *= 3;
-      if (bias && bias[id]) w *= Math.min(3, Math.max(0.2, bias[id]));
+      // PR-0: asymmetric bias — clamp only the low side; pass through the high side
+      if (bias && Number.isFinite(bias[id])) {
+        const clamped = bias[id] < 1 ? Math.max(0.2, bias[id]) : bias[id];
+        w *= clamped;
+      }
       for (let i = 0; i < Math.round(w); i++) pool.push(id);
     }
     const id = pool[(this.rng() * pool.length) | 0];

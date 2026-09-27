@@ -10,13 +10,17 @@ export const PAL = {
 };
 
 // Cohorts: culture as mechanics. Color must read instantly on the floor.
+// PR-6: each cohort now carries a ritual — the prop they carry (Kenney
+// briefcase / laptop / camera / cane / a notebook), the table they prefer
+// when they sit, and the dwell multiplier that paces their line. The same
+// five cohorts, but the floor reads five rooms instead of one.
 export const COHORTS = {
-  commuters: { color: 0x5aa3d8, name: 'commuters' },
-  creatives: { color: 0xa47fd8, name: 'creatives' },
-  students:  { color: 0x86a860, name: 'students' },   // matcha green — the wave
-  elders:    { color: 0xd8c27a, name: 'elders' },
-  tourists:  { color: 0xd87f9a, name: 'tourists' },
-  rival:     { color: 0x9aa5a8, name: 'rival' },       // the chain's grey
+  commuters: { color: 0x5aa3d8, name: 'commuters', props: ['briefcase'], seat: 0, dwellMul: 0.7, walkSpeed: 2.6 },
+  creatives: { color: 0xa47fd8, name: 'creatives', props: ['laptop', 'mug'], seat: 1, dwellMul: 1.6, walkSpeed: 1.7 },
+  students:  { color: 0x86a860, name: 'students',  props: ['backpack', 'notebook'], seat: 2, dwellMul: 1.0, walkSpeed: 2.0 },
+  elders:    { color: 0xd8c27a, name: 'elders',    props: ['cane'], seat: 0, dwellMul: 1.4, walkSpeed: 1.3 },
+  tourists:  { color: 0xd87f9a, name: 'tourists',  props: ['camera'], seat: 1, dwellMul: 0.9, walkSpeed: 1.9 },
+  rival:     { color: 0x9aa5a8, name: 'rival',     props: [],         seat: -1, dwellMul: 1.0, walkSpeed: 2.1 },
 };
 export const COHORT_KEYS = Object.keys(COHORTS);
 

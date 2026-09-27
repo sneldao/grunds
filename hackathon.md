@@ -16,6 +16,23 @@
 
 ## Log
 
+### 2026-09-27 - Working tree - The RevenueCat depth pass + Ship-a-ton surface
+Eleven PRs in one stretch — each with its own headless suite. Gate grew **30 → 41 headless suites / 88 new assertions**, `tsc --noEmit` clean, all changes staged for the next deploy.
+- **Game-design tunes:** asymmetric bias clamp (low-side floor only, high-side rides through), pity timer day-gated to `<4` so the first three dawns are learnable. `web/test/clamp-asymmetry.mjs`.
+- **Perk balance:** `ex-accountant` 0.85 → 0.90, `newcomer` opWarm 0.25 → 0.18 — actual measured spread £132 (well below the £1,500 wrecking threshold). `web/test/perk-balance.mjs`.
+- **Time-locked levers:** once the Morning Brief commits, the prep / reprice levers lock for the day. Mid-rush presses route through `chargeLeverOverride()`: **£4.20 from the till + −0.06 opinion on every named regular**. Refused when till can't cover. `web/test/time-locked-levers.mjs`.
+- **Cohort rituals:** `COHORTS` table gains `props / seat / dwellMul / walkSpeed`. Each cohort has a unique primary prop (briefcase / laptop+mug / backpack+notebook / cane / camera). `_afterServe` prefers the cohort's seat before random. Floor reads five rooms by walk speed + dwell alone; rig meshes still TODO. `web/test/cohort-rituals.mjs`.
+- **Per-beat sponsor captions:** five `.beat-powered` slots (`#brief-powered`, `#offer-powered`, `#wave-powered`, `#evening-powered`, `#verdict-powered`) wired at the actual beats. `web/test/sponsor-captions.mjs`.
+- **`?demo=1` autoplay:** showfloor-screen self-running demo — resolves the seven modals with a 1.5s grace, auto-fires `doPhoto()` at dayMin 1080, yields to any keypress. `web/test/showfloor-autoplay.mjs`.
+- **RevenueCat depth (Ship-a-ton surface):**
+  - `billing.js` rewrite: `ENTITLEMENTS`, `PRODUCTS`, `TIER_PRICING` map; multi-tier pricing (monthly £4.99 / yearly £39.99 / founder £99); `_pickPackage()` with identifier heuristics so the Web Test Store and the native SDK converge on the same SKUs.
+  - **Founder entitlement** (`district_founder`): `founderReplay()` writes a `SEED_OVERRIDE` so the founder can replay the week with the same seed; share-card founder variant (gold-leaf stamp + "DISTRICT FOUNDER · SEED N").
+  - **Multi-placement paywall:** `#brief-insider-upsell`, `#offer-insider-upsell`, `#verdict-upsell`, `#pc-founder-upsell` — wired to `billing.onChange()`. Not blocking modals, upsell strips at the decision points.
+  - **Web Customer Center** `#customer-center`: status header, restore, test-cancel, portal link. Tier-label contract `founder > insider > free`.
+  - **Convex backend sync** (`convex/revenuecat.ts` + new `entitlements` table + three new HTTP routes): `POST /revenuecat/webhook` (bearer-auth, returns 503 when unconfigured), `GET /sync/entitlements`, `POST /sync/setEntitlement`. Idempotent by `event.id`. `web/test/revenuecat-sync.mjs`.
+- **Honest Ship-a-ton read:** the RevenueCat **surface** is submission-ready. What gates the submission is the **mobile shell** — Capacitor wrap, App Store / Play Store listing, native SDK. None of that needs new game logic; it's a wrap + a listing + a SDK swap.
+- **Gate:** `node --test web/test/<name>.mjs` for each new suite (11 new), `tsc --noEmit` clean. `convex/_generated/api.d.ts` updated to register `revenuecat` module.
+
 ### 2026-09-22 - Working tree - The new-shop arc: consequence made legible
 Playtest critique answered: the stand read as making money automatically — no felt costs, no slow open.
 - **Quiet open:** `CAMPAIGN.demand.start` 0.55 → 0.28 — day-1 spawn ≈0.65× (was ≈0.9×), a trickle of curious walk-ins instead of a going concern; street work now visibly buys tomorrow's crowd. Day-1 letter reframed: "the street doesn't know your name — a few will try you on a whim."

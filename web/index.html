@@ -174,6 +174,20 @@
   #wirebtn { margin-top: 6px; padding: 5px 10px; font-size: 11px; letter-spacing: .08em; }
   #tape { cursor: pointer; }
   #tape:hover { opacity: 1; }
+  /* ---- PR-3: per-beat "powered by" captions ---- */
+  .beat-powered { font-size: 9.5px; letter-spacing: .14em; opacity: .55;
+    text-align: center; margin: -8px auto 12px; text-transform: uppercase;
+    font-family: var(--mono); color: rgba(42,36,28,.85); }
+  #wave-powered {
+    position: fixed; left: 50%; top: 64px; transform: translateX(-50%);
+    z-index: 11; padding: 6px 12px; background: rgba(10,8,6,.78);
+    border: 1px solid rgba(201,162,39,.28); border-radius: 3px;
+    font-size: 10px; letter-spacing: .14em; opacity: 0; pointer-events: none;
+    transition: opacity .5s ease; color: var(--cream); text-transform: uppercase;
+    font-family: var(--mono); white-space: nowrap;
+  }
+  #wave-powered.show { opacity: 1; }
+
   /* ---- standardized modal system: fixed tiering, consistent sizing, progressive disclosure ---- */
   #brief { position: fixed; inset: 0; z-index: 31; display: grid; place-items: center;
     background: rgba(10,8,6,.62); backdrop-filter: blur(6px); opacity: 0; pointer-events: none;
@@ -385,6 +399,7 @@
   <div id="feed"></div>
 
   <div id="chapter"><div class="ck"></div><div class="cs"></div></div>
+  <div id="wave-powered"></div>
 
   <aside id="notebook">
     <h3>ROASTER’S NOTEBOOK</h3>
@@ -396,7 +411,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
 
   <div id="receipt" class="modal" role="dialog" aria-labelledby="receipt-heading" aria-hidden="true" inert>
     <div class="paper modal-panel" tabindex="-1">
-      <header class="modal-header"><h2 id="receipt-heading">GRUNDS</h2><div class="rsub">end of day · Z-read</div></header>
+      <header class="modal-header"><h2 id="receipt-heading">GRUNDS</h2><div class="rsub">end of day · Z-read</div><div class="beat-powered" id="verdict-powered" style="color: rgba(58,50,38,.6)"></div></header>
       <div class="modal-body">
         <div id="r-forecast" style="display:none"></div>
         <div id="r-lines"></div>
@@ -411,6 +426,8 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <button id="review-letter" style="display:none; margin-top:8px;">read Idris’s letter →</button>
         <button id="receipt-back" style="display:none; margin-top:8px;">← back to the brief</button>
         <button id="again">↺ open again tomorrow</button>
+        <button id="founder-replay" style="display:none; margin-top:8px; border-color:#c9a227; background:rgba(201,162,39,.18);">↻ replay with a new seed · Founder’s Pass</button>
+        <button id="verdict-upsell" style="display:none; margin-top:8px;">↻ Replay your week · £49.99 once</button>
         <button id="shareWeek" style="display:none; margin-top:8px;">⚔ challenge a friend — same seed</button>
       </footer>
     </div>
@@ -465,7 +482,35 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
       </div>
       <footer class="modal-footer">
         <button id="pw-buy">subscribe · £4.99/mo</button>
-        <div class="pw-links"><a href="#" id="pw-restore">restore purchase</a> · <a href="#" id="pw-close">not now</a></div>
+        <div class="pw-links"><a href="#" id="pw-restore">restore purchase</a> · <a href="#" id="pw-manage">manage subscription →</a> · <a href="#" id="pw-close">not now</a></div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- PR-4d — Web Customer Center. Restore / cancel / review entitlements.
+       On Capacitor, this swaps for the native iOS/Android Customer Center UI.
+       Same routing surface: revenuecat-js → RevenueCat.restore / getCustomerInfo. -->
+  <div id="customer-center" class="modal" role="dialog" aria-labelledby="cc-heading" aria-hidden="true" inert style="--modal-width:520px">
+    <div class="d-paper modal-panel" tabindex="-1">
+      <header class="modal-header">
+        <div class="l-head" id="cc-heading">CUSTOMER CENTER</div>
+        <div class="l-kicker">manage your district membership</div>
+      </header>
+      <div class="modal-body">
+        <div id="cc-status" style="font-size:12px; line-height:1.6; padding:12px 14px; background:rgba(122,90,42,.07); border-left:3px solid var(--brass); border-radius:2px; margin-bottom:14px;">
+          <span id="cc-tier" style="font-size:14px; font-family:var(--serif); display:block; margin-bottom:4px;">—</span>
+          <span id="cc-mode" style="font-size:10px; letter-spacing:.16em; text-transform:uppercase; opacity:.55; display:block;">—</span>
+        </div>
+        <p id="cc-body" style="font-size:12.5px; line-height:1.55; margin:0 0 14px; color:#3a3226;">
+          Restore a purchase made on another device or platform. To cancel or change tier, open the
+          <a href="#" id="cc-portal">RevenueCat customer portal →</a> in a new tab.
+        </p>
+        <button id="cc-restore" style="width:100%; margin-top:6px;">restore purchase</button>
+        <button id="cc-test-cancel" style="display:none; width:100%; margin-top:6px; border-color:#c94a2a; color:#c94a2a;">cancel (test store)</button>
+      </div>
+      <footer class="modal-footer">
+        <div style="font-size:10px; opacity:.5; text-align:center; letter-spacing:.06em;">Powered by RevenueCat Web Billing · <span id="cc-mode-2">—</span></div>
+        <button id="cc-close" style="margin-top:8px;">close</button>
       </footer>
     </div>
   </div>
@@ -477,6 +522,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
       <header class="modal-header">
         <div class="l-head" id="brief-heading">THE MORNING BRIEF</div>
         <div class="l-kicker" id="brief-kicker">Day 1/5 · plan before opening</div>
+        <div class="beat-powered" id="brief-powered">Synced via Convex · managed plan queue</div>
       </header>
 
       <!-- Tier 2: Scrollable Progressive Drawers -->
@@ -491,6 +537,10 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
           <canvas id="brief-canvas" width="480" height="72" aria-hidden="true"></canvas>
           <div id="brief-wire" style="display:none"></div>
           <button id="brief-desklink" class="l-desktoggle" style="display:none">⚡ open the full wire desk</button>
+          <div id="brief-insider-upsell" style="display:none; margin-top: 8px; font-size: 11px; line-height: 1.45; opacity: .8; padding: 7px 10px; background: rgba(201,162,39,.06); border-left: 2px solid var(--brass); border-radius: 2px;">
+            <span id="brief-insider-text">Insiders see the wire's full reasoning here — by-cited-sources + multipliers.</span>
+            <button id="brief-insider-btn" style="margin-left: 8px; padding: 3px 8px; font-size: 10px; letter-spacing: .08em; background: rgba(201,162,39,.18); border-color: var(--brass);">unlock the desk →</button>
+          </div>
           <div id="brief-mail" style="display:none; margin-top:10px; font-size:11px; letter-spacing:.06em;">
             <input id="letter-mail-addr" type="email" placeholder="post this plan to…" spellcheck="false"
               style="width:62%; padding:3px 0; background:transparent; border:0; border-bottom:1px solid rgba(122,90,42,.45);
@@ -539,6 +589,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
       <header class="modal-header">
         <div class="l-head" id="evening-heading">THE EVENING</div>
         <div class="l-kicker">the rush is over · one call, then the day ends</div>
+        <div class="beat-powered" id="evening-powered" style="color: rgba(58,50,38,.85)"></div>
       </header>
       <div class="modal-body">
         <pre id="evening-read"></pre>
@@ -559,10 +610,15 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
       <header class="modal-header">
         <div class="l-head" id="offer-who"></div>
         <div class="l-kicker" id="offer-kicker">a regular asks · y / n</div>
+        <div class="beat-powered" id="offer-powered">Idris replied by AgentMail</div>
       </header>
       <div class="modal-body">
         <pre id="offer-line"></pre>
         <div id="offer-effect"></div>
+        <div id="offer-insider-upsell" style="display:none; margin-top: 10px; font-size: 11px; line-height: 1.5; padding: 8px 10px; background: rgba(201,162,39,.08); border-left: 2px solid var(--brass); border-radius: 2px;">
+          <span style="font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; opacity:.7; display:block; margin-bottom:3px;">insider · the regulars' take</span>
+          <span id="offer-insider-text">"worth hearing both sides before you say no."</span>
+        </div>
       </div>
       <footer class="modal-footer"><div class="l-actions">
         <button id="offer-yes"></button>
@@ -590,6 +646,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
     <button id="pc-save" title="Download the stamped card">↓ save</button>
     <button id="pc-share" title="Share — system sheet where available">𝕏 share</button>
     <button id="pc-copy" title="Copy the caption">⧉ copy</button>
+    <button id="pc-founder-upsell" style="display:none; background: rgba(201,162,39,.18); border-color: var(--brass);" title="Save with the gold-leaf Founder stamp">★ Founder frame</button>
   </div>
 
   <div id="tutorial" class="modal" role="dialog" aria-labelledby="ttitle" aria-hidden="true" inert>

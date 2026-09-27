@@ -61,6 +61,108 @@ Baseline bean drift is an increasing daily increment: 0.025 + 0.008 × (day − 
 
 **Managed decisions (connected mode).** When `?convex=` is live, `convexSync.js` runs the week through a per-run serialized queue — `begin → prepare → stage → commit → finish` on `POST /sync/plan`, authenticated by a 32-byte run token the HTTP layer SHA-256s before the internal mutations see it. `convex/decisions.ts` keeps one `dayDecisions` row per campaign-day: `prepare` pins the snapshot, `stage` updates the still-pending plan, `commit` (browser) and `handleInbound` (email, via a thread→`{campaignId, decisionId, day, recipient, postedPlan}` mapping) both funnel into `commitRecord` — first writer wins, every retry or loser re-reads the same committed result. `finish` validates and stores the closing state once (conflicting retries rejected, identical ones idempotent) and upserts the player's `stands` row; `abandon`/reset invalidates the session so delayed writes die. Legacy public mutations (`openDay`, `contractBeans`, `settleDebt`, `mirrorState`, `recordStand`) reject any campaign that has a `planSessions` row. If the endpoint is unreachable the Brief stays in planning with a retryable error; `start a local-only week` (`#brief-offline`) is the explicit opt-out — it disables managed sync and mail for the run rather than silently degrading. Scope note: the simulation stays client-side; the commit record arbitrates *intent*, it is not server-authoritative anti-cheat.
 
+## Exchange — event deck + bias + pity (Sept 27 tune)
+
+`exchange.openDay()` rolls one event from the seeded deck per dawn. The bias
+table (`marketEvents` lookups + Linkup `marketShift` clamped 0.2–3×) shifts the
+weight of each event before the roll; the **clamp is asymmetric** — a high bias
+rides through unclipped, a low bias still floors at 0.2× so the deck never
+collapses to "no event ever". A pity timer rolls to a non-disaster event when
+two catastrophes land in a row, and the pity is **day-gated** (`day < 4`) so
+the first three dawns are learnable but the last two carry the gamble. A
+single harvest-calendar multi-roll can stack two back-to-back shocks in
+`dayMin >= 1440`; that path stays as the weather clause.
+
+## Time-locked levers (post-commit override cost)
+
+The Morning Brief's commit also arms `leversTimeLocked`. From that moment until
+dawn reset, pressing either mid-rush lever (`doPrebatch`, `doReprice`) routes
+through `chargeLeverOverride(leverName)`:
+
+- **£4.20 from the till**, refused if the till can't cover it.
+- **−0.06 opinion** on every named regular — the gossip sees you change your
+  mind, and tomorrow's regulars carry it.
+- A `lever_override` analytics event with the lever name, day, dayMin, and
+  remaining till.
+
+The Brief stays the place where the prep actually happens; the override is a
+priced escape hatch. `LEVER_OVERRIDE_PRICE = 4.20` and `LEVER_OVERRIDE_GOSSIP
+= 0.06` are top-level constants in `main.js` so the price is grep-able.
+
+## Cohort rituals — five rooms, not one
+
+Each cohort now carries a ritual in `config.js → COHORTS`:
+
+| Cohort | Prop rig | Seat | Walk speed | Dwell |
+|---|---|---|---|---|
+| Commuters | briefcase | table 0 | 2.6 | 0.7× |
+| Creatives | laptop + mug | table 1 | 1.7 | 1.6× |
+| Students | backpack + notebook | table 2 | 2.0 | 1.0× |
+| Elders | cane | table 0 | 1.3 | 1.4× |
+| Tourists | camera | table 1 | 1.9 | 0.9× |
+
+The spawn copies `ritualProps / ritualSeat / ritualDwell / ritualSpeed` onto
+the patron object; `_afterServe` consults `ritualSeat` before falling back to a
+random free seat; the patron's `speed` is `ritualSpeed + jitter`. The 3D rigs
+themselves are still TODO — the data flows through, the floor reads the
+cohorts' walking pace and dwell timing today. Same five cohorts, but the
+floor reads five rooms.
+
+## RevenueCat surface (Ship-a-ton depth)
+
+`web/js/billing.js` is the single client source of truth for entitlement
+state. The shape:
+
+- **Two entitlements:** `commodity_insider` (monthly/yearly subscription) and
+  `district_founder` (lifetime). The two combine — a founder is *also* an
+  insider on the wire desk.
+- **Three products:** `monthly` (£4.99), `yearly` (£39.99), `founder` (£99
+  one-time). Identifier heuristics in `_pickPackage()` map "monthly_matcha"
+  or "yearly_district" to the right tier so the Web Test Store and the
+  native SDK converge on the same SKUs.
+- **Multi-placement paywall:** `#brief-insider-upsell`, `#offer-insider-upsell`,
+  `#verdict-upsell`, `#pc-founder-upsell`. `PAYWALL_PLACEMENTS` table in
+  `main.js`; `applyPaywallPlacements()` consults `billing.isInsider()` /
+  `isFounder()` and shows the upsell where it fits, not as a blocking modal.
+  `billing.onChange()` refreshes the surfaces.
+- **Web Customer Center:** `#customer-center` modal — status header (tier
+  label, mode), restore button, test-cancel button, portal link, close. The
+  tier label contract is `founder > insider > free`; the surface never
+  shows an "insider" label when the user is actually a founder.
+- **Share-card founder variant:** when `founder` is true, the share card's
+  stamp switches from red rubber to a burgundy + brass-border "DISTRICT
+  FOUNDER · SEED N" stamp. `founderReplay()` writes a `SEED_OVERRIDE` so
+  the founder can replay the week with the same seed.
+
+### Backend sync (Convex)
+
+`convex/revenuecat.ts` mirrors the active entitlement state on every
+dashboard event:
+
+- `applyEntitlements` (internal mutation) — upserts one row in
+  `entitlements` keyed by `appUserId`, idempotent by `event.id`.
+- `setEntitlement` (public mutation) — manual upsert for the Web Test
+  Store path; inlined to avoid Convex's circular-type cascade.
+- `getEntitlements` (query) — read by the client's `/sync/entitlements`
+  boot poll.
+- `readEntitlements` (exported helper) — converts a RevenueCat payload
+  (`{entitlements: {commodity_insider?: {expires_date_ms?}, district_founder?: {...}}}`)
+  to `{insider, founder}` booleans. A one-time entitlement (no
+  `expires_date_ms`, the founder tier) is always active; a subscription is
+  active iff `expires_date_ms > Date.now()`.
+
+Three HTTP routes (`convex/http.ts`):
+
+- `POST /revenuecat/webhook` — bearer-auth (`REVENUECAT_WEBHOOK_SECRET`),
+  returns 503 when unconfigured, 401 on bad bearer, applies the payload.
+- `GET /sync/entitlements?appUserId=…` — read for the client.
+- `POST /sync/setEntitlement` — manual upsert (used by `convexSync.js`
+  when the Web Test Store's local state needs to propagate to Convex).
+
+The route is wired but the secret isn't configured — until a real
+`REVENUECAT_WEBHOOK_SECRET` lands, the webhook returns 503 by design and
+the manual upsert path stays usable for the Web Test Store demo.
+
 **The pitch licence.** Before the tutorial, `#licence` (z-33 paper card over the diorama) signs the player in: name + stand name (pen-line inputs, activate the Sign button; Escape never signs or advances — Sam, THE CORNER CUP), a cosmetic role, and one of four backgrounds carrying a single small perk — `ex-barista` (`perkStaffMul 1.08`), `ex-accountant` (`perkCostMul 0.85` on card fees + every incident payout), `new to the trade` (regulars open at op 0.25), `a market regular` (the Brief whispers the wire's *direction* — the × stays insider). Identity threads `composeLetter` (`Dear Ada,` / `…do, Ada?`), nightly + finale receipts, the tutorial's first title, and the Convex owner — `convexSync` reads `ownerName()` live so the district board lists the stand name at the next dawn. Persists via `localStorage` `grunds.identity`; `?skipLicence`/`?skipTutorial`/headless bypass.
 
 **Ruth — the staff layer.** Ruth loses 0.14 condition per worked shift, plus 0.08 for peak queues above 50 and 0.06 for more than 60 balks. Below 0.55 on day two onward, the Brief offers work, home, or apprentice cover. Home saves the wage, runs the solo bar at 0.7x, and restores 0.45 condition; apprentice cover costs a £2,040 temp day rate plus £12 training and £0.04 extra supplies per served cup, runs at 1.05x before the identity perk, and restores 0.25. Home and apprentice modes prevent Ruth's exhaustion crisis and incompatible sick call. Working below 0.35 slows dawn pace; working below 0.2 risks an afternoon crisis — asleep at the counter (`staffMul 0.5`) or snapping at a regular (`adjustOpinions −0.2`). No roster, no morale meter — the fiction carries the state; `staff_sent_home`/`staff_pushed`/`staff_crisis` land in analytics.

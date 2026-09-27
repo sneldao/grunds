@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api, components, internal } from "./_generated/api";
 import { registerStaticRoutes } from "@convex-dev/static-hosting";
+import { readEntitlements } from "./revenuecat.js";
 
 // HTTP surface: AgentMail webhook + a tiny sync bridge for the static floor.
 // The Three.js frontend ships with no bundler and no npm client, so it talks
@@ -476,6 +477,84 @@ export const syncStands = httpAction(async (ctx, req) => {
   }
 });
 
+// PR-4e — RevenueCat webhook. Saves the active entitlement state on every
+// event the dashboard broadcasts (PURCHASE / RENEWAL / EXPIRATION).
+// Idempotent by event id — re-delivery is a no-op.
+export const revenuecatWebhook = httpAction(async (ctx, req) => {
+  const secret = process.env.REVENUECAT_WEBHOOK_SECRET;
+  if (!secret) return json({ error: "webhook not configured" }, 503);
+  const auth = req.headers.get("authorization") || "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (bearer !== secret) return json({ error: "unauthorized" }, 401);
+  const raw = await req.text();
+  let evt: {
+    event?: {
+      type?: string;
+      id?: string;
+      app_user_id?: string;
+      entitlements?: Record<string, { expires_date_ms?: number } | undefined>;
+    };
+  };
+  try {
+    evt = JSON.parse(raw) as typeof evt;
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const event = evt.event ?? {};
+  const userId = event.app_user_id;
+  if (!userId) return json({ error: "app_user_id required" }, 400);
+  const flag = readEntitlements(event);
+  try {
+    const result = await ctx.runMutation(internal.revenuecat.applyEntitlements, {
+      appUserId: userId,
+      insider: flag.insider,
+      founder: flag.founder,
+      source: "webhook",
+      eventId: event.id,
+    });
+    return json({ received: event.type ?? "unknown", result });
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
+// PR-4e — client polls this on boot to reconcile state across devices.
+// Reads the entitlements row (or returns all-false defaults for a fresh id).
+export const syncEntitlements = httpAction(async (ctx, req) => {
+  const appUserId = new URL(req.url).searchParams.get("appUserId");
+  if (!appUserId) return json({ error: "appUserId required" }, 400);
+  try {
+    const e = await ctx.runQuery(api.revenuecat.getEntitlements, { appUserId });
+    return json({ entitlements: e });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "failed" }, 400);
+  }
+});
+
+// PR-4e — manual upsert. Used when the Web Test Store's local state needs
+// to propagate to Convex (e.g. a purchase made off-line).
+export const syncSetEntitlement = httpAction(async (ctx, req) => {
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  let payload: { appUserId?: string; insider?: boolean; founder?: boolean };
+  try {
+    payload = (await req.json()) as typeof payload;
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  if (typeof payload.appUserId !== "string" || !payload.appUserId)
+    return json({ error: "appUserId required" }, 400);
+  try {
+    const result = await ctx.runMutation(api.revenuecat.setEntitlement, {
+      appUserId: payload.appUserId.slice(0, 120),
+      insider: !!payload.insider,
+      founder: !!payload.founder,
+    });
+    return json(result);
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
 export const aiLetter = httpAction(async (ctx, req) => {
   let payload: { body?: string };
   try {
@@ -533,6 +612,9 @@ http.route({ path: "/sync/state", method: "GET", handler: syncState });
 http.route({ path: "/sync/snapshot", method: "POST", handler: syncSnapshot });
 http.route({ path: "/sync/plan", method: "POST", handler: syncPlan });
 http.route({ path: "/sync/stands", method: "GET", handler: syncStands });
+http.route({ path: "/sync/entitlements", method: "GET", handler: syncEntitlements });
+http.route({ path: "/sync/setEntitlement", method: "POST", handler: syncSetEntitlement });
+http.route({ path: "/revenuecat/webhook", method: "POST", handler: revenuecatWebhook });
 http.route({ path: "/ai/letter", method: "POST", handler: aiLetter });
 http.route({ path: "/ai/gossip", method: "POST", handler: aiGossip });
 http.route({ path: "/ai/research", method: "GET", handler: aiResearch });

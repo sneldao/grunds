@@ -89,6 +89,10 @@ director.add('vitalityGlow', (ctx) => {
 // ?convex=https://<deploy>.convex.site — the floor never blocks on it.
 const sync = initSync();
 const SEED = urlParams.get('seed') ? +urlParams.get('seed') : 7;
+// PR-4b — founder replay can swap the seed at runtime. reset() seeds the
+// exchange from this variable, so updates flow through the next reset.
+let SEED_OVERRIDE = null;
+const seedNow = () => SEED_OVERRIDE != null ? SEED_OVERRIDE : SEED;
 // Generative District (Tripothon S1): street furniture grown from the seed
 // via the Convex bridge — fire-and-forget cross-fade on arrival; the classic
 // procedural district is the fallback. No-ops when headless / no-GL / no Convex.
@@ -115,6 +119,28 @@ const HALO_SPOTS = {
 };
 let _lastIntentAt = 0;
 function markIntent() { _lastIntentAt = performance.now(); }
+
+// PR-5 — charge the post-commit override. £4.20 from till + a small opinion
+// hit on every regular. Returns false if the till can't cover it (the caller
+// should refuse the lever press entirely).
+function chargeLeverOverride(leverName) {
+  if (till < LEVER_OVERRIDE_PRICE) {
+    fx.toast(`override costs ${fmt(LEVER_OVERRIDE_PRICE)} — not in the till`, 'warn');
+    return false;
+  }
+  till -= LEVER_OVERRIDE_PRICE;
+  batchSpend += LEVER_OVERRIDE_PRICE;
+  leverOverrideCount++;
+  // Gossip: small opinion hit on every named regular who's heard. Keeps the
+  // rumor alive without breaking the day.
+  try {
+    const roster = (regulars && Array.isArray(regulars.regulars)) ? regulars.regulars : [];
+    for (const r of roster) if (r && typeof r.op === 'number') r.op = Math.max(0, r.op - LEVER_OVERRIDE_GOSSIP);
+  } catch {}
+  fx.toast(`${leverName} override — paid ${fmt(LEVER_OVERRIDE_PRICE)}, the line heard you change your mind`, 'warn');
+  try { analytics.track('lever_override', { day, dayMin, lever: leverName, till, count: leverOverrideCount }); } catch {}
+  return true;
+}
 let mailPending = false;      // F5: armed when a letter is posted, cleared on arrival
 // The reply arrives as theater: flag rises, three knocks, envelope drops.
 // Mirror only — convex handleInbound already applied the command; we never
@@ -197,7 +223,7 @@ fx.modals = modals;
 // District Insider Pass: the research desk gates on the entitlement; the
 // stand owner doubles as the RevenueCat appUserId so a pass travels with it.
 const desk = initDesk({ billing, analytics, modals });
-billing.configure(sync.owner);
+billing.configure(sync.owner).then(() => { try { applyPaywallPlacements(); } catch {} });
 
 // ---- game state ---------------------------------------------------------------
 const DAY_START = 360, DAY_END = 1260;
@@ -219,10 +245,55 @@ let lastOps = null;
 // calm-open state: first 12 sim-min are thinned + tutorial gates the clock
 let tutorialActive = false, tutStep = 0;
 let batchPulseUntil = 0;
-const wantTutorial = !headless && !urlParams.has('skipTutorial') && !urlParams.has('notutorial');
-// the pitch licence precedes the tutorial — ?skipTutorial/?notutorial/?skipLicence
+// PR-2 — showfloor autoplay (?demo=1). Bypasses licence + tutorial and
+// resolves every modal + lever for the player so the floor tells its own
+// story for screen-recording / judge demo. A keypress flips it off.
+const demoMode = !headless && urlParams.has('demo');
+const wantTutorial = !headless && !demoMode && !urlParams.has('skipTutorial') && !urlParams.has('notutorial');
+// the pitch licence precedes the tutorial — ?skipTutorial/?notutorial/?skipLicence/?demo
 // or headless all bypass it (the district assigns defaults: Sam, THE CORNER CUP)
-const skipLicence = headless || urlParams.has('skipLicence') || !wantTutorial;
+const skipLicence = headless || demoMode || urlParams.has('skipLicence') || !wantTutorial;
+// PR-2 — autoplay tick: each frame, if a modal is on top and we're in
+// demoMode, click the same button a player would. 1.5s grace per modal so
+// the UI animates in. The first keypress the player lands flips autoplay
+// off (returns control).
+let _demoLastModal = '', _demoLastActionAt = 0, _demoDisabled = false, _demoPhotoFired = false;
+function autoplayTick(now) {
+  if (!demoMode || _demoDisabled || headless) return;
+  const top = (() => { try { return modals && modals.top && modals.top(); } catch { return null; } })();
+  if (!top) { _demoLastModal = ''; return; }
+  if (top === _demoLastModal && now - _demoLastActionAt < 1500) return;
+  let btn = null;
+  if (top === 'brief')          btn = $('brief-open');     // commit → trading (default hedge = hold)
+  else if (top === 'offer')     btn = $('offer-no');       // 11:00 / incident: decline as a default
+  else if (top === 'evening')   btn = $('evening-hold');   // 17:00: don't top up, ride what's left
+  else if (top === 'letter')    btn = $('letter-close');   // close Idris, go to the receipt
+  else if (top === 'paywall')   btn = $('pw-close');       // skip the upsell — demo is free
+  else if (top === 'desk')      btn = $('desk-close');     // free player closes the desk
+  else if (top === 'licence')   btn = $('lic-sign');       // sign with defaults — Sam, THE CORNER CUP
+  if (btn && !btn.disabled && typeof btn.click === 'function') {
+    try { btn.click(); } catch {}
+    _demoLastModal = top;
+    _demoLastActionAt = now;
+  }
+  // PR-2 — auto-photo at golden hour. One shot per day 1; the rest of the
+  // week is the player's show (or stays still — judge demos rarely run 5 days).
+  if (!_demoPhotoFired && dayMin >= 1080 && dayMin < 1110 && phase === 'trading') {
+    _demoPhotoFired = true;
+    try { doPhoto(); } catch {}
+  }
+}
+// PR-2 — keypresses return the floor to the player
+window.addEventListener('keydown', (e) => {
+  if (!demoMode || _demoDisabled) return;
+  // ignore edits inside the licence / brief fields
+  try {
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  } catch {}
+  _demoDisabled = true;
+  try { fx.toast('demo off — keys are yours', ''); } catch {}
+}, true);
 let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0, rivalServed = 0;
 // first-timers = walk-ins the Regulars graph doesn't know (regularIdx < 0).
 // The new-shop arc lives on these numbers: tried, walked, told a friend.
@@ -259,13 +330,185 @@ let apprenticeHiredToday = false, rivalStrategy = 'DEFAULT', dayMods = {};
 // carries one small mechanical perk (not a class — the arc is one role).
 let playerName = 'Sam', standName = 'THE CORNER CUP', playerRole = 'the new owner', perkBg = null;
 let perkStaffMul = 1, perkCostMul = 1;   // ex-barista pace / ex-accountant trim
+// PR-4d — Web Customer Center. A footer link inside #paywall opens the
+// center; route handlers use the existing billing API. On Capacitor this
+// gets replaced by RevenueCat's native Customer Center UI.
+function openCustomerCenter() {
+  const tier = document.getElementById('cc-tier');
+  const mode = document.getElementById('cc-mode');
+  const mode2 = document.getElementById('cc-mode-2');
+  const testCancel = document.getElementById('cc-test-cancel');
+  try {
+    let label = '— free play —';
+    if (billing.isFounder())    label = '★ DISTRICT FOUNDER';
+    else if (billing.isInsider()) label = '⚡ INSIDER PASS';
+    if (tier) tier.textContent = label;
+    const m = billing.mode || 'test store';
+    if (mode)  mode.textContent = m;
+    if (mode2) mode2.textContent = m;
+    if (testCancel) testCancel.style.display = billing.testKey || !billing.purchases ? '' : 'none';
+  } catch {}
+  modals.open('customer-center');
+}
+function wireCustomerCenter() {
+  const close = document.getElementById('cc-close');
+  if (close) close.onclick = (e) => { e.preventDefault(); try { modals.close('customer-center'); } catch {} };
+  const restore = document.getElementById('cc-restore');
+  if (restore) restore.onclick = async (e) => {
+    e.preventDefault();
+    restore.disabled = true;
+    const r = await billing.restorePass();
+    restore.disabled = false;
+    if (r && r.success) {
+      try { applyPaywallPlacements(); } catch {}
+      openCustomerCenter();   // re-render the active tier
+      try { fx.toast('purchases restored', 'good'); } catch {}
+    } else try { fx.toast('nothing to restore', ''); } catch {}
+  };
+  const cancelBtn = document.getElementById('cc-test-cancel');
+  if (cancelBtn) cancelBtn.onclick = (e) => {
+    e.preventDefault();
+    billing.cancelPass();
+    try { applyPaywallPlacements(); } catch {}
+    openCustomerCenter();
+    try { fx.toast('test subscription cancelled — back to free play', ''); } catch {}
+  };
+  const portal = document.getElementById('cc-portal');
+  if (portal) portal.onclick = (e) => {
+    e.preventDefault();
+    // RevenueCat hasn't shipped a hosted web customer-portal URL yet; this
+    // link is the surface that flips to one if/when they do. For now, open
+    // a polite explanation and route to restore.
+    try { fx.toast('cancellation runs on your platform\'s subscription page — restore works cross-device here', ''); } catch {}
+  };
+  // Paywall → Customer Center link
+  const manage = document.getElementById('pw-manage');
+  if (manage) manage.onclick = (e) => {
+    e.preventDefault();
+    try { modals.close('paywall'); } catch {}
+    openCustomerCenter();
+  };
+}
+
+// PR-4c — multi-placement paywall. Each upsell lives in the markup and is
+// toggled on demand: shown to non-insiders at the right beat, replaced by
+// the founder-replay CTA or the founder share frame for insiders/founders.
+// The four surfaces are:
+const PAYWALL_PLACEMENTS = {
+  brief:    { id: 'brief-insider-upsell',  isFounderOnly: false, openPaywall: true },
+  offer:    { id: 'offer-insider-upsell',  isFounderOnly: false, openPaywall: false },   // shows the regulars' take
+  verdict:  { id: 'verdict-upsell',        isFounderOnly: false, openPaywall: true },    // upsell for non-founders
+  share:    { id: 'pc-founder-upsell',     isFounderOnly: true,  openPaywall: true },    // founder stamp upgrade
+};
+function applyPaywallPlacements() {
+  let isInsider = false, isFounder = false;
+  try { isInsider = billing.isInsider(); isFounder = billing.isFounder(); } catch {}
+  for (const [surface, p] of Object.entries(PAYWALL_PLACEMENTS)) {
+    const el = document.getElementById(p.id); if (!el) continue;
+    let show;
+    if (p.isFounderOnly) show = !isFounder;
+    else                  show = !isInsider;
+    el.style.display = show ? '' : 'none';
+  }
+  // The verdict CTA is founder-only on the inside, free upsell on the outside.
+  try {
+    const founderBtn = document.getElementById('founder-replay');
+    const upsellBtn  = document.getElementById('verdict-upsell');
+    if (founderBtn) founderBtn.style.display = isFounder ? '' : 'none';
+    if (upsellBtn)  upsellBtn.style.display  = isFounder ? 'none' : '';
+  } catch {}
+}
+// Run on every billing change so the surfaces reflect the live state
+billing.onChange(() => { try { applyPaywallPlacements(); } catch {} });
+// PR-4d — wire the Customer Center modal once on boot
+try { wireCustomerCenter(); } catch {}
+// also extend the OWNED list in modals.js? No — modals already accepts any
+// string; OWNED is the allow-list. The customer-center must be added so
+// the focus-trap + z-index bookkeeping recognise it as a top-level modal.
+// It's easiest to register it lazily — modals.closeAll() will safely no-op
+// on unknown ids, and only this function ever opens it.
+// PR-4c — wire each upsell button to open the existing paywall modal
+const _upsellHandlers = [
+  ['brief-insider-btn',   () => modals.open('paywall')],
+  ['verdict-upsell',      () => modals.open('paywall')],
+  ['pc-founder-upsell',   () => modals.open('paywall')],
+];
+for (const [id, fn] of _upsellHandlers) {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener('click', (e) => { e.preventDefault(); try { fn(); } catch {} });
+}
+
+// PR-4c — cached Nebius "regulars' take" — fetched once per day at offer time
+let _offerTakeCache = { day: 0, lines: [] };
+async function fetchOfferTake() {
+  if (_offerTakeCache.day === day) return _offerTakeCache.lines;
+  _offerTakeCache = { day, lines: [] };
+  try {
+    if (sync && sync.live && sync.fetchIntel) {
+      const intel = await sync.fetchIntel();
+      if (intel && Array.isArray(intel.gossip)) _offerTakeCache.lines = intel.gossip.slice(0, 2);
+    }
+  } catch {}
+  if (!_offerTakeCache.lines.length) {
+    // templated fallback quotes — varied by cohort so the line feels real
+    const quotes = [
+      '"worth hearing both sides before you say no."',
+      '"the regulars are watching — say yes, but ask why."',
+      '"my friend said they handled this well last time."',
+      '"I\'ve seen GlASHHOUSE try this — they almost always say yes."',
+      '"you don\'t need to be the cheapest on the street."',
+    ];
+    _offerTakeCache.lines = [quotes[day % quotes.length]];
+  }
+  return _offerTakeCache.lines;
+}
+
 // campaign accumulators (persist across the 5 days)
 let cRev = 0, cCost = 0, cBalked = 0, cServed = 0, cDef = 0, settledPaid = 0, campaignDone = false;
 let cOps = 0;   // the cost sheet — staff, supplies, pitch, fees across the campaign
+// PR-3 — Per-beat "powered by" captions. Each entry maps a beat to a
+// sponsor string. The brief/offer/verdict captions are set when their modal
+// opens; the 14:00 wave caption floats for ~7s in the HUD.
+const BEAT_POWERED = {
+  brief: 'Synced via Convex · managed plan queue',
+  offer: 'Idris replied by AgentMail',
+  wave:  'Live wire: Linkup · Firecrawl · OpenAI  →  the wave',
+  evening: 'District leaderboard live on Convex · your row ↗',
+  verdict: 'Replay your week · RevenueCat District Insider',
+};
+// One setter for the inline captions (brief/offer/verdict).
+function setBeatPower(id, text) {
+  const el = document.getElementById(id + '-powered');
+  if (el) { el.textContent = text || ''; el.style.display = text ? '' : 'none'; }
+  // If the offer is the incident variant, swap copy — incidents are 'the
+  // floor bites back', not AgentMail replies.
+  if (id === 'offer') {
+    const inc = document.getElementById('offer')?.classList.contains('incident');
+    if (el) el.textContent = inc ? 'Operating cost paid · live ledger' : BEAT_POWERED.offer;
+  }
+}
+// The wave HUD caption is the only floating one — it rises with the wave and
+// clears a few seconds later, like a sponsor watermark on the moment.
+function showWavePowered(ttlMs = 7000) {
+  const el = $('wave-powered'); if (!el) return;
+  el.textContent = BEAT_POWERED.wave;
+  el.classList.add('show');
+  try { clearTimeout(showWavePowered._t); } catch {}
+  showWavePowered._t = setTimeout(() => el.classList.remove('show'), ttlMs);
+}
 const ctx = { prebatched: false, repriced: false, batchUnits: 0 };
 const WALK_MUL = { 60: 1, 300: 3, 1200: 6 };
 // settle window: day 1, first 12 sim-min feel uncrowded even after the sim starts
 const CALM_UNTIL_MIN = DAY_START + 12;
+
+// PR-5 — Time-locked levers. Once commitDayPlan fires, the prep / reprice
+// levers lock for the rest of the day. Pressing them anyway charges £4.20
+// (per press) plus a small opinion hit on every regular who's heard of the
+// change of heart. The intent is to give the morning brief real prep weight.
+const LEVER_OVERRIDE_PRICE = 4.20;
+const LEVER_OVERRIDE_GOSSIP = 0.06;
+let leversTimeLocked = false;
+let leverOverrideCount = 0;
 
 // ---- the day ------------------------------------------------------------------
 function tick() {
@@ -497,7 +740,7 @@ function beats() {
     eveningCallShown = true;
     const read = waveRead();
     const waveN = read.waveServed + read.waveBalked;
-    if (waveN > 0 && !headless) fx.toast(`the wave: ${read.waveServed} served · ${read.waveBalked} walked`, read.ratio <= 0.15 ? 'good' : 'warn');
+    if (waveN > 0 && !headless) { fx.toast(`the wave: ${read.waveServed} served · ${read.waveBalked} walked`, read.ratio <= 0.15 ? 'good' : 'warn'); showWavePowered(7000); }
     if (waveN > 0 && !headless) {
       const win = read.waveServed >= 30 && read.ratio <= 0.15;
       try {
@@ -546,6 +789,8 @@ function residualEveningCups() {
 }
 
 function showEveningCall(read) {
+  // PR-3 — debrief beat: the leaderboard line surfaces the district standings
+  setBeatPower('evening', BEAT_POWERED.evening);
   const body = $('evening-read');
   const partyLine = partyLineText();
   if (body) body.textContent = (partyLine ? partyLine + '\n\n' : '') + read.sub + '\n' + read.lines.join('\n');
@@ -970,6 +1215,7 @@ function applyCommittedPlan(res) {
 function commitDayPlan() {
   if (phase !== 'planning' || !planDraft) return { ok: false, why: 'not planning' };
   const plan = normalizePlan(planDraft);
+  leversTimeLocked = true;
   if (sync.managed && sync.managed()) {
     phase = 'committing';
     const gen = runGen;
@@ -1402,6 +1648,8 @@ function showMorningBrief() {
   drawBriefSparkline(exchange.history, exchange.beanIndex);
   // pause the floor — the Brief owns the clock until OPEN
   paused = true; if ($('pause')) $('pause').textContent = 'resume';
+  // PR-3 — Convex caption fires every dawn the Brief opens
+  setBeatPower('brief', BEAT_POWERED.brief);
   modals.open('brief');
   try { analytics.track('brief_shown', { day, event: exchange.event ? exchange.event.id : null, index: exchange.beanIndex, hasWire: !!marketIntel }); } catch {}
 }
@@ -1447,6 +1695,7 @@ function prepareDay(d) {
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false;
+  leversTimeLocked = false; leverOverrideCount = 0;
   baristaCrisis = false;
   if (d === 1) { forecastShown = false; nudgedQueue = nudgedBalk = nudgedPrice = false; }
   if (baristaRested) { baristaRested = false; fx.toast('Ruth’s back — rested. The bar hums.', 'good'); }
@@ -1594,6 +1843,11 @@ function campaignClose(insolvent = false) {
   if ($('review-continue')) $('review-continue').style.display = 'none';
   if ($('review-letter')) $('review-letter').style.display = 'none';
   if ($('receipt-back')) $('receipt-back').style.display = 'none';
+  // PR-4b — founder replay CTA (only when the entitlement is active)
+  try { if (billing.isFounder()) $('founder-replay').style.display = ''; } catch {}
+  // PR-3 — verdict caption: the day-5 "Replay your week" line is the
+  // placement for the District Insider upsell.
+  setBeatPower('verdict', BEAT_POWERED.verdict);
   audio.closing();
   const net = cRev - cCost - cOps - settledPaid - exchange.debt;   // the week, after the whole cost sheet
   const rep = regulars.reputation;
@@ -1812,6 +2066,8 @@ function updateHUD() {
 function doPrebatch() {
   if (closed || phase !== 'trading' || dayMin >= 960) return;
   if (repriced) { fx.toast('you cut the price — prep is locked for today', 'warn'); return; }
+  // PR-5 — after commit, pressing the lever costs £4.20 + a small opinion hit.
+  if (leversTimeLocked && dayMin >= 720 && !chargeLeverOverride('pre-batch')) return;
   const cap = dayMin >= 840 ? 8 : 0;
   if (prebatched && ctx.batchUnits > cap) return;          // morning is one prep; the rush reopens under 8 cups
   markIntent();
@@ -1862,6 +2118,8 @@ function skipToRush() {
 function doReprice() {
   if (repriced || closed || phase !== 'trading') return;
   if (prebatched || ctx.batchUnits > 0) { fx.toast('you prepped the cups — the price stays on the board', 'warn'); return; }
+  // PR-5 — after commit, pressing the lever costs £4.20 + a small opinion hit.
+  if (leversTimeLocked && dayMin >= 720 && !chargeLeverOverride('reprice')) return;
   markIntent();
   const queueBefore = patrons.queueLength;
   repriced = true; ctx.repriced = true; patrons.repriced = true;
@@ -1967,6 +2225,20 @@ function presentBeat(o, kicker, incident) {
   $('offer-yes').textContent = o.yes;
   $('offer-no').textContent = o.no || 'not today';
   $('offer').classList.toggle('incident', !!incident);
+  // PR-3 — per-beat caption: offers carry the AgentMail reply, incidents are
+  // an on-floor operating cost paid live.
+  setBeatPower('offer', incident ? 'Operating cost paid · live ledger' : BEAT_POWERED.offer);
+  // PR-4c — the regulars' take surfaces for non-insiders at the offer beat
+  if (!incident) {
+    const upEl = $('offer-insider-upsell');
+    const txEl = $('offer-insider-text');
+    if (upEl && txEl) {
+      fetchOfferTake().then((lines) => {
+        txEl.textContent = lines[0] || '"worth hearing both sides before you say no."';
+        try { applyPaywallPlacements(); } catch {}
+      }).catch(() => {});
+    }
+  }
   offerWasPaused = paused; paused = true; if ($('pause')) $('pause').textContent = 'resume';
   try { audio.card(); } catch {}
   modals.open('offer');
@@ -1996,7 +2268,7 @@ function reset() {
   // full campaign restart: the market and the regulars rewind to their start state
   const wasFinale = campaignDone;   // restarting from the verdict gets a send-off
   runGen++;
-  exchange.rng = seeded(SEED);
+  exchange.rng = seeded(seedNow());
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
@@ -2016,7 +2288,8 @@ function reset() {
   briefSyncError('');
   { const ob = $('brief-open'), mb = $('letter-mail-btn'); if (ob) ob.disabled = false; if (mb) mb.disabled = false; }
   if (sync.abandonRun) { sync.abandonRun(); if (sync.live && !sync.runDisabled) sync.beginRun(SEED).catch(() => {}); }
-  for (const r of regulars.regulars) { r.op = perkBg === 'newcomer' ? 0.25 : 0.15; r.seen = false; r.served = 0; r.balked = 0; }
+  const newOpWarm = (PERK_VALUES[perkBg] || {}).opWarm;
+  for (const r of regulars.regulars) { r.op = newOpWarm != null ? Math.max(r.op, newOpWarm) : 0.15; r.seen = false; r.served = 0; r.balked = 0; }
   cRev = cCost = cBalked = cServed = cDef = settledPaid = 0; campaignDone = false; paused = false;
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   if ($('pause')) $('pause').textContent = 'pause';
@@ -2026,6 +2299,27 @@ function reset() {
     fx.toast('a new week on the floor — same street, new regulars', '');
   }
 }
+
+// PR-4b — Founder's replay. Replays the entire 5-day campaign with a fresh
+// seed: a brand-new market, a brand-new district kit, brand-new gossip
+// chains. Founders get this instead of the closure. Non-founders never see
+// the button (gated in campaignClose()).
+const founderReplay = () => {
+  if (!billing || !billing.isFounder()) return false;
+  // pick a fresh seed: current SECONDS-since-midnight, kept deterministic
+  // per replay (the share card will print it).
+  const fresh = Math.floor((Date.now() / 1000) % 99991) + 7;
+  try {
+    // mirror reset() but swap the seed first
+    SEED_OVERRIDE = fresh;
+    const url = new URL(location.href);
+    url.searchParams.set('seed', String(fresh));
+    try { history.replaceState(null, '', url.toString()); } catch {}
+  } catch {}
+  reset();
+  fx.toast('founder\'s replay — new seed, new market, new week', 'good');
+  return true;
+};
 // hover stories: raycast-ish nearest-patron probe near cursor
 let _hoverRaf = 0;
 function nearestPatronAt(clientX, clientY) {
@@ -2088,6 +2382,9 @@ $('reprice').onclick = doReprice;
 $('pause').onclick = () => togglePause();
 $('reset').onclick = reset;
 $('again').onclick = reset;
+// PR-4b — founder replay: a fresh-seed restart, gated on the founder entitlement
+const fReplayBtn = $('founder-replay');
+if (fReplayBtn) fReplayBtn.onclick = () => { try { founderReplay(); } catch {} };
 if ($('review-continue')) $('review-continue').onclick = () => continueFromReview();
 if ($('review-letter')) $('review-letter').onclick = () => { if (phase === 'review') showLetter(); };
 if ($('letter-close')) $('letter-close').onclick = () => {
@@ -2105,7 +2402,7 @@ if ($('review-last')) $('review-last').onclick = () => {
 if ($('receipt-back')) $('receipt-back').onclick = () => {
   modals.close('receipt');
   $('receipt-back').style.display = 'none';
-  if (phase === 'planning' && !headless && !tutorialActive) modals.open('brief');
+  if (phase === 'planning' && !headless && !tutorialActive) { setBeatPower('brief', BEAT_POWERED.brief); modals.open('brief'); }
 };
 $('mute').onclick = () => { $('mute').textContent = audio.toggleMute() ? 'sound off' : 'sound on'; };
 $('wirebtn').onclick = () => desk.open(marketIntel);
@@ -2168,8 +2465,9 @@ function doPhoto() {
     snap.getContext('2d').drawImage(src, 0, 0, snap.width, snap.height);
     const card = document.createElement('canvas'); card.width = CARD_W; card.height = CARD_H;
     buildShareCard(card.getContext('2d'), {
-      snapshot: snap, badge, seed: SEED, day: day + 1,
+      snapshot: snap, badge, seed: seedNow(), day: day + 1,
       stats: { till, rep: regulars.reputation, served: served + servedRetail, balked },
+      founder: !!(billing && billing.isFounder && billing.isFounder()),
     });
     cardUrl = card.toDataURL('image/png');
   } catch { /* a dead card never eats the moment — the row still shows the caption path */ }
@@ -2249,7 +2547,7 @@ fetch('./api/schedule.json').then(r => r.json()).then(s => {
 const LIC_ROLES = ['the new owner', 'the manager', 'the name on the lease'];
 const LIC_BGS = [
   { id: 'ex-barista',    label: 'an ex-barista',    perk: 'the wrist remembers — the bar runs ~8% faster' },
-  { id: 'ex-accountant', label: 'an ex-accountant', perk: 'you read invoices — fees & payouts −15%' },
+  { id: 'ex-accountant', label: 'an ex-accountant', perk: 'you read invoices — fees & payouts −10%' },
   { id: 'newcomer',      label: 'new to the trade', perk: 'a fresh face — the regulars warm quicker' },
   { id: 'circuit',       label: 'a market regular', perk: 'you know the circuit — the wire names its lean' },
 ];
@@ -2289,10 +2587,21 @@ function showLicence() {
   setTimeout(() => { try { (nameEl.value ? standEl : nameEl).focus(); } catch {} }, 350);
   try { analytics.track('licence_shown'); } catch {}
 }
+// PR-1 — Perk balance. The strongest perks (ex-accountant 15% off + every
+// incident payout; newcomer rep head start compounding 5 days) tilted the
+// diagnostic. Slight nerfs to keep the perk identity without making the
+// background choice the dominant lever.
+const PERK_VALUES = {
+  'ex-barista':    { staffMul: 1.08, costMul: 1.00, opWarm: null },     // the wrist paces the bar
+  'ex-accountant': { staffMul: 1.00, costMul: 0.90, opWarm: null },     // reads invoices (was 0.85 — too dominant when stacked with incidents)
+  'newcomer':      { staffMul: 1.00, costMul: 1.00, opWarm: 0.18 },     // the fresh face (was 0.25 — kept warming on day 5)
+  'circuit':       { staffMul: 1.00, costMul: 1.00, opWarm: null },     // the market regular — qualitative wire lean
+};
 function applyPerk() {
-  perkStaffMul = perkBg === 'ex-barista' ? 1.08 : 1;
-  perkCostMul = perkBg === 'ex-accountant' ? 0.85 : 1;
-  if (perkBg === 'newcomer') for (const r of regulars.regulars) r.op = Math.max(r.op, 0.25);
+  const p = PERK_VALUES[perkBg] || PERK_VALUES['ex-barista'];
+  perkStaffMul = p.staffMul;
+  perkCostMul = p.costMul;
+  if (p.opWarm != null) for (const r of regulars.regulars) r.op = Math.max(r.op, p.opWarm);
 }
 function signLicence() {
   playerName = (($('lic-name').value || '').trim() || 'Sam').slice(0, 16);
@@ -2303,6 +2612,7 @@ function signLicence() {
     localStorage.setItem('grunds.owner', standName);   // the district board lists the stand, not a hash
   } catch {}
   applyPerk();
+  try { applyPaywallPlacements(); } catch {}
   modals.close('licence');
   try { analytics.track('licence_signed', { role: playerRole, bg: perkBg, defaults: playerName === 'Sam' && standName === 'THE CORNER CUP' }); } catch {}
   fx.toast('licence signed — ' + standName + ' opens Monday', 'good');
@@ -2440,6 +2750,10 @@ function loop(now) {
   audio.setRush(patrons.queueLength > 8);
   audio.setMood(vitality.current);
   audio.update(dt);
+  // PR-2 — showfloor autoplay. Polls the modal stack and fires the same
+  // button the player would. 1.5s grace per modal so the UI animates in
+  // before the click. A keyboard intent flips autoplay off (below).
+  autoplayTick(now);
   if (!headless) postfx.render(now);   // headless harness skips GL
 }
   window.__grunds = {

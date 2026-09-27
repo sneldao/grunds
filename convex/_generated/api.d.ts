@@ -24,6 +24,7 @@ import type * as nebius from "../nebius.js";
 import type * as openai from "../openai.js";
 import type * as regulars from "../regulars.js";
 import type * as research from "../research.js";
+import type * as revenuecat from "../revenuecat.js";
 import type * as stands from "../stands.js";
 import type * as tripo from "../tripo.js";
 
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   openai: typeof openai;
   regulars: typeof regulars;
   research: typeof research;
+  revenuecat: typeof revenuecat;
   stands: typeof stands;
   tripo: typeof tripo;
 }>;

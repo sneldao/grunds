@@ -69,12 +69,20 @@ export class PatronSystem {
     const fromLeft = Math.random() < 0.5;
     const s = fromLeft ? LAYOUT.spawnL : LAYOUT.spawnR;
     const torso = new THREE.Color(COHORTS[cohort]?.color ?? 0xaaaaaa).lerp(new THREE.Color(0x888888), 0.12);
+    // PR-6 — cohort rituals: walk pace + which prop they carry + which
+    // table they'll claim. The cohort config owns these so the floor
+    // reads as five rooms, not one.
+    const cohortDef = COHORTS[cohort] ?? {};
+    const ritualProps = Array.isArray(cohortDef.props) ? cohortDef.props : [];
+    const ritualSeat = (typeof cohortDef.seat === 'number' && cohortDef.seat >= 0) ? cohortDef.seat : null;
+    const ritualDwell = (typeof cohortDef.dwellMul === 'number') ? cohortDef.dwellMul : 1.0;
+    const ritualSpeed = (typeof cohortDef.walkSpeed === 'number') ? cohortDef.walkSpeed : 2.1;
     const p = {
       idx, active: true, cohort, zone,
       wantsMatcha: zone === 'counter' && Math.random() < ECON.matchaShare,
       pos: V3(s.x, 0, s.z + (Math.random() - 0.5) * 1.4), face: fromLeft ? Math.PI / 2 : -Math.PI / 2,
       path: [], state: 'walking', waitMin: 0, dwell: 0,
-      speed: 2.1 + Math.random() * 0.9, phase: Math.random() * 6.28,
+      speed: ritualSpeed + (Math.random() - 0.5) * 0.3, phase: Math.random() * 6.28,
       jx: (Math.random() - 0.5) * 0.24, jz: (Math.random() - 0.5) * 0.2,
       seat: null, hasCup: false, cupGreen: false, hasHat: Math.random() < 0.45,
       torso, skin: new THREE.Color(SKIN[(Math.random() * SKIN.length) | 0]),
@@ -83,6 +91,10 @@ export class PatronSystem {
       scale: 0.92 + Math.random() * 0.16,
       regularName: null, regularIdx: -1, greeted: false,
       regularFriends: null,   // Set<string> of friend names, populated if named
+      // PR-6 ritual record — survives the spawn so analytics + greeting
+      // bubbles can show which cohort the patron belongs to without
+      // re-resolving COHORTS[] every tick.
+      ritualProps, ritualSeat, ritualDwell,
     };
     let toRival = false;
     if (zone === 'counter' && this.rivalQ.length < 42) {
@@ -258,7 +270,14 @@ export class PatronSystem {
   _afterServe(p) {
     const freeSeats = this.world.seats.filter(s => !s.taken);
     if (Math.random() < ECON.sitChance && freeSeats.length) {
-      const seat = freeSeats[(Math.random() * freeSeats.length) | 0];
+      // PR-6 — cohort ritual: prefer the table the cohort claims first.
+      // Falls through to a random free seat if their table is taken.
+      let seat = null;
+      if (p.ritualSeat != null && this.world.seats[p.ritualSeat] && !this.world.seats[p.ritualSeat].taken) {
+        seat = this.world.seats[p.ritualSeat];
+      } else {
+        seat = freeSeats[(Math.random() * freeSeats.length) | 0];
+      }
       seat.taken = p; p.seat = seat; p.state = 'toSeat';
       p.path = [V3(seat.x, 0, seat.z)];
     } else this._leave(p);

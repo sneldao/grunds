@@ -26,18 +26,22 @@ export function cardLayout(w = CARD_W, h = CARD_H) {
   };
 }
 
-export function captionLine({ day = 1, seed = 7, stats = {}, badge = null } = {}) {
+export function captionLine({ day = 1, seed = 7, stats = {}, badge = null, founder = false } = {}) {
   const s = stats;
   const money = (v) => '£' + Math.round(v ?? 0);
   const parts = [`Day ${day}/5`, `till ${money(s.till)}`, `rep ${Math.round(s.rep ?? 0)}/100`,
     `${s.served ?? 0} served`, `${s.balked ?? 0} walked`, `seed ${seed}`];
-  const head = badge ? `${badge.icon} ${badge.title} — ` : '';
+  const head = founder ? `★ DISTRICT FOUNDER · ` : badge ? `${badge.icon} ${badge.title} — ` : '';
   return head + parts.join(' · ');
 }
 
-// ctx: a CanvasRenderingContext2D (or any recording stub).
-// opts: { snapshot, badge, seed, stats, day }
-export function buildShareCard(ctx, { snapshot, badge = null, seed = 7, stats = {}, day = 1, rng = Math.random }) {
+// PR-4b — founder stamp: gold-leaf on burgundy instead of red rubber.
+// Called from doPhoto() when billing.isFounder() is true.
+export function founderStampVariant() {
+  return { fill: 'rgba(122,42,24,.94)',  text: 'DISTRICT FOUNDER',  subtitle: '—  NEUE HOUSE  ·  ◆  —' };
+}
+
+export function buildShareCard(ctx, { snapshot, badge = null, seed = 7, stats = {}, day = 1, rng = Math.random, founder = false }) {
   const L = cardLayout(ctx.canvas.width, ctx.canvas.height);
   // cream stock + linen grain (rentSign 'let' idiom)
   ctx.fillStyle = '#efe6d3';
@@ -74,7 +78,7 @@ export function buildShareCard(ctx, { snapshot, badge = null, seed = 7, stats = 
   ctx.fillStyle = 'rgba(239,230,211,.6)'; ctx.font = '600 17px Georgia, serif';
   ctx.fillText('GRUNDS — THE DISTRICT', L.bandRect.x + 20, L.stamp.cy - 22);
   ctx.fillStyle = '#efe6d3'; ctx.font = '22px Georgia, serif';
-  ctx.fillText(captionLine({ day, seed, stats, badge }), L.bandRect.x + 20, L.stamp.cy + 8);
+  ctx.fillText(captionLine({ day, seed, stats, badge, founder }), L.bandRect.x + 20, L.stamp.cy + 8);
   ctx.fillStyle = 'rgba(239,230,211,.45)'; ctx.font = '13px ui-monospace, monospace';
   ctx.fillText(BASE_URL + '?seed=' + seed, L.bandRect.x + 20, L.stamp.cy + 32);
   // the rubber stamp — SOLD idiom, dispatched not screenshotted
@@ -82,15 +86,17 @@ export function buildShareCard(ctx, { snapshot, badge = null, seed = 7, stats = 
   ctx.translate(L.stamp.cx, L.stamp.cy);
   ctx.rotate(L.stamp.rot);
   ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(-L.stamp.w / 2 + 4, -L.stamp.h / 2 + 4, L.stamp.w, L.stamp.h);
-  ctx.fillStyle = 'rgba(208,64,58,.92)'; ctx.fillRect(-L.stamp.w / 2, -L.stamp.h / 2, L.stamp.w, L.stamp.h);
+  // PR-4b — the stamp. Founders get a gold-leaf-on-burgundy variant.
+  const variant = founder ? founderStampVariant() : null;
+  ctx.fillStyle = variant?.fill || 'rgba(208,64,58,.92)'; ctx.fillRect(-L.stamp.w / 2, -L.stamp.h / 2, L.stamp.w, L.stamp.h);
   ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
   ctx.strokeRect(-L.stamp.w / 2 + 6, -L.stamp.h / 2 + 6, L.stamp.w - 12, L.stamp.h - 12);
-  ctx.strokeStyle = 'rgba(208,64,58,1)'; ctx.lineWidth = 4;
+  ctx.strokeStyle = founder ? 'rgba(201,162,39,.92)' : 'rgba(208,64,58,1)'; ctx.lineWidth = 4;
   ctx.strokeRect(-L.stamp.w / 2, -L.stamp.h / 2, L.stamp.w, L.stamp.h);
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
   ctx.font = '700 27px Georgia, serif';
-  ctx.fillText('GRUNDS · SEED ' + seed, 0, -4);
-  ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '11px ui-monospace, monospace';
-  ctx.fillText('—  DISTRICT OFFICE  —', 0, 18);
+  ctx.fillText(variant ? `${variant.text}  ·  SEED ${seed}` : 'GRUNDS · SEED ' + seed, 0, -4);
+  ctx.fillStyle = founder ? 'rgba(201,162,39,.85)' : 'rgba(255,255,255,.55)'; ctx.font = '11px ui-monospace, monospace';
+  ctx.fillText(variant?.subtitle || '—  DISTRICT OFFICE  —', 0, 18);
   ctx.restore();
 }

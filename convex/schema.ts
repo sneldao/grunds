@@ -204,6 +204,19 @@ export default defineSchema({
     .index("by_key", ["key"])
     .index("by_task", ["taskId"]),
 
+  // PR-4e — RevenueCat entitlement mirror. One row per appUserId (the
+  // stand owner), updated by the RevenueCat webhook. The client polls
+  // /sync/entitlements on boot to reconcile localStorage-billing state,
+  // so the Insider / Founder perks survive a hard reset or device hop.
+  entitlements: defineTable({
+    appUserId: v.string(),
+    insider: v.boolean(),
+    founder: v.boolean(),
+    updatedAt: v.number(),
+    source: v.optional(v.string()),    // "webhook" | "manual"
+    eventId: v.optional(v.string()),   // RevenueCat event id — idempotency
+  }).index("by_user", ["appUserId"]),
+
   // External-API response cache — token/cost efficiency. Firecrawl news
   // (6h TTL: commodity news moves daily) and OpenAI prose (7d TTL: the
   // deterministic sim replays identical bodies across seeds and days).
