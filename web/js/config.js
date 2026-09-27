@@ -85,6 +85,7 @@ export const COPY = {
   gossipBad: ['matcha here is a WAIT…', 'queue’s out the door again', 'four minutes. for a latte.', 'the chain across the road is faster', 'they switched roasters, you know'],
   gossipGood: ['worth the queue today', 'pre-batched. genius.', 'best matcha on the street', 'they know my order here'],
   rivalName: 'GLASSHOUSE',
+  rivalBarista: 'Sam',   // PR-B1 — the rival barista gets a name so the rivalry reads personal
   // delight: Idris one-liners, rival jeers, cat cameo
   idrisQuips: {
     sideEye: ["Mara's giving you side-eye, boss.", "The queue's talking, chief.", "Batch or watch them walk — your call.", "The board's warm today. Are you?"],

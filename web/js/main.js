@@ -329,6 +329,13 @@ let lastDayStats = null;   // yesterday's counters — the Brief's letter reads 
 // Worked days drain (harder on brutal floors), sent-home days recover.
 let baristaCondition = 1.0, baristaHomeToday = false, baristaRested = false, baristaStaged = false, baristaCrisis = false;
 let apprenticeHiredToday = false, rivalStrategy = 'DEFAULT', dayMods = {};
+// PR-B2 — reactive AI: the rival notices the player's moves during the day
+// and ripples back. Toast-only by default; some reactions mutate game state.
+// rivalReacted.cut counts how many times the player repriced today; rivalReacted.prep
+// counts how many times they pre-batched. rivalReactLog is the per-day timeline
+// the Brief can replay tomorrow if you want a longer arc.
+let rivalReacted = { cut: 0, prep: 0 };   // per-day counters
+let rivalReactLog = [];   // [{move, ts, msg}] — per-day
 // the pitch licence — who you are, signed before the first dawn. Identity
 // threads the letter, the receipt, the district board; the background pick
 // carries one small mechanical perk (not a class — the arc is one role).
@@ -469,6 +476,7 @@ async function fetchOfferTake() {
 
 // campaign accumulators (persist across the 5 days)
 let cRev = 0, cCost = 0, cBalked = 0, cServed = 0, cDef = 0, settledPaid = 0, campaignDone = false;
+let cRivalServed = 0, cRivalChoices = 0;   // PR-B1 — rival's week tally so the verdict reads side-by-side
 let cOps = 0;   // the cost sheet — staff, supplies, pitch, fees across the campaign
 // PR-3 — Per-beat "powered by" captions. Each entry maps a beat to a
 // sponsor string. The brief/offer/verdict captions are set when their modal
@@ -875,7 +883,8 @@ function closeDay() {
   if ($('again')) $('again').style.display = 'none';   // mid-campaign: the letter drives the next day, not this button
   if ($('shareWeek')) $('shareWeek').style.display = 'none';
   cRev += till; cCost += cogs; cBalked += balked; cServed += served + servedRetail; cDef += defections;
-  lastDayStats = { sold: served + servedRetail, balked, defections };   // the Brief reads these at dawn
+  cRivalServed += rivalServed; cRivalChoices += patrons.rivalChoices;   // PR-B1 — accumulate rival week tally
+  lastDayStats = { sold: served + servedRetail, balked, defections, rivalServed, rivalChoices: patrons.rivalChoices };   // the Brief reads these at dawn — PR-B1 adds rival data
   // Ruth's ledger — a worked day drains (harder on a brutal floor), a
   // sent-home day recovers. The cost is real: her wage is saved but the
   // bar runs a third slower while she's off. Apprentice gives partial rest.
@@ -989,7 +998,9 @@ function closeDay() {
       ['word of mouth', `~${dtrace.returnees} back tomorrow`],
       ['debt', exchange.debt > 0 ? `${fmt(exchange.debt)} of ${fmt(CAMPAIGN.creditLimit)}` : fmt(0)],
       ['peak queue', peakQueue + ' deep'], ['walked to ' + COPY.rivalName, defections],
-      ['chose ' + COPY.rivalName, patrons.rivalChoices], ['—', '—'],
+      ['chose ' + COPY.rivalName, patrons.rivalChoices],
+      ['—', '—'],
+      ['you vs ' + COPY.rivalBarista, `you ${served + servedRetail} · ${COPY.rivalBarista} ${rivalServed + patrons.rivalChoices}`],   // PR-B1 — side-by-side
       ['NET TODAY', fmt(netToday)],
       ...(settleToday > 0 ? [['debt settled (balance payment)', fmt(settleToday)]] : []),
     ],
@@ -1437,6 +1448,74 @@ function applyStagedPrep() {
   }
 }
 
+// PR-B2 — Sam's reactive answer to a player move. Toast + nudge.
+// Player pre-batch → rival speeds up (credit boost). Player reprice → rival
+// undercuts visibly (£0.10 off their chalkboard price). Reacting twice in a
+// row is allowed and stacks, capped so the rival never goes below £3.50 or
+// above the day-one display.
+function rivalReact(playerMove) {
+  if (headless) return;
+  const stratDef = CAMPAIGN.rivalStrategies[rivalStrategy];
+  if (!stratDef) return;
+  if (playerMove === 'prebatch') {
+    rivalReacted.prep += 1;
+    // Sam clocks the prep and speeds up — credit boost (the rival serves faster).
+    if (patrons && typeof patrons.rivalCredit === 'number') patrons.rivalCredit = Math.min(1, patrons.rivalCredit + 1.5);
+    const msg = `${COPY.rivalBarista} clocks your prep — grinding harder`;
+    rivalReactLog.push({ move: 'prebatch', msg, ts: dayMin });
+    fx.toast(msg, 'warn');
+  } else if (playerMove === 'reprice') {
+    rivalReacted.cut += 1;
+    // Sam undercuts by £0.10 per player cut (visible on their chalkboard).
+    const basePrice = stratDef.price;
+    const newPrice = Math.max(3.5, Math.round((basePrice - 0.10) * 100) / 100);
+    stratDef.price = newPrice;
+    const msg = `${COPY.rivalBarista} undercuts to ${fmt(newPrice)} — they're not letting this go`;
+    rivalReactLog.push({ move: 'reprice', msg, ts: dayMin });
+    try { world.setRivalStrategy(rivalStrategy, newPrice.toFixed(2)); } catch {}
+    fx.toast(msg, 'warn');
+  }
+}
+
+function renderRivalLine() {
+  const slot = $('brief-rival'); if (!slot) return;
+  const y = lastDayStats;
+  const you = y ? y.sold : null;
+  const them = y ? (y.rivalServed || 0) : null;
+  const youDef = y ? y.defections || 0 : 0;
+  const themChose = y ? (y.rivalChoices || 0) : 0;
+  const strat = CAMPAIGN.rivalStrategies[rivalStrategy];
+  const stratName = strat ? strat.name.toLowerCase() : '—';
+  const stratPrice = strat ? '£' + strat.price.toFixed(2) : '—';
+  // PR-B2 — yesterday's reactivity log gets surfaced in today's brief so the
+  // player sees Sam's moves being reactive, not just static.
+  const reacts = (rivalReactLog || []).slice(0, 3).map(e => `· ${e.msg}`).join('<br>');
+  const reactLine = reacts ? `<br><span class="dim">yesterday across the street:<br>${reacts}</span>` : '';
+  // day 1 has no yesterday yet — show the streak opener
+  let body;
+  if (!y) {
+    body = `<b>${COPY.rivalBarista}'s board reads ${stratPrice}</b> — ${stratName}, day one. The street is about to learn who holds the line.`;
+  } else {
+    const delta = (you != null && them != null) ? (you - them) : 0;
+    const lead = delta >= 0 ? `you lead by <b>${delta}</b>` : `Sam leads by <b>${-delta}</b>`;
+    // PR-B3 — running weekly tally (visible from day 2 onward). The week is
+    // a 5-day arc; once we're past day 1 the player can track the gap.
+    const weekYou = cServed;
+    const weekSam = (cRivalServed || 0) + (cRivalChoices || 0);
+    const weekDelta = weekYou - weekSam;
+    const weekLead = day >= 2 && Math.abs(weekDelta) > 0
+      ? `<br><b>week so far:</b> you ${weekYou} · ${COPY.rivalBarista} ${weekSam} · ${weekDelta >= 0 ? `you lead by <b>${weekDelta}</b>` : `${COPY.rivalBarista} leads by <b>${-weekDelta}</b>`}`
+      : '';
+    body = `yesterday · <b>you served ${you}</b> · <b>Sam served ${them}</b> · ${lead}<br>`
+      + `<span class="dim">${youDef} walked to ${COPY.rivalName} · ${themChose} skipped the queue and went straight across</span>`
+      + reactLine
+      + weekLead
+      + `<br>today · Sam moves with <b>${stratName}</b> at ${stratPrice}`;
+  }
+  slot.innerHTML = `<div class="brief-row"><span class="brief-row-key">across the street</span><span class="brief-row-val">${body}</span></div>`;
+  slot.style.display = '';
+}
+
 function showMorningBrief() {
   const el = $('brief'); if (!el) return;
   const snap = {
@@ -1606,6 +1685,10 @@ function showMorningBrief() {
   // commit and a mid-day press costs £4.20 + gossip only when the player
   // DIDN'T stage it. Defaults to "play it live" — neither pill pressed.
   renderPrepSection();
+  // PR-B1 — Sam's line. Side-by-side yesterday's stats with a one-liner
+  // so the rivalry reads personal from the brief onward. Always shown —
+  // even on day 1 (where "yesterday" reads as "yesterday's roster").
+  renderRivalLine();
   const risk = $('brief-risk');
   if (risk) {
     risk.style.display = '';
@@ -1878,7 +1961,7 @@ function startTradingDay(d) {
   patrons.rivalStrategy = rivalStrategy;
   if (d >= 2 && rivalStrategy !== 'DEFAULT' && !headless) {
     const stratDef = CAMPAIGN.rivalStrategies[rivalStrategy];
-    if (stratDef) fx.toast(`${COPY.rivalName} moves: ${stratDef.name} (£${stratDef.price.toFixed(2)})`, 'warn');
+    if (stratDef) fx.toast(`${COPY.rivalBarista} moves: ${stratDef.name} (£${stratDef.price.toFixed(2)}) — ${COPY.rivalName}'s chalkboard changed`, 'warn');   // PR-B1 — name Sam personally
   }
   if (estherCard) { till -= 2; fx.toast('esther’s stamp card: −£2', ''); }  // her cup's on the house
   world.setMail(false);
@@ -1964,18 +2047,37 @@ function campaignClose(insolvent = false) {
   const net = cRev - cCost - cOps - settledPaid - exchange.debt;   // the week, after the whole cost sheet
   const rep = regulars.reputation;
   const v = VERDICTS[campaignVerdict(net, rep)];
+  // PR-B3 — the weekly winner is who served more cups this week
+  const yourWeekTotal = cServed;
+  const samWeekTotal = (cRivalServed || 0) + (cRivalChoices || 0);
+  const weekDelta = yourWeekTotal - samWeekTotal;
+  const wkWin = weekDelta > 0 ? 'you' : (weekDelta < 0 ? COPY.rivalBarista : 'tie');
+  const wkMargin = Math.abs(weekDelta);
   const lines = [
     [standName, playerName + ' — ' + playerRole],
     [`revenue (${Math.min(day, CAMPAIGN.days)} days)`, fmt(cRev)], ['bean cost', fmt(cCost)], ['operating costs', fmt(cOps)],
     ['final debt', fmt(exchange.debt)], ['—', '—'],
     ['cups poured', cServed], ['walked to ' + COPY.rivalName, cDef], ['—', '—'],
+    ['you vs ' + COPY.rivalBarista, `you ${cServed} · ${COPY.rivalBarista} ${cRivalServed + cRivalChoices}`],   // PR-B1 — final week tally
+    ['WEEK WINNER', wkWin === 'tie' ? 'DEUCE — neither side blinks' : `${wkWin} won by ${wkMargin} cups`],   // PR-B3 — the week resolves
     ['NET WORTH', fmt(net)],
   ];
   // Finale: the street turns over on camera before the verdict lands. The
   // camera visits the sold storefronts, the card names it, then the receipt.
   rig.focus(world.focus.newbuild, 17, 7, Math.PI);
-  fx.card('SOLD', 'a new tenant opens across the road');
-  fx.toast('opening soon — for or against you, that\'s the question', 'warn');
+  // PR-B3 — SOLD card adapts to who won the week. Player wins → Sam's spot
+  // reads FOR LEASE on camera. Rival wins → SOLD-TO-WIN narrative (Sam
+  // absorbs the lot). Tie → a deuce card.
+  if (wkWin === 'you') {
+    fx.card('FOR LEASE', `Sam's window — you took the week by ${wkMargin} cups`);
+    fx.toast(`you won the week by ${wkMargin} cups — Sam's board reads FOR LEASE`, 'good');
+  } else if (wkWin === COPY.rivalBarista) {
+    fx.card('SOLD', `Sam's lot — ${COPY.rivalBarista} took the week by ${wkMargin} cups; a new tenant opens against you`);
+    fx.toast(`Sam won the week by ${wkMargin} cups — the chalkboard stays theirs`, 'warn');
+  } else {
+    fx.card('DEUCE', 'neither side blinks — the week is a draw');
+    fx.toast('DEUCE — both chalkboards hold; the street stays split', 'warn');
+  }
   scheduleRun(() => {
     fx.receipt({ lines, verdict: v });
     refreshStands();
@@ -2199,6 +2301,7 @@ function doPrebatch(opts = {}) {
   audio.clink();
   world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced);
   world.flashChalk('batch');
+  rivalReact('prebatch');   // PR-B2 — Sam clocks the prep
   try { audio.clink(); } catch {}
   if (queueBefore > 3) {
     const estAfter = Math.max(0, Math.round(queueBefore * 0.52));
@@ -2245,6 +2348,7 @@ function doReprice(opts = {}) {
   fx.notebook(false);
   fx.toast(`matcha is ${fmt(ECON.matchaDeal)} for the rest of today — prep is locked` + (opts.asPlanned ? ' · as planned in the brief' : ''), 'good');
   audio.clink();
+  rivalReact('reprice');   // PR-B2 — Sam undercuts visibly
   $('prebatch').classList.remove('attention'); $('reprice').classList.remove('attention');
   try {
     const isFirst = !analytics.firstLeverAt;
@@ -2391,12 +2495,13 @@ function reset() {
   rushFast = false;
   party = null; batchWaste = 0; batchSpend = 0;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; cOps = 0;
+  rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day
   briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;
   realizedHedgeSavings = 0; hedgedCups = 0;
   phase = 'onboarding';
   demand.reset(); marketingSpend = 0;
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
-  apprenticeHiredToday = false; rivalStrategy = 'DEFAULT';
+  apprenticeHiredToday = false; rivalStrategy = 'DEFAULT'; rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];
   try { modals.closeAll(); } catch {}
   deskHeldPause = false;
   mailPending = false;
@@ -2406,7 +2511,7 @@ function reset() {
   if (sync.abandonRun) { sync.abandonRun(); if (sync.live && !sync.runDisabled) sync.beginRun(SEED).catch(() => {}); }
   const newOpWarm = (PERK_VALUES[perkBg] || {}).opWarm;
   for (const r of regulars.regulars) { r.op = newOpWarm != null ? Math.max(r.op, newOpWarm) : 0.15; r.seen = false; r.served = 0; r.balked = 0; }
-  cRev = cCost = cBalked = cServed = cDef = settledPaid = 0; campaignDone = false; paused = false;
+  cRev = cCost = cBalked = cServed = cDef = cRivalServed = cRivalChoices = settledPaid = 0; campaignDone = false; paused = false;
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   if ($('pause')) $('pause').textContent = 'pause';
   prepareDay(1);
