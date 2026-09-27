@@ -354,6 +354,12 @@ export function buildWorld(scene, renderer, lite) {
   };
   W.rivalJeerUntil = 0; W.rivalJeerBaseEmi = 0.25;
   W.jeerRival = () => { W.rivalJeerUntil = performance.now() + 2200; };
+  // PR-B4 — Sam's reactive cameo: when the player undercuts, Sam lurches
+  // toward his chalkboard and flips it on camera. cueRivalReact() arms a
+  // ~1.9s window during which the silhouette leans + steps forward; the
+  // backdrop chalkboard text already updates via W.setRivalStrategy above.
+  W.rivalReactUntil = 0;
+  W.cueRivalReact = () => { W.rivalReactUntil = performance.now() + 1900; };
 
   // ---- the rival: GLASSHOUSE across the road --------------------------------
   const rv = new THREE.Group(); rv.position.set(LAYOUT.rival.x, 0, LAYOUT.rival.z); scene.add(rv);
@@ -404,6 +410,21 @@ export function buildWorld(scene, renderer, lite) {
     const lean = (W._rivalHeat || 0) > 6 ? -0.08 : 0;
     rvBarista.rotation.z = lean;
     rvGuest.position.x = 1.2 + Math.sin(t * 0.5 + 2) * 0.18;
+    // PR-B4 — Sam's reactive cameo: when he undercuts, step the silhouette
+    // forward (toward +z, i.e. the chalkboard on the front face) + lean.
+    // The cue lasts ~1.9s; we pulse the extra lean with a sine so it reads
+    // like an emphatic "putting pen to board" gesture, not a fixed pose.
+    if (W.rivalReactUntil && now < W.rivalReactUntil) {
+      const remaining = W.rivalReactUntil - now;
+      const pulse = Math.sin((1900 - remaining) * 0.012);
+      rvBarista.position.z = -0.8 + 0.36;   // step forward (toward the door)
+      rvBarista.position.x = -0.2;          // face the chalkboard (was -0.5)
+      rvBarista.rotation.z = lean + 0.18 * pulse;
+    } else {
+      // settle back to default pose
+      rvBarista.position.z = -0.8;
+      rvBarista.rotation.z = lean;
+    }
   };
 
   // ---- the rent-pressure sign: gentrification drift made physical ------------

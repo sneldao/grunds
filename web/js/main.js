@@ -1474,6 +1474,14 @@ function rivalReact(playerMove) {
     rivalReactLog.push({ move: 'reprice', msg, ts: dayMin });
     try { world.setRivalStrategy(rivalStrategy, newPrice.toFixed(2)); } catch {}
     fx.toast(msg, 'warn');
+    // PR-B4 — Sam's reactive cameo. The chalkboard now reads the new price;
+    // Sam walks to his door and flips it on camera. ~1.9s of animation
+    // inside world.js, plus a brief camera focus and chapter card.
+    try {
+      if (world.cueRivalReact) world.cueRivalReact();
+      if (world.focus && world.focus.rival && rig.focus) rig.focus(world.focus.rival, 13, 3.5);
+      fx.card('BOARD FLIPPED', `${COPY.rivalBarista}'s chalkboard now reads ${fmt(newPrice)}`);
+    } catch {}
   }
 }
 
