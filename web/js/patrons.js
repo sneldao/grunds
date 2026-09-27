@@ -39,6 +39,16 @@ export class PatronSystem {
       m.count = MAXP;
       scene.add(m); return m;
     };
+    const mkProp = (geo, color, rough = 0.6) => {
+      // PR-A2 — prop meshes are colored by cohort (slightly tinted prop
+      // material per rig). One InstancedMesh per rig type, MAXP instances.
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: rough });
+      const m = new THREE.InstancedMesh(geo, mat, MAXP);
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      m.castShadow = true; m.frustumCulled = false;
+      m.count = MAXP;
+      scene.add(m); return m;
+    };
     const legGeo = new THREE.BoxGeometry(0.09, 0.34, 0.09); legGeo.translate(0, -0.17, 0);
     const armGeo = new THREE.BoxGeometry(0.07, 0.3, 0.07); armGeo.translate(0, -0.15, 0);
     this.parts = {
@@ -50,9 +60,36 @@ export class PatronSystem {
       cup: mk(new THREE.CylinderGeometry(0.05, 0.038, 0.1, 8)),
     };
     this.parts.cup.castShadow = false;
+    // PR-A2 — Cohort prop rigs. One InstancedMesh per prop type, all sized
+    // to MAXP. The first prop in COHORTS[cohort].props is the primary rig
+    // — the data already flows through patrons.js (spawn copies ritualProps
+    // onto each patron), so we just resolve a prop key per patron here.
+    this.propMeshes = {
+      briefcase: mkProp(new THREE.BoxGeometry(0.10, 0.13, 0.20), 0x4a3423, 0.7),    // walnut
+      laptop:    mkProp(new THREE.BoxGeometry(0.22, 0.015, 0.15), 0x2a2c34, 0.55),   // dark grey
+      mug:       mkProp(new THREE.CylinderGeometry(0.045, 0.038, 0.08, 8), 0xefe6d3, 0.5),  // cream
+      backpack:  mkProp(new THREE.BoxGeometry(0.18, 0.24, 0.10), 0x86a860, 0.7),    // matcha green
+      notebook:  mkProp(new THREE.BoxGeometry(0.10, 0.012, 0.14), 0xc9a227, 0.5),   // brass
+      cane:      mkProp(new THREE.CylinderGeometry(0.012, 0.012, 0.55, 6), 0x4a3423, 0.5), // walnut
+      camera:    mkProp(new THREE.BoxGeometry(0.07, 0.055, 0.04), 0x171310, 0.45),   // ink
+    };
+    // Anchor map: where each prop sits relative to the body. Names match
+    // the local-coordinate slots used inside the per-frame update loop.
+    this.propAnchors = {
+      briefcase: 'rightHip',
+      laptop:    'chestFront',
+      mug:       'rightHand',
+      backpack:  'upperBack',
+      notebook:  'leftHand',
+      cane:      'rightHandGround',
+      camera:    'chestFront',
+    };
     // zero-scale everything
     const z = new THREE.Matrix4().makeScale(0, 0, 0);
     for (const part of Object.values(this.parts)) for (let i = 0; i < MAXP; i++) part.setMatrixAt(i, z);
+    // PR-A2 — zero-scale all prop instances at startup; the per-frame loop
+    // updates them only when a patron actually carries that rig.
+    for (const prop of Object.values(this.propMeshes)) for (let i = 0; i < MAXP; i++) prop.setMatrixAt(i, z);
     for (let i = MAXP - 1; i >= 0; i--) this.free.push(i);
     // regularIdx -> Set<patron>: which live patrons represent a given named
     // regular. The gossip router uses this to find a friend-of-friend who is
@@ -312,6 +349,9 @@ export class PatronSystem {
     if (p.seat) { p.seat.taken = null; p.seat = null; }
     const z = new THREE.Matrix4().makeScale(0, 0, 0);
     for (const part of Object.values(this.parts)) { part.setMatrixAt(p.idx, z); part.instanceMatrix.needsUpdate = true; }
+    // PR-A2 — also zero-scale the prop instance so the rig disappears when
+    // the patron leaves the floor.
+    if (this.propMeshes) for (const prop of Object.values(this.propMeshes)) { prop.setMatrixAt(p.idx, z); prop.instanceMatrix.needsUpdate = true; }
     this.free.push(p.idx);
     const i = this.patrons.indexOf(p); if (i >= 0) this.patrons.splice(i, 1);
     // unregister from the regularsByIdx map (if this patron was a named regular)
@@ -343,6 +383,55 @@ export class PatronSystem {
     this.parts.hat.setColorAt(p.idx, hat);
     this.parts.cup.setColorAt(p.idx, this._c.set(p.cupGreen ? 0x9fc46a : 0xf0ead8));
     for (const part of Object.values(this.parts)) if (part.instanceColor) part.instanceColor.needsUpdate = true;
+  }
+
+  // PR-A2 — resolve a patron's primary prop key from its cohort ritual.
+  // Returns null when the cohort has no props (e.g. rival).
+  _propKeyFor(p) {
+    const props = (p && p.ritualProps) || [];
+    return props.length ? props[0] : null;
+  }
+
+  // PR-A2 — position a prop mesh at the body anchor slot for this patron.
+  // The matrices are written into `d` (the same scratch Object3D used for
+  // body parts). Anchors read from propAnchors above.
+  _placeProp(d, p, anchor, shY, torsoY, headY, hipY, rx, rz, fx, fz, s, walking) {
+    d.rotation.set(0, p.face, 0);
+    d.scale.setScalar(s);
+    const sway = walking ? Math.sin(p.phase) * 0.08 : 0;
+    switch (anchor) {
+      case 'rightHip':
+        // briefcase — held at right hip, swinging slightly forward
+        d.position.set(p.pos.x + rx * 0.18 * s, hipY - 0.04, p.pos.z + rz * 0.18 * s);
+        d.rotation.set(sway, p.face, 0);
+        break;
+      case 'chestFront':
+        // laptop / camera — held in front of chest, slightly down
+        d.position.set(p.pos.x + fx * 0.22 * s, torsoY + 0.08, p.pos.z + fz * 0.22 * s);
+        d.rotation.set(-0.3, p.face, 0);
+        break;
+      case 'upperBack':
+        // backpack — on the back, behind torso
+        d.position.set(p.pos.x - fx * 0.12 * s, torsoY + 0.05, p.pos.z - fz * 0.12 * s);
+        d.rotation.set(0, p.face, 0);
+        break;
+      case 'rightHand':
+        // mug / notebook — at the right-hand level, slightly forward
+        d.position.set(p.pos.x + fx * 0.20 * s + rx * 0.22 * s, shY - 0.04, p.pos.z + fz * 0.20 * s + rz * 0.22 * s);
+        d.rotation.set(-0.2 + sway * 0.5, p.face, 0);
+        break;
+      case 'leftHand':
+        d.position.set(p.pos.x + fx * 0.20 * s - rx * 0.22 * s, shY - 0.04, p.pos.z + fz * 0.20 * s - rz * 0.22 * s);
+        d.rotation.set(-0.2 - sway * 0.5, p.face, 0);
+        break;
+      case 'rightHandGround':
+        // cane — extends from right hand down to the floor
+        d.position.set(p.pos.x + fx * 0.06 * s + rx * 0.18 * s, hipY - 0.10, p.pos.z + fz * 0.06 * s + rz * 0.18 * s);
+        d.rotation.set(-0.08 + sway * 0.3, p.face, 0);
+        break;
+      default:
+        d.position.set(p.pos.x, hipY, p.pos.z);
+    }
   }
 
   // ---- per-frame: movement, walk cycle, matrix composition --------------------
@@ -456,8 +545,21 @@ export class PatronSystem {
       } else {
         d.position.set(0, -10, 0); d.scale.setScalar(0.001); d.updateMatrix(); P.cup.setMatrixAt(p.idx, d.matrix);
       }
+
+      // PR-A2 — Cohort prop rig. Position the cohort's primary prop at its
+      // anchor slot relative to the body. The local coords mirror the body
+      // matrix composition above (rx/rz = right vector, fx/fz = forward).
+      const propKey = this._propKeyFor(p);
+      if (propKey && this.propMeshes[propKey]) {
+        const anchor = this.propAnchors[propKey];
+        this._placeProp(d, p, anchor, shY, torsoY, headY, hipY, rx, rz, fx, fz, s, walking);
+        d.updateMatrix();
+        this.propMeshes[propKey].setMatrixAt(p.idx, d.matrix);
+      }
     }
     for (const part of Object.values(P)) part.instanceMatrix.needsUpdate = true;
+    // PR-A2 — prop instances have their own InstancedMeshes; flush each one.
+    if (this.propMeshes) for (const prop of Object.values(this.propMeshes)) prop.instanceMatrix.needsUpdate = true;
   }
 
   reset() {

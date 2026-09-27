@@ -299,6 +299,10 @@ let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0
 // The new-shop arc lives on these numbers: tried, walked, told a friend.
 let firstServed = 0, firstWalked = 0, firstServedToast = 0, firstWalkedToast = 0;
 let prebatched = false, repriced = false;
+// PR-A1 — Brief-staged prep. The Morning Brief lets the player lock in
+// pre-batch / reprice before commit; if staged, the lever auto-fires at
+// commit time and mid-day presses are free (the decision was already made).
+let stagedPrep = { batch: false, reprice: false };
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let coached = false;   // day-1 lever hint, once per campaign
 // just-in-time nudges: each fires once per campaign, only when its
@@ -1207,6 +1211,8 @@ function applyCommittedPlan(res) {
   demand.staged.sample = res.plan.marketing.sample;
   demand.staged.sponsor = res.plan.marketing.sponsor;
   startTradingDay(d);
+  // PR-A1 — fire any prep levers the player staged in the Brief.
+  applyStagedPrep();
   try { modals.close('brief'); } catch {}
   briefSyncError('');
   return { ok: true };
@@ -1329,6 +1335,105 @@ function renderPlanQuote() {
   if (sum) {
     sum.textContent = `committed ${fmt(committed)}${q.settlement ? ` · settle ${fmt(q.settlement)}` : ''}${showPos ? ` · ${pos}` : ''}`;
     sum.title = full;
+  }
+}
+
+// PR-A1 — Brief-staged prep. The Morning Brief lets the player lock in the
+// two morning levers (pre-batch, cut-to-£4.20) BEFORE commit. Staging means
+// the decision is already made — the lever auto-fires at commit time and a
+// mid-day press of the same lever is free. If the player DIDN'T stage the
+// lever, a mid-day press costs £4.20 + a small opinion hit on every named
+// regular (the chargeLeverOverride mechanic from PR-5).
+//
+// Two independent toggles. They are NOT mutually exclusive — if the player
+// stages both, pre-batch fires first at commit and the cut is rejected at
+// commit time with the existing "you prepped the cups — price stays on the
+// board" toast. The UI shows this conflict in the description text.
+function renderPrepSection() {
+  const wrap = $('brief-prep'); if (!wrap) return;
+  wrap.style.display = '';
+  wrap.textContent = '';
+
+  const lab = document.createElement('div');
+  lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
+  lab.textContent = 'stage your prep';
+  wrap.appendChild(lab);
+
+  const hint = document.createElement('div');
+  hint.style.cssText = 'font-size:10.5px;opacity:.6;margin-bottom:6px;font-style:italic';
+  hint.textContent = 'commit your morning levers now — pressing 1 or 2 mid-day without staging costs £4.20 + gossip';
+  wrap.appendChild(hint);
+
+  const pillRow = document.createElement('div');
+  pillRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px';
+
+  const makePill = (id, def) => {
+    const b = document.createElement('button');
+    b.id = id;
+    b.dataset.prep = def.key;
+    const sel = !!stagedPrep[def.key];
+    b.textContent = (sel ? '✓ ' : '') + def.label + (def.cost ? ` · −${fmt(def.cost)}` : '');
+    b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
+    if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; }
+    b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+    b.onclick = () => {
+      stagedPrep[def.key] = !stagedPrep[def.key];
+      // If staging both, the cut will be rejected at commit time — flag that
+      // visibly on the price pill so the player notices.
+      if (def.key === 'batch' && stagedPrep.batch && stagedPrep.reprice) {
+        const cutPill = $('brief-prep-reprice');
+        if (cutPill) cutPill.title = 'pre-batch already takes the rush — the cut will be rejected at commit';
+      } else if (def.key === 'reprice' && stagedPrep.reprice && stagedPrep.batch) {
+        const batchPill = $('brief-prep-batch');
+        if (batchPill) batchPill.title = 'cut already takes the rush — the prep will be rejected at commit';
+      } else {
+        const cutPill = $('brief-prep-reprice'); if (cutPill) cutPill.title = '';
+        const batchPill = $('brief-prep-batch'); if (batchPill) batchPill.title = '';
+      }
+      renderPrepSection();
+    };
+    return b;
+  };
+
+  pillRow.appendChild(makePill('brief-prep-batch', {
+    key: 'batch',
+    label: `pre-batch ${ECON.batchUnits} cups`,
+    cost: ECON.batchCost,
+  }));
+  pillRow.appendChild(makePill('brief-prep-reprice', {
+    key: 'reprice',
+    label: `cut matcha to ${fmt(ECON.matchaDeal)}`,
+    cost: null,
+  }));
+  wrap.appendChild(pillRow);
+
+  // Live status line: what's staged, what isn't.
+  const status = document.createElement('div');
+  status.style.cssText = 'font-size:10px;letter-spacing:.04em;opacity:.55;font-style:italic';
+  const parts = [];
+  parts.push(stagedPrep.batch ? `${ECON.batchUnits} cups bought at commit` : 'no pre-batch staged');
+  parts.push(stagedPrep.reprice ? `matcha ${fmt(ECON.matchaDeal)} all day` : 'price on the board');
+  status.textContent = parts.join(' · ');
+  wrap.appendChild(status);
+}
+
+// Apply the staged prep at commit. Called from applyCommittedPlan. Firing
+// order: batch first (it consumes cups), then reprice (which would be
+// rejected if batch already took the rush).
+function applyStagedPrep() {
+  if (stagedPrep.batch) {
+    if (!prebatched && !repriced) {
+      doPrebatch({ asPlanned: true });
+    } else if (repriced) {
+      try { fx.toast('pre-batch staged — but the cut is already on the board', 'warn'); } catch {}
+    }
+  }
+  if (stagedPrep.reprice) {
+    if (!repriced && !prebatched && ctx.batchUnits <= 0) {
+      doReprice({ asPlanned: true });
+    } else if (prebatched || ctx.batchUnits > 0) {
+      try { fx.toast('cut staged — but you prepped the cups, price stays on the board', 'warn'); } catch {}
+    }
   }
 }
 
@@ -1495,6 +1600,12 @@ function showMorningBrief() {
     nutEl.style.display = '';
     renderPlanQuote();
   }
+  // PR-A1 — Stage your prep. Two pills, both optional: pre-batch the cups
+  // (paid now, fast bar at the rush) or cut the price (cheap till, slower
+  // wave). Staging either commits the decision — the lever auto-fires at
+  // commit and a mid-day press costs £4.20 + gossip only when the player
+  // DIDN'T stage it. Defaults to "play it live" — neither pill pressed.
+  renderPrepSection();
   const risk = $('brief-risk');
   if (risk) {
     risk.style.display = '';
@@ -1696,6 +1807,7 @@ function prepareDay(d) {
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false;
   leversTimeLocked = false; leverOverrideCount = 0;
+  stagedPrep = { batch: false, reprice: false };
   baristaCrisis = false;
   if (d === 1) { forecastShown = false; nudgedQueue = nudgedBalk = nudgedPrice = false; }
   if (baristaRested) { baristaRested = false; fx.toast('Ruth’s back — rested. The bar hums.', 'good'); }
@@ -2063,11 +2175,13 @@ function updateHUD() {
 }
 
 // ---- levers ----------------------------------------------------------------------
-function doPrebatch() {
+function doPrebatch(opts = {}) {
   if (closed || phase !== 'trading' || dayMin >= 960) return;
   if (repriced) { fx.toast('you cut the price — prep is locked for today', 'warn'); return; }
   // PR-5 — after commit, pressing the lever costs £4.20 + a small opinion hit.
-  if (leversTimeLocked && dayMin >= 720 && !chargeLeverOverride('pre-batch')) return;
+  // PR-A1 — except when the player staged it in the Brief; that decision was
+  // already made and auto-fired at commit time, so the press is free.
+  if (leversTimeLocked && dayMin >= 720 && !opts.asPlanned && !chargeLeverOverride('pre-batch')) return;
   const cap = dayMin >= 840 ? 8 : 0;
   if (prebatched && ctx.batchUnits > cap) return;          // morning is one prep; the rush reopens under 8 cups
   markIntent();
@@ -2078,9 +2192,10 @@ function doPrebatch() {
   ctx.batchUnits = topUp ? ctx.batchUnits + ECON.batchUnits : ECON.batchUnits;
   till -= ECON.batchCost; batchSpend += ECON.batchCost;
   fx.notebook(false);
-  fx.toast(topUp
+  fx.toast((topUp
     ? `topped up — ${ECON.batchUnits} more cups (−${fmt(ECON.batchCost)}; leftovers spoil)`
-    : `${ECON.batchUnits} cups bought (−${fmt(ECON.batchCost)}) — fast bar, full price; leftovers spoil`, 'good');
+    : `${ECON.batchUnits} cups bought (−${fmt(ECON.batchCost)}) — fast bar, full price; leftovers spoil`)
+    + (opts.asPlanned ? ' · as planned in the brief' : ''), 'good');
   audio.clink();
   world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced);
   world.flashChalk('batch');
@@ -2115,11 +2230,12 @@ function skipToRush() {
   return true;
 }
 
-function doReprice() {
+function doReprice(opts = {}) {
   if (repriced || closed || phase !== 'trading') return;
   if (prebatched || ctx.batchUnits > 0) { fx.toast('you prepped the cups — the price stays on the board', 'warn'); return; }
   // PR-5 — after commit, pressing the lever costs £4.20 + a small opinion hit.
-  if (leversTimeLocked && dayMin >= 720 && !chargeLeverOverride('reprice')) return;
+  // PR-A1 — except when the player staged it in the Brief.
+  if (leversTimeLocked && dayMin >= 720 && !opts.asPlanned && !chargeLeverOverride('reprice')) return;
   markIntent();
   const queueBefore = patrons.queueLength;
   repriced = true; ctx.repriced = true; patrons.repriced = true;
@@ -2127,7 +2243,7 @@ function doReprice() {
   world.flashChalk('reprice');
   try { fx.chalkDust(-5.5, 2.75, -7.95); audio.chalkScreech(); } catch {}
   fx.notebook(false);
-  fx.toast(`matcha is ${fmt(ECON.matchaDeal)} for the rest of today — prep is locked`, 'good');
+  fx.toast(`matcha is ${fmt(ECON.matchaDeal)} for the rest of today — prep is locked` + (opts.asPlanned ? ' · as planned in the brief' : ''), 'good');
   audio.clink();
   $('prebatch').classList.remove('attention'); $('reprice').classList.remove('attention');
   try {
