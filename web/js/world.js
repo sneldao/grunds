@@ -170,6 +170,16 @@ export function buildWorld(scene, renderer, lite) {
   W.menuTexture = board.draw('4.80', false);
   W.menuMat = new THREE.MeshStandardMaterial({ map: W.menuTexture, roughness: 0.9, emissive: 0xffffff, emissiveIntensity: 0 });
   W.setMatchaPrice = (p, struck) => { board.draw(p, struck); W.menuTexture.needsUpdate = true; };
+  // Phase 5 — live menu: the full Phase-3 board (prices + 86). setMatchaPrice
+  // stays as a thin wrapper so existing call sites never break.
+  W.setMenu = ({ prices = {}, offered = {}, matchaStruck = false } = {}) => {
+    try {
+      const t2 = board.drawMenu({ prices, offered, matchaStruck });
+      W.menuMat.map = t2; W.menuMat.needsUpdate = true;
+      if (W.menuTexture && W.menuTexture.dispose) { try { W.menuTexture.dispose(); } catch {} }
+      W.menuTexture = t2;
+    } catch { W.setMatchaPrice(prices.matcha ?? '4.80', matchaStruck); }
+  };
   W.flashChalk = (kind) => {
     if (!W.menuMat) return;
     const flashCol = kind === 'reprice' ? 0xc9a227 : 0x86a860;
@@ -374,11 +384,24 @@ export function buildWorld(scene, renderer, lite) {
   const rvStratTex = new THREE.CanvasTexture(rvStratC); rvStratTex.colorSpace = THREE.SRGBColorSpace;
   const rvStratMat = new THREE.MeshStandardMaterial({ map: rvStratTex, emissive: 0xbfe8e2, emissiveMap: rvStratTex, emissiveIntensity: 0.3, roughness: 0.7 });
   plane(rv, 3.2, 0.4, rvStratMat, 0, 1.58, -1.07, { ry: Math.PI });
+  // Phase 5 — strategy display names: the board renders what Sam is doing,
+  // not the internal key. Key → title kept next to the board it feeds.
+  const stratLine = (key) => {
+    const titles = {
+      DEFAULT: 'BALANCED', PRICE_WAR: 'PRICE WAR',
+      ROASTER_PIVOT: 'GUEST ROASTER', EFFICIENCY_RUSH: 'EXPRESS BAR',
+      BALANCED: 'BALANCED',
+    };
+    return { title: titles[key] || String(key).replace(/_/g, ' ') };
+  };
   W.setRivalStrategy = (name, price) => {
     rvStratG.fillStyle = '#1d2a24'; rvStratG.fillRect(0, 0, 512, 64);
     rvStratG.strokeStyle = 'rgba(201,162,39,.6)'; rvStratG.lineWidth = 2; rvStratG.strokeRect(4, 4, 504, 56);
     rvStratG.fillStyle = '#e8f0ee'; rvStratG.font = '600 26px Georgia, serif'; rvStratG.textAlign = 'center'; rvStratG.textBaseline = 'middle';
-    rvStratG.fillText(name + ' · £' + (+price).toFixed(2), 256, 34);
+    // Phase 5 — the board renders the actual strategy: display name (not
+    // the key) plus one line of what it means on the street.
+    const def = stratLine(name);
+    rvStratG.fillText(def.title + ' · £' + (+price).toFixed(2), 256, 34);
     rvStratTex.needsUpdate = true;
   };
   W.setRivalStrategy('BALANCED', 4.50);
@@ -447,6 +470,15 @@ export function buildWorld(scene, renderer, lite) {
     const state = stateForDay(day);
     rent.draw(state);                 // redraws onto the same canvas
     rentTex.needsUpdate = true;       // GPU re-uploads the new pixels
+  };
+  // Phase 5 — the lease sign as a physical finale object: campaignClose
+  // re-bakes the same board to FOR LEASE (player wins) / SOLD (Sam wins)
+  // / DEUCE (tie) so the verdict exists on the street, not just in DOM.
+  W.setLeaseFinale = (result) => {
+    if (!result) { W.setRentPressure(5); return; }
+    const state = result === 'you' ? 'forlease' : result === 'tie' ? 'deuce' : 'sold';
+    rent.draw(state);
+    rentTex.needsUpdate = true;
   };
 
   // ---- the day-5 construction prop: scaffold + tarp on the sold storefront --
@@ -743,6 +775,15 @@ export function buildWorld(scene, renderer, lite) {
   W._motePhase = 0;
   W._moteTarget = 0;
   W.setMotes = (a) => { W._moteTarget = Math.max(0, Math.min(0.42, a * 0.95)); };
+  // Phase 5 — rain: one Points layer over the street, ink-grey streaks.
+  // setRain(a) drives opacity; prepareDay branches on the rain event.
+  W.rainMat = new THREE.PointsMaterial({ color: 0x8a9aa8, size: 0.35, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true, fog: true });
+  const rainN = 220, rainP = new Float32Array(rainN * 3);
+  for (let i = 0; i < rainN; i++) { rainP[i*3] = -14 + Math.random()*34; rainP[i*3+1] = Math.random()*6; rainP[i*3+2] = -6 + Math.random()*22; }
+  const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainP, 3));
+  W.rain = new THREE.Points(rainGeo, W.rainMat); scene.add(W.rain);
+  W._rainTarget = 0;
+  W.setRain = (a) => { W._rainTarget = Math.max(0, Math.min(1, a)); };
 
 
   // ---- sky extras -------------------------------------------------------------
@@ -799,6 +840,19 @@ export function buildWorld(scene, renderer, lite) {
           arr[i + 1] += Math.sin(W._motePhase + i * 0.08) * d * 0.04;
           if (arr[i + 1] > 4.2) arr[i + 1] -= 3.6;
           if (arr[i + 1] < 0.4) arr[i + 1] += 3.6;
+        }
+        attr.needsUpdate = true;
+      }
+    }
+    // Phase 5 — rain falls toward target, streaks recycle top-down.
+    if (W.rainMat) {
+      W.rainMat.opacity += ((W._rainTarget * 0.55) - W.rainMat.opacity) * Math.min(1, d * 1.5);
+      if (W.rainMat.opacity > 0.01 && W.rain && W.rain.geometry) {
+        const attr = W.rain.geometry.attributes.position;
+        const arr = attr.array;
+        for (let i = 0; i < arr.length; i += 3) {
+          arr[i + 1] -= d * (5 + (i % 5));
+          if (arr[i + 1] < 0) arr[i + 1] += 6;
         }
         attr.needsUpdate = true;
       }

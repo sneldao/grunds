@@ -461,7 +461,7 @@ Needs Phases 1–3 (arcs bite into systems, not air).
   The rivalry trilogy gave him reflexes; this gives him character.
 - Tests: `ruth-arc.mjs`, `idris-arc.mjs`, `sam-season.mjs`.
 
-### Phase 5 — Visual payoff: animation, particles, place (5–8 days)
+### Phase 5 — Visual payoff: animation, particles, place (5–8 days) [SHIPPED Sept 28]
 
 - Pose/clip system replacing inline sin-math (walk, sit, sip, celebrate,
   grumble, serve-react) + per-cohort gait (elders shuffle, commuters

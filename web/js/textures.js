@@ -267,7 +267,54 @@ export function menuBoard() {
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
     return t;
   }
-  return { draw, canvas: c };
+  // Phase 5 — live menu: the full Phase-3 drink board (prices + 86).
+  // offered[id] === false renders the row struck in neg with SOLD OUT.
+  function drawMenu({ prices = {}, offered = {}, matchaStruck = false } = {}) {
+    const rows = [
+      ['espresso', '#efe6d3', '26px Georgia, serif'],
+      ['flatwhite', '#efe6d3', '26px Georgia, serif'],
+      ['filter', '#efe6d3', '26px Georgia, serif'],
+    ];
+    g.fillStyle = '#1e2520'; g.fillRect(0, 0, 1024, 768);
+    g.strokeStyle = '#8a6f3f'; g.lineWidth = 18; g.strokeRect(10, 10, 1004, 748);
+    g.textAlign = 'center'; g.fillStyle = '#efe6d3';
+    g.font = '600 56px Georgia, serif'; g.fillText('— TODAY AT GRUNDS —', 512, 118);
+    g.strokeStyle = 'rgba(201,162,39,.45)'; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(120, 138); g.lineTo(904, 138); g.stroke();
+    let y = 210;
+    for (const [id, col, font] of rows) {
+      const price = prices[id] != null ? Number(prices[id]).toFixed(2) : '—';
+      const out = offered[id] === false;
+      g.font = font; g.textAlign = 'left';
+      g.fillStyle = out ? 'rgba(239,230,211,.42)' : col;
+      g.fillText(id, 118, y);
+      g.textAlign = 'right';
+      g.fillText(out ? 'SOLD OUT' : price, 906, y);
+      if (out) {
+        g.strokeStyle = '#d0603b'; g.lineWidth = 4; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(120, y - 8); g.lineTo(904, y + 4); g.stroke();
+      }
+      y += 88;
+    }
+    y += 8;
+    const mp = prices.matcha != null ? Number(prices.matcha).toFixed(2) : '4.80';
+    const mOut = offered.matcha === false;
+    g.fillStyle = '#a8c48a'; g.font = 'italic 600 54px Georgia, serif'; g.textAlign = 'left';
+    g.fillText('matcha latte', 118, y + 12);
+    g.textAlign = 'right';
+    if (matchaStruck && !mOut) {
+      g.fillStyle = 'rgba(239,230,211,.42)'; g.fillText('4.80', 906, y + 12);
+      g.strokeStyle = '#d0603b'; g.lineWidth = 5; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(770, y - 4); g.lineTo(920, y + 6); g.stroke();
+      g.fillStyle = '#a8c48a'; g.fillText(String(mp), 906, y + 86);
+    } else {
+      g.fillStyle = mOut ? 'rgba(239,230,211,.42)' : '#a8c48a';
+      g.fillText(mOut ? 'SOLD OUT' : String(mp), 906, y + 12);
+    }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    return t;
+  }
+  return { draw, drawMenu, canvas: c };
 }
 
 // Soft radial sprite for particles (steam, coins, dust, huffs).
@@ -371,6 +418,15 @@ export function rentSign() {
       g.fillStyle = '#fff'; g.font = '700 148px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SOLD', 0, 8);
       g.fillStyle = 'rgba(255,255,255,.55)'; g.font = '16px ui-monospace, monospace'; g.fillText('—  DISTRICT  —', 0, 62);
       g.restore();
+    } else if (state === 'forlease' || state === 'deuce') {
+      // Phase 5 — finale board on Sam's lot: player wins → FOR LEASE
+      // (his window is empty); tie → DEUCE (both boards hold).
+      const title = state === 'forlease' ? 'FOR LEASE' : 'DEUCE';
+      const sub = state === 'forlease' ? "Sam's window — you took the week" : 'neither side blinks';
+      g.fillStyle = '#fbf7ee'; g.fillRect(0, 0, 1024, 768);
+      g.fillStyle = '#4a3423'; g.font = '700 120px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(title, 512, 338);
+      g.fillStyle = 'rgba(74,52,35,.55)'; g.font = 'italic 30px Georgia, serif'; g.fillText(sub, 512, 452);
     }
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
     return t;

@@ -3,6 +3,18 @@ import * as THREE from '../vendor/three.module.js';
 
 const HOME = { target: new THREE.Vector3(0, 0.8, 2.5), theta: 0.12, phi: 1.02, r: 21 };
 
+// ---- written camera grammar — named shots, not magic numbers --------------
+// Phase 5: every cinematic beat names its shot. verdict (the till),
+// lease (the sold storefront), debrief (the bar), rivalReact (Sam's
+// board), newbuild (the turning-over street).
+export const SHOTS = {
+  verdict: { r: 11, secs: 5, theta: null, anchor: 'counter' },
+  lease: { r: 17, secs: 7, theta: Math.PI, anchor: 'newbuild' },
+  debrief: { r: 11, secs: 3.5, theta: null, anchor: 'counter' },
+  rivalReact: { r: 13, secs: 3.5, theta: null, anchor: 'rival' },
+  newbuild: { r: 17, secs: 7, theta: Math.PI, anchor: 'newbuild' },
+};
+
 export class CameraRig {
   constructor(camera, dom) {
     this.cam = camera;
@@ -40,6 +52,17 @@ export class CameraRig {
   // after ttl seconds) instead of stomping it. News beats chapters.
   queueFocus(point, r = 12, secs = 4, ttl = 12, theta = null) {
     this.queued = { point: point.clone(), r, secs, until: performance.now() / 1000 + ttl, theta };
+  }
+  // Phase 5 — named shots: shot() focuses now, queueShot() waits its turn.
+  shot(name, world) {
+    const s = SHOTS[name]; if (!s || !world?.focus) return;
+    const anchor = world.focus[s.anchor] || world.focus.counter;
+    if (anchor) this.focus(anchor, s.r, s.secs, s.theta);
+  }
+  queueShot(name, world, ttl = 12) {
+    const s = SHOTS[name]; if (!s || !world?.focus) return;
+    const anchor = world.focus[s.anchor] || world.focus.counter;
+    if (anchor) this.queueFocus(anchor, s.r, s.secs, ttl, s.theta);
   }
   shake(mag = 0.35) { this.shakeT = 1; this.shakeMag = mag; }
   resetView() { this.beat = null; this.home = { ...HOME, target: HOME.target.clone() }; }

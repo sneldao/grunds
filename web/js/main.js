@@ -2495,6 +2495,15 @@ function startTradingDay(d) {
   }
   // chalkboard: matcha day-price reflects the gentrification curve (4.80 → 5.40)
   if (exchange.matchaPrice) world.setMatchaPrice(exchange.matchaPrice.toFixed(2), repriced);
+  // Phase 5 — the board behind the bar shows the whole menu: live prices,
+  // 86'd rows struck, the reprice cut chalked through.
+  try {
+    world.setMenu?.({
+      prices: { ...menuPrices, matcha: Number(salePrice(exchange, false)) },
+      offered: { ...menuOffered },
+      matchaStruck: !!repriced,
+    });
+  } catch {}
 
   // Dynamic rival strategy:
   patrons.rivalStrategy = rivalStrategy;
@@ -2507,6 +2516,20 @@ function startTradingDay(d) {
   mailT.disarm();                 // the wait for a reply never crosses into a live floor
   mailPending = false;
   world.setMist(ev.tier === 'cata' ? 1 : ev.tier === 'bad' ? 0.4 : 0);
+  // Phase 5 — rain day: grey soak on the street, shafts off, lease board dry.
+  // Demand already carries ev.demand (0.82×); the room reads it in the air.
+  if (ev.id === 'rain_soak') {
+    try {
+      world.setRain?.(0.9);
+      world.setMist(0.9);
+      world.setGodRay?.(0.05);
+      world.setMotes?.(0.05);
+      world.mistMat.color.setHex(0x8a9aa8);
+    } catch {}
+    fx.toast('rain on the Row — thin footfall, long stays', '');
+  } else {
+    try { world.setRain?.(0); } catch {}
+  }
   // weather as mood: tie sky/mist/god-rays/motes to the event tier
   try {
     const frosty = ev.tier === 'cata' || ev.id === 'rumour_frost';
@@ -2609,7 +2632,10 @@ function campaignClose(insolvent = false) {
   ];
   // Finale: the street turns over on camera before the verdict lands. The
   // camera visits the sold storefronts, the card names it, then the receipt.
-  rig.focus(world.focus.newbuild, 17, 7, Math.PI);
+  // Phase 5 — written camera grammar + the lease sign as a physical object.
+  try { rig.shot?.('newbuild', world); } catch {}
+  if (!rig.shot) rig.focus(world.focus.newbuild, 17, 7, Math.PI);
+  try { world.setLeaseFinale?.(wkWin === 'you' ? 'you' : wkWin === 'tie' ? 'tie' : 'sam'); } catch {}
   // PR-B3 — SOLD card adapts to who won the week. Player wins → Sam's spot
   // reads FOR LEASE on camera. Rival wins → SOLD-TO-WIN narrative (Sam
   // absorbs the lot). Tie → a deuce card.

@@ -45,6 +45,10 @@ class Pool {
 export class FX {
   constructor(scene, patrons, lite) {
     this.patrons = patrons;
+    this.lite = !!lite;
+    // Phase 5 budget: full 160+120+60+90+80+120+70 = 700 slots, ~560 live
+    // at once (motes are ambient, site is gated); lite 60+120+60+0+80+120+70
+    // = 510 slots, ~200 live. _guarded() caps every verb in lite mode.
     this.steam = new Pool(scene, lite ? 60 : 160, { size: 0.24, blending: THREE.AdditiveBlending, tint: 0xfff4e2 });
     this.coins = new Pool(scene, 120, { size: 0.16, blending: THREE.AdditiveBlending, tint: 0xffd24a });
     this.huffs = new Pool(scene, 60, { size: 0.3, blending: THREE.NormalBlending, tint: 0x9a938a });
@@ -307,6 +311,62 @@ export class FX {
     }
   }
   reset() { for (const b of this.bubbles) b.el.remove(); this.bubbles = []; this.conversations = []; }
+
+  // ---- Phase 5 — unified pooled verbs --------------------------------------
+  // One budget, one guard: every particle verb routes through these.
+  // Full build ≤560 live particles, lite ≤200. Legacy names kept as
+  // aliases so existing call sites and tests never break.
+  _guarded(n, liteCap) {
+    if (this.lite) return Math.min(n, liteCap);
+    return n;
+  }
+  // cup steam wisp
+  steam(x, y, z, o = {}) {
+    const n = this._guarded(o.n ?? 1, 1);
+    for (let i = 0; i < n; i++)
+      this.puffs.spawn(x + (Math.random() - 0.5) * 0.1, y, z + (Math.random() - 0.5) * 0.1,
+        (Math.random() - 0.5) * 0.1, 0.35 + Math.random() * 0.2, (Math.random() - 0.5) * 0.1,
+        1.2 + Math.random() * 0.6, o.shade ?? 0.6);
+  }
+  // chalk/grumble/cane-tap huff
+  puff(x, y, z, o = {}) {
+    const n = this._guarded(o.n ?? 5, 3);
+    for (let i = 0; i < n; i++)
+      this.huffs.spawn(x + (Math.random() - 0.5) * 0.3, y + Math.random() * 0.15, z + (Math.random() - 0.5) * 0.3,
+        (Math.random() - 0.5) * 0.6, 0.4 + Math.random() * 0.4, (Math.random() - 0.5) * 0.6,
+        0.6 + Math.random() * 0.4, o.shade ?? 0.8);
+  }
+  // till coins: {rain:true} for the long debrief fall, else the serve burst
+  coin(x, y, z, o = {}) {
+    const n = this._guarded(o.n ?? 7, 4);
+    if (o.rain) return this.coinRain(x, y, z, n);
+    return this.coinBurst(x, y, z, n);
+  }
+  // tourist camera flash — near-white additive pop at the prop tip
+  flash(x, y, z, o = {}) {
+    const n = this._guarded(o.n ?? 8, 6);
+    const pool = this.spark || this.coins;
+    for (let i = 0; i < n; i++)
+      pool.spawn(x, y, z, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.2,
+        (Math.random() - 0.5) * 1.2, 0.25 + Math.random() * 0.2, 1);
+  }
+  // laptop glow / till sparkle — warm rise at the prop tip
+  sparkle(x, y, z, o = {}) {
+    const n = this._guarded(o.n ?? 6, 3);
+    for (let i = 0; i < n; i++)
+      this.till.spawn(x + (Math.random() - 0.5) * 0.2, y, z + (Math.random() - 0.5) * 0.2,
+        (Math.random() - 0.5) * 0.3, 0.5 + Math.random() * 0.5, (Math.random() - 0.5) * 0.3,
+        0.7 + Math.random() * 0.4, o.shade ?? 1);
+  }
+  // rain streaks / construction haze — routes to the site pool
+  rain(x, y, z, o = {}) {
+    const n = this._guarded(o.n ?? 2, 1);
+    for (let i = 0; i < n; i++)
+      this.dustSite.spawn(x + (Math.random() - 0.5) * (o.spread ?? 24), y, z,
+        (Math.random() - 0.5) * 0.2, o.vy ?? -1.2, (Math.random() - 0.5) * 0.2,
+        0.8 + Math.random() * 0.5, o.shade ?? 0.5);
+  }
+  spark(x, y, z, n = 10) { this.sparkle(x, y, z, { n }); }
 
   // chalk dust puff on reprice — 10 particles from the board
   chalkDust(x, y, z) {

@@ -16,6 +16,13 @@
 
 ## Log
 
+### 2026-09-28 - Phase 5 shipped: visual payoff (poses, verbs, place)
+
+- **Pose/clip system** (`web/js/poses.js` new, pure): GAIT per cohort (elders 0.70 freq / 0.28 swing shuffle, commuters 1.15 / 0.70 stride), walk/sit/sip/celebrate/grumble/serveReact clips, moodFor shared with portraits, samplePose precedence walk→sit→sip→react. `patrons.js` update() samples one pose; phase rate scales by gait; serve→0.9s mood react (+0.2 op), balk→grumble (−0.08 op). Prop sway per gait.
+- **Prop verbs + unified particles** (`fx.js` + `portrait.js`): steam/puff/coin/flash/sparkle/rain verbs behind `_guarded` lite caps (flash ≤6); legacy aliases kept. Floor fires camera flash (sitting tourists), laptop glow, cup steam, cane tap — rare, try/caught, never breaks the frame. `moodForOp` export (±0.2, NaN→flat) shares one vocabulary with poses.
+- **Readable place** (`textures.js` + `world.js` + `rival.js` + `camera.js` + `config.js`): `drawMenu` full 4-drink board (prices + 86 struck in neg + matcha cut), `W.setMenu` primary (`setMatchaPrice` wrapper kept); Sam board maps keys→display names (BALANCED/PRICE WAR/GUEST ROASTER/EXPRESS BAR); `rentSign` gains forlease/deuce + `W.setLeaseFinale` re-bakes the physical sign at campaignClose; `EVENTS.rain_soak` (tier rain, 0.82× demand) + `W.setRain` streak layer + grey mist, shafts off; `SHOTS{verdict,lease,debrief,rivalReact,newbuild}` + `rig.shot/queueShot`, finale through the grammar.
+- **Gate:** pose-clips 10/10 + prop-verbs 4/4 + readable-place 5/5 green; all Phase 1–4 suites re-verified; smoke relational holds; rent-sign/cameo/reactivity green; `tsc` clean. game-feel's 2 fails (SOLD card, notebook) pre-exist on the Phase-4 base.
+
 ### 2026-09-28 - Phase 4 shipped: narrative arcs (Ruth, Idris, Sam's season)
 
 - **Ruth's arc** (`web/js/main.js`): condition `< 0.45` past day 1 toasts once (`ruthNoticed`), the Brief staffing row gains `ask her what's wrong` → cause reads yesterday (`balked > 50` = rush, else opens) → `promise her tomorrow off` locks `ruthRestDay` (clamped to the week). Rest morning forces `home` staffing; the morning after, `ruthReturned` promotes a walk-in head to visits 5 / regular. All four flags reset on campaign restart.

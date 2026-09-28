@@ -208,6 +208,10 @@ export const EVENTS = {
     head: 'THE LISTS NOTICED MATCHA', line: 'A matcha bar went viral. Your nature is now everyone’s nature.' },
   rumour_frost:  { tier: 'warn',   dIndex: +0.05, dur: 1, weight: 16,
     head: 'A RUMOUR OFF THE PLATEAU', line: 'There’s talk of a cold front building. Nobody’s contracted yet. You could.' },
+  // Phase 5 — rain day: the street gets wet, the room gets quiet. Demand
+  // dips (0.82×) but sitters linger; visuals via setRain + mist.
+  rain_soak:     { tier: 'rain',   dIndex: +0.03, dur: 1, weight: 10, demand: 0.82,
+    head: 'RAIN OVER THE ROW', line: 'A grey soak settles over the district. Footfall thins; the ones who come stay for a second cup.' },
 };
 
 // The Regulars — persistent named patrons whose opinion survives the reset.

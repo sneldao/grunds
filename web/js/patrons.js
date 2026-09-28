@@ -6,6 +6,7 @@ import { salePrice } from './economy.js';
 import { rivalChoiceProbability } from './rival.js';
 import { memoryLine, shouldBringCompanion } from './identity.js';
 import { DRINKS, rollDrink } from './menu.js';
+import { gaitFor, moodFor, samplePose, propSway } from './poses.js';
 
 const MAXP = ECON.maxPatrons;
 const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];
@@ -146,6 +147,9 @@ export class PatronSystem {
       // bubbles can show which cohort the patron belongs to without
       // re-resolving COHORTS[] every tick.
       ritualProps, ritualSeat, ritualDwell,
+      // Phase 5 — pose/react state: opinion drives mood faces, reactT counts
+      // down a 0.9s serve/balk reaction blended in update().
+      op: 0, reactT: 0, reactKind: null,
     };
     let toRival = false;
     // Phase 4 — ceasefire Saturday: nobody crosses, neither way.
@@ -287,6 +291,9 @@ export class PatronSystem {
         ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull)
         : (ctx.menuPrices?.[dk] ?? ECON.other);
       ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: ticket, ...cup });
+      // Phase 5 — the serve lands on camera: a 0.9s mood reaction.
+      p.reactKind = 'serve'; p.reactT = 0.9;
+      p.op = (Number.isFinite(p.op) ? p.op : 0) + 0.2;
       this._afterServe(p);
     }
     this._layoutQ(this.counterQ, counterSlot);
@@ -299,6 +306,9 @@ export class PatronSystem {
       if (p.state === 'inQueue' && p.wantsMatcha && !hasBatch && p.waitMin > ECON.balkAfter && Math.random() < balkChance) {
         this.counterQ.splice(i, 1);
         p.flash = 1; p.colorDirty = true;
+        // Phase 5 — walk-outs grumble on camera.
+        p.reactKind = 'grumble'; p.reactT = 0.9;
+        p.op = (Number.isFinite(p.op) ? p.op : 0) - 0.08;
         ev.push({ type: 'balked', p });
         // Phase 4 — ceasefire Saturday: walk-outs walk, they don't defect.
         if (!this.truceCeasefire && Math.random() < 0.7 && this.rivalQ.length < 42) {
@@ -486,7 +496,7 @@ export class PatronSystem {
   _placeProp(d, p, anchor, propKey, sitting, shY, torsoY, headY, hipY, rx, rz, fx, fz, s, walking) {
     d.rotation.set(0, p.face, 0);
     d.scale.setScalar(s);
-    const sway = walking ? Math.sin(p.phase) * 0.08 : 0;
+    const sway = propSway(p.phase, gaitFor(p.cohort), walking);
     switch (anchor) {
       case 'rightHip':
         // briefcase — held at right hip, swinging slightly forward
@@ -614,28 +624,40 @@ export class PatronSystem {
         }
       }
       p.walking = walking;
+      // Phase 5 — reactions decay on the frame clock.
+      if (p.reactT > 0) p.reactT = Math.max(0, p.reactT - dt);
       if (p.state === 'leaving') {
         p.leaveT = (p.leaveT || 0) + dt;
         const ttl = walkMul > 5 ? 0.35 : walkMul > 1.5 ? 1.4 : Infinity;
         if (p.leaveT > ttl) { this._despawn(p); continue; }
       }
-      p.phase += dt * (walking ? 7 * Math.min(walkMul, 2.2) : 1.4);
+      p.phase += dt * (walking ? 7 * gaitFor(p.cohort).freqMul * Math.min(walkMul, 2.2) : 1.4);
       if (p.flash > 0) {
         p.flash = Math.max(0, p.flash - dt * 1.6);
         this._c.copy(p.torso).lerp(RED, p.flash * 0.85);
         P.torso.setColorAt(p.idx, this._c); P.torso.instanceColor.needsUpdate = true;
       }
 
+      // Phase 5 — pose clips: one sample carries walk/sit/sip/react.
       const sipping = p.sipping > 0;
       const sitting = p.state === 'sit';
       const s = p.scale;
-      const bob = walking ? Math.abs(Math.sin(p.phase)) * 0.05 : Math.sin(now * 0.0016 + p.idx * 1.7) * 0.012;
+      const mood = moodFor(p.op);
+      const pose = samplePose({
+        phase: p.phase, gait: gaitFor(p.cohort), walking,
+        nowMs: now, idx: p.idx, sitting,
+        sipT: sipping ? 0.5 : -1,
+        reactT: p.reactT > 0 ? 1 - p.reactT / 0.9 : -1,
+        reactKind: p.reactT > 0 ? p.reactKind : null, mood,
+      });
+      const bob = pose.bob;
       const torsoY = (sitting ? 0.5 : 0.62) + bob;
-      const headY = torsoY + 0.48 * s + (sipping ? -0.04 : 0);
-      const lean = walking ? 0.1 : sipping ? -0.14 : 0;
-      const legSwing = walking ? Math.sin(p.phase) * 0.6 : 0;
-      const armSwing = walking ? -Math.sin(p.phase) * 0.45 : sipping ? 0.6 : Math.sin(now * 0.0012 + p.idx) * 0.05;
-      const headRy = walking ? 0 : sipping ? 0.12 : Math.sin(now * 0.00045 + p.idx * 2.1) * 0.45;
+      const headY = torsoY + 0.48 * s + (sipping ? -0.04 : 0) - pose.headDip;
+      const lean = pose.lean;
+      const legSwing = pose.legSwing;
+      const armSwing = pose.armL;
+      const armSwingR = pose.armR;
+      const headRy = pose.headRy;
       const fx = Math.sin(p.face), fz = Math.cos(p.face);   // forward
       const rx = Math.cos(p.face), rz = -Math.sin(p.face);  // right
 
@@ -659,7 +681,7 @@ export class PatronSystem {
       d.position.set(p.pos.x - rx * 0.23 * s, shY, p.pos.z - rz * 0.23 * s);
       d.rotation.set(armSwing, p.face, 0); d.updateMatrix(); P.armL.setMatrixAt(p.idx, d.matrix);
       d.position.set(p.pos.x + rx * 0.23 * s, shY, p.pos.z + rz * 0.23 * s);
-      d.rotation.set(-armSwing, p.face, 0); d.updateMatrix(); P.armR.setMatrixAt(p.idx, d.matrix);
+      d.rotation.set(-armSwingR, p.face, 0); d.updateMatrix(); P.armR.setMatrixAt(p.idx, d.matrix);
 
       d.position.set(p.pos.x, headY + 0.13 * s, p.pos.z);
       d.rotation.set(0, p.face, 0); d.scale.setScalar(p.hasHat ? s : 0.001); d.updateMatrix();
@@ -681,6 +703,20 @@ export class PatronSystem {
         this._placeProp(d, p, anchor, propKey, sitting, shY, torsoY, headY, hipY, rx, rz, fx, fz, s, walking);
         d.updateMatrix();
         this.propMeshes[propKey].setMatrixAt(p.idx, d.matrix);
+        // Phase 5 — one verb per prop: camera flash, laptop glow, cup
+        // steam, cane tap. Rare by design (reads as event, not noise).
+        try {
+          const verbR = Math.random();
+          if (this.fx && propKey === 'camera' && sitting && verbR < 0.025) {
+            this.fx.flash(d.position.x, d.position.y + 0.1, d.position.z);
+          } else if (this.fx && propKey === 'laptop' && sitting && verbR < 0.045) {
+            this.fx.sparkle(d.position.x, d.position.y + 0.1, d.position.z);
+          } else if (this.fx && propKey === 'mug' && p.hasCup && verbR < 0.05) {
+            this.fx.steam(p.pos.x, torsoY + 0.15, p.pos.z);
+          } else if (this.fx && propKey === 'cane' && walking && verbR < 0.015) {
+            this.fx.puff(p.pos.x, 0.15, p.pos.z, { n: 2, shade: 0.5 });
+          }
+        } catch { /* a verb never breaks the frame */ }
       }
     }
     for (const part of Object.values(P)) part.instanceMatrix.needsUpdate = true;

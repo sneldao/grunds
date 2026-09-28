@@ -40,6 +40,15 @@ const DEFAULT_CLOTHING = [PAL.matcha, PAL.teal];
 
 export const MOODS = ['warm', 'flat', 'sour'];
 
+// Phase 5 — opinion (-1..1) → mood. Shared with poses.js moodFor so the
+// floor and the faces speak one vocabulary. NaN/undefined → flat.
+export function moodForOp(op) {
+  if (!Number.isFinite(op)) return 'flat';
+  if (op > 0.2) return 'warm';
+  if (op < -0.2) return 'sour';
+  return 'flat';
+}
+
 // FNV-1a → uint32. Deterministic string seed.
 export function hashSeed(str) {
   let h = 0x811c9dc5;
