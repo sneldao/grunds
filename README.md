@@ -566,6 +566,16 @@ existing web build, an App Store / Play Store listing, and the native
 RevenueCat SDK in place of the Web Test Store. None of that needs new game
 logic — it's a wrap + a listing + a SDK swap.
 
+### Roadmap — depth rebuild (adopted Sept 28)
+
+Playtest verdict: liked, not loved — thin character connection, visuals need
+craft, the coffee economy needs teeth. The 6-phase rebuild plan lives in
+`ARCHITECTURE.md` ("Depth rebuild roadmap"): art lock + portraits → patron
+identity, life stages and dossiers → named lots with freshness decay →
+drink menu, roast program, surfaced waste → Ruth/Idris/Sam story arcs →
+animation, particles and readable interiors → teeth calibration. Guiding
+rule: surface the simulation. The mobile shell runs in parallel with Phase 0.
+
 ---
 
 Built at Founders Inc., San Francisco. Sept 5, 2026.
