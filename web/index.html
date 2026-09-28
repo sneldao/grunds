@@ -232,7 +232,7 @@
   .lic-label { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; opacity: .55; margin: 14px 0 6px; }
   .lic-pills { display: flex; flex-wrap: wrap; gap: 6px; }
   .lic-pills button { font-size: 11.5px; }
-  .lic-pills button.on { border-color: #7a2a18; background: rgba(122,42,24,.12); }
+  .lic-pills button.on { border-color: #7a2a18; background: #7a2a18; }
   .lic-bgs button { flex: 1 1 46%; text-align: left; }
   .lic-bgs button small { display: block; opacity: .62; font-size: 10px; margin-top: 2px; }
   #lic-sign { width: 100%; margin-top: 0; letter-spacing: .16em; border-color: var(--brass); }
@@ -338,7 +338,7 @@
   #sys { position: fixed; bottom: 18px; right: 18px; z-index: 10; display: flex; gap: 6px; align-items: center; }
   #speeds { display: flex; gap: 4px; }
   #speeds button { padding: 10px 11px; }
-  #speeds button.on { background: rgba(201,162,39,.3); border-color: var(--brass); }
+  #speeds button.on { background: rgba(201,162,39,.5); border-color: var(--brass); }
 
   /* ---- title screen ---- */
   #title { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
@@ -442,7 +442,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <button id="review-letter" style="display:none; margin-top:8px;">read Idris’s letter →</button>
         <button id="receipt-back" style="display:none; margin-top:8px;">← back to the brief</button>
         <button id="again">↺ open again tomorrow</button>
-        <button id="founder-replay" style="display:none; margin-top:8px; border-color:#c9a227; background:rgba(201,162,39,.18);">↻ replay with a new seed · Founder’s Pass</button>
+        <button id="founder-replay" style="display:none; margin-top:8px; border-color:#c9a227; background:rgba(201,162,39,.18); color:#2a241c;">↻ replay with a new seed · Founder’s Pass</button>
         <button id="verdict-upsell" style="display:none; margin-top:8px;">↻ Replay your week · £49.99 once</button>
         <button id="shareWeek" style="display:none; margin-top:8px;">⚔ challenge a friend — same seed</button>
       </footer>
@@ -593,7 +593,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
           <button id="brief-desklink" class="l-desktoggle" style="display:none">⚡ open the full wire desk</button>
           <div id="brief-insider-upsell" style="display:none; margin-top: 8px; font-size: 11px; line-height: 1.45; opacity: .8; padding: 7px 10px; background: rgba(201,162,39,.06); border-left: 2px solid var(--brass); border-radius: 2px;">
             <span id="brief-insider-text">Insiders see the wire's full reasoning here — by-cited-sources + multipliers.</span>
-            <button id="brief-insider-btn" style="margin-left: 8px; padding: 3px 8px; font-size: 10px; letter-spacing: .08em; background: rgba(201,162,39,.18); border-color: var(--brass);">unlock the desk →</button>
+            <button id="brief-insider-btn" style="margin-left: 8px; padding: 3px 8px; font-size: 10px; letter-spacing: .08em; background: rgba(201,162,39,.18); border-color: var(--brass); color:#2a241c;">unlock the desk →</button>
           </div>
           <div id="brief-mail" style="display:none; margin-top:10px; font-size:11px; letter-spacing:.06em;">
             <input id="letter-mail-addr" type="email" placeholder="post this plan to…" spellcheck="false"

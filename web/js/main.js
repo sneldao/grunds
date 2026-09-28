@@ -1352,6 +1352,7 @@ function markBriefChoice(id) {
       const on = b.dataset.id === id;
       b.style.borderColor = on ? 'var(--brass)' : '';
       b.style.background = on ? 'rgba(201,162,39,.3)' : '';
+      b.style.color = on ? '#2a241c' : '';
       b.style.fontWeight = on ? '700' : '';
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
@@ -1576,6 +1577,17 @@ function clearEl(el) {
   for (const c of [...(el.children || [])]) c.remove?.();
 }
 
+// Brief drawers remember the player's last toggle across mornings — a stored
+// preference beats the auto-open heuristics once the drawer has been touched.
+const DRAWER_KEY = id => `grunds:drawer:${id}`;
+function drawerOpen(id, autoOpen) {
+  try { const v = localStorage.getItem(DRAWER_KEY(id)); return v === null ? autoOpen : v === '1'; }
+  catch { return autoOpen; }
+}
+function watchDrawer(det, id) {
+  det.addEventListener?.('toggle', () => { try { localStorage.setItem(DRAWER_KEY(id), det.open ? '1' : '0'); } catch {} });
+}
+
 function renderPlanQuote() {
   const nutEl = $('brief-nut'); if (!nutEl || !planDraft) return;
   const q = quoteDayPlan({
@@ -1627,7 +1639,8 @@ function renderPlanQuote() {
   clearEl(nutEl);
   const det = document.createElement('details');
   det.id = 'brief-nut-details';
-  if (wasOpen || q.contractFee > 0 || q.interest > 0 || q.settlement || q.training || q.sampling || q.marketing) det.open = true;
+  if (drawerOpen('brief-nut-details', wasOpen || q.contractFee > 0 || q.interest > 0 || q.settlement || q.training || q.sampling || q.marketing)) det.open = true;
+  watchDrawer(det, 'brief-nut-details');
   const sum = document.createElement('summary');
   sum.textContent = `the day costs ${fmt(q.fixedMinimum)}`;
   const body = document.createElement('div');
@@ -1691,7 +1704,7 @@ function renderPrepSection() {
     const sel = isSelected(def.key);
     b.textContent = (sel ? '✓ ' : '') + def.label + (def.cost ? ` · −${fmt(def.cost)}` : '');
     b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
-    if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; }
+    if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     else if (def.key === 'hold') { b.style.opacity = '0.7'; }
     b.title = 'pressing 1 or 2 later, without staging, costs £4.20 and gossip';
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
@@ -1747,7 +1760,8 @@ function renderLotSection() {
   const stale = house && isStale(age);
   const det = document.createElement('details');
   det.id = 'brief-lot-details';
-  if (wasOpen || topUpCups > 0 || stale || (lotState.pending && lotState.pending.length)) det.open = true;
+  if (drawerOpen('brief-lot-details', wasOpen || topUpCups > 0 || stale || (lotState.pending && lotState.pending.length))) det.open = true;
+  watchDrawer(det, 'brief-lot-details');
   const sum = document.createElement('summary');
   sum.textContent = `pouring ${name}${house ? ` · ${house.stock} left` : ''}${topUpCups > 0 ? ' · restocking' : ''}`;
   det.appendChild(sum);
@@ -1769,7 +1783,7 @@ function renderLotSection() {
     b.textContent = `${sel ? '✓ ' : ''}${entry.name} · ${fmt(price)}/cup · ${st.stock} in sack · ${fresh}`;
     b.title = entry.blurb;
     b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
-    if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; }
+    if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
     b.onclick = () => { selectedLot = id; topUpCups = 0; stagedRoast = lotState.entry(id)?.roast ?? 3; renderLotSection(); };
     pillRow.appendChild(b);
@@ -1789,7 +1803,7 @@ function renderLotSection() {
       const sel = topUpCups === cups && cups > 0;
       b.textContent = `${sel ? '✓ ' : ''}${label}`;
       b.style.cssText = 'font-size:11px;padding:6px 10px;flex:1;min-width:0';
-      if (sel) { b.style.borderColor = 'var(--brass)'; b.style.background = 'rgba(201,162,39,.18)'; }
+      if (sel) { b.style.borderColor = 'var(--brass)'; b.style.background = 'rgba(201,162,39,.18)'; b.style.color = '#2a241c'; }
       b.onclick = () => { topUpCups = (topUpCups === cups) ? 0 : cups; renderLotSection(); };
       return b;
     };
@@ -1924,7 +1938,8 @@ function renderMenuSection() {
   const changed = wasOpen || off.length > 0 || DRINK_IDS.some(id => stagedMenu.prices[id] !== bases[id]);
   const det = document.createElement('details');
   det.id = 'brief-menu-details';
-  if (changed) det.open = true;
+  if (drawerOpen('brief-menu-details', changed)) det.open = true;
+  watchDrawer(det, 'brief-menu-details');
   const sum = document.createElement('summary');
   sum.textContent = off.length
     ? `menu · ${off.map(id => DRINKS[id].name).join(', ')} off`
@@ -2029,6 +2044,7 @@ function renderRivalLine() {
   const y = lastDayStats;
   if (!y) { slot.style.display = 'none'; slot.textContent = ''; return; }
   slot.style.display = '';
+  const wasOpen = !!slot.querySelector?.('details')?.open;
   const you = y ? y.sold : null;
   const them = y ? (y.rivalServed || 0) : null;
   const youDef = y ? y.defections || 0 : 0;
@@ -2067,7 +2083,21 @@ function renderRivalLine() {
     + samLine
     + weekLead
     + `<br>today · Sam moves with <b>${stratName}</b> at ${stratPrice}`;
-  slot.innerHTML = `<div class="brief-row"><span class="brief-row-key">across the street</span><span class="brief-row-val">${body}</span></div>`;
+  // the row folds: the summary carries the scoreline, the drawer holds the
+  // breakdown — sprung open while the player trails Sam
+  const det = document.createElement('details');
+  det.id = 'brief-rival-details';
+  if (drawerOpen('brief-rival-details', wasOpen || delta < 0)) det.open = true;
+  watchDrawer(det, 'brief-rival-details');
+  const sum = document.createElement('summary');
+  sum.textContent = `across the street — ${delta >= 0 ? `you lead by ${delta}` : `Sam leads by ${-delta}`} · week ${weekYou}–${weekSam}`;
+  det.appendChild(sum);
+  const row = document.createElement('div');
+  row.className = 'brief-row';
+  row.innerHTML = `<span class="brief-row-val">${body}</span>`;
+  det.appendChild(row);
+  clearEl(slot);
+  slot.appendChild(det);
   slot.style.display = '';
 }
 
@@ -2184,26 +2214,45 @@ function showMorningBrief() {
   const renderDemandRow = () => {
   const demandRow = $('brief-demand');
   if (demandRow) {
+    const wasOpen = !!demandRow.querySelector?.('details')?.open;
     demandRow.textContent = '';
     // Progressive disclosure: the street-work levers appear once the player
     // has a day of demand behind them. Day 1 teaches open/price/serve; the
-    // lever arrives day 2 with its reason attached.
+    // lever arrives day 2 flat with its reason attached, and folds into a
+    // drawer from day 3 — the summary carries the awareness pips it replaces.
     if (day < 2) { demandRow.style.display = 'none'; return; }
     demandRow.style.display = '';
-    const t = document.createElement('div');
-    t.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55';
-    t.textContent = `work the street — awareness ${demand.pips()}`;
-    demandRow.appendChild(t);
-    // first appearance gets its reason: yesterday's balked cups are the
-    // problem these levers solve.
-    if (day === 2 && lastDayStats) {
-      const intro = document.createElement('div');
-      intro.id = 'brief-demand-intro';
-      intro.style.cssText = 'font-size:10.5px;opacity:.7;font-style:italic;margin:2px 0 5px';
-      intro.textContent = `new lever — the street forgets overnight. Yesterday ${lastDayStats.balked} walked; this buys tomorrow’s crowd.`;
-      demandRow.appendChild(intro);
-    }
     const D = CAMPAIGN.demand;
+    const stagedLabels = DEMAND_ACTIONS.filter(a => demand.staged[a])
+      .map(a => a === 'sample' ? 'sampling' : a === 'sponsor' ? 'sponsoring' : a).join(' · ');
+    // host = where the pills + final-day note land: flat on day 2 (the intro
+    // keeps the lesson), inside the drawer day 3+.
+    let host = demandRow;
+    if (day >= 3) {
+      const det = document.createElement('details');
+      det.id = 'brief-demand-details';
+      if (drawerOpen('brief-demand-details', wasOpen || stagedLabels !== '' || day === D.sponsorDay)) det.open = true;
+      watchDrawer(det, 'brief-demand-details');
+      const sum = document.createElement('summary');
+      sum.textContent = `the street · awareness ${demand.pips()}${stagedLabels ? ' · ' + stagedLabels : ''}`;
+      det.appendChild(sum);
+      demandRow.appendChild(det);
+      host = det;
+    } else {
+      const t = document.createElement('div');
+      t.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55';
+      t.textContent = `work the street — awareness ${demand.pips()}`;
+      demandRow.appendChild(t);
+      // first appearance gets its reason: yesterday's balked cups are the
+      // problem these levers solve.
+      if (day === 2 && lastDayStats) {
+        const intro = document.createElement('div');
+        intro.id = 'brief-demand-intro';
+        intro.style.cssText = 'font-size:10.5px;opacity:.7;font-style:italic;margin:2px 0 5px';
+        intro.textContent = `new lever — the street forgets overnight. Yesterday ${lastDayStats.balked} walked; this buys tomorrow’s crowd.`;
+        demandRow.appendChild(intro);
+      }
+    }
     const defs = [
       { id: 'sample', label: `sample hour · ${fmt(D.sampleCost)} in cups · they taste, they return` },
       { id: 'sponsor', label: day >= D.sponsorDay
@@ -2214,7 +2263,7 @@ function showMorningBrief() {
       const note = document.createElement('div');
       note.style.cssText = 'font-size:10px;opacity:.55;font-style:italic';
       note.textContent = 'benefits tomorrow; this is the final day';
-      demandRow.appendChild(note);
+      host.appendChild(note);
     }
     for (const def of defs) {
       const b = document.createElement('button');
@@ -2222,9 +2271,9 @@ function showMorningBrief() {
       b.textContent = (demand.staged[def.id] ? '✓ ' : '') + def.label;
       b.disabled = !demand.canStage(def.id, day);
       b.setAttribute('aria-pressed', demand.staged[def.id] ? 'true' : 'false');
-      if (demand.staged[def.id]) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; }
+      if (demand.staged[def.id]) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
       b.onclick = () => { stageDayPlan({ marketing: { [def.id]: !planDraft.marketing[def.id] } }); renderDemandRow(); };
-      demandRow.appendChild(b);
+      host.appendChild(b);
     }
   }
   };
@@ -2294,9 +2343,9 @@ function showMorningBrief() {
       const sel = (mode, stage) => {
         if (stage) stageDayPlan({ staffing: mode === 'push' ? 'work' : mode });
         baristaStaged = mode;
-        home.style.borderColor = mode === 'home' ? 'var(--brass)' : ''; home.style.background = mode === 'home' ? 'rgba(201,162,39,.16)' : '';
-        apprentice.style.borderColor = mode === 'apprentice' ? 'var(--brass)' : ''; apprentice.style.background = mode === 'apprentice' ? 'rgba(201,162,39,.16)' : '';
-        push.style.borderColor = mode === 'push' ? 'var(--brass)' : ''; push.style.background = mode === 'push' ? 'rgba(201,162,39,.16)' : '';
+        home.style.borderColor = mode === 'home' ? 'var(--brass)' : ''; home.style.background = mode === 'home' ? 'rgba(201,162,39,.16)' : ''; home.style.color = mode === 'home' ? '#2a241c' : '';
+        apprentice.style.borderColor = mode === 'apprentice' ? 'var(--brass)' : ''; apprentice.style.background = mode === 'apprentice' ? 'rgba(201,162,39,.16)' : ''; apprentice.style.color = mode === 'apprentice' ? '#2a241c' : '';
+        push.style.borderColor = mode === 'push' ? 'var(--brass)' : ''; push.style.background = mode === 'push' ? 'rgba(201,162,39,.16)' : ''; push.style.color = mode === 'push' ? '#2a241c' : '';
         home.setAttribute('aria-pressed', mode === 'home' ? 'true' : 'false');
         apprentice.setAttribute('aria-pressed', mode === 'apprentice' ? 'true' : 'false');
         push.setAttribute('aria-pressed', mode === 'push' ? 'true' : 'false');
@@ -2382,7 +2431,8 @@ function showMorningBrief() {
       fs.style.cssText = 'font-size:11px;opacity:.75;cursor:pointer';
       fold.appendChild(fs);
       // a staged contract keeps the fold open so the selection stays visible
-      if (planDraft && planDraft.hedge && planDraft.hedge.startsWith('contract')) fold.open = true;
+      if (drawerOpen('brief-hedge-details', !!(planDraft && planDraft.hedge && planDraft.hedge.startsWith('contract')))) fold.open = true;
+      watchDrawer(fold, 'brief-hedge-details');
     }
     for (const act of L.actions) {
       // a dead settle pill is noise — "nothing to settle" only appears once
