@@ -71,8 +71,11 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
   assert.ok(ex.includes('research:wire:v1:') && ex.includes('linkup:research:v1:') && ex.includes('weightMul'),
     'convex openDay consumes the merged wire, falls back to raw Linkup');
   const local = read('web/js/exchange.js');
-  assert.ok(local.includes('roll(bias)') && local.includes('Math.min(3'),
-    'local deck accepts a clamped bias map');
+  // PR-0 made the clamp asymmetric: only the downside is floored (a 0.1×
+  // signal still gets 0.2×) — a wire report can never fix a catastrophe
+  // away, but it can't cap a positive rumor either.
+  assert.ok(local.includes('roll(bias)') && local.includes('Math.max(0.2, bias[id])'),
+    'local deck accepts an asymmetrically clamped bias map');
   const main = read('web/js/main.js');
   assert.ok(main.includes('sync.intel()') && main.includes('marketIntel.marketShift'),
     'main.js fetches intel and tilts the dawn deck');

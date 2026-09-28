@@ -91,7 +91,9 @@ test('Phase 2 · buy prices stock, averages cost, guards the roast clock', () =>
   const s = new LotsState();
   const r = s.buy('cerrado', 400, 1.0, 2, {});
   assert.deepEqual([r.cost, r.cups], [400, 400]);
-  assert.ok(Math.abs(s.avgCost('cerrado') - ((600 * 0.95 + 400) / 1000)) < 1e-9);
+  // opening inventory is prepaid (value 0), so average cost is the top-up
+  // alone until starter stock pours through: 400 / 1000.
+  assert.ok(Math.abs(s.avgCost('cerrado') - (400 / 1000)) < 1e-9);
   // deep stale sack + small top-up keeps the old roast date
   s.lots.cerrado.roastedOn = 1;
   s.buy('cerrado', 50, 1.0, 4, {});
@@ -176,12 +178,37 @@ test('Phase 2 · lot cups carry display beanCost but add no cogs', () => {
 
 // (13) Serve loop: emergency bills, switches toast, stale sours with reason
 test('Phase 2 · serve loop bills emergency sacks and sours stale rooms', () => {
-  assert.match(main, /e\.emergency && !emergencyToast/);
-  assert.match(main, /till -= e\.spotCost; beanSpend \+= e\.spotCost/);
+  // Emergency bills EVERY cup from the till: the charge line must sit
+  // outside the once-per-day toast guard, so a dry cellar hurts per cup.
+  assert.match(main, /if \(e\.emergency\) \{\s*\n\s*till -= e\.spotCost; beanSpend \+= e\.spotCost; emergencySpend \+= e\.spotCost; emergencyCups\+\+;/);
+  assert.match(main, /if \(!emergencyToast\)/);
   assert.match(main, /e\.switched && e\.lotId/);
   assert.match(main, /serveNudge\(e\.lotId, e\.p\.cohort, age, roastMul, scorched\)/);
   assert.match(main, /STALE_LINES\[e\.p\.cohort\]/);
   assert.match(main, /pouredOther\+\+/);
+});
+
+// (14) Per-cup emergency billing: a dry cellar charges 1.5× spot per cup
+test('Phase 2 · dry cellar bills every emergency cup at 1.5× spot', async () => {
+  const { Exchange } = await import('../js/exchange.js');
+  const ex = new Exchange(7);
+  ex.day = 3; ex.beanIndex = 1.2; ex.lots = new LotsState();
+  for (const id of LOT_IDS) ex.lots.lots[id].stock = 0;
+  const cups = [ex.purchaseCup('other'), ex.purchaseCup('other'), ex.purchaseCup('other')];
+  assert.ok(cups.every((c) => c.emergency), 'dry cellar must flag every cup');
+  const expect = 1.2 * 1.3 * EMERGENCY_MUL;
+  for (const c of cups) assert.ok(Math.abs(c.spotCost - expect) < 1e-9, `cup bills ${expect}, got ${c.spotCost}`);
+});
+
+// (15) stageCellar: headless lot control mirrors the Brief pills
+test('Phase 2 · stageCellar stages house lot + top-up for policy probes', () => {
+  assert.match(main, /function stageCellar\(\{ lot, topup \} = \{\}\)/);
+  assert.match(main, /if \(!LOT_IDS\.includes\(lot\)\) return false/);
+  assert.match(main, /topUpCups = restockQty\(lastPour\)/);
+  assert.match(main, /stageCellar,/);
+  // the serve loop bills every emergency cup from the till, toast once/day
+  assert.match(main, /till -= e\.spotCost; beanSpend \+= e\.spotCost; emergencySpend \+= e\.spotCost; emergencyCups\+\+;/);
+  assert.match(main, /emergencyCups, beanSpend, emergencySpend, sackSpend, houseLot/);
 });
 
 // (14) Brief picker + commit: pills, top-up staging, applyLots, dawn hooks

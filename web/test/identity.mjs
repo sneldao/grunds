@@ -81,12 +81,16 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8');
   assert.ok(main.includes('const LIC_BGS'), 'background table exists');
   const bgBlock = main.slice(main.indexOf('const LIC_BGS'), main.indexOf('let licRole'));
   assert.equal((bgBlock.match(/id: '/g) || []).length, 4, 'four backgrounds');
-  assert.ok(main.includes("perkBg === 'ex-barista' ? 1.08 : 1"), 'ex-barista paces the bar');
-  assert.ok(main.includes("perkBg === 'ex-accountant' ? 0.85 : 1"), 'ex-accountant trims costs');
+  // PR-1 rebalance moved perks from inline ternaries to the PERK_VALUES
+  // table (ex-accountant 0.85→0.90, newcomer 0.25→0.18 — the diagnostic said
+  // the stacked trim and the compounding warm were the dominant levers).
+  assert.ok(main.includes('const PERK_VALUES'), 'perk table exists');
+  assert.ok(main.includes("'ex-barista':    { staffMul: 1.08"), 'ex-barista paces the bar');
+  assert.ok(main.includes("'ex-accountant': { staffMul: 1.00, costMul: 0.90"), 'ex-accountant trims costs');
   assert.ok(main.includes('* perkCostMul'), 'payouts + card fees honour the trim');
   assert.ok(main.includes('* perkStaffMul'), 'dawn pace honours the wrist');
-  assert.ok(main.includes("perkBg === 'newcomer' ? 0.25 : 0.15"), 'newcomer warms the regulars');
-  assert.ok(main.includes("perkBg === 'circuit'"), 'circuit hears the lean');
+  assert.ok(main.includes("'newcomer':      { staffMul: 1.00, costMul: 1.00, opWarm: 0.18"), 'newcomer warms the regulars');
+  assert.ok(main.includes("'circuit':"), 'circuit hears the lean');
   assert.ok(main.includes('the circuit whispers'), 'circuit whisper prints in the Brief');
   assert.ok(main.includes("localStorage.setItem('grunds.identity'"), 'identity persists across sessions');
   console.log('PERKS   4 backgrounds · pace/trim/warmth/whisper — one number each');

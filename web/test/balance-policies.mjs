@@ -126,16 +126,40 @@ async function run(seed, policy) {
     const s = game.stats(), receipt = game.lastDayReceipt;
     assert.equal(s.dayMin, 1260);
     assert.ok(Number.isFinite(receipt.netToday));
-    assert.ok(Math.abs(receipt.netToday - (s.till - s.cogs - s.ops.total - s.feeToday - s.interestToday)) < 1e-7);
+    // Ledger model: sacks ride the supplier tab (the verdict nets debt once);
+    // emergency cups, batch prep and the Gesha hold bill the till directly.
+    // The till at close is already net of every cash line, so closeDay's
+    // netToday is till − matcha cogs − ops − fee − interest with no gross-ups.
+    const beanBill = s.cogs;
+    assert.ok(Math.abs(receipt.netToday - (s.till - beanBill - s.ops.total - s.feeToday - s.interestToday)) < 1e-7);
     assert.equal(s.feeToday, quote.contractFee);
-    days.push({ day, hedge, staffing, marketing, event: s.event, index: s.index, revenue: s.till, beanCost: s.cogs, ops: { ...s.ops }, net: receipt.netToday,
+    // Reconcile against the campaign ledger the same way it compounds:
+    // netWorth = Σ(till) − Σ(cogs) − Σ(ops) − settledPaid − debt_end, where
+    // debt_end = Σ(fees + interest + sacks) − Σ(settled). Settlement is
+    // netWorth-neutral (settledPaid cancels the debt relief), fees/interest
+    // are P&L accruals that reach netWorth through debt, and sacks are the
+    // one cost that touches neither the till nor cCost — so the day row is
+    // netToday minus the day's tab-funded sacks.
+    const sackSpend = s.sackSpend || 0;
+    const dayCashNet = s.till - beanBill - s.ops.total - s.feeToday - s.interestToday - sackSpend;
+    assert.ok(Math.abs(dayCashNet - (receipt.netToday - sackSpend)) < 1e-7);
+    days.push({ day, hedge, staffing, marketing, event: s.event, index: s.index, revenue: s.till, beanCost: beanBill, ops: { ...s.ops }, net: dayCashNet,
       served: s.served + s.servedRetail, balked: s.balked, defections: s.defections, rivalChoices: s.rivalChoices,
-      rep: s.rep, staffCondition: s.staffCondition, awareness: s.awareness, hedgeSavings: s.hedgeSavings, contractFee: s.feeToday, interest: s.interestToday, frames });
+      rep: s.rep, staffCondition: s.staffCondition, awareness: s.awareness, hedgeSavings: s.hedgeSavings, contractFee: s.feeToday, interest: s.interestToday,
+      debt: s.debt, settledPaid: s.settledPaid, frames });
     assert.equal(game.continueFromReview(), true);
     if (game.phase === 'finale') break;   // the supplier called the tab — insolvent
   }
   const end = game.stats();
   assert.equal(game.phase, 'finale');
+  try {
+    const lhs = days.reduce((n, d) => n + d.net, 0);
+    const rhs = end.netWorth;
+    if (Math.abs(lhs - rhs) >= 1e-6) {
+      for (const d of days) original.error('RECONCILE day:', JSON.stringify({ day: d.day, net: Math.round(d.net * 100) / 100, till: Math.round(d.revenue), bean: Math.round(d.beanCost), ops: Math.round(d.ops?.total), fee: d.contractFee, interest: Math.round((d.interest || 0) * 100) / 100, settle: d.settledPaid, debt: Math.round((d.debt || 0) * 100) / 100, hedge: d.hedge }));
+      original.error('RECONCILE end:', JSON.stringify({ netWorth: Math.round(end.netWorth * 100) / 100, debt: Math.round(end.debt * 100) / 100, settledPaid: end.settledPaid, days: days.length }));
+    }
+  } catch {}
   assert.ok(Math.abs(days.reduce((n, d) => n + d.net, 0) - end.netWorth) < 1e-6, 'Daily and campaign ledgers must reconcile');
   const sum = key => days.reduce((n, d) => n + d[key], 0);
   return { seed, policy, netWorth: end.netWorth, reputation: end.rep, served: sum('served'), balked: sum('balked'), rivalChoices: sum('rivalChoices'),
@@ -144,9 +168,69 @@ async function run(seed, policy) {
     marketingSpend: days.reduce((n, d) => n + d.ops.marketing + d.ops.sampling, 0), days };
 }
 
+// Same-lot probe: run one policy with a fixed house lot + restock discipline.
+// cellar: { lot, topup } staged via game.stageCellar before every commit.
+// Returns the run() record (netWorth, served, verdict, days[]).
+async function runWithCellar(seed, policy, cellar) {
+  assert.equal(fingerprint(), sourceHash, 'Source changed during the policy comparison');
+  const registry = new Map();
+  let raf = null, randomState = seed >>> 0, now = 0;
+  globalThis.performance = { now: () => now };
+  Date.now = () => 1790000000000 + now;
+  const random = () => { randomState = (randomState * 1664525 + 1013904223) >>> 0; return randomState / 4294967296; };
+  Math.random = random;
+  const canvas = () => ({ ...element('canvas'), width: 480, height: 72, getContext: () => proxy() });
+  globalThis.document = {
+    body: element('body'), activeElement: null,
+    getElementById(id) { if (!registry.has(id)) registry.set(id, element('div', id)); return registry.get(id); },
+    createElement: tag => tag === 'canvas' ? canvas() : element(tag), createElementNS: () => canvas(), querySelectorAll: () => [],
+  };
+  Object.assign(globalThis, {
+    window: globalThis, __headless: true, innerWidth: 1600, innerHeight: 900, devicePixelRatio: 1,
+    location: { search: `?speed=1200&seed=${seed}`, hostname: 'localhost', origin: 'http://localhost' },
+    localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    addEventListener() {}, requestAnimationFrame: cb => { raf = cb; },
+    fetch: async () => ({ ok: true, json: async () => schedule }), AudioContext: AudioStub,
+  });
+  await import(`../js/main.js?cellarRun=${serial++}`);
+  await new Promise(resolve => setImmediate(resolve));
+  const game = globalThis.__grunds;
+  document.getElementById('open').click();
+  randomState = seed >>> 0;
+  const days = [];
+  for (let day = 1; day <= CAMPAIGN.days; day++) {
+    assert.equal(game.phase, 'planning');
+    assert.equal(game.stageCellar(cellar), true, `stageCellar rejected ${JSON.stringify(cellar)}`);
+    assert.equal(game.stageDayPlan({ hedge: 'hold', staffing: 'work', marketing: {} }), true);
+    const res = await game.commitDayPlan();
+    assert.equal(res.ok, true, JSON.stringify(res));
+    let frames = 0;
+    while (game.phase === 'trading' && frames++ < 1000) {
+      if (game.modals.top() === 'offer') document.getElementById('offer-no').click();
+      assert.equal(typeof raf, 'function');
+      const cb = raf; raf = null; now += 100; cb(now);
+    }
+    assert.equal(game.phase, 'review', `${seed}/${cellar.lot}/day${day} did not finish`);
+    const s = game.stats();
+    days.push({ day, net: s.till - s.cogs - s.ops.total - s.feeToday - s.interestToday - (s.sackSpend || 0),
+      served: s.served + s.servedRetail, emergencyCups: s.emergencyCups, beanSpend: s.beanSpend,
+      houseLot: s.houseLot, houseStock: s.houseStock, till: s.till });
+    assert.equal(game.continueFromReview(), true);
+    if (game.phase === 'finale') break;
+  }
+  const end = game.stats();
+  const sum = key => days.reduce((n, d) => n + d[key], 0);
+  return { seed, cellar, netWorth: end.netWorth, served: sum('served'),
+    emergencyCups: sum('emergencyCups'), beanSpend: days.reduce((n, d) => n + d.beanSpend, 0), days };
+}
+
 try {
   if (process.argv[2] === '--single') {
     original.log(JSON.stringify(await run(Number(process.argv[3]), process.argv[4])));
+  } else if (process.argv[2] === '--cellar') {
+    // node web/test/balance-policies.mjs --cellar <seed> <lot> <topup>
+    original.log(JSON.stringify(await runWithCellar(Number(process.argv[3]), 'passive',
+      { lot: process.argv[4], topup: process.argv[5] || 'restock' })));
   } else {
   const isolatedRun = (seed, policy) => JSON.parse(execFileSync(process.execPath, [fileURLToPath(import.meta.url), '--single', String(seed), policy], { encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 }));
   const runs = [];

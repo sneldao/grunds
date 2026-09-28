@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -107,6 +107,8 @@ function resolveSpec(spec, from) {
   if (/web\/js\/decision\.js$/.test(spec)) return decisionJsMod;
   if (spec.startsWith('.')) {
     const p = join(dirname(from), spec);
+    // NodeNext-style: a `./foo.js` spec imports `foo.ts` when no .js exists.
+    if (p.endsWith('.js') && !existsSync(p)) return load(p.replace(/\.js$/, '.ts'));
     return load(/\.(ts|js)$/.test(p) ? p : p + '.ts');
   }
   throw new Error(`unresolved import ${spec} from ${from}`);
@@ -450,6 +452,7 @@ function makeDoc() {
       prepend(...cs) { for (const c of cs) { c._parent = e; e.children.unshift(c); } },
       remove() { e.isConnected = false; const p = e._parent; if (p) { const i = p.children.indexOf(e); if (i >= 0) p.children.splice(i, 1); } },
       focus() { doc.activeElement = e; },
+      addEventListener() {}, removeEventListener() {},   // main.js wires upsell buttons via addEventListener at import
       click() { if (!e.disabled && e.onclick) e.onclick({ preventDefault() {} }); },
       matches(sel) { return sel.split(',').some(s => matchTok(e, s.trim())); },
       querySelector(sel) { return e.querySelectorAll(sel)[0] || null; },

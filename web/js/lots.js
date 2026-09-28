@@ -115,7 +115,7 @@ export class LotsState {
     for (const id of LOT_IDS) {
       this.lots[id] = {
         stock: STARTER_STOCK[id] ?? 0,
-        value: (STARTER_STOCK[id] ?? 0) * LOT_CATALOG[id].unitBase,
+        value: 0,   // opening inventory: prepaid before the week, never billed
         roastedOn: 1,
         roast: ROAST_IDEAL[id] ?? 3,
         scorched: false,
@@ -154,6 +154,8 @@ export class LotsState {
   }
   // Pour one cup from the house lot. Stockout cascades to the fullest open
   // lot; bone-dry cellar triggers an emergency sack (flagged, never silent).
+  // Starter stock is opening inventory (value 0 at reset): prepaid before
+  // the week, so its pours never bill twice.
   pour(day) {
     void day;
     let e = this.entry(this.house);

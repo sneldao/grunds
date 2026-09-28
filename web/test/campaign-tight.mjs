@@ -6,8 +6,13 @@
 //      actually expire on serve count.
 //   3. Settle clears debt and the dawn-time interest guard does NOT add
 //      interest to a zero balance (so a clean settle survives the next dawn).
-//   4. The 5-day campaign verdicts to one of the named bands (we don't pin a
-//      specific phrase; we just assert `net > 600` which is the `held` floor).
+//   4. A competent 5-day campaign clears the bleed-out floor. Since dawn sacks
+//      ride the supplier tab, "competent" = restock at dawn AND settle the tab
+//      before it caps (a capped tab buys nothing; every cup then pours as an
+//      emergency sack at 1.5× spot from the till and eats the week). We assert
+//      `net > 600` as the floor of a week that isn't bleeding out — the
+//      'held' band itself starts at £4,500 (campaignVerdict), so this pins
+//      survivability, not a specific verdict phrase.
 //
 // Run: node web/test/campaign-tight.mjs
 import { readFileSync } from 'node:fs';
@@ -128,7 +133,15 @@ console.log('SETTLE  debt =', G.stats().debt, 'after settle + 1 dawn');
 // ============================================================
 G.reset();
 for (let d = 1; d <= CAMPAIGN.days; d++) {
-  G.stageDayPlan({ hedge: d === 1 ? 'contract' : 'hold' });
+  // Teeth model: a competent week restocks the cellar at dawn (the Brief's
+  // restock button) and keeps the tab under the credit line — once the tab
+  // caps, dawn buys nothing and every cup bills the till at 1.5× spot, which
+  // is how a week bleeds out. Day 1 locks a contract (section 2's subject);
+  // afterwards settle whenever debt is on the books (the conservative line
+  // in balance-policies), else hold.
+  const before = G.stats();
+  G.stageCellar({ lot: 'huila', topup: 'restock' });
+  G.stageDayPlan({ hedge: d === 1 ? 'contract' : (before.debt > 0 ? 'settle' : 'hold') });
   G.commitDayPlan();
   runFrames(220);
   G.continueFromReview();

@@ -99,7 +99,7 @@ export class Exchange {
     const spotCost = this.beanIndex * CAMPAIGN.beanBaseCost;
     const poured = this.lots.pour(this.day);
     if (poured.emergency) {
-      return { beanCost: 0, spotCost: spotCost * EMERGENCY_MUL, hedged: false, emergency: true, lotId: null };
+      return { beanCost: 0, spotCost: spotCost * EMERGENCY_MUL, hedged: false, emergency: true, lotId: poured.lotId };
     }
     return {
       beanCost: poured.unitCost, spotCost, hedged: poured.hedged,

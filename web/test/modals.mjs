@@ -48,6 +48,7 @@ function makeDoc() {
       append(...cs) { for (const c of cs) e.appendChild(c); },
       remove() { e.isConnected = false; const p = e._parent; if (p) { const i = p.children.indexOf(e); if (i >= 0) p.children.splice(i, 1); } },
       focus() { doc.activeElement = e; },
+      addEventListener() {}, removeEventListener() {},   // main.js wires upsell buttons via addEventListener at import
       click() { if (!e.disabled && e.onclick) e.onclick({ preventDefault() {} }); },
       matches(sel) { return sel.split(',').some(s => matchTok(e, s.trim())); },
       querySelector(sel) { return e.querySelectorAll(sel)[0] || null; },

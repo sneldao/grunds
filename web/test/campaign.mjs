@@ -57,22 +57,31 @@ const G = globalThis.__grunds;
 const fails = [];
 
 // === CONNECTION 1: a frost hits the spot; contracting first wins ===
+// Tab model: sacks are billed at dawn on Idris's tab and lot cups carry
+// cogs 0 (expensed at the buy), so the hedge's win is NOT visible in the
+// till — it lives in the sacks' locked price. realizedHedgeSavings accrues
+// spotCost − beanCost on hedged pours and the contract fee rides the tab,
+// so hedgeSavings − fee is the honest net-of-hedge comparison.
 reg.get('open').click(); await new Promise(r => setTimeout(r, 10));
 G.commitDayPlan();                                     // HOLD the default plan
 G.exc.beanIndex = 1.8; G.exc.contract = null;          // HOLD through the spike
 runFrames(220);
-const A = G.stats(), netHold = A.till - A.cogs;
+const A = G.stats();
 
 G.reset(); await new Promise(r => setTimeout(r, 10));
 G.commitDayPlan();
-G.exc.beanIndex = 1.0; G.exc.contractBeans();          // CONTRACT at 1.0 before the spike (+£22 debt)
+G.exc.beanIndex = 1.0; G.exc.contractBeans();          // CONTRACT at 1.0 before the spike (fee rides the tab)
 G.exc.beanIndex = 1.8;                                 // then frost hits the spot
 runFrames(220);
-const B = G.stats(), netContract = B.till - B.cogs - B.debt;
-console.log('HEDGE  hold net', netHold.toFixed(0), '| contract net', netContract.toFixed(0),
-  '| cogs', A.cogs.toFixed(0) + '→' + B.cogs.toFixed(0), '| cups', (A.served + A.servedRetail) + '/' + (B.served + B.servedRetail));
-if (!(netContract > netHold)) fails.push(`hedge failed: contract ${netContract.toFixed(0)} not > hold ${netHold.toFixed(0)}`);
-if (!(B.cogs < A.cogs * 0.7)) fails.push(`locked cost not cheaper: ${B.cogs.toFixed(0)} vs ${A.cogs.toFixed(0)}`);
+const B = G.stats();
+const fee = hedgeTerms('contract').fee;
+const benefitHold = A.hedgeSavings;
+const benefitContract = B.hedgeSavings - fee;
+console.log('HEDGE  hold benefit', benefitHold.toFixed(0), '| contract benefit', benefitContract.toFixed(0),
+  '| hedged cups', B.hedgedCups, '| savings', B.hedgeSavings.toFixed(0), '| fee', fee,
+  '| cups', (A.served + A.servedRetail) + '/' + (B.served + B.servedRetail));
+if (!(B.hedgedCups > 0)) fails.push('contract never covered a pour: hedgedCups = ' + B.hedgedCups);
+if (!(benefitContract > benefitHold)) fails.push(`hedge failed: contract benefit ${benefitContract.toFixed(0)} not > hold ${benefitHold.toFixed(0)}`);
 
 // === CONNECTION 2: the 5-day campaign + the debt clock ===
 G.reset(); await new Promise(r => setTimeout(r, 10));
