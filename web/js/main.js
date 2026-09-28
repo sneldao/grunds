@@ -335,6 +335,7 @@ let prebatched = false, repriced = false;
 // pre-batch / reprice before commit; if staged, the lever auto-fires at
 // commit time and mid-day presses are free (the decision was already made).
 let stagedPrep = { batch: false, reprice: false };
+let prepHintOpen = false;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let coached = false;   // day-1 lever hint, once per campaign
 // just-in-time nudges: each fires once per campaign, only when its
@@ -1356,10 +1357,11 @@ function markBriefChoice(id) {
     }
     const selTxt = $('brief-sel');
     if (selTxt) {
-      selTxt.textContent = id === 'hold' ? 'selected: riding the spot — free, but the dawn draw can still move the board'
-        : id === 'settle' ? `selected: settle the tab (${fmt(exchange.debt)}) and ride the spot`
-        : id ? `selected: ${String(id).replace('contract_', '')} contract at the board — ~${(hedgeTerms(id, contractFeeExtra)?.units || 0).toFixed(0)} cups, ${fmt(hedgeTerms(id, contractFeeExtra)?.fee || 0)} fee`
-        : 'contracts lock the board for their cups · hold rides the spot free · settle pays the tab down.';
+      selTxt.textContent = !id ? ''
+        : id === 'hold' ? 'riding the spot'
+        : id === 'settle' ? `settling ${fmt(exchange.debt)}`
+        : `${String(id).replace('contract_', '')} cover · ~${(hedgeTerms(id, contractFeeExtra)?.units || 0).toFixed(0)} cups`;
+      selTxt.style.display = selTxt.textContent ? '' : 'none';
     }
   } catch {}
 }
@@ -1568,6 +1570,12 @@ function drawBriefSparkline(hist, curIdx) {
   g.fillText('beans — 5-day', c.width / 2, y0 + h + 12);
 }
 
+function clearEl(el) {
+  if (!el) return;
+  el.textContent = '';
+  for (const c of [...(el.children || [])]) c.remove?.();
+}
+
 function renderPlanQuote() {
   const nutEl = $('brief-nut'); if (!nutEl || !planDraft) return;
   const q = quoteDayPlan({
@@ -1615,11 +1623,22 @@ function renderPlanQuote() {
   // until it goes red, which is never noise).
   const showPos = day > 1 || netPos < 0;
   const full = bits.join('\n') + (showPos ? `\n${pos}` : '');
-  nutEl.textContent = full;
-  const sum = $('brief-summary');
-  if (sum) {
-    sum.textContent = `committed ${fmt(committed)}${q.settlement ? ` · settle ${fmt(q.settlement)}` : ''}${showPos ? ` · ${pos}` : ''}`;
-    sum.title = full;
+  const wasOpen = !!nutEl.querySelector?.('details')?.open;
+  clearEl(nutEl);
+  const det = document.createElement('details');
+  det.id = 'brief-nut-details';
+  if (wasOpen || q.contractFee > 0 || q.interest > 0 || q.settlement || q.training || q.sampling || q.marketing) det.open = true;
+  const sum = document.createElement('summary');
+  sum.textContent = `the day costs ${fmt(q.fixedMinimum)}`;
+  const body = document.createElement('div');
+  body.style.whiteSpace = 'pre-wrap';
+  body.textContent = full;
+  det.append(sum, body);
+  nutEl.appendChild(det);
+  const sumEl = $('brief-summary');
+  if (sumEl) {
+    sumEl.textContent = `committed ${fmt(committed)}${q.settlement ? ` · settle ${fmt(q.settlement)}` : ''}${showPos ? ` · ${pos}` : ''}`;
+    sumEl.title = full;
   }
 }
 
@@ -1634,17 +1653,24 @@ function renderPlanQuote() {
 // backward compat with applyStagedPrep (only one is ever true at a time).
 function renderPrepSection() {
   const wrap = $('brief-prep'); if (!wrap) return;
+  clearEl(wrap);
   wrap.style.display = '';
-  wrap.textContent = '';
 
   const lab = document.createElement('div');
   lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
-  lab.textContent = 'stage your prep';
+  lab.textContent = 'this morning';
+  const qbtn = document.createElement('button');
+  qbtn.textContent = '?';
+  qbtn.style.cssText = 'font-size:10px;opacity:.5;background:none;border:none;cursor:pointer;padding:0 4px';
+  qbtn.setAttribute('aria-label', 'what happens if I press 1 or 2 without staging');
+  lab.appendChild(qbtn);
   wrap.appendChild(lab);
 
   const hint = document.createElement('div');
   hint.style.cssText = 'font-size:10.5px;opacity:.6;margin-bottom:6px;font-style:italic';
-  hint.textContent = 'pick one morning lever — pressing 1 or 2 mid-day without staging costs £4.20 + gossip';
+  hint.textContent = 'staging a move is free — pressing 1 or 2 mid-day without it costs £4.20 + gossip';
+  hint.style.display = prepHintOpen ? '' : 'none';
+  qbtn.onclick = () => { prepHintOpen = !prepHintOpen; hint.style.display = prepHintOpen ? '' : 'none'; };
   wrap.appendChild(hint);
 
   const pillRow = document.createElement('div');
@@ -1667,6 +1693,7 @@ function renderPrepSection() {
     b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; }
     else if (def.key === 'hold') { b.style.opacity = '0.7'; }
+    b.title = 'pressing 1 or 2 later, without staging, costs £4.20 and gossip';
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
     b.onclick = () => {
       // Radio behaviour — clicking sets stagedPrep atomically.
@@ -1695,15 +1722,6 @@ function renderPrepSection() {
     cost: null,
   }));
   wrap.appendChild(pillRow);
-
-  // Live status line: what's staged, what isn't.
-  const status = document.createElement('div');
-  status.style.cssText = 'font-size:10px;letter-spacing:.04em;opacity:.55;font-style:italic';
-  const parts = [];
-  parts.push(stagedPrep.batch ? `${ECON.batchUnits} cups bought at commit` : 'no pre-batch staged');
-  parts.push(stagedPrep.reprice ? `matcha ${fmt(ECON.matchaDeal)} all day` : 'price on the board');
-  status.textContent = parts.join(' · ');
-  wrap.appendChild(status);
 }
 
 // Apply the staged prep at commit. Called from applyCommittedPlan. Radio
@@ -1719,13 +1737,21 @@ function applyStagedPrep() {
 // executed at commit by applyLots (till-checked, contract-aware).
 function renderLotSection() {
   const wrap = $('brief-lots'); if (!wrap) return;
+  const wasOpen = !!wrap.querySelector?.('details')?.open;
+  clearEl(wrap);
   wrap.style.display = '';
-  wrap.textContent = '';
 
-  const lab = document.createElement('div');
-  lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
-  lab.textContent = 'the cellar — which coffee pours today';
-  wrap.appendChild(lab);
+  const house = lotState.entry(selectedLot);
+  const name = LOT_CATALOG[selectedLot]?.name || selectedLot;
+  const age = lotState.age(selectedLot, day);
+  const stale = house && isStale(age);
+  const det = document.createElement('details');
+  det.id = 'brief-lot-details';
+  if (wasOpen || topUpCups > 0 || stale || (lotState.pending && lotState.pending.length)) det.open = true;
+  const sum = document.createElement('summary');
+  sum.textContent = `pouring ${name}${house ? ` · ${house.stock} left` : ''}${topUpCups > 0 ? ' · restocking' : ''}`;
+  det.appendChild(sum);
+  wrap.appendChild(det);
 
   const pillRow = document.createElement('div');
   pillRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px';
@@ -1748,7 +1774,7 @@ function renderLotSection() {
     b.onclick = () => { selectedLot = id; topUpCups = 0; stagedRoast = lotState.entry(id)?.roast ?? 3; renderLotSection(); };
     pillRow.appendChild(b);
   }
-  wrap.appendChild(pillRow);
+  det.appendChild(pillRow);
 
   // Top-up row for the selected lot.
   const st = lotState.entry(selectedLot);
@@ -1770,23 +1796,20 @@ function renderLotSection() {
     const underContract = !!(exchange.contract && exchange.contract.units > 0);
     row.appendChild(mkTop('brief-top-rest', qty > 0 ? `restock ${qty} cups · ${fmt(qty * price)}${underContract ? ' (contract)' : ''}` : 'cellar’s full enough — skip', qty));
     if (qty > 0) row.appendChild(mkTop('brief-top-double', `double it · ${qty * 2} cups`, qty * 2));
-    wrap.appendChild(row);
+    det.appendChild(row);
   }
 
-  // Wire notes: moves still travelling + microlot windows.
   const notes = [];
   for (const p of lotState.pending) {
     const entry = LOT_CATALOG[p.lot];
     notes.push(`${entry ? entry.name : p.lot} moves in ${Math.max(0, p.landDay - day)}d`);
   }
-  const status = document.createElement('div');
-  status.style.cssText = 'font-size:10px;letter-spacing:.04em;opacity:.55;font-style:italic';
-  const house = lotState.entry(lotState.house);
-  status.textContent = [
-    `pouring ${LOT_CATALOG[lotState.house]?.name || lotState.house}${house ? ` (${house.stock} left, roast ${house.roast})` : ''}`,
-    ...notes,
-  ].join(' · ');
-  wrap.appendChild(status);
+  if (notes.length) {
+    const status = document.createElement('div');
+    status.style.cssText = 'font-size:10px;letter-spacing:.04em;opacity:.55;font-style:italic';
+    status.textContent = notes.join(' · ');
+    det.appendChild(status);
+  }
 
   // Phase 3 — roast stepper for the selected lot. Ideal in brackets;
   // distance costs quality, committed with OPEN.
@@ -1795,7 +1818,7 @@ function renderLotSection() {
   const roastLab = document.createElement('span');
   roastLab.style.cssText = 'opacity:.65';
   const ideal = ROAST_IDEAL[selectedLot] ?? 3;
-  roastLab.textContent = `${LOT_CATALOG[selectedLot]?.name || selectedLot} roast (ideal ${ideal})`;
+  roastLab.textContent = `${name} roast (ideal ${ideal})`;
   const rMinus = document.createElement('button');
   rMinus.id = 'brief-roast-minus'; rMinus.textContent = '−'; rMinus.style.cssText = 'padding:4px 10px';
   rMinus.onclick = () => { stagedRoast = Math.max(1, stagedRoast - 1); renderLotSection(); };
@@ -1806,7 +1829,7 @@ function renderLotSection() {
   rPlus.id = 'brief-roast-plus'; rPlus.textContent = '+'; rPlus.style.cssText = 'padding:4px 10px';
   rPlus.onclick = () => { stagedRoast = Math.min(5, stagedRoast + 1); renderLotSection(); };
   roastRow.appendChild(roastLab); roastRow.appendChild(rMinus); roastRow.appendChild(rVal); roastRow.appendChild(rPlus);
-  wrap.appendChild(roastRow);
+  det.appendChild(roastRow);
 }
 
 // Headless-only cellar control for policy probes (break-it pass).
@@ -1890,14 +1913,24 @@ function applyLots() {
 // committed with OPEN (applyMenu).
 function renderMenuSection() {
   const wrap = $('brief-menu'); if (!wrap) return;
+  const wasOpen = !!wrap.querySelector?.('details')?.open;
+  clearEl(wrap);
   wrap.style.display = '';
-  wrap.textContent = '';
   if (!stagedMenu) stagedMenu = { prices: { ...menuPrices }, offered: { ...menuOffered } };
 
-  const lab = document.createElement('div');
-  lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
-  lab.textContent = 'the menu — price it, or 86 it';
-  wrap.appendChild(lab);
+  const bases = basePrices();
+  const off = DRINK_IDS.filter(id => id !== 'matcha' && stagedMenu.offered[id] === false);
+  const repriced = DRINK_IDS.filter(id => stagedMenu.prices[id] !== bases[id]);
+  const changed = wasOpen || off.length > 0 || DRINK_IDS.some(id => stagedMenu.prices[id] !== bases[id]);
+  const det = document.createElement('details');
+  det.id = 'brief-menu-details';
+  if (changed) det.open = true;
+  const sum = document.createElement('summary');
+  sum.textContent = off.length
+    ? `menu · ${off.map(id => DRINKS[id].name).join(', ')} off`
+    : `menu · matcha ${fmt(stagedMenu.prices.matcha)}${repriced.length ? ` · ${repriced.length} repriced` : ''}`;
+  det.appendChild(sum);
+  wrap.appendChild(det);
 
   for (const id of DRINK_IDS) {
     const def = DRINKS[id];
@@ -1932,13 +1965,13 @@ function renderMenuSection() {
       always.style.cssText = 'opacity:.5;font-size:10px;padding:4px 2px';
       row.appendChild(always);
     }
-    wrap.appendChild(row);
+    det.appendChild(row);
   }
 
   const hint = document.createElement('div');
   hint.style.cssText = 'font-size:10px;letter-spacing:.04em;opacity:.55;font-style:italic';
-  hint.textContent = 'slow brews cost rush line — 86 with intent';
-  wrap.appendChild(hint);
+  hint.textContent = 'slow brews cost the rush — 86 with intent';
+  det.appendChild(hint);
 }
 
 // Commit staged menu prices + 86 board. In-place assignment keeps the live
@@ -1994,6 +2027,8 @@ function rivalReact(playerMove) {
 function renderRivalLine() {
   const slot = $('brief-rival'); if (!slot) return;
   const y = lastDayStats;
+  if (!y) { slot.style.display = 'none'; slot.textContent = ''; return; }
+  slot.style.display = '';
   const you = y ? y.sold : null;
   const them = y ? (y.rivalServed || 0) : null;
   const youDef = y ? y.defections || 0 : 0;
@@ -2018,28 +2053,20 @@ function renderRivalLine() {
     if (sSnub > 0) bits.push(`${sSnub} snub${sSnub > 1 ? 's' : ''}`);
     samLine = `<br><span class="dim">${COPY.rivalBarista} counts ${bits.join(' · ')} — the chalkboard says TRY HARDER</span>`;
   }
-  // day 1 has no yesterday yet — show the streak opener
-  let body;
-  if (!y) {
-    body = `<b>${COPY.rivalBarista}'s board reads ${stratPrice}</b> — ${stratName}, day one. The street is about to learn who holds the line.`;
-  } else {
-    const delta = (you != null && them != null) ? (you - them) : 0;
-    const lead = delta >= 0 ? `you lead by <b>${delta}</b>` : `Sam leads by <b>${-delta}</b>`;
-    // PR-B3 — running weekly tally (visible from day 2 onward). The week is
-    // a 5-day arc; once we're past day 1 the player can track the gap.
-    const weekYou = cServed;
-    const weekSam = (cRivalServed || 0) + (cRivalChoices || 0);
-    const weekDelta = weekYou - weekSam;
-    const weekLead = day >= 2 && Math.abs(weekDelta) > 0
-      ? `<br><b>week so far:</b> you ${weekYou} · ${COPY.rivalBarista} ${weekSam} · ${weekDelta >= 0 ? `you lead by <b>${weekDelta}</b>` : `${COPY.rivalBarista} leads by <b>${-weekDelta}</b>`}`
-      : '';
-    body = `yesterday · <b>you served ${you}</b> · <b>Sam served ${them}</b> · ${lead}<br>`
-      + `<span class="dim">${youDef} walked to ${COPY.rivalName} · ${themChose} skipped the queue and went straight across</span>`
-      + reactLine
-      + samLine
-      + weekLead
-      + `<br>today · Sam moves with <b>${stratName}</b> at ${stratPrice}`;
-  }
+  const delta = (you != null && them != null) ? (you - them) : 0;
+  const lead = delta >= 0 ? `you lead by <b>${delta}</b>` : `Sam leads by <b>${-delta}</b>`;
+  const weekYou = cServed;
+  const weekSam = (cRivalServed || 0) + (cRivalChoices || 0);
+  const weekDelta = weekYou - weekSam;
+  const weekLead = day >= 2 && Math.abs(weekDelta) > 0
+    ? `<br><b>week so far:</b> you ${weekYou} · ${COPY.rivalBarista} ${weekSam} · ${weekDelta >= 0 ? `you lead by <b>${weekDelta}</b>` : `${COPY.rivalBarista} leads by <b>${-weekDelta}</b>`}`
+    : '';
+  const body = `yesterday · <b>you served ${you}</b> · <b>Sam served ${them}</b> · ${lead}<br>`
+    + `<span class="dim">${youDef} walked to ${COPY.rivalName} · ${themChose} skipped the queue and went straight across</span>`
+    + reactLine
+    + samLine
+    + weekLead
+    + `<br>today · Sam moves with <b>${stratName}</b> at ${stratPrice}`;
   slot.innerHTML = `<div class="brief-row"><span class="brief-row-key">across the street</span><span class="brief-row-val">${body}</span></div>`;
   slot.style.display = '';
 }
@@ -2221,9 +2248,8 @@ function showMorningBrief() {
   // Phase 3 — the menu: price each drink, 86 the slow ones. Stages here,
   // commits with OPEN (applyMenu).
   renderMenuSection();
-  // PR-B1 — Sam's line. Side-by-side yesterday's stats with a one-liner
-  // so the rivalry reads personal from the brief onward. Always shown —
-  // even on day 1 (where "yesterday" reads as "yesterday's roster").
+  // PR-B1 — yesterday's rivalry. Day 1 has no yesterday, so the row stays shut;
+  // the one-line price compare in the risk row carries the street.
   renderRivalLine();
   const risk = $('brief-risk');
   if (risk) {
@@ -2236,11 +2262,14 @@ function showMorningBrief() {
       lines.push(`${MACRO_SHOCKS.pitch_reval.name} — ${MACRO_SHOCKS.pitch_reval.desc} · ${day === MACRO_SHOCKS.pitch_reval.day ? 'new today' : 'still active'}`);
     if (mods.suppliesDelta)
       lines.push(`${MACRO_SHOCKS.dairy_crunch.name} — ${MACRO_SHOCKS.dairy_crunch.desc} · ${day === MACRO_SHOCKS.dairy_crunch.day ? 'new today' : 'still active'}`);
-    if (!lines.length) lines.push('no district shock today');
     const strat = CAMPAIGN.rivalStrategies[rivalStrategy];
-    lines.push(`your matcha £${priceForDay(day).toFixed(2)} · ${COPY.rivalName} — ${strat ? strat.name.toLowerCase() : rivalStrategy} at £${strat ? strat.price.toFixed(2) : '—'}`);
-    risk.textContent = lines.join('\n');
-    risk.style.whiteSpace = 'pre-wrap';
+    const priceLine = `matcha £${priceForDay(day).toFixed(2)} · ${COPY.rivalName} £${strat ? strat.price.toFixed(2) : '—'}`;
+    if (!lines.length) risk.textContent = priceLine;
+    else {
+      lines.push(priceLine);
+      risk.textContent = lines.join('\n');
+      risk.style.whiteSpace = 'pre-wrap';
+    }
   }
   // Ruth — the one staffing call the week can carry. When she's fading the
   // Brief offers a choice: send her home (slow bar, saved wage, she recovers)
@@ -2330,12 +2359,12 @@ function showMorningBrief() {
     const lab = document.createElement('div');
     lab.style.fontSize = '10px'; lab.style.letterSpacing = '.18em';
     lab.style.textTransform = 'uppercase'; lab.style.opacity = '.55';
-    lab.textContent = 'the morning call';
+    lab.textContent = 'beans';
     actions.appendChild(lab);
     const hint = document.createElement('div');
     hint.id = 'brief-sel';
     hint.style.fontSize = '10.5px'; hint.style.opacity = '.6'; hint.style.marginBottom = '4px';
-    hint.textContent = 'Sizing is the position — contracts lock the board for their cups, hold rides the spot, settle pays the tab.';
+    hint.textContent = '';
     actions.appendChild(hint);
     // Progressive disclosure: on a calm opening morning the contract pills
     // fold into one line — the first lesson is open/price/serve, not hedging.
@@ -2349,7 +2378,7 @@ function showMorningBrief() {
       fold = document.createElement('details');
       fold.id = 'brief-hedge-details';
       const fs = document.createElement('summary');
-      fs.textContent = 'insure the beans? — a contract locks the board price for its cups (optional today)';
+      fs.textContent = 'insure the beans';
       fs.style.cssText = 'font-size:11px;opacity:.75;cursor:pointer';
       fold.appendChild(fs);
       // a staged contract keeps the fold open so the selection stays visible
@@ -2361,7 +2390,7 @@ function showMorningBrief() {
       if (act.id === 'settle' && act.disabled) continue;
       const b = document.createElement('button');
       b.dataset.id = act.id;
-      b.textContent = act.label + (act.explain ? '   ·  ' + act.explain : '');
+      b.textContent = act.label + (act.id !== 'hold' && act.explain ? '   ·  ' + act.explain : '');
       b.disabled = !!act.disabled;
       b.setAttribute('aria-pressed', 'false');
       b.onclick = () => { if (applyReply(act.id)) markBriefChoice(act.id); };
@@ -3575,6 +3604,12 @@ const LIC_BGS = [
   { id: 'circuit',       label: 'a market regular', perk: 'you know the circuit — the wire names its lean' },
 ];
 let licRole = 0, licBg = 0;
+function paintLicMore() {
+  const sum = $('lic-more-sum');
+  if (!sum) return;
+  const bg = LIC_BGS[licBg] || LIC_BGS[0];
+  sum.textContent = `${LIC_ROLES[licRole] || LIC_ROLES[0]} · ${bg.label}`;
+}
 function showLicence() {
   const el = $('licence'); if (!el) return;
   // a returning signature pre-fills — the district office remembers
@@ -3594,7 +3629,7 @@ function showLicence() {
   LIC_ROLES.forEach((r, i) => {
     const b = document.createElement('button');
     b.textContent = r; b.className = i === licRole ? 'on' : '';
-    b.onclick = () => { licRole = i; [...roles.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
+    b.onclick = () => { licRole = i; [...roles.children].forEach((c, j) => c.className = j === i ? 'on' : ''); paintLicMore(); };
     roles.appendChild(b);
   });
   const bgs = $('lic-bgs');
@@ -3603,9 +3638,10 @@ function showLicence() {
     const b = document.createElement('button');
     b.innerHTML = g.label + '<small>' + g.perk + '</small>';
     b.className = i === licBg ? 'on' : '';
-    b.onclick = () => { licBg = i; [...bgs.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
+    b.onclick = () => { licBg = i; [...bgs.children].forEach((c, j) => c.className = j === i ? 'on' : ''); paintLicMore(); };
     bgs.appendChild(b);
   });
+  paintLicMore();
   modals.open('licence');
   setTimeout(() => { try { (nameEl.value ? standEl : nameEl).focus(); } catch {} }, 350);
   try { analytics.track('licence_shown'); } catch {}

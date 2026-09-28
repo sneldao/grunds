@@ -13,6 +13,12 @@ import { priceForDay } from '../js/gentrification.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const schedule = JSON.parse(readFileSync(join(ROOT, 'out', 'wave_schedule.json'), 'utf8'));
+function deepText(el) {
+  if (!el) return '';
+  let t = el.textContent || '';
+  for (const c of el.children || []) t += deepText(c);
+  return t;
+}
 
 const anyProxy = () => new Proxy(function () {}, {
   get: (t, k) => {
@@ -169,7 +175,7 @@ for (let d = 2; d <= CAMPAIGN.days; d++) {
     if (registry.get('brief-actions').children.some(c => c.id === 'brief-hedge-details')) fails.push('day-2 brief still folds the contracts');
     const flat2 = registry.get('brief-actions').children.filter(c => c.tagName === 'BUTTON').map(c => c.dataset.id);
     if (!flat2.includes('settle')) fails.push('day-2 brief hid the settle move with a live tab');
-    if (!(registry.get('brief-nut').textContent || '').includes('campaign net position'))
+    if (!deepText(registry.get('brief-nut')).includes('campaign net position'))
       fails.push('day-2 quote dropped the net position line');
   }
   if (G.exc.day !== d - 1) fails.push(`day ${d}: exchange.day ran ahead before commit (${G.exc.day})`);
@@ -227,7 +233,7 @@ G.renderBrief();
   } else if (fold) fails.push('a threatened opening morning should NOT fold the contracts');
   if (flatIds.includes('settle')) fails.push('dead settle pill rendered with no tab to settle');
   if (registry.get('brief-demand').style.display !== 'none') fails.push('day-1 brief showed the street-work row');
-  if ((registry.get('brief-nut').textContent || '').includes('campaign net position'))
+  if (deepText(registry.get('brief-nut')).includes('campaign net position'))
     fails.push('day-1 quote printed a net position with no history behind it');
   // risk reveals the tool: a warn-tier board springs the fold back open
   const savedEvent = G.exc.event;

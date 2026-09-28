@@ -8,6 +8,12 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = p => readFileSync(join(ROOT, p), 'utf8');
 const fails = [];
 const check = (cond, msg) => { if (!cond) fails.push(msg); };
+function deepText(el) {
+  if (!el) return '';
+  let t = el.textContent || '';
+  for (const c of el.children || []) t += deepText(c);
+  return t;
+}
 
 function matchTok(el, tok) {
   if (!el || !el.tagName) return false;
@@ -356,7 +362,7 @@ console.log('STRUCTURE six modals share panel/header/body/footer; CSS scroll+foo
   check(!!fold() && fold().open === true, 'a staged contract keeps the fold open through re-render');
   check(allPills().find(b => b.dataset.id === 'contract').getAttribute('aria-pressed') === 'true', 'aria state persists through re-render');
   check(G.plan.hedge === 'contract', 'staged plan persists through re-render');
-  const nut = registry.get('brief-nut').textContent;
+  const nut = deepText(registry.get('brief-nut'));
   check(/the nut £/.test(nut) && /pitch floor/.test(nut), 'quote prints the nut with its fixed breakdown');
   check(/cups just to cover/.test(nut), 'quote prints the breakeven cup target');
   check(!/campaign net position/.test(nut), 'day-1 quote holds the net position until there is history');
