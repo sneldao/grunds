@@ -39,20 +39,28 @@ export function districtOptOut(search) {
 
 // Fit a loaded GLB to the slot's target height and ground it (arbitrary
 // generator scale/origin → box-normalize to min.y = 0).
-function fitToSlot(inst, height) {
+//
+// Measure with the instance parked at the origin. The slot position is
+// already on the object; subtracting the world-space centre from it
+// cancelled that position and dropped every prop on (0, y, 0) — a pile in
+// the middle of the café, straight down the opening camera.
+export function fitToSlot(inst, height) {
+  const slot = inst.position.clone();
+  inst.position.set(0, 0, 0);
+  inst.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(inst);
-  if (box.isEmpty() || !isFinite(box.max.y - box.min.y)) return;
+  if (box.isEmpty() || !isFinite(box.max.y - box.min.y)) {
+    inst.position.copy(slot);
+    return;
+  }
   const size = new THREE.Vector3();
-  const center = new THREE.Vector3();
   box.getSize(size);
-  box.getCenter(center);
   if (size.y > 0.001) inst.scale.multiplyScalar(height / size.y);
+  inst.updateMatrixWorld(true);
   const box2 = new THREE.Box3().setFromObject(inst);
   const center2 = new THREE.Vector3();
   box2.getCenter(center2);
-  inst.position.x -= center2.x;
-  inst.position.z -= center2.z;
-  inst.position.y -= box2.min.y; // ground to y=0 (position was set pre-fit)
+  inst.position.set(slot.x - center2.x, -box2.min.y, slot.z - center2.z);
 }
 
 export function initDistrictGen({ scene, seed, classic, loader }) {

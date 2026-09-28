@@ -38,7 +38,7 @@ function check(name, cond, detail) { if (!cond) fails.push(`${name}: ${detail ||
 // 1) districtOptOut — the pure gate
 // ============================================================
 globalThis.__headless = false; globalThis.__noGLB = false;
-const { districtOptOut, initDistrictGen, SLOTS } = await import('../js/districtGen.js');
+const { districtOptOut, initDistrictGen, fitToSlot, SLOTS } = await import('../js/districtGen.js');
 
 check('matches ?classicDistrict', districtOptOut('?classicDistrict') === true, 'not matched');
 check('matches ?noDistrict', districtOptOut('?seed=7&noDistrict') === true, 'not matched');
@@ -92,6 +92,23 @@ check('five street slots', Object.keys(SLOTS).length === 5, Object.keys(SLOTS).j
 check('every slot has position + height',
   Object.values(SLOTS).every(s => Array.isArray(s.position) && s.position.length === 3 && typeof s.height === 'number'),
   'a slot is missing position/height');
+
+// Fitting must keep the pavement slot. Subtracting the world-space centre
+// used to cancel the slot and stack every prop at the café origin.
+const { Box3, BoxGeometry, Mesh, Vector3 } = await import('../vendor/three.module.js');
+for (const [name, s] of Object.entries(SLOTS)) {
+  const inst = new Mesh(new BoxGeometry(1.1, 1.9, 0.7));
+  inst.position.set(s.position[0], s.position[1], s.position[2]);
+  inst.rotation.y = s.rotationY;
+  fitToSlot(inst, s.height);
+  const box = new Box3().setFromObject(inst);
+  const c = new Vector3(); box.getCenter(c);
+  const size = new Vector3(); box.getSize(size);
+  check(`${name} stays on its pavement slot`, Math.hypot(c.x - s.position[0], c.z - s.position[2]) < 0.05,
+    `center ${c.x.toFixed(2)},${c.z.toFixed(2)} wanted ${s.position[0]},${s.position[2]}`);
+  check(`${name} is grounded`, Math.abs(box.min.y) < 0.02, `min.y ${box.min.y.toFixed(3)}`);
+  check(`${name} matches target height`, Math.abs(size.y - s.height) < 0.02, `height ${size.y.toFixed(3)} wanted ${s.height}`);
+}
 
 // ============================================================
 // 6) regression: main.js actually threads classic through
