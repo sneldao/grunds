@@ -42,7 +42,7 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Economy baseline | 13-week revenue ≈ GBP 157k; attach rate 8.2% preserved from source data |
 | Deterministic gate | loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`, so rail-adjacent assertions don't flake; `intel.mjs` pins bias + pity-under-bias |
 | Linkup citation | `intelLine` prints `Off the wire — <headline> (<domain>)` when sources arrive; absent offline | headless gate |
-| Gate scope | Node behavioral and structural suites plus TypeScript; the gate ran before the dev-deployment push and does not exercise deployed behavior. | Per-suite exit status is the evidence; source-string checks are not layout or gameplay proof. |
+| Gate scope | Node behavioral and structural suites plus TypeScript; the gate ran before the dev-deployment push and does not exercise deployed behavior. **No suite runs in a browser** — every one stubs DOM/GL/audio, so rendering, real input, and visual quality are unmeasured here. | Per-suite exit status is the evidence; source-string checks are not layout or gameplay proof. Closing the browser gap is the V0–V5 plan in `ARCHITECTURE.md` ("Verification roadmap"). |
 
 ## Datasets
 
@@ -84,56 +84,64 @@ Diagnostic policy comparison (not a pass/fail balance target):
 node web/test/balance-policies.mjs
 ```
 
-`balance-policies.mjs` is a measurement harness, not a balance gate. The
-2026-09-22 tuning run played eight policies across ten seeds (7, 42, 101,
-202, 555, 13, 77, 150, 314, 431 — 80 campaigns); a fresh-process replay of
-seed 7 / passive matched exactly. Every run used a fixed frame clock, no
-identity perk, and resolved offers/incidents through the normal modal action
-handler (engaged accepts, the rest decline). Active policies batch and
-reprice by the documented queue rules and hire apprentice cover when
-eligible; a contract rejected by the supplier tab limit falls back to
-riding the spot.
+`balance-policies.mjs` is a measurement harness, not a balance gate. It
+played eight policies across ten seeds (7, 42, 101, 202, 555, 13, 77, 150,
+314, 431 — 80 campaigns); a fresh-process replay of seed 7 / passive matched
+exactly. Every run used a fixed frame clock, no identity perk, and resolved
+offers/incidents through the normal modal action handler (engaged accepts,
+the rest decline). Active policies batch and reprice by the documented queue
+rules and hire apprentice cover when eligible; a contract rejected by the
+supplier tab limit falls back to riding the spot.
 
-The same-day tuning changed the cost shape (committed staff roster and a
-binding pitch floor rather than mostly per-cup costs), priced hedges per
-covered cup, added the £1,500 supplier tab limit with 2.5%/day interest,
-made `rumour_frost` a real (×3 weight) next-day spike signal, steepened the
-reputation→footfall loop, lowered the zero-awareness spawn floor to 0.18×,
-repriced marketing, and recalibrated `campaignVerdict` to the measured
-economy (`lost` ≤ £0, `scarped` ≤ £4,500, `held` ≤ £5,500, `good` needs
-rep ≥ 60, `star` needs rep ≥ 70 and £8,000). Insolvency at any review now
-ends the campaign `lost` early.
+The 2026-09-28 tab conversion changed what a bean week costs: dawn sacks now
+ride the supplier tab (clamped to the £1,500 credit line — a capped tab buys
+nothing), a bone-dry cellar bills **every** cup from the till at 1.5× spot
+(previously the first emergency sack was free), and starter stock is prepaid
+(value 0 at reset, so opening pours never bill twice). The 2026-09-28 pilot
+below re-measured the same eight policies under that model. The earlier
+cost-shape tuning stands (committed staff roster, binding pitch floor, per-cup
+hedge fees £0.065/£0.09/£0.115, £1,500 tab with 2.5%/day interest,
+`rumour_frost` ×3 next-day signal, 0.18× zero-awareness spawn floor,
+`campaignVerdict` recalibrated: `lost` ≤ £0, `scarped` ≤ £4,500, `held`
+≤ £5,500, `good` needs rep ≥ 60, `star` needs rep ≥ 70 and £8,000).
+Insolvency at any review ends the campaign `lost` early.
 
 | Policy | Mean net worth | Min | Mean rep | Verdicts (10 seeds) | Hedge EV after fees | Mean worst day |
 |---|---:|---:|---:|---|---:|---:|
-| Reckless (heavy hedge, push Ruth, no queue work) | £4,007.72 | £2,799.38 | 43.1 | 7 scarped · 3 held | −£647.38 | −£273.78 |
-| Passive | £4,974.06 | £2,570.72 | 46.5 | 5 scarped · 5 held | — | −£248.26 |
-| Aggressive hedge | £4,740.97 | £3,143.23 | 63.0 | 6 scarped · 1 held · 3 good | −£695.12 | −£353.51 |
-| Growth-focused | £5,248.99 | £2,590.05 | 63.2 | 5 scarped · 2 held · 3 good | — | −£308.83 |
-| Conservative hedge | £5,261.23 | £3,539.55 | 63.0 | 5 scarped · 2 held · 3 good | −£174.86 | −£262.38 |
-| Queue-focused | £5,436.09 | £3,532.46 | 63.0 | 5 scarped · 2 held · 3 good | — | −£252.66 |
-| Forecaster (hedge on the rumour signal) | £5,616.94 | £3,951.38 | 63.0 | 2 scarped · 5 held · 3 good | +£180.85 | −£30.57 |
-| Engaged (levers + offers + forecast hedge + marketing) | £6,071.39 | £3,300.49 | 70.0 | 2 scarped · 2 held · 4 good · 2 star | +£188.75 | +£147.44 |
+| Reckless (heavy hedge, push Ruth, no queue work) | £384.69 | −£2,667.95 | 53.2 | 4 lost · 6 scarped | −£224.89 | −£2,224.19 |
+| Passive | £952.96 | −£2,605.03 | 51.2 | 4 lost · 6 scarped | — | −£2,320.65 |
+| Aggressive hedge | £947.49 | −£2,491.14 | 62.0 | 4 lost · 6 scarped | −£408.45 | −£2,263.04 |
+| Growth-focused | £834.55 | −£2,943.35 | 62.0 | 1 held · 3 lost · 6 scarped | — | −£2,472.06 |
+| Conservative hedge | £1,384.12 | −£2,183.06 | 62.0 | 2 held · 3 lost · 5 scarped | +£28.18 | −£2,305.48 |
+| Queue-focused | £1,355.94 | −£2,364.00 | 62.0 | 2 held · 3 lost · 5 scarped | — | −£2,359.98 |
+| Forecaster (hedge on the rumour signal) | £1,221.76 | −£2,172.92 | 62.0 | 1 held · 3 lost · 6 scarped | −£134.18 | −£2,487.70 |
+| Engaged (levers + offers + forecast hedge + marketing) | £1,694.98 | −£2,369.48 | 63.0 | 2 held · 2 lost · 6 scarped | −£123.44 | −£2,420.00 |
 
-Capture: `out/review-balance-2026-09-22.json`, source fingerprint
-`3e2a3765237f2576191ce7d549f8d1028ec310eeb7abc83b5f432e9ea4717f4f`.
-Daily P&Ls reconciled to campaign net worth in every run.
+Capture: `out/review-balance-2026-09-28.json`, source fingerprint
+`dadbeeb20604340eefa573fc9003b334464272685b611a734d461383b0564367`. Daily
+P&Ls reconciled to campaign net worth in every run. (The pre-conversion
+2026-09-22 tuning capture stays in `out/review-balance-2026-09-22.json` for
+comparison.)
 
-Reading: the earlier forgiving economy is gone — every policy posts negative
-days (4–8 per 50-day sample, mean worst day −£31 to −£354) and passive play
-now lands scarped/held rather than always finishing ahead. Policy quality
-orders correctly: reckless < passive < blind hedges < informed play, and
-engaged play is the only policy to reach `star`. Hedging now behaves like
-insurance — blind heavy cover loses ~£650–700 on average while the
-rumour-informed policy earns ~£180 and holds the best worst-day protection.
+Reading: the floor now has real teeth — 20 of 80 runs reach `lost`, and every
+policy posts catastrophic days when the tab caps (mean worst day −£2.2k to
+−£2.5k, versus −£31 to −£354 pre-conversion). Engaged remains the best
+policy (mean £1,695, the only 2-held performer) and reckless the worst; the
+ordering engaged > conservative ≈ queue > passive ≈ aggressive ≈ reckless is
+directionally intact, but the spread collapsed from ~£2k to ~£1.3k because
+bean costs are no longer free. Hedging is now a losing line in isolation
+(blind cover −£124 to −£408 after fees) — the tab's 2.5%/day interest eats
+fees the spot never did, and a spike-week save needs a settle-then-relock
+discipline the harness's single-lock policies don't play.
 
-Caveats: ten seeds is a diagnostic sample, not a difficulty guarantee. No
-policy reached `lost` — the scripted floor is `scarped` (worst mid-campaign
-net worth +£1,109), so `lost` requires play worse than the harness's
-reckless policy (e.g. compounding the tab into a spike week) and is enforced
-by the insolvency rule rather than observed in the sample. Human playtest of
-the difficulty curve remains unperformed; these are scripted-policy results
-under fixed conditions.
+Caveats: ten seeds is a diagnostic sample, not a difficulty guarantee. The
+harness never stages a cellar top-up, so every policy rides the starter stock
+into the per-cup emergency spiral — measured here as the worst case, not as
+policy skill. Competent play (restock + settle when in debt, as
+`campaign-tight.mjs` now pins) clears the bleed-out floor; the
+perfect-vs-delayed bookend in `ARCHITECTURE.md` V4 remains unperformed.
+Human playtest of the difficulty curve remains unperformed; these are
+scripted-policy results under fixed conditions.
 
 Tests use pure fixtures, mocked DOM/GL/audio, and mocked database/HTTP handlers
 as appropriate. Layout geometry and deployed Convex behavior are not verified.

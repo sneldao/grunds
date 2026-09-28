@@ -12,9 +12,17 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-28T13:00:00Z
+- **Last updated:** 2026-09-28T17:06:51Z
 
 ## Log
+
+### 2026-09-28 - working tree - bean economy tab conversion + teeth reconcile
+
+- **Model change** (`web/js/main.js`, `lots.js`, `exchange.js`): dawn sacks now ride the supplier tab (clamped to the £1,500 credit line — a capped tab buys nothing and the bar pours what's left); a bone-dry cellar bills **every** cup from the till at 1.5× spot (was: one free emergency sack/day); starter stock is prepaid before the week (`value: 0` at reset) so opening pours never bill twice; emergency pours carry `lotId` for the cascade report. New receipt counters: `sackSpend` (tab half) / `emergencySpend` (cash half) of the day's bean outlay — the Idris Gesha hold stays cash on `beanSpend` alone. `closeDay` nets matcha-only cogs; sacks ride `exchange.debt`, which the verdict nets once.
+- **Reconcile fix** (`web/test/balance-policies.mjs`, `lot-economy.mjs`): the harness was double-adding emergency + batch spend to a till that is already net of both; the day row is now `netToday − sackSpend` and the receipt mirror `till − cogs − ops − fee − interest` (settlement is balance-sheet-neutral). Deterministic `--single` replays verify the ledger to 1e-7.
+- **Teeth, measured**: full 80-run pilot under the new model — 20 of 80 runs reach `lost` (every passive-family policy loses 4 of 10 seeds); engaged still leads (£1,695 mean, 2 held), reckless worst. Pre-conversion the scripted floor never reached `lost`. Capture `out/review-balance-2026-09-28.json`, fingerprint `dadbeeb20604340eefa573fc9003b334464272685b611a734d461383b0564367`.
+- **Stale suites repaired** (test-only): `campaign.mjs` hedge assert rewritten to the locked-sack metric (`hedgeSavings − fee`: hold 0 vs contract +306); `campaign-tight.mjs` now plays the settle-when-in-debt competent line (net £3,199); `identity.mjs` pins the rebalanced `PERK_VALUES` table; `intel.mjs` pins the asymmetric 0.2×-floor bias clamp; `modals.mjs` + `decisions.mjs` stubs gained `addEventListener`; `decisions.mjs` resolves NodeNext `./foo.js → foo.ts` imports.
+- **Gate:** 62 suites + balance-policies green, `tsc` clean. `.gitignore` now excludes agent tool dirs (`.commandcode/`, `.claude/`, `.cursor/`, etc.); stray `_main-dbg.js` removed.
 
 ### 2026-09-28 - Phase 6 shipped: teeth calibration (autopsy + break-it pass)
 

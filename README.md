@@ -60,9 +60,10 @@ in the day and a different lever that works on them.
 **Inflation** enters as a *pressure clock*, not a stat screen: the district
 gentrifies — rents and bean costs creep, willingness-to-pay rises but expectations
 rise faster. Standing still loses. (Supplier credit is the Drug Wars debt clock,
-delivered by the Roaster's Letter — the tab caps at £1,500, compounds 2.5%/day,
-and a campaign that ends a review worth less than it owes is called: insolvency
-closes the stand early.)
+delivered by the Roaster's Letter — dawn bean sacks ride the tab, which caps at
+£1,500 and compounds 2.5%/day; a bone-dry cellar bills every cup from the till
+at 1.5× spot; and a campaign that ends a review worth less than it owes is
+called: insolvency closes the stand early.)
 
 ## Track alignment
 
@@ -576,6 +577,38 @@ named lots with freshness decay → drink menu, roast program, surfaced waste �
 Ruth/Idris/Sam story arcs → animation, particles and readable interiors →
 week autopsy + teeth calibration. Guiding rule: surface the simulation.
 The mobile shell runs in parallel with Phase 0.
+
+### Roadmap — verification (adopted Sept 28, next)
+
+The rebuild shipped and the verdict is still "liked, not loved", so the next
+bottleneck is evidence, not features: 63 headless suites gate every merge and
+**all of them stub DOM/GL/audio**, so nothing proves the game renders or plays.
+The V0–V5 plan lives in `ARCHITECTURE.md` ("Verification roadmap"), with
+discipline borrowed from [`majidmanzarpour/threejs-game-skills`](https://github.com/majidmanzarpour/threejs-game-skills)
+(MIT). Ordered by dependency, not desirability:
+
+- **V0 seed the cosmetic RNG** — a real bug: `patrons.js` wires a `random`
+  injection seam and bypasses it ~11 lines later with the global. `fx.js` has
+  39 bare `Math.random` calls in dust/coins/huffs, which fails every screenshot
+  diff on particle jitter alone. Prerequisite for V3.
+- **V1 bot playtest on real input** — `videos/grunds-demo/scripts/record{,2}.mjs`
+  already drive the live site through the whole week via Playwright, but make
+  zero assertions and catch no console errors. Redirect that at `__grunds.stats()`.
+- **V2 `renderer.info` budget gate** — the renderer's own counters are read
+  nowhere, so every perf claim is frame-time heuristics. Measure the mobile
+  budget *before* the Capacitor wrap.
+- **V3 screenshot baselines** — the four hero states, desktop + mobile.
+- **V4 teeth at both ends** — perfect-play upper bound beside a
+  reaction-delayed lower bound. The Sept 28 tab conversion fixed the floor
+  (20 of 80 pilot runs now reach `lost`); the unmeasured half is the upper
+  bound — no harness policy reaches `held`+ reliably.
+- **V5 score the scorecard** — turn `ART.md`'s "conform or be rejected" into a
+  number, and get recorded motion evidence for Phase 5's gait work.
+
+Also specified there: the three game-feel pieces actually missing (hitstop,
+object-level squash, FOV punch), and the parts of the borrowed pack we are
+deliberately *not* adopting — including its warning against cream panels,
+monospace labels, and pill buttons, all three of which are our locked idiom.
 
 ---
 

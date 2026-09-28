@@ -14,3 +14,17 @@ node_modules/
 dist/
 .out/*.csv
 !data/
+
+# Agent tool state (per-user, never part of the build)
+.commandcode/
+.claude/
+.cursor/
+.droid/
+.factory/
+.aider*
+.gemini/
+.codex/
+.cline/
+.windsurf/
+.copilot/
+.agents/

@@ -55,7 +55,7 @@ the payoff, at 17:30 and on the Z-read a Day-2 forecast earns the replay.
 
 `prepareDay(d)` (also exposed as `openDay`) enters planning at 06:00 without charging or rolling the market. The Brief shows known district pressure and rival posture, then staffing, five procurement choices, optional paid street work, and an itemized cost quote. Idris's prose, the 72px board sparkline, and research sources are secondary details. All variable content scrolls inside the shared modal body; a stable footer holds the summary and Open action. The Brief discloses progressively, driven by state rather than a flag store: a calm day 1 folds the three contract pills under one line (a warn/bad/cata board, an open position, or a live tab springs it open, and a staged contract keeps it open), the dead settle pill never renders, street work and the net-position figure appear from day 2 — street work with a "yesterday N walked" reason line — and Ruth's row appears only when `canChooseStaffing` says she's fading. Disclosure gates rendering only; `stageDayPlan` stays permissive so connected-mode plans aren't shadow-banned. `stageDayPlan` is reversible and atomic. `commitDayPlan` resolves the pure `resolveDecision(snapshot, plan)` against the previous closing board, applies the result once, rolls the new market, and enters trading. Headless tests explicitly stage and commit through the same APIs; only rendering is stubbed. Closing computes the ledger once and leaves the receipt open until `continueFromReview`; Idris's letter is optional review, not a second procurement gate. Day five completes only after its trading and review phases. If net worth is negative at any review — till minus costs minus the outstanding tab — the supplier calls it and the campaign ends `lost` on the spot.
 
-Contracts are price coverage, not stock: 1200/2400/4800 cups for per-cup fees of £0.065/£0.09/£0.115 (£78/£216/£552 at face), plus any announced surcharge, all riding on the supplier tab — which caps at £1,500 including the day's interest, so a deep enough tab forces a settle (or a hold) before the next hedge. Each prepared cup captures its price and bean cost before consuming coverage; exhausted contracts fall back to spot. The receipt distinguishes operating profit, contract fees, interest, settlement, and realized hedge benefit. Unused cover does not spoil and uncovered cups do not starve. The retail price curve is charged, not just displayed.
+Contracts are price coverage, not stock: 1200/2400/4800 cups for per-cup fees of £0.065/£0.09/£0.115 (£78/£216/£552 at face), plus any announced surcharge, all riding on the supplier tab — which caps at £1,500 including the day's interest, so a deep enough tab forces a settle (or a hold) before the next hedge. Each prepared cup captures its price and bean cost before consuming coverage; exhausted contracts fall back to spot. The receipt distinguishes operating profit, contract fees, interest, settlement, and realized hedge benefit. Unused cover does not spoil and uncovered cups do not starve — but since the Sept 28 tab conversion, uncovered cups *cost*: dawn sacks ride the same supplier tab (clamped to the £1,500 line — a capped tab buys nothing and the bar pours what's left), and a bone-dry cellar bills **every** cup from the till at 1.5× spot (previously one free emergency sack per day). Starter stock is prepaid before the week (value 0 at reset) so opening pours never bill twice; the receipt splits the day's bean outlay into its tab half (`sackSpend`) and its cash half (`emergencySpend`). The retail price curve is charged, not just displayed.
 
 Baseline bean drift is an increasing daily increment: 0.025 + 0.008 × (day − 1), capped before the market event. Day-two transit shifts morning commuter waves 30 minutes and increases dwell by 30%; quantities are preserved and the source schedule is never mutated. Pitch revaluation adds £150 to the rent floor and 3 percentage points to turnover rent from day three. The £0.18-per-cup supplies surcharge persists from day four. GLASSHOUSE's announced strategy uses the previous day's event tier; its price/cohort pull affects initial customer choice and its speed multiplier affects actual service. Initial rival choices and post-queue defections are counted separately. `OFFERS` (5) + `INCIDENTS` (6, red-tinted) reuse the same modal pause path mid-day so turns compose.
 
@@ -167,7 +167,7 @@ The route is wired but the secret isn't configured — until a real
 `REVENUECAT_WEBHOOK_SECRET` lands, the webhook returns 503 by design and
 the manual upsert path stays usable for the Web Test Store demo.
 
-**The pitch licence.** Before the tutorial, `#licence` (z-33 paper card over the diorama) signs the player in: name + stand name (pen-line inputs, activate the Sign button; Escape never signs or advances — Sam, THE CORNER CUP), a cosmetic role, and one of four backgrounds carrying a single small perk — `ex-barista` (`perkStaffMul 1.08`), `ex-accountant` (`perkCostMul 0.85` on card fees + every incident payout), `new to the trade` (regulars open at op 0.25), `a market regular` (the Brief whispers the wire's *direction* — the × stays insider). Identity threads `composeLetter` (`Dear Ada,` / `…do, Ada?`), nightly + finale receipts, the tutorial's first title, and the Convex owner — `convexSync` reads `ownerName()` live so the district board lists the stand name at the next dawn. Persists via `localStorage` `grunds.identity`; `?skipLicence`/`?skipTutorial`/headless bypass.
+**The pitch licence.** Before the tutorial, `#licence` (z-33 paper card over the diorama) signs the player in: name + stand name (pen-line inputs, activate the Sign button; Escape never signs or advances — Sam, THE CORNER CUP), a cosmetic role, and one of four backgrounds carrying a single small perk — `ex-barista` (`perkStaffMul 1.08`), `ex-accountant` (`perkCostMul 0.90` on card fees + every incident payout), `new to the trade` (regulars open at op 0.18), `a market regular` (the Brief whispers the wire's *direction* — the × stays insider). Identity threads `composeLetter` (`Dear Ada,` / `…do, Ada?`), nightly + finale receipts, the tutorial's first title, and the Convex owner — `convexSync` reads `ownerName()` live so the district board lists the stand name at the next dawn. Persists via `localStorage` `grunds.identity`; `?skipLicence`/`?skipTutorial`/headless bypass.
 
 **Ruth — the staff layer.** Ruth loses 0.14 condition per worked shift, plus 0.08 for peak queues above 50 and 0.06 for more than 60 balks. Below 0.55 on day two onward, the Brief offers work, home, or apprentice cover. Home saves the wage, runs the solo bar at 0.7x, and restores 0.45 condition; apprentice cover costs a £2,040 temp day rate plus £12 training and £0.04 extra supplies per served cup, runs at 1.05x before the identity perk, and restores 0.25. Home and apprentice modes prevent Ruth's exhaustion crisis and incompatible sick call. Working below 0.35 slows dawn pace; working below 0.2 risks an afternoon crisis — asleep at the counter (`staffMul 0.5`) or snapping at a regular (`adjustOpinions −0.2`). No roster, no morale meter — the fiction carries the state; `staff_sent_home`/`staff_pushed`/`staff_crisis` land in analytics.
 
@@ -495,3 +495,179 @@ Needs Phases 1–3 (arcs bite into systems, not air).
   reshaping the Brief → rush → verdict loop.
 - Cut rule: if a feature doesn't make you know someone, taste something,
   or fear something, it doesn't ship.
+
+## Verification roadmap (adopted Sept 28, post-depth-rebuild)
+
+The depth rebuild shipped all six phases, and the playtest verdict is still
+"liked, not loved". The next bottleneck is not features — it is that we cannot
+*prove* the game renders, plays, or looks right. 63 headless suites gate every
+merge, and every one of them stubs DOM, GL, and audio.
+
+| Claim | Proof it needs | Have it? |
+|---|---|---|
+| It renders | canvas pixel metrics + viewport screenshots | **no** |
+| It plays | a bot driving real input, measuring progression | **no** (headless only) |
+| It's good | scorecard + measured metrics | **no** (numeric asserts only) |
+
+`EVAL.md` already concedes the gap honestly: *"Layout geometry and deployed
+Convex behavior are not verified"* and *"source-string checks are not layout or
+gameplay proof."* This roadmap closes it. Borrowed discipline from
+[`majidmanzarpour/threejs-game-skills`](https://github.com/majidmanzarpour/threejs-game-skills)
+(MIT); its Three.js advice mostly restates what we already do, sometimes less
+well. The value is the verification model, not the rendering tips.
+
+### V0 — Seed the cosmetic RNG (prerequisite, ~½ day)
+
+**This is a real bug, not a nicety.** `web/js/patrons.js` wires an injectable
+RNG seam and then bypasses it two lines later:
+
+```js
+constructor(..., { random = Math.random, walkins = null } = {}) {
+  this.random = random;                          // seam wired up
+  const fromLeft = Math.random() < 0.5;          // ← bare global, line 113
+  pos: V3(s.x, 0, s.z + (Math.random()-0.5)*1.4), // ← ~10 more in spawn
+  speed: ritualSpeed + (Math.random()-0.5)*0.3,
+  skin: new THREE.Color(SKIN[(Math.random()*SKIN.length)|0]),
+  ...
+  if (this.random() < pr) toRival = true;        // ← correct usage, line 163
+}
+```
+
+Real decisions use `this.random()`; cosmetic state beside them uses the global.
+Suites pass only because `campaign.mjs` / `campaign-tight.mjs` /
+`balance-policies.mjs` monkeypatch global `Math.random`. Only
+`lifecycle-accounting.mjs` exercises the seam itself (`{ random: () => 0.99 }`).
+
+Bare `Math.random` counts: `fx.js` 39, `patrons.js` 25, `textures.js` 16,
+`audio.js` 16, `main.js` 8, `world.js` 8. Most are legitimately cosmetic, but
+`fx.js` (dust, coins, huffs) **will fail every screenshot diff on particle
+jitter alone**. Fix: one shared seeded RNG for cosmetic jitter, seeded from the
+campaign seed, masking the cases where jitter is the thing under test.
+`textures.js` may stay unseeded if procedural texture noise is generated once
+per load rather than per frame — verify before converting it.
+
+### V1 — Bot playtest on real input (~1 day)
+
+We are closer than the borrowed pack's scaffold: `?demo=1` already resolves
+brief/offer/evening/letter/paywall modals exactly as a player would,
+`__grunds.stats()` publishes ~40 metrics, and `?seed=N` replayable links exist.
+
+Note that Playwright is **already in the project**, just not where the gate
+looks: `videos/grunds-demo/scripts/record{,2}.mjs` drive the live site through
+licence → Brief → hedge → floor → letter → webhook reply. **Those scripts make
+zero assertions and install no `pageerror`/`console` listeners** — they are a
+capture pipeline, not a test pipeline, and `playwright` is not a `package.json`
+dependency. V1 is mostly redirecting existing machinery at proving things:
+
+- Promote Playwright to a devDependency; add `npm run test:browser`.
+- Assert on `__grunds.stats()` progression: frames advance, `served` climbs,
+  `phase` walks `planning → trading → review`, day 5 closes, no softlock window
+  where frames advance without progress.
+- Add `pageerror` + `console` error capture — must be empty for the run.
+- Drive real keyboard (`1`/`2`/`space`/`1`–`5`+`Enter`) separately from
+  autoplay, so hooks cannot mask broken input.
+
+Two caveats from the pack that cost it failed runs: headless default Chromium
+renders on SwiftShader (~4× slower) so its FPS is meaningless — install
+`--no-shell chromium` and launch `channel: 'chromium'`; run WebGL at
+`workers: 1` or timed phases flake. Headless FPS is a desktop signal only.
+
+### V2 — `renderer.info` budget gate (~½ day)
+
+`renderer.info` is read **nowhere** in `web/` (only inside vendored Three.js).
+So the whole performance story — auto-`lite`, dynamic `lite` after 3×>32ms,
+shadow budget at `queue>40` — is heuristic on frame time, never on draw calls
+or texture memory. Snapshot calls / triangles / geometries / textures /
+materials / post passes / DPR at `?lite` and at full quality, worst active-play
+view, and fail the gate on regression.
+
+Why now: `textures.js` is 28k of procedural 1024px canvases, and the Ship-a-ton
+mobile shell is the stated submission blocker. The mobile contract (≤150 draw
+calls, 1 shadow caster, 1024 shadow map, 0–1 post passes) wants measuring
+**before** the Capacitor wrap, not after.
+
+### V3 — Named-state screenshot baselines (~1 day)
+
+Small delta from our current hooks (`reset`, `openDay`, `skipToRush`,
+`togglePause`, `phase`, `paused`): add `setState(name)` returning an
+acknowledged `{ state: name }`, plus an explicit freeze-rendering-continues
+hook. Baseline the four hero states — 06:00 Morning Brief, 14:00 rush, 20:40
+CLOSING TIME, SOLD finale — desktop and ≤640px mobile. Freeze immediately after
+state setup; disable shake and time-dependent post; mask only where the masked
+area isn't the assertion. Needs V0 first.
+
+Skip baselining anything particle-dominated where masking would hide the actual
+assertion — say which way you went and why.
+
+### V4 — Teeth, measured at both ends (~1 day)
+
+Half of this bookend landed with the Sept 28 tab conversion (see `EVAL.md`):
+the scripted floor is no longer "scarped, never dead" — the 2026-09-28 pilot
+shows 20 of 80 runs reaching `lost` (every passive-family policy loses 4 of
+10 seeds), driven by the per-cup emergency sack and the capped supplier tab.
+What is still unmeasured is the **upper bound**: no harness policy ever reaches
+`held`+ reliably (engaged lands 2 held of 10).
+
+Add the missing bookend to `balance-policies.mjs`: a **perfect-play optimiser**
+upper bound beside a **reaction-delayed** lower bound (~300ms between scripted
+steps). If the delayed policy survives as long as the fast one, pressure is
+decorative; if perfect play and passive play land within noise, that is the
+teeth measurement — and the honest answer to "liked, not loved".
+
+Also worth running on the opening specifically: *"the first 30 seconds contain
+no real decision."* We deliberately open with a licence modal, a 3-step
+tutorial, half-demand mornings, and a 3.4s crane settle. `first_lever_at_min`
+(target <90s) already measures this. Check it rather than assume — calm-open and
+decision-density pull opposite ways.
+
+### V5 — Score the scorecard (~1 day)
+
+`ART.md` is stronger art-direction writing than anything in the borrowed pack,
+but "conform or be rejected" has no measurement. Score active-play screenshots
+on 10 categories against calibration anchors, with `colorEntropyBits` /
+`edgeDensity` / `luminance.contrast` as advisory signals needing explanation,
+not a higher score. Two of its automatic failures aim straight at "liked, not
+loved": bloom or particles standing in for missing authored geometry, and
+gameplay roles indistinguishable without a design reason.
+
+Low luminance contrast is expected here and is *legitimate*: `ART.md` holds the
+night at `#171310` so brass can glow. Document that as an explained reading.
+
+Phase 5 shipped a pose/gait system gated by numeric assertions. Per-cohort gait
+is exactly what needs recorded motion evidence — a still cannot establish
+animation quality, and an `assert()` cannot see foot slide.
+
+### Game feel: aligned, missing, and one correction
+
+`camera.js` already implements `shakeMag * shakeT * shakeT` with linear decay
+and a cap — that *is* the trauma-squared model, arrived at independently. Audio
+pitch variance exists (`playbackRate = 0.7 + Math.random()*0.6`), though via the
+unseeded global. Squash exists in `poses.js` for patron poses. What's genuinely
+absent, in payoff order:
+
+- **Hitstop** — scale the gameplay delta, keep render/camera/HUD on real delta.
+  The "real save" beat already earns fanfare + coin rain + a 3.5s crane; a ~70ms
+  freeze as the debrief lands would sell it far harder.
+- **Volume-preserving impact squash** on objects (`1/sqrt(s)` counter-scale) —
+  `ART.md` locks "squash over snap" but the floor has no object-level squash.
+- **FOV punch** on the crane/fanfare beat, and **audio ducking** while hitstop
+  holds (the bus compressor already exists).
+
+Governing rule, which our own pillars already agree with: *if feedback hides the
+thing the player must react to next, it's a bug, not polish.*
+
+### Explicitly not doing
+
+Physics engine selection, Tripo 3D generation, and action-genre level patterns
+don't apply — no physics, procedural + Kenney CC0 by choice, and `ARCHITECTURE.md`
+forbids photorealism and any reshape of the Brief → rush → verdict loop. That
+pack's pressure toward generated assets contradicts the cut rule above.
+
+Its UI section warns against cream panels, monospace labels, and pill buttons as
+generic web defaults. **All three are our locked idiom** (`ART.md`: paper, brass,
+stamp; money speaks in mono). The rule defers to art direction on purpose —
+noted here so nobody "fixes" the paper-and-brass look.
+
+One fair audit item from it: *never stack multiple large banners over the play
+path*, weighed against the growing modal set (brief, offer, incident, letter,
+debrief, forecast, receipt, desk, customer center, paywall).
