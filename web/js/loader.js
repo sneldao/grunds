@@ -18,8 +18,21 @@
 // MIT). The food-kit GLBs reference Textures/colormap.png via a relative
 // path; we register the asset root with `setPath('assets/')` so the loader
 // resolves `Textures/colormap.png` to `assets/Textures/colormap.png`.
+//
+// FileLoader prepends that path unconditionally. A district kit URL such as
+// https://cdn.mint.gg/glb/….glb would become assets/https://cdn.mint.gg/…
+// and 404 on our own origin. Absolute (and blob/data) URLs skip the prefix
+// and load on a second loader whose path stays empty, so Kenney files keep
+// the asset root and remote GLBs keep their own directory for sidecar files.
 import * as THREE from '../vendor/three.module.js';
 import { GLTFLoader } from '../vendor/loaders/GLTFLoader.js';
+
+const ABSOLUTE_URL = /^(?:https?:)?\/\//i;
+
+export function glbLoadTarget(url, assetRoot = 'assets/') {
+  const remote = typeof url === 'string' && (ABSOLUTE_URL.test(url) || url.startsWith('blob:') || url.startsWith('data:'));
+  return remote ? { url, path: '' } : { url, path: assetRoot || '' };
+}
 
 const PLACEHOLDER = () => {
   const g = new THREE.BoxGeometry(0.1, 0.1, 0.1);
@@ -37,6 +50,7 @@ export function GLBLoader(opts = {}) {
   const cache = new Map();
   const threeLoader = new GLTFLoader();
   threeLoader.setPath(path);
+  const remoteLoader = new GLTFLoader();
 
   // Cloning a parsed GLB group is cheap; we deep-clone the subtree so per-
   // instance position/scale/rotation don't bleed between uses. Materials and
@@ -57,8 +71,10 @@ export function GLBLoader(opts = {}) {
 
   async function loadOne(url) {
     if (globalThis.__noGLB) return placeholder(url, 'noGLB');
+    const target = glbLoadTarget(url, path);
+    const active = target.path ? threeLoader : remoteLoader;
     try {
-      const gltf = await threeLoader.loadAsync(url);
+      const gltf = await active.loadAsync(target.url);
       const root = gltf.scene || gltf.scenes?.[0];
       if (!root) return placeholder(url, 'no-scene');
       root.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });

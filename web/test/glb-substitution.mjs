@@ -57,7 +57,30 @@ function check(name, cond, detail) { if (!cond) fails.push(`${name}: ${detail ||
 // ============================================================
 // 1) loader module imports + loadGLB returns a Group
 // ============================================================
-const { GLBLoader } = await import('../js/loader.js');
+const { GLBLoader, glbLoadTarget } = await import('../js/loader.js');
+check('local GLB keeps the asset root', glbLoadTarget('kitchenBar.glb').path === 'assets/' && glbLoadTarget('kitchenBar.glb').url === 'kitchenBar.glb', JSON.stringify(glbLoadTarget('kitchenBar.glb')));
+check('https GLB skips the asset root', glbLoadTarget('https://cdn.mint.gg/glb/x.glb').path === '' && glbLoadTarget('https://cdn.mint.gg/glb/x.glb').url.startsWith('https://'), JSON.stringify(glbLoadTarget('https://cdn.mint.gg/glb/x.glb')));
+check('protocol-relative GLB skips the asset root', glbLoadTarget('//cdn.mint.gg/glb/x.glb').path === '', JSON.stringify(glbLoadTarget('//cdn.mint.gg/glb/x.glb')));
+
+// FileLoader joins setPath onto every URL. Prove an https kit URL is fetched
+// as itself, not as assets/https://… (the 404 that blanks the opening street).
+{
+  const seen = [];
+  const prevFetch = globalThis.fetch;
+  globalThis.__noGLB = false;
+  globalThis.fetch = (input) => {
+    seen.push(typeof input === 'string' ? input : input?.url);
+    return Promise.resolve(new Response(new Uint8Array([0]), { status: 404, statusText: 'missing' }));
+  };
+  const { loadGLB: loadRemote } = GLBLoader();
+  const remote = await loadRemote('https://cdn.mint.gg/glb/honey-oak-bun-cart.glb');
+  check('https GLB is requested at the CDN url', seen.some((u) => u === 'https://cdn.mint.gg/glb/honey-oak-bun-cart.glb'), seen.join(' | ') || 'no fetch');
+  check('https GLB is not prefixed with assets/', seen.every((u) => !String(u).includes('assets/https')), seen.join(' | ') || 'no fetch');
+  check('CDN miss still returns a placeholder', !!remote?.userData?.error, remote?.userData?.error || 'no error');
+  globalThis.fetch = prevFetch;
+  globalThis.__noGLB = true;
+}
+
 const { loadGLB } = GLBLoader();
 const bar = await loadGLB('kitchenBar.glb');
 check('loadGLB returns THREE.Group', bar && bar.isGroup === true, JSON.stringify(bar?.type || null));
