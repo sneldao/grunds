@@ -33,6 +33,46 @@ export const EXPECTATION: Record<string, number> = {
   tourists: 0.01,
 };
 
+// Phase 1 — life-stage machine, mirrored from web/js/identity.js STAGE_RULES.
+// Keep the numbers identical: the server resolveDay and the client floor must
+// promote/demote the same regular on the same day.
+export const STAGE_RULES = {
+  firstTimer: { visits: 1 },
+  regular: { visits: 3, op: 0.1 },
+  friend: { visits: 5, op: 0.4 },
+  evangelist: { visits: 7, op: 0.6 },
+} as const;
+export const STAGE_ORDER = ['visitor', 'first-timer', 'regular', 'friend', 'evangelist'] as const;
+export const DEMOTE_OP = -0.2;
+export const DEMOTE_FLOOR = 'first-timer';
+
+export function stageFor(visits: number, op: number): string {
+  // Earned (visits-only) stage first: a sour veteran demotes exactly one
+  // stage instead of collapsing — history survives one bad day.
+  let earned = 'visitor';
+  if (visits >= STAGE_RULES.firstTimer.visits) earned = 'first-timer';
+  if (visits >= STAGE_RULES.regular.visits) earned = 'regular';
+  if (visits >= STAGE_RULES.friend.visits) earned = 'friend';
+  if (visits >= STAGE_RULES.evangelist.visits) earned = 'evangelist';
+  if (op < DEMOTE_OP && earned !== 'visitor') {
+    const i = Math.max(STAGE_ORDER.indexOf(DEMOTE_FLOOR), STAGE_ORDER.indexOf(earned as typeof STAGE_ORDER[number]) - 1);
+    return STAGE_ORDER[i];
+  }
+  let stage = 'visitor';
+  if (visits >= STAGE_RULES.firstTimer.visits) stage = 'first-timer';
+  if (visits >= STAGE_RULES.regular.visits && op > STAGE_RULES.regular.op) stage = 'regular';
+  if (visits >= STAGE_RULES.friend.visits && op > STAGE_RULES.friend.op) stage = 'friend';
+  if (visits >= STAGE_RULES.evangelist.visits && op > STAGE_RULES.evangelist.op) stage = 'evangelist';
+  return stage;
+}
+
+// Phase 1 — canon drinks, quirk-derived (mirrors web/js/identity.js
+// CANON_DRINKS). The backfill pours these into pre-Phase-1 regular rows.
+export const CANON_DRINKS: Record<string, string> = {
+  Mara: 'flat white', Tomas: 'pour-over', Pip: 'matcha', Olu: 'filter',
+  Gwen: 'latte', Yuki: 'single-origin', Dev: 'espresso', Esther: 'tea',
+};
+
 export type EventTier = "cata" | "bad" | "good" | "calm" | "warn";
 
 export interface EventDef {

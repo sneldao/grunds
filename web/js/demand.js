@@ -51,13 +51,15 @@ export class Demand {
   }
   // Close-of-day: decay awareness (catastrophes scare extra), land the
   // staged dawn actions on *tomorrow's* awareness, and count returnees from
-  // today's served × loyalty. Returns the trace for the receipt/analytics.
-  resolveDay({ served, reputation, eventTier }) {
+  // today's served × loyalty. Phase 1: extraReturnees adds evangelist
+  // word-of-mouth (each evangelist serve brings +2 back). Returns the trace
+  // for the receipt/analytics.
+  resolveDay({ served, reputation, eventTier, extraReturnees = 0 }) {
     const d = CAMPAIGN.demand;
     const before = this.awareness;
     const rate = Demand.returnRateFor(reputation);
     this.lastReturnRate = rate;
-    this.todayReturnees = Math.max(0, Math.round(served * rate));
+    this.todayReturnees = Math.max(0, Math.round(served * rate)) + Math.max(0, Math.floor(extraReturnees));
     let decay = d.decay;
     if (eventTier === 'cata') decay += d.cataExtra;
     let gain = d.chalkGain;

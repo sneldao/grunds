@@ -20,6 +20,8 @@ import { AudioEngine } from './audio.js';
 import { Exchange, seeded } from './exchange.js';
 import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } from './economy.js';
 import { Regulars } from './regulars.js';
+import { WalkinPool, womReturnees, dossierLines } from './identity.js';
+import { portraitCanvas } from './portrait.js';
 import { Demand, DEMAND_ACTIONS } from './demand.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay, modifiersForDay, wavesForDay, getMacroShockForDay, calculateNonLinearDrift, MACRO_SHOCKS } from './gentrification.js';
@@ -62,8 +64,10 @@ const rig = new CameraRig(camera, renderer.domElement);
 const audio = new AudioEngine();
 
 // ---- the connected campaign: the Gamble + the Regulars -----------------------
-const exchange = new Exchange(urlParams.get('seed') ? +urlParams.get('seed') : 7);
+const campaignSeed = urlParams.get('seed') ? +urlParams.get('seed') : 7;
+const exchange = new Exchange(campaignSeed);
 const regulars = new Regulars();
+const walkins = new WalkinPool(campaignSeed);  // Phase 1 — the day's strangers; dawn ensures the day
 const demand = new Demand();   // awareness brings them, loyalty brings them back
 let marketingSpend = 0;        // dawn-staged sponsor cost, folded into the closeDay ops sheet
 // ---- vitality + director -----------------------------------------------------------
@@ -172,6 +176,7 @@ function currentAction() {
   return computeNextAction({ dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending, offerShown, eveningFast, rushFast });
 }
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
+patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
 fx.patrons = patrons;
 const analytics = createAnalytics();
 // expose playtest script on boot — QA can copy/paste from console
@@ -295,6 +300,7 @@ window.addEventListener('keydown', (e) => {
   try { fx.toast('demo off — keys are yours', ''); } catch {}
 }, true);
 let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0, rivalServed = 0;
+let evangelistServes = 0;   // Phase 1 — evangelist serves become tomorrow's crowd via womReturnees
 // first-timers = walk-ins the Regulars graph doesn't know (regularIdx < 0).
 // The new-shop arc lives on these numbers: tried, walked, told a friend.
 let firstServed = 0, firstWalked = 0, firstServedToast = 0, firstWalkedToast = 0;
@@ -584,6 +590,19 @@ function tick() {
       till += e.price; cogs += e.beanCost ?? 0; sales++;
       if (e.hedged) { hedgedCups++; realizedHedgeSavings += e.spotCost - e.beanCost; }
       if (e.viaRegister) servedRetail++; else served++;
+      // Phase 1 — a serve is a visit. Canon regulars append session history
+      // (visits count days-seen in resolveDay, both sides); walk-ins
+      // accumulate in the day pool; evangelist serves seed tomorrow's crowd.
+      if (e.p) {
+        if (e.p.regularIdx >= 0) {
+          const stage = regulars.noteVisit(e.p.regularIdx, { day, drink: e.p.drink });
+          if (stage) e.p.stage = stage;
+          if (e.p.stage === 'evangelist') evangelistServes++;
+        } else if (e.p.pid) {
+          const head = walkins.recordVisit(e.p.pid, { day, drink: e.p.drink, outcome: 'served' });
+          if (head) { e.p.stage = head.stage; e.p.visits = head.visits; if (head.stage === 'evangelist') evangelistServes++; }
+        }
+      }
       if (e.p && e.p.regularIdx < 0) {
         firstServed++;
         if (firstServedToast < 2) { firstServedToast++; fx.toast('a first-timer — the street’s trying you', 'good'); }
@@ -593,6 +612,9 @@ function tick() {
       audio.clink();
     } else if (e.type === 'balked') {
       balked++; balks++;
+      // Phase 1 — a walk-out sours a walk-in (roster balks already flow
+      // through resolveDay's served/balked counters).
+      if (e.p && e.p.pid && e.p.regularIdx < 0) walkins.recordVisit(e.p.pid, { day, outcome: 'balked' });
       if (e.p && e.p.regularIdx < 0) {
         firstWalked++;
         if (firstWalkedToast < 2) { firstWalkedToast++; fx.toast('a first-timer walked — first impressions travel', 'warn'); }
@@ -619,6 +641,9 @@ function tick() {
       }
     } else if (e.type === 'defect') {
       defections++;
+      // Phase 1 — crossing to Glasshouse burns a walk-in (roster defectors
+      // are unsee'd in patrons.js and never earned the day).
+      if (e.p && e.p.pid && e.p.regularIdx < 0) walkins.recordVisit(e.p.pid, { day, outcome: 'defected' });
       if (defections === 1) fx.toast('they’re crossing the road to ' + COPY.rivalName + '…', 'bad');
       if (defections === 1 && speed <= 300) rig.queueFocus(world.focus.rival, 13, 4, 12, Math.PI);
       if (defections === 5) {
@@ -901,8 +926,9 @@ function closeDay() {
   const servedN = served + servedRetail;
   // demand resolves at close: the street forgets a little every day
   // (catastrophes scare extra), dawn-staged street work lands tomorrow's
-  // awareness, and today's served × loyalty become tomorrow's returnees
-  const dtrace = demand.resolveDay({ served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier });
+  // awareness, and today's served × loyalty become tomorrow's returnees.
+  // Phase 1: evangelist serves preach — each brings +2 back (womReturnees).
+  const dtrace = demand.resolveDay({ served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier, extraReturnees: womReturnees(evangelistServes) });
   vitality.recompute();   // the evening settles on the block's true mood
   try { analytics.track('demand_resolved', { day, ...dtrace }); } catch {}
   // gentrification pressure first: cohort expectations drift by `day * delta`.
@@ -1874,6 +1900,7 @@ function prepareDay(d) {
   if (d === 1) kitPendingAtOpen = !district.grown;   // the kit is an event only if it grows during play
   coached = d !== 1;   // the lever hint only coaches day 1, once per campaign
   patrons.reset(); fx.reset();
+  walkins.ensureDay(d); evangelistServes = 0;   // Phase 1 — fresh strangers (yesterday's known faces carry), WOM counter reset
   waveIdx = 0; chapterIdx = 0; dayMin = DAY_START; acc = 0;
   till = 0; cogs = 0; balked = 0; served = 0; servedRetail = 0; defections = 0; rivalServed = 0;
   realizedHedgeSavings = 0; hedgedCups = 0; preparedCups = 0;
@@ -2558,11 +2585,21 @@ function nearestPatronAt(clientX, clientY) {
 }
 function showHover(p, x, y) {
   const el = $('hovercard'); if (!el || !p) return;
-  const name = p.regularName || p.cohort;
+  const name = p.regularName || p.pname || p.cohort;
   const quirk = p.regularName ? (regulars.regulars[p.regularIdx]?.quirk || '') : '';
-  const op = p.regularIdx >= 0 ? regulars.regulars[p.regularIdx]?.op : null;
+  const op = p.regularIdx >= 0 ? regulars.regulars[p.regularIdx]?.op : (p.pid ? walkins.get(p.pid)?._op : null);
+  // Phase 1 — the hover names the relationship: stage + visits, not just op.
+  let rel = '';
+  if (p.regularIdx >= 0) {
+    const r = regulars.regulars[p.regularIdx];
+    if (r) rel = ` · ${r.stage} · ${r.visits} visits`;
+  } else if (p.pid) {
+    const h = walkins.get(p.pid);
+    if (h && h.visits > 0) rel = ` · ${h.stage} · ${h.visits} visits`;
+  }
   const friends = p.regularFriends ? [...p.regularFriends].slice(0, 3).join(', ') : '';
-  el.innerHTML = `<b>${name}</b>${quirk ? ` — ${quirk}` : ''}${op != null ? `<br>op ${op > 0.2 ? '♥' : op < -0.2 ? '☹' : '—'} ${op.toFixed(2)}` : ''}${friends ? `<br><span style="opacity:.7">friends: ${friends}</span>` : ''}<br><span style="opacity:.6">click to wave</span>`;
+  const hint = p.state === 'sit' ? 'click for their story' : 'click to wave';
+  el.innerHTML = `<b>${name}</b>${rel}${quirk ? ` — ${quirk}` : ''}${op != null ? `<br>op ${op > 0.2 ? '♥' : op < -0.2 ? '☹' : '—'} ${op.toFixed(2)}` : ''}${friends ? `<br><span style="opacity:.7">friends: ${friends}</span>` : ''}<br><span style="opacity:.6">${hint}</span>`;
   el.style.left = Math.min(innerWidth - 230, x + 14) + 'px';
   el.style.top = Math.min(innerHeight - 80, y + 14) + 'px';
   el.classList.add('show');
@@ -2580,11 +2617,78 @@ renderer.domElement.addEventListener('pointerleave', hideHover);
 renderer.domElement.addEventListener('click', e => {
   const p = nearestPatronAt(e.clientX, e.clientY);
   if (!p) return;
+  // Phase 1 — sitters have time to talk: click opens their dossier. The
+  // queue keeps the wave (existing behavior below).
+  if (p.state === 'sit' && (p.regularName || p.pid)) { openDossier(p); return; }
   // wave: bubble + tiny heal
   fx.bubble(p, p.regularName ? `hey ${p.regularName} — welcome back` : 'hey — welcome', 'good');
   if (p.regularIdx >= 0) regulars.regulars[p.regularIdx].op = Math.min(1, regulars.regulars[p.regularIdx].op + 0.06);
   try { if (navigator.vibrate) navigator.vibrate(20); } catch {}
 });
+
+// Phase 1 — dossier: click a sitter, meet them. Portrait + stage + history,
+// assembled from the roster entry (canon) or the day-pool head (walk-ins).
+function openDossier(p) {
+  let ident = null, op = null, friends = [], faceSeed = 'stranger', cohort = 'commuters';
+  if (p.regularIdx >= 0) {
+    const r = regulars.regulars[p.regularIdx];
+    if (!r) return;
+    ident = { name: r.name, visits: r.visits, drink: r.drink, events: r.events, stage: r.stage };
+    op = r.op; friends = r.friends || []; faceSeed = r.name; cohort = r.coh;
+  } else if (p.pid) {
+    const head = walkins.get(p.pid);
+    if (!head) return;
+    ident = head; op = head._op; faceSeed = head.faceSeed; cohort = head.cohort;
+  } else return;
+  const box = $('dossier-portrait'); if (box) {
+    box.textContent = '';
+    try {
+      const mood = op > 0.2 ? 'warm' : op < -0.2 ? 'sour' : 'flat';
+      box.appendChild(portraitCanvas(faceSeed, cohort, 96, mood));
+    } catch {}
+  }
+  const head = $('dossier-heading');
+  if (head) head.textContent = (ident.stage === 'regular' || ident.stage === 'friend' || ident.stage === 'evangelist') ? 'REGULAR' : 'A QUIET TABLE';
+  const nm = $('dossier-name');
+  if (nm) nm.textContent = `${ident.name} — ${ident.stage}`;
+  const lines = $('dossier-lines');
+  if (lines) lines.innerHTML = dossierLines(ident, { op, friends }).map(l => `<div>${l}</div>`).join('');
+  modals.open('dossier');
+}
+
+// Phase 1 — the regulars board: the cast (canon roster) plus graduated
+// walk-ins ("new faces"). Rendered fresh on every open.
+function boardRow({ name, stage, visits, drink, op, friends, faceSeed, cohort }) {
+  const row = document.createElement('div');
+  row.className = 'b-row';
+  const mood = op > 0.2 ? 'warm' : op < -0.2 ? 'sour' : 'flat';
+  try { const c = portraitCanvas(faceSeed, cohort, 40, mood); c.className = 'b-face'; row.appendChild(c); } catch {}
+  const t = document.createElement('div');
+  const pip = op > 0.2 ? '♥' : op < -0.2 ? '☹' : '—';
+  t.innerHTML = `<b>${name}</b> <span class="b-stage">${stage}</span><br><span style="opacity:.65">${visits} visit${visits === 1 ? '' : 's'} · ${drink} · ${pip} ${(op ?? 0).toFixed(2)}</span>${friends && friends.length ? `<br><span style="opacity:.5">friends: ${friends.slice(0, 3).join(', ')}</span>` : ''}`;
+  row.appendChild(t);
+  return row;
+}
+function renderBoard() {
+  const cast = $('board-cast');
+  if (cast) {
+    cast.textContent = '';
+    for (const r of regulars.regulars) {
+      cast.appendChild(boardRow({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, op: r.op, friends: r.friends, faceSeed: r.name, cohort: r.coh }));
+    }
+  }
+  const grads = walkins.graduated();
+  const nh = $('board-newhead');
+  if (nh) nh.style.display = grads.length ? '' : 'none';
+  const nf = $('board-new');
+  if (nf) {
+    nf.textContent = '';
+    for (const h of grads) {
+      nf.appendChild(boardRow({ name: h.name, stage: h.stage, visits: h.visits, drink: h.drink, op: h._op, friends: [], faceSeed: h.faceSeed, cohort: h.cohort }));
+    }
+  }
+  modals.open('regulars');
+}
 // Space pauses the floor mid-day (rendering + camera keep breathing; the
 // sim clock stops). The letter/receipt phases are already still.
 function togglePause() {
@@ -2599,6 +2703,10 @@ function togglePause() {
 }
 $('prebatch').onclick = doPrebatch;
 $('reprice').onclick = doReprice;
+// Phase 1 — dossiers close, the board opens fresh every time.
+$('dossier-close').onclick = () => modals.close('dossier');
+$('board-close').onclick = () => modals.close('regulars');
+$('regularsbtn').onclick = () => renderBoard();
 $('pause').onclick = () => togglePause();
 $('reset').onclick = reset;
 $('again').onclick = reset;

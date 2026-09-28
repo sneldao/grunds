@@ -377,5 +377,118 @@ Every decision logs to `out/audit.jsonl`:
 {"ts": "...", "type": "spawn", "cohort": "commuter", "zone": "counter", "ts_of_day": "07:42"}
 {"ts": "...", "type": "lever", "action": "prebatch_matcha", "cost": 4.2, "expected_units": 40}
 {"ts": "...", "type": "gossip", "from": "patron_17", "to": "patron_23", "opinion": "-0.6"}
-{"ts": "...", "type": "exchange_event", "event": "frost_minas", "bean_price_delta": "+18%"}
 ```
+
+## Depth rebuild roadmap (adopted Sept 28)
+
+Playtest verdict: "kinda liked it but didn't love it" — no connection to
+specific characters, visuals need craft, the coffee economy needs teeth.
+Diagnosis: the game simulates richly but surfaces thinly (opinions move with
+no face attached, waste is tracked but never shown, Sam reacts but resets
+daily). The fix, applied per pillar below: **surface the simulation.**
+
+Goal: patrons you know by name, a floor with craft in every frame, beans as
+the game. Non-goal: changing the core loop (Brief → rush → verdict) or the
+stack. Estimate: 4–6 weeks. Phases are dependency-ordered.
+
+### Phase 0 — Art direction lock + portrait generator (2–3 days)
+
+- One-page `ART.md`: target look in words (e.g. "storybook low-poly
+  miniature: brass-and-cream, soft rim light"). Every later visual addition
+  conforms or is rejected.
+- `web/js/portrait.js`: seeded canvas avatars (skin, hair, accessory,
+  cohort-palette clothing), deterministic from patron id. Used in toasts,
+  dossiers, Regulars board, letters, share cards. Flat vector-ish style
+  (coherent with low-poly over painterly).
+- Test: `portrait.mjs` — determinism, variant coverage, headless no-GL.
+
+### Phase 1 — Character core: identity, life stages, dossiers (4–6 days) [SHIPPED Sept 28]
+
+- New Convex `patrons` table: `id, name, faceSeed, cohort, drink,
+  homeTable, stage, visits, opinion, history[]`. Per-cohort name pools.
+  Backfill from the existing Regulars graph so live campaigns keep people.
+- Life stages `visitor → first-timer → regular → friend → evangelist`
+  (visits + opinion thresholds, demotion on neglect). Stages unlock
+  behaviors: arrival memory lines ("Mara's back — 4th visit, still on the
+  oat flat white"), friend +1 companion spawns, evangelist word-of-mouth
+  into the existing `demand` returnees.
+- Dossier: click a seated patron → portrait + generated history assembled
+  from `patronEvents` (template + real data, no LLM latency).
+- Regulars board in the player center: the surveyable cast list.
+- Tests: `patron-arcs.mjs` (transitions incl. demotion, companions,
+  evangelist WOM), `dossier.mjs`, backfill test.
+
+### Phase 2 — Econ core: named lots, freshness, Wire-to-shelf (4–5 days)
+
+- New Convex `lots` table + client inventory. 3 standing lots (Brazilian
+  Cerrado workhorse / Ethiopian Yirgacheffe 2× floral / Colombian Huila
+  middle) + rotating Wire-driven microlot. Each: `costPerCup, quality,
+  affinity{cohort: mul}, stockKg, roastedOn`. Stockouts allowed (teeth).
+- Freshness decay: stale lots drag the serving cohort's opinion **with a
+  reason string**. The hedge becomes *which coffee*, not *how big*.
+- Wire events target specific lots with a 2-day lag (forward-buy before
+  "frost in Minas Gerais" lands on the Cerrado price).
+- Tests: `lot-economy.mjs`, `wire-lots.mjs`, lot scenarios in
+  `balance-policies`.
+
+### Phase 3 — Econ depth: menu, roast, waste (4–5 days)
+
+- Drink menu: espresso / flat white / filter / matcha (+ seasonal). Recipe
+  cost, margin, cohort affinity, **prep time** (slow pourovers at rush =
+  throughput tradeoff). Reprice lever graduates into menu pricing.
+- Daily roast level per lot (light → dark slider; scorch events join the
+  incident rotation). Multiplier tables on existing levers.
+- Waste economy: `batchWaste` surfaced on the receipt in red, milk
+  spoilage, stale-bean penalties. Pre-batch finally has felt downside.
+- Wire existing `trainingSpend` to Ruth's throughput/quality/waste — she
+  becomes an investable asset (sets up her Phase 4 arc).
+- Tests: `menu-pricing.mjs`, `roast.mjs`, `waste.mjs`.
+
+### Phase 4 — Narrative arcs: Ruth, Idris, Sam (5–7 days)
+
+Needs Phases 1–3 (arcs bite into systems, not air).
+
+- Ruth: hinted condition (visible slowdown + wondering toast) → diagnosis
+  interaction → resolution with real cost (weekend off = short-staffed
+  Saturday, but loyalty + she returns with a friend who becomes a regular).
+- Idris: multi-letter continuity quoting actual decisions, A/B replies via
+  the existing AgentMail webhook path; his tips front-run the Wire
+  (loyalty rewarded with alpha).
+- Sam's season: cross-week memory (grudge counters + conditional
+  chalkboard copy), a mid-week truce offer (split Saturday for guaranteed
+  mediocrity vs. play for the lease), finale from cumulative history.
+  The rivalry trilogy gave him reflexes; this gives him character.
+- Tests: `ruth-arc.mjs`, `idris-arc.mjs`, `sam-season.mjs`.
+
+### Phase 5 — Visual payoff: animation, particles, place (5–8 days)
+
+- Pose/clip system replacing inline sin-math (walk, sit, sip, celebrate,
+  grumble, serve-react) + per-cohort gait (elders shuffle, commuters
+  stride). Mood-reactive faces from the portrait set (floor shows opinion).
+- One verb per prop: camera flash, laptop glow, cup steam, cane tap.
+- One pooled particle system (steam, dust motes, flashes, till sparkles,
+  rain). Rain day = event + visuals + demand shift.
+- Readable interiors: counter menu board with live Phase-3 prices, Sam's
+  chalkboard rendering his actual strategy, the lease sign as a physical
+  finale object. Written camera grammar for verdict/lease cinematics.
+- Mint district graduates to primary environment when credits land;
+  `?classicDistrict` stays the fallback. All additions conform to `ART.md`.
+
+### Phase 6 — Teeth calibration + break-it pass (3–4 days)
+
+- Week autopsy: verdict receipt gains cause attribution ("lost because:
+  stale Yirgacheffe days 3–4, 31 cups wasted, Mara cooled to 0.3").
+  Traceable failure reads as fair, not cruel.
+- Break-it pass: five days same lever/lot — tune caps until the solved
+  line breaks. Human-feel check on every Phase 1–3 constant.
+- Full gate + both deployments.
+
+### Sequencing + guardrails
+
+- The Ship-a-ton mobile shell is independent of all of this — run it in
+  parallel with Phase 0 (one unblocks submission, the other unblocks depth).
+- Do NOT build: voice acting (strong text > mediocre TTS at 1/100th the
+  cost), photorealism, more than 4 lots / 4 drinks, multiplayer, anything
+  reshaping the Brief → rush → verdict loop.
+- Cut rule: if a feature doesn't make you know someone, taste something,
+  or fear something, it doesn't ship.

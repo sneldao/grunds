@@ -39,6 +39,9 @@ export default defineSchema({
     .index("by_campaign_day", ["campaignId", "day"]),
 
   // Named regulars with persistent opinion. Mirrors REGULAR_ROSTER + op state.
+  // Phase 1 identity fields are optional so pre-Phase-1 rows read fine;
+  // ensureIdentityFields backfills them (canon cast starts established:
+  // stage 'regular', 5 visits).
   regulars: defineTable({
     campaignId: v.id("campaigns"),
     name: v.string(),
@@ -48,6 +51,11 @@ export default defineSchema({
     seen: v.boolean(),
     served: v.number(),
     balked: v.number(),
+    stage: v.optional(v.string()),
+    visits: v.optional(v.number()),
+    faceSeed: v.optional(v.string()),
+    drink: v.optional(v.string()),
+    homeTable: v.optional(v.number()),
   })
     .index("by_campaign", ["campaignId"])
     .index("by_campaign_name", ["campaignId", "name"])

@@ -12,9 +12,31 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-28T12:00:00Z
+- **Last updated:** 2026-09-28T12:30:00Z
 
 ## Log
+
+### 2026-09-28 - Phase 1 shipped: character core (identity, stages, dossiers, board)
+- **`web/js/identity.js` (new):** stage machine (visitor → evangelist, visits + op gates, demote-one-from-earned), per-cohort walk-in name/drink pools, deterministic `WalkinPool` (24 heads/day, known faces carry), memory lines, dossier text, companion gate, WOM math.
+- **Floor:** spawn attaches identity (canon roster or pool draw), friends bring a +1 (one-level recursion guard), greetings speak from history, sitters stay-mark their last event, clicks on sitters open dossiers.
+- **Board + dossier modals** (`#regulars`, `#dossier`, HUD `☕ regulars` button, mood-mapped portraits), hover names the relationship.
+- **Server mirror:** `regulars` gains optional stage/visits/faceSeed/drink/homeTable, `resolveDay` restages post-contagion (exact client mirror), `markSeen` returns history, `ensureIdentityFields` backfills. Canon drinks quirk-derived both sides.
+- **Gate:** patron-arcs 17/17 + dossier 9/9 green; full suite green ex 5 pre-existing; smoke relational holds (companions shift absolute balks); balance-policies green (~200s); tsc clean. Two real catches: demotion collapsed history (fixed: demote from earned stage) and a stray-brace syntax break.
+- Deployed dev + prod + site (functions changed).
+
+### 2026-09-28 - Playtest verdict + depth rebuild adopted
+A few people played the prod build. Verdict: "kinda liked it but didn't love
+it" — no connection to specific characters, storytelling didn't land, visuals
+need more craft, and the economy needs more teeth (especially the coffee
+itself). Diagnosis: the game simulates richly but surfaces thinly — opinions
+move with no face attached, waste is tracked but never shown, Sam reacts but
+resets daily. Decision: build the long-term depth version, not cheap fixes.
+The full 6-phase plan (art lock + portraits → character core → lot economy →
+menu/roast/waste → Ruth/Idris/Sam arcs → visual payoff → calibration,
+4–6 weeks, mobile shell in parallel with Phase 0) is now the roadmap in
+`ARCHITECTURE.md` ("Depth rebuild roadmap"). Guiding rule: surface the
+simulation — if a feature doesn't make you know someone, taste something, or
+fear something, it doesn't ship.
 
 ### 2026-09-28 - Working tree - Morning-prep polish: radio picker + seated prop poses
 Two residual nits from the PR-A1/A2 session, closed.

@@ -4,6 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 import { COHORTS, LAYOUT, ECON, CAMPAIGN, counterSlot, registerSlot, rivalSlot, MAX_VISIBLE_QUEUE } from './config.js';
 import { salePrice } from './economy.js';
 import { rivalChoiceProbability } from './rival.js';
+import { memoryLine, shouldBringCompanion } from './identity.js';
 
 const MAXP = ECON.maxPatrons;
 const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];
@@ -12,9 +13,10 @@ const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const RED = new THREE.Color(0xd0503a);
 
 export class PatronSystem {
-  constructor(scene, world, regulars = null, exchange = null, fx = null, { random = Math.random } = {}) {
+  constructor(scene, world, regulars = null, exchange = null, fx = null, { random = Math.random, walkins = null } = {}) {
     this.world = world;
     this.regulars = regulars;     // for named-patron flagging
+    this.walkins = walkins;       // Phase 1 — day-pool of generated walk-in heads
     this.exchange = exchange;     // for contract unit consumption
     this.fx = fx;                 // for greeting bubbles on join
     this.patrons = [];
@@ -100,7 +102,7 @@ export class PatronSystem {
   get count() { return MAXP - this.free.length; }
   get queueLength() { return this.counterQ.filter(p => p.state === 'inQueue').length; }
 
-  spawn(cohort, zone, quick = false) {
+  spawn(cohort, zone, quick = false, viaCompanion = false) {
     if (!this.free.length) return null;
     const idx = this.free.pop();
     const fromLeft = Math.random() < 0.5;
@@ -128,6 +130,11 @@ export class PatronSystem {
       scale: 0.92 + Math.random() * 0.16,
       regularName: null, regularIdx: -1, greeted: false,
       regularFriends: null,   // Set<string> of friend names, populated if named
+      // Phase 1 — identity: roster regulars fill canon fields below;
+      // walk-ins draw a generated head from the day pool. Same fields both
+      // paths so greetings/dossiers never branch on population.
+      pid: null, pname: null, faceSeed: null, drink: null,
+      stage: 'visitor', visits: 0, broughtFriend: null,
       // PR-6 ritual record — survives the spawn so analytics + greeting
       // bubbles can show which cohort the patron belongs to without
       // re-resolving COHORTS[] every tick.
@@ -149,6 +156,9 @@ export class PatronSystem {
       const r = this.regulars.markSeen(cohort);
       if (r.found) {
         p.regularName = r.name; p.regularIdx = r.idx; p.hasHat = true;
+        // Phase 1 — canon identity: roster history rides on the patron.
+        p.pid = `roster-${r.name}`; p.pname = r.name; p.faceSeed = r.name;
+        p.drink = r.drink; p.stage = r.stage; p.visits = r.visits;
         // copy the friend list onto the patron so the gossip router can route
         // by name (without re-walking the Regulars graph on every bubble)
         const reg = this.regulars.regulars[r.idx];
@@ -156,6 +166,25 @@ export class PatronSystem {
         let set = this.regularsByIdx.get(r.idx);
         if (!set) { set = new Set(); this.regularsByIdx.set(r.idx, set); }
         set.add(p);
+      }
+    }
+    // Phase 1 — walk-in identity: draw a generated head from the day pool so
+    // strangers accumulate visits and can graduate. Roster spawns skip this.
+    if (!toRival && !p.regularName && this.walkins && zone === 'counter') {
+      const head = this.walkins.draw(cohort);
+      if (head) {
+        p.pid = head.pid; p.pname = head.name; p.faceSeed = head.faceSeed;
+        p.drink = head.drink; p.stage = head.stage; p.visits = head.visits;
+      }
+    }
+    // Phase 1 — friends bring a +1: a friend-stage arrival sometimes spawns a
+    // visitor companion on the spot. viaCompanion guards the recursion (one
+    // level); spawn's null return guards a full floor.
+    if (!toRival && !viaCompanion && shouldBringCompanion(p.stage, this.random)) {
+      const c = this.spawn(cohort, zone, quick, true);
+      if (c && c !== p) {
+        c.companionOf = p.pid || p.regularName;
+        p.broughtFriend = c.pname || 'a friend';
       }
     }
     // The 11:00 ask's party — stamp members during the rush so the evening
@@ -317,6 +346,17 @@ export class PatronSystem {
       }
       seat.taken = p; p.seat = seat; p.state = 'toSeat';
       p.path = [V3(seat.x, 0, seat.z)];
+      // Phase 1 — they stayed: flip the last session event to stayed so the
+      // dossier can tell "served and stayed a while" from "served and left".
+      if (p.regularIdx >= 0 && this.regulars) {
+        const evs = this.regulars.regulars[p.regularIdx]?.events;
+        const last = evs?.[evs.length - 1];
+        if (last && last.outcome === 'served') last.stayed = true;
+      } else if (p.pid && this.walkins) {
+        const head = this.walkins.get(p.pid);
+        const last = head?.events[head.events.length - 1];
+        if (last && last.outcome === 'served') last.stayed = true;
+      }
     } else this._leave(p);
   }
 
@@ -446,6 +486,33 @@ export class PatronSystem {
     }
   }
 
+  // Phase 1 — arrival line for a patron joining the queue. Canon regulars
+  // with history (or an established baseline) get a memory line; first
+  // sightings get the classic hello; returning walk-ins get theirs;
+  // strangers get nothing (their hello is the first-timer toast at serve).
+  _greetingFor(p) {
+    if (p.regularName && this.regulars) {
+      const reg = this.regulars.regulars[p.regularIdx];
+      if (!reg) return `hi, ${p.regularName}`;
+      const returning = reg.visits > 5 || reg.events.length > 0;
+      if (!returning) return `hi, ${p.regularName}`;
+      return memoryLine({
+        name: p.regularName, stage: reg.stage, visits: reg.visits,
+        drink: reg.drink, quirk: reg.quirk, broughtFriend: p.broughtFriend,
+      });
+    }
+    if (p.pid && this.walkins) {
+      const head = this.walkins.get(p.pid);
+      if (head && head.visits > 0) {
+        return memoryLine({
+          name: head.name, stage: head.stage, visits: head.visits,
+          drink: head.drink, broughtFriend: p.broughtFriend,
+        });
+      }
+    }
+    return null;
+  }
+
   // ---- per-frame: movement, walk cycle, matrix composition --------------------
   update(dt, walkMul, now) {
     this.walkMul = walkMul;
@@ -475,8 +542,9 @@ export class PatronSystem {
           p.face += diff * Math.min(1, dt * 6);
           if (p.state === 'toQueue') {
             p.state = 'inQueue'; p.waitMin = 0;
-            if (p.regularName && !p.greeted && this.fx) {
-              this.fx.bubble(p, `hi, ${p.regularName}`, 'good');
+            if (!p.greeted && this.fx) {
+              const line = this._greetingFor(p);
+              if (line) this.fx.bubble(p, line, 'good');
               p.greeted = true;
             }
           }

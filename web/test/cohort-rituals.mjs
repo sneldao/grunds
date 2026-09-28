@@ -88,7 +88,7 @@ test('PR-6 · dwellMul varies by cohort (elders stay longest, commuters rush)', 
 
 // (6) patrons.js spawn reads cohort ritual config
 test('PR-6 · patrons.js · spawn reads ritualProps + ritualSeat + ritualSpeed', () => {
-  const spawn = patrons.match(/spawn\(cohort, zone, quick = false\)[\s\S]*?_paint\(p\);/);
+  const spawn = patrons.match(/spawn\(cohort, zone, quick = false[^)]*\)[\s\S]*?_paint\(p\);/);
   assert.ok(spawn, 'spawn() must end at _paint(p)');
   assert.match(spawn[0], /ritualProps\s*=\s*Array\.isArray\(cohortDef\.props\)/);
   assert.match(spawn[0], /ritualSeat\s*=\s*\(typeof cohortDef\.seat === 'number'/);
@@ -98,7 +98,7 @@ test('PR-6 · patrons.js · spawn reads ritualProps + ritualSeat + ritualSpeed',
 
 // (7) patrons.js spawn applies ritualSpeed to the patron speed field
 test('PR-6 · patrons.js · spawn speed derived from ritualSpeed', () => {
-  const spawn = patrons.match(/spawn\(cohort, zone, quick = false\)[\s\S]*?_paint\(p\);/);
+  const spawn = patrons.match(/spawn\(cohort, zone, quick = false[^)]*\)[\s\S]*?_paint\(p\);/);
   assert.match(spawn[0], /speed:\s*ritualSpeed\s*\+/);
 });
 
@@ -117,6 +117,6 @@ test('PR-6 · patrons.js · _afterServe prefers ritualSeat before random seat', 
 
 // (9) patron object carries ritualProps/Seat/Dwell forward
 test('PR-6 · patron object stores ritualProps / ritualSeat / ritualDwell', () => {
-  const spawn = patrons.match(/spawn\(cohort, zone, quick = false\)[\s\S]*?_paint\(p\);/);
+  const spawn = patrons.match(/spawn\(cohort, zone, quick = false[^)]*\)[\s\S]*?_paint\(p\);/);
   assert.match(spawn[0], /ritualProps,\s*ritualSeat,\s*ritualDwell,/);
 });

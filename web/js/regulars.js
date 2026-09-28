@@ -8,6 +8,7 @@
 // a regular's friends (5%/day). Diameter is 2 for the current roster, so any
 // sour or sweet day reaches the whole network within three hops.
 import { REGULAR_ROSTER, CAMPAIGN } from './config.js';
+import { stageFor, CANON_DRINKS, MAX_EVENTS } from './identity.js';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const CONTAGION = 0.05;   // opinion pull toward each friend's mean (per day)
@@ -20,6 +21,13 @@ export class Regulars {
       op: 0.15,            // -1..1 opinion
       seen: false,         // did they show today?
       served: 0, balked: 0,
+      // Phase 1 — the cast starts established: 5 visits, regular stage,
+      // quirk-derived drink. visits/stage persist across days (resolveDay
+      // never resets them); events are this session's history for dossiers.
+      visits: 5,
+      stage: 'regular',
+      drink: CANON_DRINKS[r.name] || 'filter',
+      events: [],
     }));
     // Build the friendship graph once. Map<idx, Set<idx>> for O(1) edge lookup.
     // Edges are stored once (the undirected edge, not both directions).
@@ -82,6 +90,9 @@ export class Regulars {
     const happy = clamp(served / 60, 0, 1);
     for (const r of this.regulars) {
       if (!r.seen) continue;
+      // Phase 1 — a seen day is a visit (mirrors server resolveDay exactly:
+      // visits = 5 + days seen). Restage after the op update below.
+      r.visits += 1;
       r.op += (happy - 0.5) * 0.10;
       if (balked > served * 0.15) r.op -= 0.10;        // the floor drowned — the room sours hard
       else if (balked > served * 0.06) r.op -= 0.05;   // a rough day sours the room
@@ -91,6 +102,9 @@ export class Regulars {
       r.served = r.balked = 0; r.seen = false;
     }
     this.opContagion();
+    // Phase 1 — restage AFTER contagion, mirroring server resolveDay (which
+    // stages from post-contagion op). Same visits, same op → same stage.
+    for (const r of this.regulars) r.stage = stageFor(r.visits, r.op);
   }
 
   // One round of friendship contagion. Two-pass: compute the new opinion
@@ -141,12 +155,28 @@ export class Regulars {
   // spawns into the queue). Returns {idx, name, coh, found} so the patron
   // system can flag the mesh with a brass-band hat and a one-line greeting.
   // A chance to be a real, named regular (not just cohort colour) per cohort.
+  // Phase 1: also returns visits/stage/drink so the floor greets returning
+  // faces by history, not just by name.
   markSeen(cohort) {
     const cands = this.regulars.filter(r => !r.seen && r.coh === cohort);
     if (!cands.length) return { found: false };
     const r = cands[(Math.random() * cands.length) | 0];
     r.seen = true;
-    return { found: true, idx: r.i, name: r.name, coh: r.coh };
+    return { found: true, idx: r.i, name: r.name, coh: r.coh, visits: r.visits, stage: r.stage, drink: r.drink };
+  }
+
+  // Phase 1 — record a served visit on a canon regular: append a capped
+  // session event and restage against current op. Visits count *days seen*
+  // (bumped in resolveDay, mirroring the server) so client and server
+  // restage identically; events are the session's texture for dossiers.
+  // Returns the stage.
+  noteVisit(idx, { day, drink, stayed } = {}) {
+    const r = this.regulars[idx];
+    if (!r) return null;
+    r.events.push({ day, drink: drink || r.drink, outcome: 'served', stayed: !!stayed });
+    if (r.events.length > MAX_EVENTS) r.events.splice(0, r.events.length - MAX_EVENTS);
+    r.stage = stageFor(r.visits, r.op);
+    return r.stage;
   }
 
   // Reverse a seen-mark when a patron defects to the rival before being served

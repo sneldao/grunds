@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { EXPECTATION, clamp } from "./gameConfig";
+import { EXPECTATION, clamp, stageFor, CANON_DRINKS } from "./gameConfig";
 
 // The Regulars on Convex — persistent opinion + friendship contagion.
 // Ports web/js/regulars.js + gentrification.js applyExpectation.
@@ -42,7 +42,8 @@ export const listFriendships = query({
 });
 
 // Mark one unseen regular of a cohort as present today. Returns the pick so
-// the floor can flag the mesh (brass-band hat + greeting bubble).
+// the floor can flag the mesh (brass-band hat + greeting bubble). Phase 1:
+// carries visits/stage so the floor can greet returning faces by history.
 export const markSeen = mutation({
   args: { campaignId: v.id("campaigns"), cohort: v.string() },
   handler: async (ctx, args) => {
@@ -56,7 +57,46 @@ export const markSeen = mutation({
     if (unseen.length === 0) return { found: false as const };
     const pick = unseen[Math.floor(Math.random() * unseen.length)];
     await ctx.db.patch(pick._id, { seen: true });
-    return { found: true as const, name: pick.name, coh: pick.coh };
+    return {
+      found: true as const,
+      name: pick.name,
+      coh: pick.coh,
+      visits: pick.visits ?? 5,
+      stage: pick.stage ?? stageFor(pick.visits ?? 5, pick.op),
+      drink: pick.drink ?? CANON_DRINKS[pick.name] ?? "filter",
+    };
+  },
+});
+
+// Phase 1 backfill — patch pre-Phase-1 regular rows (missing identity
+// fields) with established-cast defaults. Idempotent: only touches rows
+// where the fields are absent. Returns the patched count.
+export const ensureIdentityFields = mutation({
+  args: { campaignId: v.id("campaigns") },
+  handler: async (ctx, args) => {
+    const regs = await ctx.db
+      .query("regulars")
+      .withIndex("by_campaign", (q) => q.eq("campaignId", args.campaignId))
+      .collect();
+    let patched = 0;
+    for (const r of regs) {
+      if (
+        r.stage !== undefined &&
+        r.visits !== undefined &&
+        r.faceSeed !== undefined &&
+        r.drink !== undefined
+      )
+        continue;
+      const visits = r.visits ?? 5;
+      await ctx.db.patch(r._id, {
+        stage: r.stage ?? stageFor(visits, r.op),
+        visits,
+        faceSeed: r.faceSeed ?? r.name,
+        drink: r.drink ?? CANON_DRINKS[r.name] ?? "filter",
+      });
+      patched++;
+    }
+    return { patched };
   },
 });
 
@@ -132,11 +172,19 @@ export const resolveDay = mutation({
     }
 
     for (const r of regs) {
+      const finalOp = next.get(r.name) ?? r.op;
+      // Phase 1 — a seen day is a visit; restage against the final opinion.
+      // Pre-Phase-1 rows default to 5 visits (the cast starts established).
+      const visits = (r.visits ?? 5) + (r.seen ? 1 : 0);
       await ctx.db.patch(r._id, {
-        op: next.get(r.name) ?? r.op,
+        op: finalOp,
         seen: false,
         served: 0,
         balked: 0,
+        visits,
+        stage: stageFor(visits, finalOp),
+        faceSeed: r.faceSeed ?? r.name,
+        drink: r.drink ?? CANON_DRINKS[r.name] ?? "filter",
       });
     }
 

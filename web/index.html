@@ -241,6 +241,16 @@
     background: rgba(10,8,6,.55); backdrop-filter: blur(4px); opacity: 0; pointer-events: none;
     transition: opacity .5s ease; }
   #desk.show, #paywall.show, #offer.show { opacity: 1; pointer-events: auto; }
+  /* Phase 1 — dossier + board share the desk modal pattern */
+  #dossier, #regulars { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center;
+    background: rgba(10,8,6,.55); backdrop-filter: blur(4px); opacity: 0; pointer-events: none;
+    transition: opacity .5s ease; }
+  #dossier.show, #regulars.show { opacity: 1; pointer-events: auto; }
+  #dossier-portrait canvas { border-radius: 50%; display: block; }
+  .b-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .b-row .b-face { border-radius: 50%; flex: none; }
+  .b-stage { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; opacity: .75;
+    border: 1px solid var(--brass); border-radius: 3px; padding: 1px 5px; }
   #offer .d-paper { border-top-color: var(--brass); --modal-width: 420px; }
   #offer.incident .d-paper { border-top-color: #a04434; }
   #offer-line { font-family: var(--serif); font-size: var(--modal-body-size); line-height: 1.55; white-space: pre-wrap; margin: 4px 0 6px; }
@@ -387,7 +397,7 @@
     <div class="line" id="tape" style="display:none" title="the district wire — open the market desk"></div>
     <div class="line" id="syncbadge">○ local</div>
     <div class="line" id="district"></div>
-    <div class="line"><button id="wirebtn" style="display:none">⚡ the wire ↗</button></div>
+    <div class="line"><button id="wirebtn" style="display:none">⚡ the wire ↗</button> <button id="regularsbtn">☕ regulars</button></div>
   </header>
 
   <div id="progressbar">
@@ -462,6 +472,40 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <div id="desk-edge" style="display:none"></div>
       </div>
       <footer class="modal-footer"><button id="desk-close" class="d-close">close the desk</button></footer>
+    </div>
+  </div>
+
+  <!-- Phase 1 — dossier: click a sitter, meet them -->
+  <div id="dossier" class="modal" role="dialog" aria-labelledby="dossier-heading" aria-hidden="true" inert style="--modal-width:420px">
+    <div class="d-paper modal-panel" tabindex="-1">
+      <header class="modal-header">
+        <div class="l-head" id="dossier-heading">REGULAR</div>
+        <div class="l-kicker">sit a while — they’ll tell you who they are</div>
+      </header>
+      <div class="modal-body">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
+          <div id="dossier-portrait"></div>
+          <div id="dossier-name" style="font-family:var(--serif);font-size:16px"></div>
+        </div>
+        <div id="dossier-lines" style="font-size:12px;line-height:1.7"></div>
+      </div>
+      <footer class="modal-footer"><button id="dossier-close">← back to the floor</button></footer>
+    </div>
+  </div>
+
+  <!-- Phase 1 — the regulars board: the cast + graduated new faces -->
+  <div id="regulars" class="modal" role="dialog" aria-labelledby="board-heading" aria-hidden="true" inert style="--modal-width:440px">
+    <div class="d-paper modal-panel" tabindex="-1">
+      <header class="modal-header">
+        <div class="l-head" id="board-heading">REGULARS</div>
+        <div class="l-kicker">the people who keep the lights on</div>
+      </header>
+      <div class="modal-body">
+        <div id="board-cast"></div>
+        <div id="board-newhead" class="l-kicker" style="margin:12px 0 8px">new faces</div>
+        <div id="board-new"></div>
+      </div>
+      <footer class="modal-footer"><button id="board-close">← back to the floor</button></footer>
     </div>
   </div>
 
