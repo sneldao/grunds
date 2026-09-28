@@ -570,11 +570,12 @@ logic — it's a wrap + a listing + a SDK swap.
 
 Playtest verdict: liked, not loved — thin character connection, visuals need
 craft, the coffee economy needs teeth. The 6-phase rebuild plan lives in
-`ARCHITECTURE.md` ("Depth rebuild roadmap"): art lock + portraits → patron
-identity, life stages and dossiers → named lots with freshness decay →
-drink menu, roast program, surfaced waste → Ruth/Idris/Sam story arcs →
-animation, particles and readable interiors → teeth calibration. Guiding
-rule: surface the simulation. The mobile shell runs in parallel with Phase 0.
+`ARCHITECTURE.md` ("Depth rebuild roadmap") and is fully shipped as of
+Sept 28: art lock + portraits → patron identity, life stages and dossiers →
+named lots with freshness decay → drink menu, roast program, surfaced waste →
+Ruth/Idris/Sam story arcs → animation, particles and readable interiors →
+week autopsy + teeth calibration. Guiding rule: surface the simulation.
+The mobile shell runs in parallel with Phase 0.
 
 ---
 
