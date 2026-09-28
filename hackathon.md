@@ -12,7 +12,7 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-28T12:45:00Z
+- **Last updated:** 2026-09-28T13:00:00Z
 
 ## Log
 
@@ -22,6 +22,7 @@
 - **Stale game-feel assertions fixed** (`web/test/game-feel.mjs`, test-only): finale now asserts the branched `FOR LEASE`/`SOLD`/`DEUCE` cards (PR-B3 replaced the single SOLD line); `doReprice` regex accepts `(opts = {})`. `PASS` restored.
 - **Break-it pass** (caps only): `CAMPAIGN.demand.spawnMax` 1.30 → 1.22 — headless probes showed growth/queue policies leading every seed (e.g. seed 7 growth 19432 vs passive 18257); the cap shrinks the growth edge ~4–6% (~1175 → ~600) without touching levers, lots, or verbs. Same-lot-5-days noted as harness-blind (policy sim never stages a top-up, so the house default pours everything) — true per-cup emergency billing is logged follow-up, out of caps scope.
 - **Gate:** week-autopsy 7/7 + game-feel `PASS` + weekly-stakes 4/4 + waste 6/6 + lot-economy 14/14 + menu-pricing + roast + Phase-5 suites (pose-clips/prop-verbs/readable-place) + visible-rivalry 13/13 green; smoke relational holds (prep/price-cut beat cold bar); `tsc` clean.
+- **Deploy:** `npx convex deploy` → functions live on `descriptive-ram-190.convex.cloud`; `npm run upload:site` → 66 files live at `https://striped-anaconda-746.convex.site`. GitHub push blocked (403 for `thisyearnofear` → `sneldao/grunds`); commits `3e1b8c3` + `a63d3c3` staged locally, awaiting push with rights.
 
 ### 2026-09-28 - Phase 5 shipped: visual payoff (poses, verbs, place)
 
