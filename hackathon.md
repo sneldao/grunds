@@ -23,6 +23,7 @@
 - **Teeth, measured**: full 80-run pilot under the new model — 20 of 80 runs reach `lost` (every passive-family policy loses 4 of 10 seeds); engaged still leads (£1,695 mean, 2 held), reckless worst. Pre-conversion the scripted floor never reached `lost`. Capture `out/review-balance-2026-09-28.json`, fingerprint `dadbeeb20604340eefa573fc9003b334464272685b611a734d461383b0564367`.
 - **Stale suites repaired** (test-only): `campaign.mjs` hedge assert rewritten to the locked-sack metric (`hedgeSavings − fee`: hold 0 vs contract +306); `campaign-tight.mjs` now plays the settle-when-in-debt competent line (net £3,199); `identity.mjs` pins the rebalanced `PERK_VALUES` table; `intel.mjs` pins the asymmetric 0.2×-floor bias clamp; `modals.mjs` + `decisions.mjs` stubs gained `addEventListener`; `decisions.mjs` resolves NodeNext `./foo.js → foo.ts` imports.
 - **Gate:** 62 suites + balance-policies green, `tsc` clean. `.gitignore` now excludes agent tool dirs (`.commandcode/`, `.claude/`, `.cursor/`, etc.); stray `_main-dbg.js` removed.
+- **Deploy:** client-side change, no Convex function edits — `npm run deploy:site` pushed static hosting (66 files) to `https://striped-anaconda-746.convex.site`; live `main.js` carries `sackSpend`, `lots.js` the prepaid-starter-stock note. Committed `f4150a0` + `258682a` pushed to `origin/main`.
 
 ### 2026-09-28 - Phase 6 shipped: teeth calibration (autopsy + break-it pass)
 
