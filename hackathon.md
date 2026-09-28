@@ -16,6 +16,14 @@
 
 ## Log
 
+### 2026-09-28 - Phase 3 shipped: econ depth (menu, roast, waste, Ruth's skill)
+- **`web/js/menu.js` (new):** 4 drinks (espresso 1pt → filter 3pt → matcha 4pt), cohort order weights (matcha ≈24%, wave intact), ±£1 price bands, 86 board (matcha never 86'd), adaptive milk delivery (wave-sized day 1, history-sized after).
+- **Bar spends drink points** (filter is the throughput trap), tickets price by drink at counter + register, milky orders need milk stock (dry bar balks, flagged once).
+- **Roast program:** per-lot 1–5 stepper in the cellar (ideal-distance quality), scorch incident (£18 re-roast vs serve-dark-all-day), dawn clears scorch.
+- **Ruth's skill:** cumulative training → +bar points, halves sour nudges at 1, nurses beans at 2. Compost (age>3, finale-binding) + milk tipping print on the receipt.
+- **Gate:** menu-pricing 9 + roast 9 + waste 6 green; full suite green ex 5 pre-existing; smoke holds after a real catch (day-1 milk floor 120 starved the sim — wave-sized delivery fixed it, balks back to ~310); balance-policies green in 81s; tsc clean. Two legacy-safety fixes: milk guards skip ctx objects without milk fields, drink falls back to wantsMatcha.
+- Deployed dev + prod + site (functions changed).
+
 ### 2026-09-28 - Phase 2 shipped: econ core (named lots, freshness, wire-to-shelf)
 - **`web/js/lots.js` (new):** 4-lot catalog (Cerrado £0.95 / Huila £1.30 == legacy baseline / Yirgacheffe £1.90 / Gesha £3.20 microlot capped at 60), freshness curve (1 → 0.85 → stale past day 2), serve nudges (affinity-scaled warmth, flat stale penalty + reason strings), adaptive restock (yesterday +25%), stock cascade + emergency sack, wire schedule with landing lags, frost-aftermath Gesha unlock.
 - **Bean engine swap:** `purchaseCup(kind)` — matcha keeps legacy math, other cups pour the house lot under cash-basis books (dawn top-up is the expense, poured cups carry display cost like batch prep). Contracts cover top-ups at the locked price.

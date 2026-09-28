@@ -431,7 +431,7 @@ stack. Estimate: 4–6 weeks. Phases are dependency-ordered.
 - Tests: `lot-economy.mjs`, `wire-lots.mjs`, lot scenarios in
   `balance-policies`.
 
-### Phase 3 — Econ depth: menu, roast, waste (4–5 days)
+### Phase 3 — Econ depth: menu, roast, waste (4–5 days) [SHIPPED Sept 28]
 
 - Drink menu: espresso / flat white / filter / matcha (+ seasonal). Recipe
   cost, margin, cohort affinity, **prep time** (slow pourovers at rush =

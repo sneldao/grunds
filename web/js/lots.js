@@ -41,10 +41,21 @@ export const LOT_IDS = Object.keys(LOT_CATALOG);
 // clock starts fresh so staleness first binds around day 4 (safe on-ramp).
 export const STARTER_STOCK = { cerrado: 600, huila: 1500, yirgacheffe: 600, gesha: 0 };
 export const STALE_AFTER = 2;          // age (days since roast) > 2 → stale
+export const COMPOST_AFTER = 3;        // age > 3 → composted at dawn (binds the finale: day-1 leftovers tip day 5)
 export const EMERGENCY_MUL = 1.5;      // all sacks empty: Idris's emergency sack
 export const FRESH_TOPUP_FRAC = 0.2;   // top-up refreshes the roast date only when stock < 20% of the buy
 export const STALE_NUDGE = -0.03;      // stale cup served to a roster regular
 export const AFFINITY_NUDGE = 0.05;    // fresh cup: (affinity - 1) × this
+
+// Roast program: each lot has an ideal level (1 light → 5 dark); distance
+// costs 0.1 quality per step. Creatives love light Yirg, commuters love
+// dark Cerrado — the numbers say it through quality, the room tastes it.
+export const ROAST_IDEAL = { cerrado: 4, huila: 3, yirgacheffe: 2, gesha: 2 };
+export function roastQuality(lotId, level) {
+  const ideal = ROAST_IDEAL[lotId] ?? 3;
+  const lv = Math.min(5, Math.max(1, Math.round(level)));
+  return Math.round((1 - 0.1 * Math.abs(lv - ideal)) * 100) / 100;
+}
 
 // Wire → shelf: commodity events move specific lots with a landing lag, and
 // hype/frost aftermath unlocks the Gesha microlot. Rumour handling stays in
@@ -63,6 +74,7 @@ export const STALE_LINES = {
   elders: 'Olu remembers when the roast was fresh',
   tourists: 'a tourist asked if the beans are old',
 };
+export const SCORCH_LINE = 'today’s roast went dark — the room can tell';
 
 // £/cup to BUY right now: base × market drift × wire multiplier.
 export function lotSpot(lotId, beanIndex, priceMul = 1) {
@@ -71,20 +83,21 @@ export function lotSpot(lotId, beanIndex, priceMul = 1) {
   return entry.unitBase * beanIndex * priceMul;
 }
 
-// Pour quality from roast age: fresh → fine → stale.
-export function cupQuality(ageDays) {
-  if (ageDays <= 1) return 1;
-  if (ageDays <= STALE_AFTER) return 0.85;
-  return 0.6;
+// Pour quality from roast age, roast level, and scorch. Fresh + ideal =
+// 1.0; age fades it, off-ideal roast fades it, a scorched sack halves it.
+export function cupQuality(ageDays, roastMul = 1, scorched = false) {
+  const base = ageDays <= 1 ? 1 : ageDays <= STALE_AFTER ? 0.85 : 0.6;
+  return base * roastMul * (scorched ? 0.5 : 1);
 }
 export function isStale(ageDays) { return ageDays > STALE_AFTER; }
 
 // Opinion delta for serving one roster regular a cup of (lot, cohort, age).
-// Fresh loved lots warm slowly; stale cups sour at a flat rate.
-export function serveNudge(lotId, cohort, ageDays) {
-  if (isStale(ageDays)) return STALE_NUDGE;
+// Fresh loved lots warm slowly (scaled by roast); stale or scorched cups
+// sour at a flat rate.
+export function serveNudge(lotId, cohort, ageDays, roastMul = 1, scorched = false) {
+  if (scorched || isStale(ageDays)) return STALE_NUDGE;
   const aff = (LOT_CATALOG[lotId]?.affinity ?? {})[cohort] ?? 1;
-  return (aff - 1) * AFFINITY_NUDGE;
+  return (aff - 1) * AFFINITY_NUDGE * roastMul;
 }
 
 // Adaptive restock: yesterday's pour + 25% buffer, rounded to 50s.
@@ -93,8 +106,8 @@ export function restockQty(pouredYesterday) {
 }
 
 // LotsState — the cellar. Lots keyed by id:
-// { stock, value (£ sunk), roastedOn (day), priceMul, unlocked, unlockUntil,
-//   hedgedStock (cups bought under contract, poured first) }.
+// { stock, value (£ sunk), roastedOn (day), roast (1-5), scorched,
+//   priceMul, unlocked, unlockUntil, hedgedStock }.
 export class LotsState {
   constructor() { this.reset(); }
   reset() {
@@ -104,6 +117,8 @@ export class LotsState {
         stock: STARTER_STOCK[id] ?? 0,
         value: (STARTER_STOCK[id] ?? 0) * LOT_CATALOG[id].unitBase,
         roastedOn: 1,
+        roast: ROAST_IDEAL[id] ?? 3,
+        scorched: false,
         priceMul: 1,
         unlocked: !LOT_CATALOG[id].microlot,
         unlockUntil: 0,
@@ -212,7 +227,24 @@ export class LotsState {
         e.unlockUntil = 0;
         report.push(`${LOT_CATALOG[id].name} window closed`);
       }
+      e.scorched = false;   // yesterday's scorch never crosses dawn
     }
     return report;
+  }
+  // Compost: discard stock older than afterDays (dawn clean-out). Returns
+  // { cups, names } for the receipt + toast. Ruth at skill 2 nurses beans
+  // a day longer (caller passes the threshold).
+  compost(day, afterDays = COMPOST_AFTER) {
+    let cups = 0;
+    const names = [];
+    for (const id of LOT_IDS) {
+      const e = this.lots[id];
+      if (e.stock > 0 && day - e.roastedOn > afterDays) {
+        cups += e.stock;
+        names.push(LOT_CATALOG[id].name);
+        e.stock = 0; e.value = 0; e.hedgedStock = 0;
+      }
+    }
+    return { cups, names };
   }
 }

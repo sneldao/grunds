@@ -5,6 +5,7 @@ import { COHORTS, LAYOUT, ECON, CAMPAIGN, counterSlot, registerSlot, rivalSlot, 
 import { salePrice } from './economy.js';
 import { rivalChoiceProbability } from './rival.js';
 import { memoryLine, shouldBringCompanion } from './identity.js';
+import { DRINKS, rollDrink } from './menu.js';
 
 const MAXP = ECON.maxPatrons;
 const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];
@@ -17,6 +18,8 @@ export class PatronSystem {
     this.world = world;
     this.regulars = regulars;     // for named-patron flagging
     this.walkins = walkins;       // Phase 1 — day-pool of generated walk-in heads
+    this.menuOffered = null;      // Phase 3 — {drink: bool} 86 board (null = everything offered)
+    this.skillPts = 0;            // Phase 3 — Ruth's skill bonus bar-points, set at dawn
     this.exchange = exchange;     // for contract unit consumption
     this.fx = fx;                 // for greeting bubbles on join
     this.patrons = [];
@@ -116,9 +119,12 @@ export class PatronSystem {
     const ritualSeat = (typeof cohortDef.seat === 'number' && cohortDef.seat >= 0) ? cohortDef.seat : null;
     const ritualDwell = (typeof cohortDef.dwellMul === 'number') ? cohortDef.dwellMul : 1.0;
     const ritualSpeed = (typeof cohortDef.walkSpeed === 'number') ? cohortDef.walkSpeed : 2.1;
+    // Phase 3 — the order: weighted by cohort, honoring the 86 board.
+    // wantsMatcha stays as the legacy flag so batch/balk/price paths read on.
+    const drink = rollDrink(cohort, this.menuOffered, this.random);
     const p = {
       idx, active: true, cohort, zone,
-      wantsMatcha: zone === 'counter' && Math.random() < ECON.matchaShare,
+      drink, wantsMatcha: drink === 'matcha',
       pos: V3(s.x, 0, s.z + (Math.random() - 0.5) * 1.4), face: fromLeft ? Math.PI / 2 : -Math.PI / 2,
       path: [], state: 'walking', waitMin: 0, dwell: 0,
       speed: ritualSpeed + (Math.random() - 0.5) * 0.3, phase: Math.random() * 6.28,
@@ -241,16 +247,30 @@ export class PatronSystem {
     for (const p of this.counterQ) if (p.state === 'inQueue') p.waitMin++;
     for (const p of this.registerQ) if (p.state === 'inRegisterQ') p.waitMin++;
 
-    // serve from the counter — the bar spends prep-points each minute; a made-to-order
-    // matcha costs 4, a pre-batched one costs 1. The lever is visible in the line's speed.
-    let points = ECON.barPoints * (this.staffMul || 1), servedN = 0;
+    // serve from the counter — the bar spends prep-points each minute.
+    // Phase 3: points follow the drink (espresso fast, filter slow, matcha
+    // slowest unless batched). Milky orders need milk stock (ctx.milkStock);
+    // a dry bar loses the order to a balk, flagged once via ctx.milkOut.
+    let points = (ECON.barPoints + (this.skillPts || 0)) * (this.staffMul || 1), servedN = 0;
     for (let i = 0; i < this.counterQ.length && points > 0 && servedN < ECON.servePerTick;) {
       const p = this.counterQ[i];
       if (p.state !== 'inQueue') { i++; continue; }
       const fromBatch = p.wantsMatcha && (ctx.batchUnits || 0) > 0;
-      const cost = p.wantsMatcha ? (fromBatch ? ECON.prepBatched : ECON.prepMatcha) : ECON.prepOther;
+      // Phase 3 — drink drives points; legacy mock patrons without a drink
+      // fall back to the wantsMatcha flag.
+      const dk = p.drink || (p.wantsMatcha ? 'matcha' : 'flatwhite');
+      const cost = dk === 'matcha' ? (fromBatch ? ECON.prepBatched : ECON.prepMatcha) : (DRINKS[dk]?.points ?? ECON.prepOther);
       if (cost > points) { i++; continue; }   // bar's busy — cheaper orders slip ahead
+      if (DRINKS[dk]?.milk && ctx.milkStock != null && ctx.milkStock <= 0) {
+        this.counterQ.splice(i, 1);
+        p.flash = 1; p.colorDirty = true;
+        ev.push({ type: 'balked', p, milkOut: true });
+        ctx.milkOut = true;
+        this._leave(p);
+        continue;
+      }
       this.counterQ.splice(i, 1); points -= cost; servedN++;
+      if (DRINKS[dk]?.milk && ctx.milkStock != null) { ctx.milkStock--; ctx.milky = (ctx.milky || 0) + 1; }
       if (fromBatch) ctx.batchUnits = Math.max(0, ctx.batchUnits - 1);
       p.hasCup = true; p.cupGreen = p.wantsMatcha; p.colorDirty = true;
       // Batch cups were paid at prep (£1 each) — skip the bean charge and
@@ -259,7 +279,12 @@ export class PatronSystem {
       let cup;
       if (fromBatch) cup = { beanCost: 0, spotCost: 0, hedged: false, prepaid: true };
       else cup = this.exchange ? this.exchange.purchaseCup(p.wantsMatcha ? 'matcha' : 'other') : { beanCost: 0, spotCost: 0, hedged: false };
-      ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: p.wantsMatcha ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull) : ECON.other, ...cup });
+      // Phase 3 — the ticket: matcha at the board price, everything else at
+      // its menu price (staged in the Brief, committed at OPEN).
+      const ticket = dk === 'matcha'
+        ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull)
+        : (ctx.menuPrices?.[dk] ?? ECON.other);
+      ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: ticket, ...cup });
       this._afterServe(p);
     }
     this._layoutQ(this.counterQ, counterSlot);
@@ -296,9 +321,26 @@ export class PatronSystem {
       const p = this.registerQ[i];
       if (p.state !== 'inRegisterQ') { i++; continue; }
       if (p.waitMin >= 1) {
+        // Phase 3 — register honors the drink: matcha pours powder at the
+        // board price, the rest pour the house lot at menu prices. Milky
+        // orders need milk stock, same as the bar.
+        const rdk = p.drink || (p.wantsMatcha ? 'matcha' : 'flatwhite');
+        if (DRINKS[rdk]?.milk && ctx.milkStock != null && ctx.milkStock <= 0) {
+          this.registerQ.splice(i, 1);
+          p.flash = 1; p.colorDirty = true;
+          ev.push({ type: 'balked', p, milkOut: true });
+          ctx.milkOut = true;
+          this._leave(p);
+          continue;
+        }
         this.registerQ.splice(i, 1); regN++;
-        const cup = this.exchange ? this.exchange.purchaseCup('other') : { beanCost: 0, spotCost: 0, hedged: false };
-        ev.push({ type: 'served', p, isMatcha: false, price: ECON.other, viaRegister: true, ...cup });
+        if (DRINKS[rdk]?.milk && ctx.milkStock != null) { ctx.milkStock--; ctx.milky = (ctx.milky || 0) + 1; }
+        const regMatcha = rdk === 'matcha';
+        const cup = this.exchange ? this.exchange.purchaseCup(regMatcha ? 'matcha' : 'other') : { beanCost: 0, spotCost: 0, hedged: false };
+        const regPrice = regMatcha
+          ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull)
+          : (ctx.menuPrices?.[rdk] ?? ECON.other);
+        ev.push({ type: 'served', p, isMatcha: regMatcha, price: regPrice, viaRegister: true, ...cup });
         if (Math.random() < 0.12) this._afterServe(p); else this._leave(p);
       } else i++;
     }

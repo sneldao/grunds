@@ -118,7 +118,7 @@ const fails = [];
   const main = read('web/js/main.js');
   assert.ok(main.includes('const INCIDENTS'), 'incidents table exists');
   const incBlock = main.slice(main.indexOf('const INCIDENTS'), main.indexOf('function showIncident'));
-  assert.equal((incBlock.match(/who: '/g) || []).length, 6, 'six operational incidents');
+  assert.equal((incBlock.match(/who: '/g) || []).length, 7, 'seven operational incidents (scorch joined in Phase 3)');
   assert.ok(main.includes('day >= 2 && !incidentShown'), 'incidents are day-2+ (day 1 stays clean)');
   assert.ok(main.includes('dayMin >= 895'), 'incidents land post-wave');
   assert.ok(main.includes('patrons.balkMul = 1.6'), 'plumber decline hits patience');
@@ -127,8 +127,11 @@ const fails = [];
   assert.ok(main.includes('adjustOpinions(-0.16)'), 'failed inspection hits reputation');
   assert.ok(main.includes('solicitorAt = 990'), 'contested scald claim is deferred to 16:30');
   assert.ok(main.includes('contractFeeExtra += 18'), 'COD refusal rides on the next contract fee');
+  assert.ok(main.includes("who: 'the roast'"), 'scorch incident exists (Phase 3)');
+  assert.ok(main.includes('e.scorched = true'), 'serving it dark scorches the house lot');
+  assert.ok(main.includes('e.roastedOn = day; e.scorched = false'), 're-roast resets the roast clock');
   const p = read('web/js/patrons.js');
-  assert.ok(p.includes('ECON.barPoints * (this.staffMul || 1)'), 'staffMul throttles the bar');
+  assert.ok(p.includes('(ECON.barPoints + (this.skillPts || 0)) * (this.staffMul || 1)'), 'staffMul throttles the bar (+ Ruth skill points)');
   assert.ok(p.includes('* (this.balkMul || 1)'), 'balkMul throttles patience');
   const cfg = read('web/js/config.js');
   for (const k of ['staffDayRate', 'staffPerCup', 'suppliesPerCup', 'pitchMin', 'pitchPct', 'cardFeePct', 'sundries'])
@@ -136,7 +139,7 @@ const fails = [];
   assert.ok(main.includes('cOps += ops.total'), 'the cost sheet accumulates');
   assert.ok(main.includes("['operating costs', fmt(cOps)]"), 'finale prints the operating-cost line');
   assert.ok(main.includes('netWorth: cRev - cCost - cOps'), 'netWorth subtracts operating costs');
-  console.log('BITES   6 incidents · real sim effects · cost sheet on the receipt');
+  console.log('BITES   7 incidents · real sim effects · cost sheet on the receipt');
 }
 
 // ---- 6) Morning Brief: the Drug Wars turn — paused at 06:00, commit then OPEN ----

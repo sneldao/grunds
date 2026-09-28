@@ -71,6 +71,7 @@ export default defineSchema({
   // Phase 2 — physical coffee inventory. One row per lot per campaign;
   // the tradeable mirror of the client cellar (purchases + scheduled wire
   // moves live here; intra-day pours are floor-sim, like gossip).
+  // Phase 3 roast/scorched are optional so pre-Phase-3 rows read fine.
   lots: defineTable({
     campaignId: v.id("campaigns"),
     lotId: v.string(),
@@ -81,6 +82,8 @@ export default defineSchema({
     unlocked: v.boolean(),
     unlockUntil: v.number(),
     hedgedStock: v.number(),
+    roast: v.optional(v.number()),
+    scorched: v.optional(v.boolean()),
   })
     .index("by_campaign", ["campaignId"])
     .index("by_campaign_lot", ["campaignId", "lotId"]),

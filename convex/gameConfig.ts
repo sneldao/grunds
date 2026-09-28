@@ -109,15 +109,24 @@ export const STALE_AFTER = 2;
 export const STALE_NUDGE = -0.03;
 export const AFFINITY_NUDGE = 0.05;
 
-export function cupQuality(ageDays: number): number {
-  if (ageDays <= 1) return 1;
-  if (ageDays <= STALE_AFTER) return 0.85;
-  return 0.6;
+// Phase 3 — roast program mirror (web/js/lots.js). Ideal level per lot
+// (1 light → 5 dark); distance costs 0.1 quality per step. cupQuality and
+// serveNudge take the roast multiplier + scorch flag with the same defaults
+// both sides, so the mirror never diverges on omitted args.
+export const ROAST_IDEAL: Record<string, number> = { cerrado: 4, huila: 3, yirgacheffe: 2, gesha: 2 };
+export function roastQuality(lotId: string, level: number): number {
+  const ideal = ROAST_IDEAL[lotId] ?? 3;
+  const lv = Math.min(5, Math.max(1, Math.round(level)));
+  return Math.round((1 - 0.1 * Math.abs(lv - ideal)) * 100) / 100;
 }
-export function serveNudge(lotId: string, cohort: string, ageDays: number): number {
-  if (ageDays > STALE_AFTER) return STALE_NUDGE;
+export function cupQuality(ageDays: number, roastMul = 1, scorched = false): number {
+  const base = ageDays <= 1 ? 1 : ageDays <= STALE_AFTER ? 0.85 : 0.6;
+  return base * roastMul * (scorched ? 0.5 : 1);
+}
+export function serveNudge(lotId: string, cohort: string, ageDays: number, roastMul = 1, scorched = false): number {
+  if (scorched || ageDays > STALE_AFTER) return STALE_NUDGE;
   const aff = LOT_CATALOG[lotId]?.affinity[cohort] ?? 1;
-  return (aff - 1) * AFFINITY_NUDGE;
+  return (aff - 1) * AFFINITY_NUDGE * roastMul;
 }
 
 // Phase 2 — wire → shelf schedule (mirrors web/js/lots.js LOT_EVENTS).

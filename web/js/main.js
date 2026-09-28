@@ -22,7 +22,8 @@ import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } 
 import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines } from './identity.js';
 import { portraitCanvas } from './portrait.js';
-import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty } from './lots.js';
+import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
+import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate } from './menu.js';
 import { Demand, DEMAND_ACTIONS } from './demand.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay, modifiersForDay, wavesForDay, getMacroShockForDay, calculateNonLinearDrift, MACRO_SHOCKS } from './gentrification.js';
@@ -311,6 +312,15 @@ let selectedLot = 'huila', topUpCups = 0, beanSpend = 0;
 let pouredOther = 0, lastPour = 0, dawnIndex = 1.0;
 let emergencyToast = false;
 let staleNoted = new Set();
+// Phase 3 — menu + roast + milk + skill: committed prices/offered board,
+// staged copies for the Brief, staged roast for the selected lot, the day's
+// milk delivery/stock, compost count, and Ruth's cumulative skill.
+let menuPrices = basePrices();
+let menuOffered = Object.fromEntries(DRINK_IDS.map(id => [id, true]));
+let stagedMenu = null, stagedRoast = 3;
+let milkDelivery = 0, lastMilky = 0, milkTipped = 0, milkToastDone = false;
+let compostToday = 0;
+let trainingTotal = 0, ruthSkill = 0;
 // first-timers = walk-ins the Regulars graph doesn't know (regularIdx < 0).
 // The new-shop arc lives on these numbers: tried, walked, told a friend.
 let firstServed = 0, firstWalked = 0, firstServedToast = 0, firstWalkedToast = 0;
@@ -524,7 +534,7 @@ function showWavePowered(ttlMs = 7000) {
   try { clearTimeout(showWavePowered._t); } catch {}
   showWavePowered._t = setTimeout(() => el.classList.remove('show'), ttlMs);
 }
-const ctx = { prebatched: false, repriced: false, batchUnits: 0 };
+const ctx = { prebatched: false, repriced: false, batchUnits: 0, milkStock: 0, milky: 0, milkOut: false, menuPrices };
 const WALK_MUL = { 60: 1, 300: 3, 1200: 6 };
 // settle window: day 1, first 12 sim-min feel uncrowded even after the sim starts
 const CALM_UNTIL_MIN = DAY_START + 12;
@@ -613,16 +623,22 @@ function tick() {
         fx.toast(`${lotState.house === e.lotId ? 'pouring' : 'onto'} ${entry ? entry.name : e.lotId} — the house sack ran dry`, 'warn');
       }
       if (e.p && e.p.regularIdx >= 0 && !e.isMatcha && e.lotId) {
+        // Phase 3 — roast-aware palate: off-ideal roast scales the warmth,
+        // scorch reads as stale, and Ruth (skill 1+) cups the sour shots.
+        const lot = lotState.entry(e.lotId);
         const age = lotState.age(e.lotId, day);
-        const nudge = serveNudge(e.lotId, e.p.cohort, age);
+        const roastMul = roastQuality(e.lotId, lot?.roast ?? 3);
+        const scorched = !!lot?.scorched;
+        let nudge = serveNudge(e.lotId, e.p.cohort, age, roastMul, scorched);
+        if (ruthSkill >= 1 && nudge < 0) nudge /= 2;
         if (nudge) {
           const r = regulars.regulars[e.p.regularIdx];
           if (r) r.op = Math.max(-1, Math.min(1, r.op + nudge));
         }
-        if (isStale(age) && !staleNoted.has(e.p.cohort)) {
+        if ((scorched || isStale(age)) && !staleNoted.has(e.p.cohort)) {
           staleNoted.add(e.p.cohort);
           const named = e.p.regularName ? ` — ${e.p.regularName} switched to tea` : '';
-          fx.toast(`${STALE_LINES[e.p.cohort] || 'the room tastes yesterday’s roast'}${named}`, 'warn');
+          fx.toast(`${scorched ? SCORCH_LINE : (STALE_LINES[e.p.cohort] || 'the room tastes yesterday’s roast')}${named}`, 'warn');
         }
       }
       if (!e.isMatcha) pouredOther++;
@@ -689,6 +705,12 @@ function tick() {
       }
       if (defections === 12) fx.toast(COPY.rivalName + '’s line is out the door.', 'bad');
     } else if (e.type === 'rivalServed') { rivalServed++; fx.coinBurst(LAYOUT.rival.x, 1.7, 15.2, 3); }
+  }
+  // Phase 3 — the milk ran dry mid-day: one honest toast, then the balks
+  // speak for themselves.
+  if (ctx.milkOut && !milkToastDone) {
+    milkToastDone = true;
+    fx.toast('milk’s out — milky cups are walking', 'warn');
   }
   if (sales) {
     audio.sale(sales);
@@ -985,6 +1007,17 @@ function closeDay() {
   regulars.resolveDay({ served: servedN, balked, defections, priced: repriced });
   batchWaste = Math.max(0, ctx.batchUnits | 0);
   const wasteCost = batchWaste * (ECON.batchCupCost || 1);
+  // Phase 3 — milk + skill close: leftover milk tips (tomorrow's delivery
+  // adapts), training compounds into Ruth's skill (+1 bar point per level,
+  // max 2 — level-ups toast once).
+  lastMilky = ctx.milky || 0;
+  milkTipped = Math.max(0, ctx.milkStock || 0);
+  trainingTotal += trainingSpend;
+  const newSkill = Math.min(2, Math.floor(trainingTotal / 36));
+  if (newSkill > ruthSkill) {
+    ruthSkill = newSkill;
+    fx.toast(`Ruth’s levelling up — +${ruthSkill} bar point${ruthSkill > 1 ? 's' : ''}, and she cups the sour shots`, 'good');
+  }
   const ops = operatingCosts({
     till, served: servedN,
     staffing: ruthWasHome ? 'home' : hiredApprentice ? 'apprentice' : 'work',
@@ -1045,6 +1078,8 @@ function closeDay() {
       ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
       ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
       ...(beanSpend > 0 ? [['beans stocked', `−${fmt(beanSpend)}`]] : []),
+      ...(compostToday > 0 ? [['stale composted', `${compostToday} cups`]] : []),
+      ...(milkTipped > 0 ? [['milk tipped', `${milkTipped} units`]] : []),
       ...(hedgedCups > 0 ? [['hedge benefit (before fees)', fmt(realizedHedgeSavings)],
                             ...(feeToday > 0 ? [['hedge net of the fee', fmt(realizedHedgeSavings - feeToday)]] : [])] : []),
       ['staff', fmt(ops.staff)], ['milk + cups' + (dayMods.suppliesDelta ? ' (incl. oat surcharge)' : ''), fmt(ops.supplies)],
@@ -1291,6 +1326,8 @@ function applyCommittedPlan(res) {
   applyStagedPrep();
   // Phase 2 — set the house lot and execute the staged top-up.
   applyLots();
+  // Phase 3 — commit staged menu prices + 86 board.
+  applyMenu();
   try { modals.close('brief'); } catch {}
   briefSyncError('');
   return { ok: true };
@@ -1538,7 +1575,7 @@ function renderLotSection() {
     b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; }
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
-    b.onclick = () => { selectedLot = id; topUpCups = 0; renderLotSection(); };
+    b.onclick = () => { selectedLot = id; topUpCups = 0; stagedRoast = lotState.entry(id)?.roast ?? 3; renderLotSection(); };
     pillRow.appendChild(b);
   }
   wrap.appendChild(pillRow);
@@ -1576,10 +1613,30 @@ function renderLotSection() {
   status.style.cssText = 'font-size:10px;letter-spacing:.04em;opacity:.55;font-style:italic';
   const house = lotState.entry(lotState.house);
   status.textContent = [
-    `pouring ${LOT_CATALOG[lotState.house]?.name || lotState.house}${house ? ` (${house.stock} left)` : ''}`,
+    `pouring ${LOT_CATALOG[lotState.house]?.name || lotState.house}${house ? ` (${house.stock} left, roast ${house.roast})` : ''}`,
     ...notes,
   ].join(' · ');
   wrap.appendChild(status);
+
+  // Phase 3 — roast stepper for the selected lot. Ideal in brackets;
+  // distance costs quality, committed with OPEN.
+  const roastRow = document.createElement('div');
+  roastRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;font-size:11px';
+  const roastLab = document.createElement('span');
+  roastLab.style.cssText = 'opacity:.65';
+  const ideal = ROAST_IDEAL[selectedLot] ?? 3;
+  roastLab.textContent = `${LOT_CATALOG[selectedLot]?.name || selectedLot} roast (ideal ${ideal})`;
+  const rMinus = document.createElement('button');
+  rMinus.id = 'brief-roast-minus'; rMinus.textContent = '−'; rMinus.style.cssText = 'padding:4px 10px';
+  rMinus.onclick = () => { stagedRoast = Math.max(1, stagedRoast - 1); renderLotSection(); };
+  const rVal = document.createElement('span');
+  rVal.textContent = `${stagedRoast} · Q ${roastQuality(selectedLot, stagedRoast).toFixed(2)}`;
+  rVal.style.cssText = 'min-width:76px;text-align:center';
+  const rPlus = document.createElement('button');
+  rPlus.id = 'brief-roast-plus'; rPlus.textContent = '+'; rPlus.style.cssText = 'padding:4px 10px';
+  rPlus.onclick = () => { stagedRoast = Math.min(5, stagedRoast + 1); renderLotSection(); };
+  roastRow.appendChild(roastLab); roastRow.appendChild(rMinus); roastRow.appendChild(rVal); roastRow.appendChild(rPlus);
+  wrap.appendChild(roastRow);
 }
 
 // Execute the staged cellar at commit. Sets the house lot, buys the top-up
@@ -1587,6 +1644,8 @@ function renderLotSection() {
 // staging. Called from applyCommittedPlan after applyStagedPrep.
 function applyLots() {
   lotState.house = selectedLot;
+  const entry = lotState.entry(selectedLot);
+  if (entry) entry.roast = Math.min(5, Math.max(1, Math.round(stagedRoast)));
   topUpCups = Math.max(0, Math.floor(topUpCups));
   if (topUpCups <= 0) return;
   const st = lotState.entry(selectedLot);
@@ -1616,6 +1675,74 @@ function applyLots() {
   till -= cost; beanSpend += cost;
   fx.toast(`stocked ${cups} ${LOT_CATALOG[selectedLot].name} · ${fmt(cost)}${hedgedUnits > 0 ? ' (contract cover)' : ''}`, 'good');
   topUpCups = 0;
+}
+
+// Phase 3 — the menu in the Brief. Price each drink within ±£1 (20p steps),
+// 86 anything but matcha (the batch prep assumes it). Filter is slow (3 bar
+// points) — 86ing it speeds the rush but loses its loyalists. Staged, then
+// committed with OPEN (applyMenu).
+function renderMenuSection() {
+  const wrap = $('brief-menu'); if (!wrap) return;
+  wrap.style.display = '';
+  wrap.textContent = '';
+  if (!stagedMenu) stagedMenu = { prices: { ...menuPrices }, offered: { ...menuOffered } };
+
+  const lab = document.createElement('div');
+  lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
+  lab.textContent = 'the menu — price it, or 86 it';
+  wrap.appendChild(lab);
+
+  for (const id of DRINK_IDS) {
+    const def = DRINKS[id];
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:4px;font-size:11px';
+    const nm = document.createElement('span');
+    nm.style.cssText = 'flex:1;min-width:0';
+    nm.textContent = `${def.name} · ${def.points}pt${def.milk ? ' · milk' : ''}`;
+    nm.title = def.blurb;
+    const minus = document.createElement('button');
+    minus.textContent = '−'; minus.style.cssText = 'padding:4px 9px';
+    minus.onclick = () => { stagedMenu.prices[id] = clampPrice(id, stagedMenu.prices[id] - 0.20); renderMenuSection(); };
+    const val = document.createElement('span');
+    val.textContent = fmt(stagedMenu.prices[id]);
+    val.style.cssText = 'min-width:52px;text-align:center';
+    const plus = document.createElement('button');
+    plus.textContent = '+'; plus.style.cssText = 'padding:4px 9px';
+    plus.onclick = () => { stagedMenu.prices[id] = clampPrice(id, stagedMenu.prices[id] + 0.20); renderMenuSection(); };
+    row.appendChild(nm); row.appendChild(minus); row.appendChild(val); row.appendChild(plus);
+    if (id !== 'matcha') {
+      const off = stagedMenu.offered[id] === false;
+      const b86 = document.createElement('button');
+      b86.id = `brief-86-${id}`;
+      b86.textContent = off ? '86’d — off' : '86 it';
+      b86.style.cssText = 'padding:4px 9px' + (off ? ';opacity:.55' : '');
+      b86.setAttribute('aria-pressed', off ? 'true' : 'false');
+      b86.onclick = () => { stagedMenu.offered[id] = off ? true : false; renderMenuSection(); };
+      row.appendChild(b86);
+    } else {
+      const always = document.createElement('span');
+      always.textContent = 'always on';
+      always.style.cssText = 'opacity:.5;font-size:10px;padding:4px 2px';
+      row.appendChild(always);
+    }
+    wrap.appendChild(row);
+  }
+
+  const hint = document.createElement('div');
+  hint.style.cssText = 'font-size:10px;letter-spacing:.04em;opacity:.55;font-style:italic';
+  hint.textContent = 'slow brews cost rush line — 86 with intent';
+  wrap.appendChild(hint);
+}
+
+// Commit staged menu prices + 86 board. In-place assignment keeps the live
+// ctx/patrons references fresh (module re-imports share the objects).
+function applyMenu() {
+  if (!stagedMenu) return;
+  Object.assign(menuPrices, stagedMenu.prices);
+  Object.assign(menuOffered, stagedMenu.offered);
+  ctx.menuPrices = menuPrices;
+  patrons.menuOffered = menuOffered;
+  stagedMenu = null;
 }
 
 // PR-B2 — Sam's reactive answer to a player move. Toast + nudge.
@@ -1866,6 +1993,9 @@ function showMorningBrief() {
   // Phase 2 — the cellar: pick which coffee pours today and top up the
   // sack. Both stage here, execute at commit (applyLots).
   renderLotSection();
+  // Phase 3 — the menu: price each drink, 86 the slow ones. Stages here,
+  // commits with OPEN (applyMenu).
+  renderMenuSection();
   // PR-B1 — Sam's line. Side-by-side yesterday's stats with a one-liner
   // so the rivalry reads personal from the brief onward. Always shown —
   // even on day 1 (where "yesterday" reads as "yesterday's roster").
@@ -2061,6 +2191,15 @@ function prepareDay(d) {
   // the daily counters reset. dawnIndex freezes the pre-roll board for top-ups.
   dawnIndex = exchange.beanIndex;
   pouredOther = 0; beanSpend = 0; emergencyToast = false; staleNoted = new Set();
+  // Phase 3 — morning clean-out + fresh milk + skill: compost stale sacks
+  // (Ruth nurses beans a day longer at skill 2), deliver adaptive milk,
+  // wire skill points and the live menu into the bar.
+  const compost = lotState.compost(d, COMPOST_AFTER + (ruthSkill >= 2 ? 1 : 0));
+  compostToday = compost.cups;
+  if (compost.cups > 0) fx.toast(`morning clean-out — tipped ${compost.cups} stale cups (${compost.names.join(', ')})`, 'warn');
+  milkDelivery = deliveryQty(lastMilky);
+  ctx.milkStock = milkDelivery; ctx.milky = 0; ctx.milkOut = false; milkToastDone = false;
+  milkTipped = 0;
   waveIdx = 0; chapterIdx = 0; dayMin = DAY_START; acc = 0;
   till = 0; cogs = 0; balked = 0; served = 0; servedRetail = 0; defections = 0; rivalServed = 0;
   realizedHedgeSavings = 0; hedgedCups = 0; preparedCups = 0;
@@ -2070,6 +2209,17 @@ function prepareDay(d) {
   demand.staged.sample = false; demand.staged.sponsor = false;
   dayMods = modifiersForDay(d);
   dayWaves = wavesForDay(schedule.waves, d);
+  // Phase 3 — milk sized after the sheet lands: day 1 has no history, so
+  // size from today's waves; later days adapt from yesterday's milky pour.
+  // Skill + live menu wire in here too (post-waves, pre-trading).
+  milkDelivery = d <= 1
+    ? waveMilkEstimate(dayWaves, ECON.spawnScale, demand.spawnMul())
+    : deliveryQty(lastMilky);
+  ctx.milkStock = milkDelivery; ctx.milky = 0; ctx.milkOut = false; milkToastDone = false;
+  patrons.skillPts = ruthSkill;
+  patrons.menuOffered = menuOffered;
+  ctx.menuPrices = menuPrices;
+  stagedRoast = lotState.entry(selectedLot)?.roast ?? 3;
   patrons.dwellMul = 1 + (dayMods.dwellBonus || 0);
   rivalStrategy = strategyForDay(d, exchange.event?.tier);
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
@@ -2618,6 +2768,13 @@ const INCIDENTS = [
     yes: 'pay the £40', no: 'put it on the account',
     accept() { till -= 40 * perkCostMul; },
     decline() { contractFeeExtra += 18; } },
+  // Phase 3 — the roast can scorch: re-roast fresh for £18 (roast clock
+  // resets) or serve it dark and let the room taste it all day.
+  { who: 'the roast', line: '“Left the house lot on too long — it’s scorched.” Ruth won’t serve it proud.',
+    effect: '£18 emergency re-roast, fresh clock · or serve it dark — every roast-sensitive cup sours',
+    yes: 're-roast (£18)', no: 'serve it dark',
+    accept() { till -= 18 * perkCostMul; const e = lotState.entry(lotState.house); if (e) { e.roastedOn = day; e.scorched = false; } },
+    decline() { const e = lotState.entry(lotState.house); if (e) e.scorched = true; } },
 ];
 
 function showIncident() {
@@ -2700,6 +2857,13 @@ function reset() {
   // Phase 2 — the cellar rewinds with the campaign (fresh starter sacks).
   lotState.reset(); selectedLot = 'huila'; topUpCups = 0; beanSpend = 0;
   pouredOther = 0; lastPour = 0; emergencyToast = false; staleNoted = new Set();
+  // Phase 3 — menu, milk, skill rewind too.
+  menuPrices = basePrices(); ctx.menuPrices = menuPrices;
+  menuOffered = Object.fromEntries(DRINK_IDS.map(id => [id, true]));
+  patrons.menuOffered = menuOffered;
+  stagedMenu = null; stagedRoast = 3;
+  milkDelivery = 0; lastMilky = 0; milkTipped = 0; milkToastDone = false;
+  compostToday = 0; trainingTotal = 0; ruthSkill = 0;
   phase = 'onboarding';
   demand.reset(); marketingSpend = 0;
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
