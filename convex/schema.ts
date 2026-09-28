@@ -68,6 +68,32 @@ export default defineSchema({
     b: v.string(),
   }).index("by_campaign", ["campaignId"]),
 
+  // Phase 2 — physical coffee inventory. One row per lot per campaign;
+  // the tradeable mirror of the client cellar (purchases + scheduled wire
+  // moves live here; intra-day pours are floor-sim, like gossip).
+  lots: defineTable({
+    campaignId: v.id("campaigns"),
+    lotId: v.string(),
+    stock: v.number(),
+    value: v.number(),
+    roastedOn: v.number(),
+    priceMul: v.number(),
+    unlocked: v.boolean(),
+    unlockUntil: v.number(),
+    hedgedStock: v.number(),
+  })
+    .index("by_campaign", ["campaignId"])
+    .index("by_campaign_lot", ["campaignId", "lotId"]),
+
+  // Phase 2 — scheduled wire landings: { lot, mul } applied when day >=
+  // landDay (written at event roll, landed at the next openDay).
+  lotMoves: defineTable({
+    campaignId: v.id("campaigns"),
+    lot: v.string(),
+    mul: v.number(),
+    landDay: v.number(),
+  }).index("by_campaign", ["campaignId"]),
+
   // Roaster's Letter archive — templated today, OpenAI-enhanced next.
   // dir/action/from/createdAt are optional: rows written before the inbox
   // bridge carry none, and the latestInbox query skips them rather than

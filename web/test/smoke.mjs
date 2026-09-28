@@ -78,7 +78,10 @@ console.warn = (...a) => { if (!String(a[0]).startsWith('THREE.')) _warn(...a); 
 console.error = (...a) => { if (!String(a[0]).startsWith('THREE.')) _err(...a); };
 
 // ---- run the day -------------------------------------------------------------------
-async function runDay({ levers = false, query = '', frames = 950, step = 16.7 } = {}) {
+// frames carry headroom: ticks couple to wall-clock dt between mock frames,
+// so a fast machine advances fewer game-minutes per frame. 1150 closes the
+// day (1260) with margin at any observed tick rate.
+async function runDay({ levers = false, query = '', frames = 1150, step = 16.7 } = {}) {
   registry.clear();
   globalThis.location = { search: query };
   await import('../js/main.js?run=' + Math.random());

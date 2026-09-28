@@ -22,6 +22,7 @@ import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } 
 import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines } from './identity.js';
 import { portraitCanvas } from './portrait.js';
+import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty } from './lots.js';
 import { Demand, DEMAND_ACTIONS } from './demand.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay, modifiersForDay, wavesForDay, getMacroShockForDay, calculateNonLinearDrift, MACRO_SHOCKS } from './gentrification.js';
@@ -68,6 +69,8 @@ const campaignSeed = urlParams.get('seed') ? +urlParams.get('seed') : 7;
 const exchange = new Exchange(campaignSeed);
 const regulars = new Regulars();
 const walkins = new WalkinPool(campaignSeed);  // Phase 1 — the day's strangers; dawn ensures the day
+const lotState = new LotsState();              // Phase 2 — the cellar; stocks persist across days
+exchange.lots = lotState;                      // pour routing for non-matcha cups
 const demand = new Demand();   // awareness brings them, loyalty brings them back
 let marketingSpend = 0;        // dawn-staged sponsor cost, folded into the closeDay ops sheet
 // ---- vitality + director -----------------------------------------------------------
@@ -301,6 +304,13 @@ window.addEventListener('keydown', (e) => {
 }, true);
 let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0, rivalServed = 0;
 let evangelistServes = 0;   // Phase 1 — evangelist serves become tomorrow's crowd via womReturnees
+// Phase 2 — cellar ledger: staged lot choice + top-up (committed with OPEN),
+// dawn bean outlay (cash-basis expense), yesterday's pour (adaptive restock),
+// per-day toast guards, and the dawn board index (top-ups price pre-roll).
+let selectedLot = 'huila', topUpCups = 0, beanSpend = 0;
+let pouredOther = 0, lastPour = 0, dawnIndex = 1.0;
+let emergencyToast = false;
+let staleNoted = new Set();
 // first-timers = walk-ins the Regulars graph doesn't know (regularIdx < 0).
 // The new-shop arc lives on these numbers: tried, walked, told a friend.
 let firstServed = 0, firstWalked = 0, firstServedToast = 0, firstWalkedToast = 0;
@@ -580,16 +590,42 @@ function tick() {
       preparedCups++;
       // cash-only day: a share of sales die at the till — no card, no sale
       if (cashOnly && Math.random() < cashOnly) {
-        cogs += e.beanCost ?? 0;
+        cogs += e.lotId ? 0 : e.beanCost ?? 0;   // Phase 2 cash-basis (see below)
         if (e.hedged) { hedgedCups++; realizedHedgeSavings += e.spotCost - e.beanCost; }
         balked++; balks++;
         if (dayMin >= 840 && dayMin <= 1020) waveBalked++;
         if (!cashOnlyToast) { cashOnlyToast = true; fx.toast('no card, no sale — they leave the cup on the counter', 'warn'); }
         continue;
       }
-      till += e.price; cogs += e.beanCost ?? 0; sales++;
+      till += e.price; cogs += e.lotId ? 0 : e.beanCost ?? 0; sales++;   // Phase 2 cash-basis: lot cups were expensed at the dawn top-up
       if (e.hedged) { hedgedCups++; realizedHedgeSavings += e.spotCost - e.beanCost; }
       if (e.viaRegister) servedRetail++; else served++;
+      // Phase 2 — the cup tells its story: emergency sacks bill the till at
+      // pour time, silent stock switches get one honest toast, and stale or
+      // loved lots move roster opinions with a reason the room can taste.
+      if (e.emergency && !emergencyToast) {
+        emergencyToast = true;
+        till -= e.spotCost; beanSpend += e.spotCost;
+        fx.toast('cellar’s dry — called Idris for an emergency sack (1.5× spot)', 'warn');
+      }
+      if (e.switched && e.lotId) {
+        const entry = LOT_CATALOG[e.lotId];
+        fx.toast(`${lotState.house === e.lotId ? 'pouring' : 'onto'} ${entry ? entry.name : e.lotId} — the house sack ran dry`, 'warn');
+      }
+      if (e.p && e.p.regularIdx >= 0 && !e.isMatcha && e.lotId) {
+        const age = lotState.age(e.lotId, day);
+        const nudge = serveNudge(e.lotId, e.p.cohort, age);
+        if (nudge) {
+          const r = regulars.regulars[e.p.regularIdx];
+          if (r) r.op = Math.max(-1, Math.min(1, r.op + nudge));
+        }
+        if (isStale(age) && !staleNoted.has(e.p.cohort)) {
+          staleNoted.add(e.p.cohort);
+          const named = e.p.regularName ? ` — ${e.p.regularName} switched to tea` : '';
+          fx.toast(`${STALE_LINES[e.p.cohort] || 'the room tastes yesterday’s roast'}${named}`, 'warn');
+        }
+      }
+      if (!e.isMatcha) pouredOther++;
       // Phase 1 — a serve is a visit. Canon regulars append session history
       // (visits count days-seen in resolveDay, both sides); walk-ins
       // accumulate in the day pool; evangelist serves seed tomorrow's crowd.
@@ -928,6 +964,8 @@ function closeDay() {
   // (catastrophes scare extra), dawn-staged street work lands tomorrow's
   // awareness, and today's served × loyalty become tomorrow's returnees.
   // Phase 1: evangelist serves preach — each brings +2 back (womReturnees).
+  // Phase 2: today's non-matcha pour sizes tomorrow's restock button.
+  lastPour = pouredOther;
   const dtrace = demand.resolveDay({ served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier, extraReturnees: womReturnees(evangelistServes) });
   vitality.recompute();   // the evening settles on the block's true mood
   try { analytics.track('demand_resolved', { day, ...dtrace }); } catch {}
@@ -1006,6 +1044,7 @@ function closeDay() {
       ['revenue', fmt(till + batchSpend)], ['bean cost', fmt(cogs)],
       ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
       ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
+      ...(beanSpend > 0 ? [['beans stocked', `−${fmt(beanSpend)}`]] : []),
       ...(hedgedCups > 0 ? [['hedge benefit (before fees)', fmt(realizedHedgeSavings)],
                             ...(feeToday > 0 ? [['hedge net of the fee', fmt(realizedHedgeSavings - feeToday)]] : [])] : []),
       ['staff', fmt(ops.staff)], ['milk + cups' + (dayMods.suppliesDelta ? ' (incl. oat surcharge)' : ''), fmt(ops.supplies)],
@@ -1250,6 +1289,8 @@ function applyCommittedPlan(res) {
   startTradingDay(d);
   // PR-A1 — fire any prep levers the player staged in the Brief.
   applyStagedPrep();
+  // Phase 2 — set the house lot and execute the staged top-up.
+  applyLots();
   try { modals.close('brief'); } catch {}
   briefSyncError('');
   return { ok: true };
@@ -1463,6 +1504,118 @@ function renderPrepSection() {
 function applyStagedPrep() {
   if (stagedPrep.batch) doPrebatch({ asPlanned: true });
   if (stagedPrep.reprice) doReprice({ asPlanned: true });
+}
+
+// Phase 2 — the cellar in the Brief. House-lot pills (price at the dawn
+// board, stock, roast age) plus adaptive top-up: restock to yesterday's
+// pour +25%, double it, or skip. Staged into selectedLot/topUpCups,
+// executed at commit by applyLots (till-checked, contract-aware).
+function renderLotSection() {
+  const wrap = $('brief-lots'); if (!wrap) return;
+  wrap.style.display = '';
+  wrap.textContent = '';
+
+  const lab = document.createElement('div');
+  lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
+  lab.textContent = 'the cellar — which coffee pours today';
+  wrap.appendChild(lab);
+
+  const pillRow = document.createElement('div');
+  pillRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px';
+  for (const id of LOT_IDS) {
+    const entry = LOT_CATALOG[id];
+    const st = lotState.entry(id);
+    if (!st || st.unlocked === false) continue;
+    const age = lotState.age(id, day);
+    const price = lotSpot(id, dawnIndex, st.priceMul);
+    const b = document.createElement('button');
+    b.id = `brief-lot-${id}`;
+    b.dataset.lot = id;
+    const sel = selectedLot === id;
+    const fresh = age <= 1 ? '● fresh' : isStale(age) ? '● STALE' : '● day ' + age;
+    b.textContent = `${sel ? '✓ ' : ''}${entry.name} · ${fmt(price)}/cup · ${st.stock} in sack · ${fresh}`;
+    b.title = entry.blurb;
+    b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
+    if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; }
+    b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+    b.onclick = () => { selectedLot = id; topUpCups = 0; renderLotSection(); };
+    pillRow.appendChild(b);
+  }
+  wrap.appendChild(pillRow);
+
+  // Top-up row for the selected lot.
+  const st = lotState.entry(selectedLot);
+  if (st) {
+    const price = lotSpot(selectedLot, dawnIndex, st.priceMul);
+    const qty = restockQty(lastPour);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px';
+    const mkTop = (id, label, cups) => {
+      const b = document.createElement('button');
+      b.id = id;
+      const sel = topUpCups === cups && cups > 0;
+      b.textContent = `${sel ? '✓ ' : ''}${label}`;
+      b.style.cssText = 'font-size:11px;padding:6px 10px;flex:1;min-width:0';
+      if (sel) { b.style.borderColor = 'var(--brass)'; b.style.background = 'rgba(201,162,39,.18)'; }
+      b.onclick = () => { topUpCups = (topUpCups === cups) ? 0 : cups; renderLotSection(); };
+      return b;
+    };
+    const underContract = !!(exchange.contract && exchange.contract.units > 0);
+    row.appendChild(mkTop('brief-top-rest', qty > 0 ? `restock ${qty} cups · ${fmt(qty * price)}${underContract ? ' (contract)' : ''}` : 'cellar’s full enough — skip', qty));
+    if (qty > 0) row.appendChild(mkTop('brief-top-double', `double it · ${qty * 2} cups`, qty * 2));
+    wrap.appendChild(row);
+  }
+
+  // Wire notes: moves still travelling + microlot windows.
+  const notes = [];
+  for (const p of lotState.pending) {
+    const entry = LOT_CATALOG[p.lot];
+    notes.push(`${entry ? entry.name : p.lot} moves in ${Math.max(0, p.landDay - day)}d`);
+  }
+  const status = document.createElement('div');
+  status.style.cssText = 'font-size:10px;letter-spacing:.04em;opacity:.55;font-style:italic';
+  const house = lotState.entry(lotState.house);
+  status.textContent = [
+    `pouring ${LOT_CATALOG[lotState.house]?.name || lotState.house}${house ? ` (${house.stock} left)` : ''}`,
+    ...notes,
+  ].join(' · ');
+  wrap.appendChild(status);
+}
+
+// Execute the staged cellar at commit. Sets the house lot, buys the top-up
+// (till-checked; contract cover flows through when held), and resets the
+// staging. Called from applyCommittedPlan after applyStagedPrep.
+function applyLots() {
+  lotState.house = selectedLot;
+  topUpCups = Math.max(0, Math.floor(topUpCups));
+  if (topUpCups <= 0) return;
+  const st = lotState.entry(selectedLot);
+  if (!st || st.unlocked === false) { topUpCups = 0; return; }
+  let unitPrice = lotSpot(selectedLot, dawnIndex, st.priceMul);
+  let hedgedUnits = 0;
+  if (exchange.contract && exchange.contract.units > 0) {
+    unitPrice = exchange.contract.price * 1.3;
+    hedgedUnits = Math.min(topUpCups, exchange.contract.units);
+  }
+  // Pre-clamp to the microlot cap so the till check prices what can land.
+  const cap = LOT_CATALOG[selectedLot].stockCap;
+  const room = cap ? Math.min(topUpCups, Math.max(0, cap - st.stock)) : topUpCups;
+  if (room <= 0) { topUpCups = 0; return; }
+  const full = room * unitPrice;
+  if (till < full) {
+    fx.toast(`short for the full sack — till covers ${fmt(till)}`, 'warn');
+    topUpCups = 0;
+    return;
+  }
+  const { cost, cups } = lotState.buy(selectedLot, room, unitPrice, day, { hedgedUnits });
+  // Consume only the cover actually poured into the sack.
+  if (hedgedUnits > 0 && exchange.contract) {
+    exchange.contract.units -= Math.min(cups, hedgedUnits);
+    if (exchange.contract.units <= 0) exchange.contract = null;
+  }
+  till -= cost; beanSpend += cost;
+  fx.toast(`stocked ${cups} ${LOT_CATALOG[selectedLot].name} · ${fmt(cost)}${hedgedUnits > 0 ? ' (contract cover)' : ''}`, 'good');
+  topUpCups = 0;
 }
 
 // PR-B2 — Sam's reactive answer to a player move. Toast + nudge.
@@ -1710,6 +1863,9 @@ function showMorningBrief() {
   // commit and a mid-day press costs £4.20 + gossip only when the player
   // DIDN'T stage it. Defaults to "play it live" — neither pill pressed.
   renderPrepSection();
+  // Phase 2 — the cellar: pick which coffee pours today and top up the
+  // sack. Both stage here, execute at commit (applyLots).
+  renderLotSection();
   // PR-B1 — Sam's line. Side-by-side yesterday's stats with a one-liner
   // so the rivalry reads personal from the brief onward. Always shown —
   // even on day 1 (where "yesterday" reads as "yesterday's roster").
@@ -1901,6 +2057,10 @@ function prepareDay(d) {
   coached = d !== 1;   // the lever hint only coaches day 1, once per campaign
   patrons.reset(); fx.reset();
   walkins.ensureDay(d); evangelistServes = 0;   // Phase 1 — fresh strangers (yesterday's known faces carry), WOM counter reset
+  // Phase 2 — the cellar persists across days (stocks roast and age); only
+  // the daily counters reset. dawnIndex freezes the pre-roll board for top-ups.
+  dawnIndex = exchange.beanIndex;
+  pouredOther = 0; beanSpend = 0; emergencyToast = false; staleNoted = new Set();
   waveIdx = 0; chapterIdx = 0; dayMin = DAY_START; acc = 0;
   till = 0; cogs = 0; balked = 0; served = 0; servedRetail = 0; defections = 0; rivalServed = 0;
   realizedHedgeSavings = 0; hedgedCups = 0; preparedCups = 0;
@@ -1960,6 +2120,19 @@ function startTradingDay(d) {
   if (baristaHomeToday) patrons.staffMul = 0.7;
   else if (apprenticeHiredToday) patrons.staffMul = (CAMPAIGN.staff?.apprenticeStaffMul || 1.05) * perkStaffMul;
   const ev = exchange.openDay(intelBias);    // drift first, then roll the market + the event
+  // Phase 2 — wire → shelf: schedule this event's lot moves, land what's due.
+  // The Brief (pre-roll) stages from yesterday's cellar; landed moves toast
+  // here, at trading start, when the new prices bite.
+  for (const note of lotState.applyWireEvent(ev.id, d)) fx.toast(`wire → shelf: ${note}`, '');
+  for (const line of lotState.resolveDawn(d)) fx.toast(line, 'warn');
+  if (exchange.geshaUnlocked) {
+    const g = lotState.entry('gesha');
+    if (g && !g.unlocked) {
+      g.unlocked = true;
+      g.unlockUntil = Math.max(g.unlockUntil, 5);
+      fx.toast('Idris heard about the code — Panama Gesha on offer (60 cups)', 'good');
+    }
+  }
   if (d === 1 && marketIntel && marketIntel.marketShift && marketIntel.marketShift.length) {
     fx.toast('market intel · ' + String(marketIntel.marketShift[0].reason).slice(0, 90), 'warn');
   }
@@ -2524,6 +2697,9 @@ function reset() {
   rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day
   briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;
   realizedHedgeSavings = 0; hedgedCups = 0;
+  // Phase 2 — the cellar rewinds with the campaign (fresh starter sacks).
+  lotState.reset(); selectedLot = 'huila'; topUpCups = 0; beanSpend = 0;
+  pouredOther = 0; lastPour = 0; emergencyToast = false; staleNoted = new Set();
   phase = 'onboarding';
   demand.reset(); marketingSpend = 0;
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;

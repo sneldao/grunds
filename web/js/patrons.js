@@ -254,10 +254,11 @@ export class PatronSystem {
       if (fromBatch) ctx.batchUnits = Math.max(0, ctx.batchUnits - 1);
       p.hasCup = true; p.cupGreen = p.wantsMatcha; p.colorDirty = true;
       // Batch cups were paid at prep (£1 each) — skip the bean charge and
-      // don't burn a hedge unit on inventory already bought.
+      // don't burn a hedge unit on inventory already bought. Phase 2:
+      // non-batch matcha keeps legacy bean math; other cups pour the house lot.
       let cup;
       if (fromBatch) cup = { beanCost: 0, spotCost: 0, hedged: false, prepaid: true };
-      else cup = this.exchange ? this.exchange.purchaseCup() : { beanCost: 0, spotCost: 0, hedged: false };
+      else cup = this.exchange ? this.exchange.purchaseCup(p.wantsMatcha ? 'matcha' : 'other') : { beanCost: 0, spotCost: 0, hedged: false };
       ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: p.wantsMatcha ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull) : ECON.other, ...cup });
       this._afterServe(p);
     }
@@ -296,7 +297,7 @@ export class PatronSystem {
       if (p.state !== 'inRegisterQ') { i++; continue; }
       if (p.waitMin >= 1) {
         this.registerQ.splice(i, 1); regN++;
-        const cup = this.exchange ? this.exchange.purchaseCup() : { beanCost: 0, spotCost: 0, hedged: false };
+        const cup = this.exchange ? this.exchange.purchaseCup('other') : { beanCost: 0, spotCost: 0, hedged: false };
         ev.push({ type: 'served', p, isMatcha: false, price: ECON.other, viaRegister: true, ...cup });
         if (Math.random() < 0.12) this._afterServe(p); else this._leave(p);
       } else i++;

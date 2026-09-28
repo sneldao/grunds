@@ -418,7 +418,7 @@ stack. Estimate: 4–6 weeks. Phases are dependency-ordered.
 - Tests: `patron-arcs.mjs` (transitions incl. demotion, companions,
   evangelist WOM), `dossier.mjs`, backfill test.
 
-### Phase 2 — Econ core: named lots, freshness, Wire-to-shelf (4–5 days)
+### Phase 2 — Econ core: named lots, freshness, Wire-to-shelf (4–5 days) [SHIPPED Sept 28]
 
 - New Convex `lots` table + client inventory. 3 standing lots (Brazilian
   Cerrado workhorse / Ethiopian Yirgacheffe 2× floral / Colombian Huila

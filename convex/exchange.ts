@@ -7,9 +7,11 @@ import {
   DRIFT,
   EVENTS,
   REGULAR_ROSTER,
+  LOT_WIRE,
   priceForDay,
   seededRandom,
 } from "./gameConfig";
+import { ensureLots, scheduleLotMoves, unlockLot, landDueMoves } from "./lots";
 import { hashKey } from "./apiCache";
 import { LINKUP_RESEARCH_QUERY } from "./linkup";
 
@@ -82,6 +84,7 @@ export async function createCampaignState(ctx: MutationCtx, seed: number) {
       await ctx.db.insert("friendships", { campaignId, a: [r.name, f].sort()[0], b: [r.name, f].sort()[1] });
     }
   }
+  await ensureLots(ctx, campaignId);
   return campaignId;
 }
 
@@ -113,6 +116,7 @@ export const openDay = mutation({
     tier: v.string(),
     beanIndex: v.number(),
     matchaPrice: v.number(),
+    lotReport: v.array(v.string()),
   }),
   handler: async (ctx, args) => {
     const c = await ctx.db.get(args.campaignId);
@@ -181,6 +185,15 @@ export const openDay = mutation({
       lastEventId: eventId,
       matchaPrice,
     });
+    // Phase 2 — wire → shelf: schedule this event's lot moves, land what's
+    // due (the cellar mirrors the client LotsState for tradeable state).
+    await ensureLots(ctx, args.campaignId);
+    const wire = LOT_WIRE[eventId];
+    if (wire) {
+      if (wire.moves.length) await scheduleLotMoves(ctx, args.campaignId, wire.moves, day);
+      if (wire.unlock) await unlockLot(ctx, args.campaignId, wire.unlock.lot, day + wire.unlock.days);
+    }
+    const lotReport = await landDueMoves(ctx, args.campaignId, day);
     await ctx.db.insert("marketEvents", {
       campaignId: args.campaignId,
       day,
@@ -191,7 +204,7 @@ export const openDay = mutation({
       line: def.line,
       beanIndexAfter: beanIndex,
     });
-    return { day, eventId, tier: def.tier, beanIndex, matchaPrice };
+    return { day, eventId, tier: def.tier, beanIndex, matchaPrice, lotReport };
   },
 });
 

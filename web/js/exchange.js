@@ -4,6 +4,7 @@
 // commodity economics into your margin and (via the Regulars) into the floor.
 import { CAMPAIGN, EVENTS } from './config.js';
 import { applyDrift, priceForDay } from './gentrification.js';
+import { EMERGENCY_MUL } from './lots.js';
 
 // A tiny seeded PRNG so a campaign is reproducible per seed (per EVAL.md
 // "same seed → same run").
@@ -83,12 +84,27 @@ export class Exchange {
     return true;
   }
 
-  purchaseCup() {
-    const beanCost = this.costPerCup;
+  purchaseCup(kind = 'other') {
+    // Phase 2 — matcha keeps legacy bean math (separate supply chain);
+    // everything else pours from the house lot. Cash-basis books: the dawn
+    // top-up was the expense, so poured lot cups carry display beanCost
+    // (margin + savings readouts) while cogs stays 0 — same as batch prep.
+    if (kind === 'matcha' || !this.lots) {
+      const beanCost = this.costPerCup;
+      const spotCost = this.beanIndex * CAMPAIGN.beanBaseCost;
+      const hedged = !!this.contract;
+      this.consume(1);
+      return { beanCost, spotCost, hedged };
+    }
     const spotCost = this.beanIndex * CAMPAIGN.beanBaseCost;
-    const hedged = !!this.contract;
-    this.consume(1);
-    return { beanCost, spotCost, hedged };
+    const poured = this.lots.pour(this.day);
+    if (poured.emergency) {
+      return { beanCost: 0, spotCost: spotCost * EMERGENCY_MUL, hedged: false, emergency: true, lotId: null };
+    }
+    return {
+      beanCost: poured.unitCost, spotCost, hedged: poured.hedged,
+      lotId: poured.lotId, switched: poured.switched,
+    };
   }
 
   // Day open: drift first (the baseline pressure), then roll the event on

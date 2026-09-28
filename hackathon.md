@@ -16,6 +16,14 @@
 
 ## Log
 
+### 2026-09-28 - Phase 2 shipped: econ core (named lots, freshness, wire-to-shelf)
+- **`web/js/lots.js` (new):** 4-lot catalog (Cerrado £0.95 / Huila £1.30 == legacy baseline / Yirgacheffe £1.90 / Gesha £3.20 microlot capped at 60), freshness curve (1 → 0.85 → stale past day 2), serve nudges (affinity-scaled warmth, flat stale penalty + reason strings), adaptive restock (yesterday +25%), stock cascade + emergency sack, wire schedule with landing lags, frost-aftermath Gesha unlock.
+- **Bean engine swap:** `purchaseCup(kind)` — matcha keeps legacy math, other cups pour the house lot under cash-basis books (dawn top-up is the expense, poured cups carry display cost like batch prep). Contracts cover top-ups at the locked price.
+- **Brief cellar picker + commit** (house pills with price/stock/freshness, restock/double/skip, staged like stagedPrep), stale sours roster opinions with namedrop toasts, Gesha easter-egg tie-in (GRUNDS code unlocks the microlot).
+- **Server mirror:** `lots` + `lotMoves` tables, `lots.ts` (ensure/buy/schedule/land), `openDay` lands moves + returns lotReport, `gameConfig` LOT mirror.
+- **Gate:** lot-economy 14/14 + wire-lots 7/7 green; full suite green ex 5 pre-existing; smoke relational holds (de-flaked frames 950 → 1150 after proving wall-clock flake with back-to-back runs); balance-policies green incl. determinism + ledger reconciliation; tsc clean.
+- Deployed dev + prod + site (functions changed).
+
 ### 2026-09-28 - Phase 1 shipped: character core (identity, stages, dossiers, board)
 - **`web/js/identity.js` (new):** stage machine (visitor → evangelist, visits + op gates, demote-one-from-earned), per-cohort walk-in name/drink pools, deterministic `WalkinPool` (24 heads/day, known faces carry), memory lines, dossier text, companion gate, WOM math.
 - **Floor:** spawn attaches identity (canon roster or pool draw), friends bring a +1 (one-level recursion guard), greetings speak from history, sitters stay-mark their last event, clicks on sitters open dossiers.

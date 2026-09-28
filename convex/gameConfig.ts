@@ -73,6 +73,66 @@ export const CANON_DRINKS: Record<string, string> = {
   Gwen: 'latte', Yuki: 'single-origin', Dev: 'espresso', Esther: 'tea',
 };
 
+// Phase 2 — lot catalog mirror (web/js/lots.js LOT_CATALOG). unitBase is
+// £/cup at beanIndex 1.0; huila == today's baseline so the default house
+// path reproduces legacy bean math. Keep numbers identical both sides.
+export interface LotDef {
+  name: string;
+  origin: string;
+  unitBase: number;
+  quality: number;
+  microlot?: boolean;
+  stockCap?: number;
+  affinity: Record<string, number>;
+}
+export const LOT_CATALOG: Record<string, LotDef> = {
+  cerrado: {
+    name: 'Brazil Cerrado', origin: 'Minas Gerais', unitBase: 0.95, quality: 0.65,
+    affinity: { commuters: 1.15, elders: 1.05, students: 1.0, tourists: 1.0, creatives: 0.9 },
+  },
+  huila: {
+    name: 'Colombia Huila', origin: 'Huila', unitBase: 1.30, quality: 0.85,
+    affinity: { commuters: 1.05, elders: 1.05, students: 1.05, tourists: 1.1, creatives: 1.05 },
+  },
+  yirgacheffe: {
+    name: 'Ethiopia Yirgacheffe', origin: 'Gedeo Zone', unitBase: 1.90, quality: 1.0,
+    affinity: { creatives: 1.3, tourists: 1.15, elders: 1.05, students: 1.0, commuters: 0.95 },
+  },
+  gesha: {
+    name: 'Panama Gesha', origin: 'Boquete', unitBase: 3.20, quality: 1.2,
+    microlot: true, stockCap: 60,
+    affinity: { creatives: 1.5, tourists: 1.2, elders: 1.1, students: 1.05, commuters: 0.9 },
+  },
+};
+export const STARTER_STOCK: Record<string, number> = { cerrado: 600, huila: 1500, yirgacheffe: 600, gesha: 0 };
+export const STALE_AFTER = 2;
+export const STALE_NUDGE = -0.03;
+export const AFFINITY_NUDGE = 0.05;
+
+export function cupQuality(ageDays: number): number {
+  if (ageDays <= 1) return 1;
+  if (ageDays <= STALE_AFTER) return 0.85;
+  return 0.6;
+}
+export function serveNudge(lotId: string, cohort: string, ageDays: number): number {
+  if (ageDays > STALE_AFTER) return STALE_NUDGE;
+  const aff = LOT_CATALOG[lotId]?.affinity[cohort] ?? 1;
+  return (aff - 1) * AFFINITY_NUDGE;
+}
+
+// Phase 2 — wire → shelf schedule (mirrors web/js/lots.js LOT_EVENTS).
+// Frost aftermath also shifts supply to Panama: landing a cerrado move
+// unlocks the Gesha window (handled in landDueMoves, both sides).
+export interface LotWireDef {
+  moves: { lot: string; mul: number; lag: number }[];
+  unlock: { lot: string; days: number } | null;
+}
+export const LOT_WIRE: Record<string, LotWireDef> = {
+  frost_minas: { moves: [{ lot: 'cerrado', mul: 1.35, lag: 2 }], unlock: null },
+  drought_ea: { moves: [{ lot: 'yirgacheffe', mul: 1.3, lag: 2 }], unlock: null },
+  hype_matcha: { moves: [], unlock: { lot: 'gesha', days: 2 } },
+};
+
 export type EventTier = "cata" | "bad" | "good" | "calm" | "warn";
 
 export interface EventDef {
