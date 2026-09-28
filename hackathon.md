@@ -12,16 +12,29 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-09-22T01:55:00Z
+- **Last updated:** 2026-09-28T12:00:00Z
 
 ## Log
+
+### 2026-09-28 - Working tree - Morning-prep polish: radio picker + seated prop poses
+Two residual nits from the PR-A1/A2 session, closed.
+- **Radio-style staged prep:** the Brief's two independent prep toggles become a three-pill radio (`hold steady` / `pre-batch 40 cups` / `cut matcha to £4.20`) — clicking sets `stagedPrep` atomically, so only one lever is ever staged. `applyStagedPrep()` simplifies to two direct fires (the conflict-warning toasts were dead code once both-keys-true became impossible). Hint copy updated to "pick one morning lever". `web/test/brief-staged-prep.mjs` gains a radio-exclusivity test.
+- **Seated prop poses:** `_placeProp()` takes `propKey + sitting` — a seated creative's laptop drops to lap height and tilts forward (-0.55), a seated tourist's camera rises to eye level (+0.18), instead of both hanging in front of the chest. Standing pose unchanged. `web/test/cohort-prop-rigs.mjs` gains two sitting-pose tests.
+- **Gate:** fast suites green (5 pre-existing failures — decisions/game-feel/identity/intel/modals — verified identical on the clean tree), `tsc --noEmit` clean, balance-policies green.
+
+### 2026-09-27 (evening) - 6cd6e2f + 8dafcf1 - The rivalry trilogy + Sam's reactive cameo
+- **PR-B1 visible rivalry:** the brief shows yesterday's served counts side-by-side, Sam's chalkboard strategy, a mid-day "you vs Sam" line, and a week-end verdict receipt. `web/test/visible-rivalry.mjs`.
+- **PR-B2 reactive AI:** player pre-batch makes Sam grind harder (+1.5 rival credit), player reprice makes him undercut by £0.10 on his chalkboard — `rivalReactLog` replays it tomorrow morning. `web/test/rival-reactivity.mjs`.
+- **PR-B3 weekly stakes:** `campaignClose` computes cServed vs cRivalServed + cRivalChoices — player wins → FOR LEASE on Sam's spot; Sam wins → Sam absorbs; tie → DEUCE. `web/test/weekly-stakes.mjs`.
+- **Sam's reactive cameo (8dafcf1):** when the player undercuts, Sam's silhouette walks to his chalkboard and flips it on camera (`W.rivalReactUntil` ~1.9s window, sine-pulse lean, camera push-in, BOARD FLIPPED chapter card). Pre-batch react stays invisible by design. `web/test/sam-reactive-cameo.mjs`.
+- **PR-A1 + PR-A2 (75abada):** brief-staged prep UI (two toggle pills, `stagedPrep = {batch, reprice}`, fired at commit with `asPlanned: true`) and cohort prop rigs (7 real InstancedMeshes, 7 body anchors, zero-scaled at startup + `_despawn`). `web/test/brief-staged-prep.mjs`, `web/test/cohort-prop-rigs.mjs`.
 
 ### 2026-09-27 - Working tree - The RevenueCat depth pass + Ship-a-ton surface
 Eleven PRs in one stretch — each with its own headless suite. Gate grew **30 → 41 headless suites / 88 new assertions**, `tsc --noEmit` clean, all changes staged for the next deploy.
 - **Game-design tunes:** asymmetric bias clamp (low-side floor only, high-side rides through), pity timer day-gated to `<4` so the first three dawns are learnable. `web/test/clamp-asymmetry.mjs`.
 - **Perk balance:** `ex-accountant` 0.85 → 0.90, `newcomer` opWarm 0.25 → 0.18 — actual measured spread £132 (well below the £1,500 wrecking threshold). `web/test/perk-balance.mjs`.
 - **Time-locked levers:** once the Morning Brief commits, the prep / reprice levers lock for the day. Mid-rush presses route through `chargeLeverOverride()`: **£4.20 from the till + −0.06 opinion on every named regular**. Refused when till can't cover. `web/test/time-locked-levers.mjs`.
-- **Cohort rituals:** `COHORTS` table gains `props / seat / dwellMul / walkSpeed`. Each cohort has a unique primary prop (briefcase / laptop+mug / backpack+notebook / cane / camera). `_afterServe` prefers the cohort's seat before random. Floor reads five rooms by walk speed + dwell alone; rig meshes still TODO. `web/test/cohort-rituals.mjs`.
+- **Cohort rituals:** `COHORTS` table gains `props / seat / dwellMul / walkSpeed`. Each cohort has a unique primary prop (briefcase / laptop+mug / backpack+notebook / cane / camera). `_afterServe` prefers the cohort's seat before random. Floor reads five rooms by walk speed + dwell alone; rig meshes landed in 75abada (PR-A2) with seated laptop/camera poses in the Sept-28 polish. `web/test/cohort-rituals.mjs`, `web/test/cohort-prop-rigs.mjs`.
 - **Per-beat sponsor captions:** five `.beat-powered` slots (`#brief-powered`, `#offer-powered`, `#wave-powered`, `#evening-powered`, `#verdict-powered`) wired at the actual beats. `web/test/sponsor-captions.mjs`.
 - **`?demo=1` autoplay:** showfloor-screen self-running demo — resolves the seven modals with a 1.5s grace, auto-fires `doPhoto()` at dayMin 1080, yields to any keypress. `web/test/showfloor-autoplay.mjs`.
 - **RevenueCat depth (Ship-a-ton surface):**

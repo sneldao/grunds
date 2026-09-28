@@ -1349,17 +1349,15 @@ function renderPlanQuote() {
   }
 }
 
-// PR-A1 — Brief-staged prep. The Morning Brief lets the player lock in the
-// two morning levers (pre-batch, cut-to-£4.20) BEFORE commit. Staging means
-// the decision is already made — the lever auto-fires at commit time and a
-// mid-day press of the same lever is free. If the player DIDN'T stage the
-// lever, a mid-day press costs £4.20 + a small opinion hit on every named
-// regular (the chargeLeverOverride mechanic from PR-5).
+// PR-A1 — Brief-staged prep (radio picker). The Morning Brief lets the
+// player lock in ONE morning lever (hold / pre-batch / cut-to-£4.20) BEFORE
+// commit. Staging means the decision is already made — the lever auto-fires
+// at commit time and a mid-day press of the same lever is free. If the player
+// DIDN'T stage the lever, a mid-day press costs £4.20 + a small opinion hit
+// on every named regular (the chargeLeverOverride mechanic from PR-5).
 //
-// Two independent toggles. They are NOT mutually exclusive — if the player
-// stages both, pre-batch fires first at commit and the cut is rejected at
-// commit time with the existing "you prepped the cups — price stays on the
-// board" toast. The UI shows this conflict in the description text.
+// Three mutually exclusive pills. The stagedPrep object keeps both keys for
+// backward compat with applyStagedPrep (only one is ever true at a time).
 function renderPrepSection() {
   const wrap = $('brief-prep'); if (!wrap) return;
   wrap.style.display = '';
@@ -1372,40 +1370,46 @@ function renderPrepSection() {
 
   const hint = document.createElement('div');
   hint.style.cssText = 'font-size:10.5px;opacity:.6;margin-bottom:6px;font-style:italic';
-  hint.textContent = 'commit your morning levers now — pressing 1 or 2 mid-day without staging costs £4.20 + gossip';
+  hint.textContent = 'pick one morning lever — pressing 1 or 2 mid-day without staging costs £4.20 + gossip';
   wrap.appendChild(hint);
 
   const pillRow = document.createElement('div');
   pillRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px';
 
+  // Radio state: hold = neither staged, batch = pre-batch only, reprice = cut only.
+  const isSelected = (key) => {
+    if (key === 'hold') return !stagedPrep.batch && !stagedPrep.reprice;
+    if (key === 'batch') return stagedPrep.batch && !stagedPrep.reprice;
+    if (key === 'reprice') return stagedPrep.reprice && !stagedPrep.batch;
+    return false;
+  };
+
   const makePill = (id, def) => {
     const b = document.createElement('button');
     b.id = id;
     b.dataset.prep = def.key;
-    const sel = !!stagedPrep[def.key];
+    const sel = isSelected(def.key);
     b.textContent = (sel ? '✓ ' : '') + def.label + (def.cost ? ` · −${fmt(def.cost)}` : '');
     b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; }
+    else if (def.key === 'hold') { b.style.opacity = '0.7'; }
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
     b.onclick = () => {
-      stagedPrep[def.key] = !stagedPrep[def.key];
-      // If staging both, the cut will be rejected at commit time — flag that
-      // visibly on the price pill so the player notices.
-      if (def.key === 'batch' && stagedPrep.batch && stagedPrep.reprice) {
-        const cutPill = $('brief-prep-reprice');
-        if (cutPill) cutPill.title = 'pre-batch already takes the rush — the cut will be rejected at commit';
-      } else if (def.key === 'reprice' && stagedPrep.reprice && stagedPrep.batch) {
-        const batchPill = $('brief-prep-batch');
-        if (batchPill) batchPill.title = 'cut already takes the rush — the prep will be rejected at commit';
-      } else {
-        const cutPill = $('brief-prep-reprice'); if (cutPill) cutPill.title = '';
-        const batchPill = $('brief-prep-batch'); if (batchPill) batchPill.title = '';
-      }
+      // Radio behaviour — clicking sets stagedPrep atomically.
+      // Mutually exclusive: hold | batch | reprice.
+      if (def.key === 'hold') { stagedPrep.batch = false; stagedPrep.reprice = false; }
+      else if (def.key === 'batch') { stagedPrep.batch = true; stagedPrep.reprice = false; }
+      else if (def.key === 'reprice') { stagedPrep.batch = false; stagedPrep.reprice = true; }
       renderPrepSection();
     };
     return b;
   };
 
+  pillRow.appendChild(makePill('brief-prep-hold', {
+    key: 'hold',
+    label: 'hold steady',
+    cost: null,
+  }));
   pillRow.appendChild(makePill('brief-prep-batch', {
     key: 'batch',
     label: `pre-batch ${ECON.batchUnits} cups`,
@@ -1428,24 +1432,11 @@ function renderPrepSection() {
   wrap.appendChild(status);
 }
 
-// Apply the staged prep at commit. Called from applyCommittedPlan. Firing
-// order: batch first (it consumes cups), then reprice (which would be
-// rejected if batch already took the rush).
+// Apply the staged prep at commit. Called from applyCommittedPlan. Radio
+// design: only one lever is ever staged, so each block just fires it.
 function applyStagedPrep() {
-  if (stagedPrep.batch) {
-    if (!prebatched && !repriced) {
-      doPrebatch({ asPlanned: true });
-    } else if (repriced) {
-      try { fx.toast('pre-batch staged — but the cut is already on the board', 'warn'); } catch {}
-    }
-  }
-  if (stagedPrep.reprice) {
-    if (!repriced && !prebatched && ctx.batchUnits <= 0) {
-      doReprice({ asPlanned: true });
-    } else if (prebatched || ctx.batchUnits > 0) {
-      try { fx.toast('cut staged — but you prepped the cups, price stays on the board', 'warn'); } catch {}
-    }
-  }
+  if (stagedPrep.batch) doPrebatch({ asPlanned: true });
+  if (stagedPrep.reprice) doReprice({ asPlanned: true });
 }
 
 // PR-B2 — Sam's reactive answer to a player move. Toast + nudge.

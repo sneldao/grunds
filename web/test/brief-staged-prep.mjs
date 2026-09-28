@@ -1,11 +1,12 @@
-// PR-A1 — Brief-staged prep.
+// PR-A1 — Brief-staged prep (radio picker).
 // Verifies: (1) #brief-prep slot exists in the brief modal, (2) the
 // stagedPrep state lives in main.js with batch/reprice toggles, (3)
-// renderPrepSection() builds two pills (batch + reprice) with the right
-// copy, (4) applyStagedPrep() fires the lever with asPlanned: true,
+// renderPrepSection() builds three radio pills (hold + batch + reprice) with
+// the right copy, (4) applyStagedPrep() fires the lever with asPlanned: true,
 // (5) doPrebatch/doReprice accept opts.asPlanned and skip chargeLeverOverride
 // when true, (6) commitDayPlan calls applyStagedPrep() at the right place,
-// (7) the day reset zeroes stagedPrep.
+// (7) the day reset zeroes stagedPrep, (10) the pills are mutually exclusive
+// (radio behaviour — clicking sets stagedPrep atomically).
 //
 // Pure file-shape test — no DOM, no runtime.
 
@@ -30,14 +31,16 @@ test('PR-A1 · stagedPrep state lives near other trading flags', () => {
   assert.match(main, /let\s+stagedPrep\s*=\s*\{\s*batch:\s*false\s*,\s*reprice:\s*false\s*\}/);
 });
 
-// (3) renderPrepSection exists and builds the two pills
-test('PR-A1 · renderPrepSection() builds batch + reprice pills', () => {
+// (3) renderPrepSection exists and builds the three radio pills
+test('PR-A1 · renderPrepSection() builds hold + batch + reprice radio pills', () => {
   const idx = main.indexOf('function renderPrepSection');
   assert.ok(idx > 0, 'renderPrepSection must be defined');
-  // renderPrepSection is ~70 lines — slice generously
-  const body = main.slice(idx, idx + 3500);
+  // renderPrepSection is ~80 lines — slice generously
+  const body = main.slice(idx, idx + 4500);
+  assert.match(body, /brief-prep-hold/);
   assert.match(body, /brief-prep-batch/);
   assert.match(body, /brief-prep-reprice/);
+  assert.match(body, /hold steady/);
   assert.match(body, /pre-batch \$\{ECON\.batchUnits\} cups/);
   // Use literal contains for the templated label (avoid regex escaping)
   assert.ok(body.includes('cut matcha to ${fmt(ECON.matchaDeal)}'),
@@ -114,4 +117,21 @@ test('PR-A1 · doReprice toast appends "as planned in the brief" when staged', (
   const idx = main.indexOf('function doReprice');
   const body = main.slice(idx, idx + 1500);
   assert.match(body, /as planned in the brief/);
+});
+
+// (10) Radio behaviour: each pill sets stagedPrep atomically (mutually
+// exclusive hold | batch | reprice), plus an isSelected helper that treats
+// hold as "neither staged"
+test('PR-A1 · prep pills are radio-exclusive (clicking sets both keys)', () => {
+  const idx = main.indexOf('function renderPrepSection');
+  assert.ok(idx > 0, 'renderPrepSection must be defined');
+  const body = main.slice(idx, idx + 4500);
+  // isSelected helper covers the three radio states
+  assert.match(body, /key === 'hold'[\s\S]*?!stagedPrep\.batch && !stagedPrep\.reprice/);
+  assert.match(body, /key === 'batch'[\s\S]*?stagedPrep\.batch && !stagedPrep\.reprice/);
+  assert.match(body, /key === 'reprice'[\s\S]*?stagedPrep\.reprice && !stagedPrep\.batch/);
+  // onclick sets both keys atomically per option
+  assert.match(body, /def\.key === 'hold'[\s\S]*?stagedPrep\.batch = false;\s*stagedPrep\.reprice = false/);
+  assert.match(body, /def\.key === 'batch'[\s\S]*?stagedPrep\.batch = true;\s*stagedPrep\.reprice = false/);
+  assert.match(body, /def\.key === 'reprice'[\s\S]*?stagedPrep\.batch = false;\s*stagedPrep\.reprice = true/);
 });

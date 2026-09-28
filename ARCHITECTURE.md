@@ -104,9 +104,13 @@ Each cohort now carries a ritual in `config.js → COHORTS`:
 The spawn copies `ritualProps / ritualSeat / ritualDwell / ritualSpeed` onto
 the patron object; `_afterServe` consults `ritualSeat` before falling back to a
 random free seat; the patron's `speed` is `ritualSpeed + jitter`. The 3D rigs
-themselves are still TODO — the data flows through, the floor reads the
-cohorts' walking pace and dwell timing today. Same five cohorts, but the
-floor reads five rooms.
+landed in PR-A2 (75abada): 7 real `InstancedMesh`es (briefcase / laptop / mug /
+backpack / notebook / cane / camera) at 7 body anchors (rightHip / chestFront /
+upperBack / rightHand / leftHand / rightHandGround), zero-scaled at startup and
+on `_despawn`, positioned per-frame via `_propKeyFor` + `_placeProp`. The
+Sept-28 polish folds laptop/camera into seated poses (lap tilt / eye-level
+raise) instead of hanging them in front of a sitting chest. Same five cohorts,
+and the floor reads five rooms.
 
 ## RevenueCat surface (Ship-a-ton depth)
 

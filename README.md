@@ -523,6 +523,32 @@ tells the story in chronological order; this block is the field guide.
   event stream; `GET /sync/entitlements?appUserId=…` lets the client poll for
   reconciliation. Idempotent by `event.id`. `web/test/revenuecat-sync.mjs`.
 
+### The rivalry (Sept 27) — Sam across the street plays back
+
+- **Visible rivalry.** The Morning Brief shows yesterday's served counts
+  side-by-side, Sam's chalkboard strategy, a mid-day "you vs Sam" line, and
+  a week-end verdict receipt. `web/test/visible-rivalry.mjs`.
+- **Reactive AI.** Pre-batch and Sam grinds harder (+1.5 rival credit); cut
+  the price and he undercuts by £0.10 on his chalkboard — replayed tomorrow
+  morning via `rivalReactLog`. `web/test/rival-reactivity.mjs`.
+- **Weekly stakes.** `campaignClose` settles the week: player wins → FOR LEASE
+  on Sam's spot; Sam wins → Sam absorbs; tie → DEUCE.
+  `web/test/weekly-stakes.mjs`.
+- **Sam's reactive cameo.** Undercut him and his silhouette walks to the
+  chalkboard and flips it on camera — ~1.9s window, sine-pulse lean, camera
+  push-in, BOARD FLIPPED chapter card. The pre-batch react stays invisible
+  by design (his grind isn't a visible move). `web/test/sam-reactive-cameo.mjs`.
+
+### Morning-prep polish (Sept 28) — radio picker + seated props
+
+- **Radio-style staged prep.** The Brief's two prep toggles become a pick-one
+  radio: `hold steady` / `pre-batch 40 cups` / `cut matcha to £4.20`.
+  `applyStagedPrep()` simplifies to two direct fires.
+  `web/test/brief-staged-prep.mjs`.
+- **Seated prop poses.** A seated creative's laptop drops to the lap and tilts
+  forward; a seated tourist's camera rises to eye level. Standing pose
+  unchanged. `web/test/cohort-prop-rigs.mjs`.
+
 ### Demo
 
 - **`?demo=1` showfloor autoplay.** A one-key self-running demo for the

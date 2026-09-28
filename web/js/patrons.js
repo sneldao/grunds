@@ -394,8 +394,10 @@ export class PatronSystem {
 
   // PR-A2 — position a prop mesh at the body anchor slot for this patron.
   // The matrices are written into `d` (the same scratch Object3D used for
-  // body parts). Anchors read from propAnchors above.
-  _placeProp(d, p, anchor, shY, torsoY, headY, hipY, rx, rz, fx, fz, s, walking) {
+  // body parts). Anchors read from propAnchors above. propKey tells which
+  // rig this is (so laptop/camera can fold into a seated pose); sitting is
+  // p.state === 'sit' from the per-frame loop.
+  _placeProp(d, p, anchor, propKey, sitting, shY, torsoY, headY, hipY, rx, rz, fx, fz, s, walking) {
     d.rotation.set(0, p.face, 0);
     d.scale.setScalar(s);
     const sway = walking ? Math.sin(p.phase) * 0.08 : 0;
@@ -406,9 +408,19 @@ export class PatronSystem {
         d.rotation.set(sway, p.face, 0);
         break;
       case 'chestFront':
-        // laptop / camera — held in front of chest, slightly down
-        d.position.set(p.pos.x + fx * 0.22 * s, torsoY + 0.08, p.pos.z + fz * 0.22 * s);
-        d.rotation.set(-0.3, p.face, 0);
+        if (propKey === 'laptop' && sitting) {
+          // laptop on the lap — tilted forward, dropped to lap height
+          d.position.set(p.pos.x + fx * 0.20 * s, hipY + 0.18, p.pos.z + fz * 0.20 * s);
+          d.rotation.set(-0.55, p.face, 0);
+        } else if (propKey === 'camera' && sitting) {
+          // camera raised to the eye — held up to look through the viewfinder
+          d.position.set(p.pos.x + fx * 0.18 * s, headY - 0.02, p.pos.z + fz * 0.18 * s);
+          d.rotation.set(0.18, p.face, 0);
+        } else {
+          // standing — laptop/camera held in front of chest, slightly down
+          d.position.set(p.pos.x + fx * 0.22 * s, torsoY + 0.08, p.pos.z + fz * 0.22 * s);
+          d.rotation.set(-0.3, p.face, 0);
+        }
         break;
       case 'upperBack':
         // backpack — on the back, behind torso
@@ -552,7 +564,7 @@ export class PatronSystem {
       const propKey = this._propKeyFor(p);
       if (propKey && this.propMeshes[propKey]) {
         const anchor = this.propAnchors[propKey];
-        this._placeProp(d, p, anchor, shY, torsoY, headY, hipY, rx, rz, fx, fz, s, walking);
+        this._placeProp(d, p, anchor, propKey, sitting, shY, torsoY, headY, hipY, rx, rz, fx, fz, s, walking);
         d.updateMatrix();
         this.propMeshes[propKey].setMatrixAt(p.idx, d.matrix);
       }

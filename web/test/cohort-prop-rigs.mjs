@@ -122,3 +122,24 @@ test('PR-A2 · each cohort has a unique primary prop', () => {
     seen.add(prop);
   }
 });
+
+// (11) Seated pose: _placeProp takes propKey + sitting and folds
+// laptop/camera into a lap pose / eye-level pose when seated
+test('PR-A2 · _placeProp takes propKey + sitting and branches chestFront on both', () => {
+  const idx = patrons.indexOf('_placeProp(d, p, anchor');
+  assert.ok(idx > 0, '_placeProp must exist');
+  const body = patrons.slice(idx, idx + 2200);
+  assert.match(body, /_placeProp\(d,\s*p,\s*anchor,\s*propKey,\s*sitting/);
+  // laptop on the lap — tilted forward, dropped to lap height
+  assert.match(body, /propKey === 'laptop' && sitting/);
+  // camera raised to the eye — held up to look through the viewfinder
+  assert.match(body, /propKey === 'camera' && sitting/);
+});
+
+// (12) Per-frame call site passes propKey + sitting into _placeProp
+test('PR-A2 · per-frame call site threads propKey + sitting into _placeProp', () => {
+  const idx = patrons.indexOf('update(dt, walkMul, now)');
+  assert.ok(idx > 0, 'update method must exist');
+  const body = patrons.slice(idx);
+  assert.match(body, /this\._placeProp\(d,\s*p,\s*anchor,\s*propKey,\s*sitting/);
+});
