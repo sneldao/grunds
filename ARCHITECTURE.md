@@ -444,15 +444,16 @@ stack. Estimate: 4–6 weeks. Phases are dependency-ordered.
   becomes an investable asset (sets up her Phase 4 arc).
 - Tests: `menu-pricing.mjs`, `roast.mjs`, `waste.mjs`.
 
-### Phase 4 — Narrative arcs: Ruth, Idris, Sam (5–7 days)
+### Phase 4 — Narrative arcs: Ruth, Idris, Sam (5–7 days) [SHIPPED Sept 28]
 
 Needs Phases 1–3 (arcs bite into systems, not air).
 
 - Ruth: hinted condition (visible slowdown + wondering toast) → diagnosis
   interaction → resolution with real cost (weekend off = short-staffed
   Saturday, but loyalty + she returns with a friend who becomes a regular).
-- Idris: multi-letter continuity quoting actual decisions, A/B replies via
-  the existing AgentMail webhook path; his tips front-run the Wire
+- Idris: multi-letter continuity quoting actual decisions, A/B replies in
+  the letter modal (local hold/pass — the AgentMail path carries the same
+  body to a real inbox); his tips front-run the Wire
   (loyalty rewarded with alpha).
 - Sam's season: cross-week memory (grudge counters + conditional
   chalkboard copy), a mid-week truce offer (split Saturday for guaranteed

@@ -164,7 +164,7 @@ test('Phase 2 · exchange.purchaseCup(kind) splits matcha legacy from lot pours'
   assert.match(exchange, /this\.lots\.pour\(this\.day\)/);
   assert.match(exchange, /EMERGENCY_MUL/);
   assert.match(patrons, /purchaseCup\(p\.wantsMatcha \? 'matcha' : 'other'\)/);
-  assert.match(patrons, /purchaseCup\('other'\)/);
+  assert.match(patrons, /purchaseCup\(regMatcha \? 'matcha' : 'other'\)/);
 });
 
 // (12) Cash-basis books: lot cups skip cogs (paid at top-up, like batch)
@@ -179,7 +179,7 @@ test('Phase 2 · serve loop bills emergency sacks and sours stale rooms', () => 
   assert.match(main, /e\.emergency && !emergencyToast/);
   assert.match(main, /till -= e\.spotCost; beanSpend \+= e\.spotCost/);
   assert.match(main, /e\.switched && e\.lotId/);
-  assert.match(main, /serveNudge\(e\.lotId, e\.p\.cohort, age\)/);
+  assert.match(main, /serveNudge\(e\.lotId, e\.p\.cohort, age, roastMul, scorched\)/);
   assert.match(main, /STALE_LINES\[e\.p\.cohort\]/);
   assert.match(main, /pouredOther\+\+/);
 });

@@ -164,7 +164,8 @@ const fails = [];
     main.indexOf('// ---- dawns'));
   assert.ok(!briefBlock.includes('openDay(day + 1)'),
     'Brief commit stays on today — only the letter advances the day');
-  assert.ok(/function startTradingDay[\s\S]{0,6000}paused = false/.test(main), 'Brief OPEN resumes the floor through startTradingDay');
+  // window covers startTradingDay through floor resume (wire hooks grew it past 6k)
+  assert.ok(/function startTradingDay[\s\S]{0,9000}paused = false/.test(main), 'Brief OPEN resumes the floor through startTradingDay');
   // Street work: three dawn toggles with real costs, committed with the hedge
   assert.ok(main.includes('brief-demand-'),
     'Brief carries the street-work row (chalk/sample/sponsor)');

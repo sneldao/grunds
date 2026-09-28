@@ -82,7 +82,8 @@ test('visible-rivalry: renderRivalLine shows Sam by name and references lastDayS
 });
 
 test('visible-rivalry: showMorningBrief calls renderRivalLine', () => {
-  const m = main.match(/function\s+showMorningBrief[\s\S]{0,20000}?(?=\nfunction\s)/);
+  // window covers the whole Brief body (grew past 20k with cellar/menu arcs)
+  const m = main.match(/function\s+showMorningBrief[\s\S]{0,30000}?(?=\nfunction\s)/);
   assert.ok(m, 'showMorningBrief body not found');
   assert.match(m[0], /renderRivalLine\(\)/);
 });

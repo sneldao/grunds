@@ -19,6 +19,7 @@ import type * as gameConfig from "../gameConfig.js";
 import type * as http from "../http.js";
 import type * as letters from "../letters.js";
 import type * as linkup from "../linkup.js";
+import type * as lots from "../lots.js";
 import type * as mint from "../mint.js";
 import type * as nebius from "../nebius.js";
 import type * as openai from "../openai.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   letters: typeof letters;
   linkup: typeof linkup;
+  lots: typeof lots;
   mint: typeof mint;
   nebius: typeof nebius;
   openai: typeof openai;

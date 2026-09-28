@@ -89,6 +89,38 @@ function tapeLine(s) {
     : 'Dips have held a day before — no promise the board agrees twice.';
   return `Spot closed ${pct > 0 ? 'up' : 'down'} ${Math.abs(pct)}% today. ${carry}`;
 }
+// Phase 4 — Idris remembers. Every line guards s.idris (absent in old
+// snapshots and unit tests → silent, never a crash, never a stray line).
+function idrisCoverLine(s) {
+  const m = s.idris;
+  if (!m || !m.lastHedge || !String(m.lastHedge).startsWith('contract')) return '';
+  const pct = Math.round((m.boardMoved || 0) * 100);
+  if (pct > 2) return `You took the cover and the board ran up ${pct}% overnight — that’s the trade working. I remember who listens.`;
+  if (pct < -2) return `You took the cover and the board eased ${-pct}% — insurance costs when you don’t crash. Still the right call.`;
+  return 'You took the cover. Quiet board — the fee bought you sleep, which is also a position.';
+}
+function idrisAdviceLine(s) {
+  const m = s.idris;
+  if (!m || !(m.ignoredAdvice > 0)) return '';
+  return 'I told you about that frost and you rode naked. The board remembers what you didn’t do — next time I whisper, listen.';
+}
+function idrisRoastLine(s) {
+  const m = s.idris;
+  if (!m || !m.houseLot) return '';
+  const stale = (m.houseAge ?? 0) > 2;
+  if (stale) return `That ${m.houseLot} is on day ${m.houseAge} of the roast and it shows. Fresh sacks or cold regulars — pick one.`;
+  return `That ${m.houseLot} at roast ${m.houseRoast} — keep it there. The room can taste the difference even if the till can’t.`;
+}
+function idrisRegularLine(s) {
+  const m = s.idris;
+  if (!m || !m.topRegular) return '';
+  return `${m.topRegular.name}’s been in ${m.topRegular.visits} days running. Look after them — regulars like that are the whole business.`;
+}
+function idrisLoyalLine(s) {
+  const m = s.idris;
+  if (!m || !m.loyal) return '';
+  return `You’ve taken my cover ${m.contractsTaken} times now. I remember my friends — when the frost comes, you’ll hear it from me first.`;
+}
 function greeting(e) {
   const t = e?.tier || 'calm';
   if (t === 'cata') return 'I’m writing before the market and I’m already sorry.';
@@ -144,6 +176,11 @@ export function composeLetter(s) {
       intelLine(s),
       neighborhoodLine(s),
       reputationLine(s),
+      idrisCoverLine(s),
+      idrisAdviceLine(s),
+      idrisRoastLine(s),
+      idrisRegularLine(s),
+      idrisLoyalLine(s),
       '',
       mode === 'planning'
         ? (s.player ? `What do you want to do, ${s.player}?` : 'What do you want to do?')

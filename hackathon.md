@@ -16,6 +16,13 @@
 
 ## Log
 
+### 2026-09-28 - Phase 4 shipped: narrative arcs (Ruth, Idris, Sam's season)
+
+- **Ruth's arc** (`web/js/main.js`): condition `< 0.45` past day 1 toasts once (`ruthNoticed`), the Brief staffing row gains `ask her what's wrong` → cause reads yesterday (`balked > 50` = rush, else opens) → `promise her tomorrow off` locks `ruthRestDay` (clamped to the week). Rest morning forces `home` staffing; the morning after, `ruthReturned` promotes a walk-in head to visits 5 / regular. All four flags reset on campaign restart.
+- **Idris's arc** (`web/js/letter.js` + `main.js`): `buildIdrisMemory(snap)` quotes real state — last hedge vs board move, settled tabs, ignored `rumour_frost` rides, house lot roast/age, top regular (visits > 5), loyalty at 2+ covers. Five guarded lines in `composeLetter` (silent when `s.idris` absent — old snapshots never crash). Letter modal gains the only A/B in the game: `renderIdrisAsk` offers a 60-cup Gesha hold at board when the window is open, till-checked, once (`idrisHeldSack`). Loyalty alpha: `frost_minas` + 2 covers opens Gesha a day early. Ledger (`contractsTaken/settledCount/ignoredAdvice/heldSack/lastHedge`) resets on restart.
+- **Sam's season** (`main.js` + `patrons.js`): `samGrudge {cuts,preps,snubs}` tallies all week from `rivalReact` (headless still skips), chalkboard counts the season from 2 incidents (`TRY HARDER`). Day-3 pre-wave truce beat: split Saturday (ceasefire: `truceCeasefire` gates both rival-spawn + 70% walk-out defection paths, Saturday volume ×0.92) vs play on (+1 snub). Finale prints the season row + ceasefire row; a snubbed Sam breaks DEUCE ties. Season rewinds on reset.
+- **Gate:** ruth-arc 6/6 + sam-season 7/7 + idris-arc 8/8 green; touched suites (agency, lot-economy, visible-rivalry) adjusted for grown windows/new serve args, all green; full Phase 1–3 suites re-verified (menu-pricing, roast, waste, patron-arcs, dossier, wire-lots); smoke relational holds; `tsc` clean.
+
 ### 2026-09-28 - Phase 3 shipped: econ depth (menu, roast, waste, Ruth's skill)
 - **`web/js/menu.js` (new):** 4 drinks (espresso 1pt → filter 3pt → matcha 4pt), cohort order weights (matcha ≈24%, wave intact), ±£1 price bands, 86 board (matcha never 86'd), adaptive milk delivery (wave-sized day 1, history-sized after).
 - **Bar spends drink points** (filter is the throughput trap), tickets price by drink at counter + register, milky orders need milk stock (dry bar balks, flagged once).

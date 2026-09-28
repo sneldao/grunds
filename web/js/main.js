@@ -20,7 +20,7 @@ import { AudioEngine } from './audio.js';
 import { Exchange, seeded } from './exchange.js';
 import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } from './economy.js';
 import { Regulars } from './regulars.js';
-import { WalkinPool, womReturnees, dossierLines } from './identity.js';
+import { WalkinPool, womReturnees, dossierLines, stageFor } from './identity.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate } from './menu.js';
@@ -354,6 +354,14 @@ let lastDayStats = null;   // yesterday's counters — the Brief's letter reads 
 // Ruth — your barista. One hidden condition stat; the fiction carries it.
 // Worked days drain (harder on brutal floors), sent-home days recover.
 let baristaCondition = 1.0, baristaHomeToday = false, baristaRested = false, baristaStaged = false, baristaCrisis = false;
+// Phase 4 — Ruth's arc: hinted condition → asked cause → promised rest → a
+// friend walks in. noticed/asked/restDay/returned persist across days (the
+// arc is the week); all reset on campaign restart.
+let ruthNoticed = false, ruthAsked = false, ruthRestDay = 0, ruthReturned = false;
+const RUTH_CAUSES = {
+  rush: 'It’s the lunch rush, every day — the line never ends and I’m the whole bar.',
+  opens: 'Four 5ams in a row. The opens are killing me — I don’t sleep, I just close my eyes at the counter.',
+};
 let apprenticeHiredToday = false, rivalStrategy = 'DEFAULT', dayMods = {};
 // PR-B2 — reactive AI: the rival notices the player's moves during the day
 // and ripples back. Toast-only by default; some reactions mutate game state.
@@ -362,6 +370,15 @@ let apprenticeHiredToday = false, rivalStrategy = 'DEFAULT', dayMods = {};
 // the Brief can replay tomorrow if you want a longer arc.
 let rivalReacted = { cut: 0, prep: 0 };   // per-day counters
 let rivalReactLog = [];   // [{move, ts, msg}] — per-day
+// Phase 4 — Sam's season: grudges accumulate all week (never reset
+// mid-campaign), the truce is offered once (day 3), the finale remembers.
+let samGrudge = { cuts: 0, preps: 0, snubs: 0 };
+let samTruce = false, truceShown = false;
+// Phase 4 — Idris's arc: the roaster remembers. Contracts taken, tabs
+// settled, advice ignored — quoted back in his letters. Loyalty (2+ covers)
+// buys early alpha on frost aftermath. Reset on campaign restart.
+let contractsTaken = 0, settledCount = 0, ignoredAdvice = 0, idrisHeldSack = false;
+let lastHedge = 'hold';   // yesterday's hedge id, for Idris's vindication lines
 // the pitch licence — who you are, signed before the first dawn. Identity
 // threads the letter, the receipt, the district board; the background pick
 // carries one small mechanical perk (not a class — the arc is one role).
@@ -571,7 +588,7 @@ function tick() {
     const w = dayWaves[waveIdx++];
     const morningCalm = (day === 1 && w.t < 600) ? 0.52 : 1;
     const settleThin = (day === 1 && dayMin < CALM_UNTIL_MIN) ? 0.5 : 1;
-    const mul = (exchange.event?.demand || 1) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1);
+    const mul = (exchange.event?.demand || 1) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1) * (samTruce && day === 5 ? 0.92 : 1);
     // loyalty made visible: yesterday's served × return rate reappear,
     // spread evenly so the wave keeps its shape and just runs deeper
     const returnBonus = demand.todayReturnees > 0 && dayWaves.length
@@ -794,9 +811,23 @@ function beats() {
   // a regular's ask — once per day at 11:00, pauses the floor for a yes/no
   if (!offerShown && dayMin >= 660 && dayMin < 840) { offerShown = true; showOffer(); }
   // the floor bites back — one incident per day from day 2, post-wave
-  // (14:55+), when the rush is done and the mess lands. Same pause/yes-no.
+  // (the offer modal doubles as the incident card — same pause path)
   if (day >= 2 && !incidentShown && dayMin >= 895 && dayMin < 1015 &&
       !$('offer').classList.contains('show')) { incidentShown = true; showIncident(); }
+  // Phase 4 — the truce: day 3, pre-wave, Sam comes over himself. Split
+  // Saturday (guaranteed mediocrity: no bleeding, no feast) or play on.
+  if (day === 3 && !truceShown && dayMin >= 600 && dayMin < 1000 &&
+      !$('offer').classList.contains('show')) {
+    truceShown = true;
+    presentBeat({
+      who: COPY.rivalBarista + ', across the road',
+      line: '“Saturday. You don’t bleed, I don’t feast. We split the street and both survive it.” He doesn’t offer his hand. He waits.',
+      effect: 'ceasefire Saturday: no defections either way, both rooms run ~8% quieter · or play on and he’ll remember the snub',
+      yes: 'split Saturday', no: 'play on',
+      accept() { samTruce = true; fx.toast('Saturday ceasefire — no bleeding, no feast', 'good'); },
+      decline() { samGrudge.snubs += 1; fx.toast('Sam nods slowly. He’ll remember that.', 'warn'); },
+    }, 'an offer · y / n', false);
+  }
   // deferred offer consequences
   if (oluPayoutAt && dayMin >= oluPayoutAt) {
     oluPayoutAt = 0; till += 9;
@@ -988,6 +1019,8 @@ function closeDay() {
   // Phase 1: evangelist serves preach — each brings +2 back (womReturnees).
   // Phase 2: today's non-matcha pour sizes tomorrow's restock button.
   lastPour = pouredOther;
+  // Phase 4 — advice ignored: the rumour warned, the player rode naked.
+  if (exchange.event?.id === 'rumour_frost' && !exchange.contract) ignoredAdvice++;
   const dtrace = demand.resolveDay({ served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier, extraReturnees: womReturnees(evangelistServes) });
   vitality.recompute();   // the evening settles on the block's true mood
   try { analytics.track('demand_resolved', { day, ...dtrace }); } catch {}
@@ -1130,6 +1163,29 @@ function closeDay() {
   // the between-days phase: the roaster writes. The mailbox flag goes up.
 }
 
+// Phase 4 — Idris's memory, assembled for the letter. Quotes real state:
+// yesterday's hedge vs the board move, settled tabs, ignored rumours, the
+// house roast pour, and the most-visited regular. Loyal = 2+ covers taken.
+function buildIdrisMemory(snap) {
+  let top = null;
+  try {
+    for (const r of regulars.regulars) {
+      if (!top || r.visits > top.visits) top = r;
+    }
+  } catch {}
+  const houseEntry = lotState.entry(lotState.house);
+  return {
+    contractsTaken, settledCount, ignoredAdvice,
+    loyal: contractsTaken >= 2,
+    lastHedge: snap.lastHedge ?? null,
+    boardMoved: snap.indexPrev != null ? snap.index - snap.indexPrev : 0,
+    houseLot: LOT_CATALOG[lotState.house]?.name || lotState.house,
+    houseRoast: houseEntry?.roast ?? 3,
+    houseAge: lotState.age(lotState.house, snap.day),
+    topRegular: top && top.visits > 5 ? { name: top.name, visits: top.visits } : null,
+  };
+}
+
 // ---- the Roaster's Letter (reply-to-command) ---------------------------------
 function showLetter() {
   world.setMail(true);
@@ -1147,12 +1203,18 @@ function showLetter() {
     extraFee: contractFeeExtra,
     mode: phase === 'review' ? 'review' : 'planning',
     units: exchange.contract ? exchange.contract.units : null,
+    lastHedge,
   };
+  snap.idris = buildIdrisMemory(snap);
   const L = composeLetter(snap);
   $('letter-head').textContent = L.head;
   $('letter-body').textContent = L.body;
   $('letter-sign').textContent = L.sign;
   const btns = $('letter-actions'); btns.innerHTML = '';
+  // Phase 4 — Idris asks (the letter modal's only buttons): when the Gesha
+  // window is open and no sack is held, he offers to hold 60 cups. Local
+  // answer, local effect — never through the hedge protocol.
+  renderIdrisAsk();
   modals.close('receipt');
   modals.open('letter');
   // Nebius polish: the templated letter is the source of truth; if the live
@@ -1188,6 +1250,39 @@ function showLetter() {
       dl.style.display = 'none';
     }
   }
+}
+
+// Phase 4 — Idris asks: when the Gesha window is open and no sack is held,
+// he offers to hold 60 cups at the board. Local answer, local effect.
+function renderIdrisAsk() {
+  const box = $('letter-actions'); if (!box) return;
+  const g = lotState.entry('gesha');
+  if (!g || !g.unlocked || idrisHeldSack) return;
+  const price = lotSpot('gesha', exchange.beanIndex, g.priceMul);
+  const cost = 60 * price;
+  if (till < cost) return;   // no insulting offers
+  const row = document.createElement('div');
+  row.style.cssText = 'margin-top:10px;font-size:11.5px';
+  const q = document.createElement('div');
+  q.style.cssText = 'font-style:italic;opacity:.8;margin-bottom:6px';
+  q.textContent = `“Panama gesha in — sixty cups, going fast. Want me to hold you a sack at ${fmt(cost)}?” — Idris`;
+  const hold = document.createElement('button');
+  hold.id = 'idris-hold';
+  hold.textContent = `hold one · ${fmt(cost)}`;
+  hold.onclick = () => {
+    const r = lotState.buy('gesha', 60, price, day, {});
+    if (!r.cups) { fx.toast('the sack slipped away — window closed', 'warn'); return; }
+    till -= r.cost; beanSpend += r.cost; idrisHeldSack = true;
+    fx.toast(`Idris held the Gesha — ${r.cups} cups in the cellar`, 'good');
+    renderIdrisAsk();
+  };
+  const pass = document.createElement('button');
+  pass.id = 'idris-pass';
+  pass.textContent = 'pass';
+  pass.style.cssText = 'margin-left:6px';
+  pass.onclick = () => { try { row.remove(); } catch {} };
+  row.appendChild(q); row.appendChild(hold); row.appendChild(pass);
+  box.appendChild(row);
 }
 
 function markBriefChoice(id) {
@@ -1300,6 +1395,10 @@ function applyCommittedPlan(res) {
     msg = `CONTRACTED ${tag} at ${exchange.beanIndex.toFixed(2)} — ~${res.contract ? res.contract.units : 0} cups · ${fmt(res.fee)}`;
   } else msg = 'HOLDING — you ride the spot price';
   if (msg) fx.toast(msg, hedge.startsWith('contract') ? 'good' : '');
+  // Phase 4 — Idris keeps score: covers taken, tabs settled.
+  if (hedge && hedge.startsWith('contract')) contractsTaken++;
+  if (hedge === 'settle') settledCount++;
+  lastHedge = hedge || 'hold';
   // Ruth's shift lands here — staged in the Brief, committed with the hedge.
   // Sent home: bar −30% today, her wage saved tonight, she recovers at close.
   // Apprentice: hire temp barista, Ruth half-day rest, extra speed.
@@ -1756,6 +1855,7 @@ function rivalReact(playerMove) {
   if (!stratDef) return;
   if (playerMove === 'prebatch') {
     rivalReacted.prep += 1;
+    samGrudge.preps += 1;   // Phase 4 — Sam counts prep-days all week
     // Sam clocks the prep and speeds up — credit boost (the rival serves faster).
     if (patrons && typeof patrons.rivalCredit === 'number') patrons.rivalCredit = Math.min(1, patrons.rivalCredit + 1.5);
     const msg = `${COPY.rivalBarista} clocks your prep — grinding harder`;
@@ -1763,6 +1863,7 @@ function rivalReact(playerMove) {
     fx.toast(msg, 'warn');
   } else if (playerMove === 'reprice') {
     rivalReacted.cut += 1;
+    samGrudge.cuts += 1;   // Phase 4 — Sam counts cuts all week
     // Sam undercuts by £0.10 per player cut (visible on their chalkboard).
     const basePrice = stratDef.price;
     const newPrice = Math.max(3.5, Math.round((basePrice - 0.10) * 100) / 100);
@@ -1796,6 +1897,19 @@ function renderRivalLine() {
   // player sees Sam's moves being reactive, not just static.
   const reacts = (rivalReactLog || []).slice(0, 3).map(e => `· ${e.msg}`).join('<br>');
   const reactLine = reacts ? `<br><span class="dim">yesterday across the street:<br>${reacts}</span>` : '';
+  // Phase 4 — the season tally: Sam counts cuts, prep-days, and snubbed
+  // handshakes across the whole week. The chalkboard keeps score.
+  let samLine = '';
+  const sCut = samGrudge.cuts, sPrep = samGrudge.preps, sSnub = samGrudge.snubs;
+  if (sCut + sPrep + sSnub >= 2) {
+    const bits = [];
+    if (sCut >= 2) bits.push(`${sCut} cuts`);
+    else if (sCut === 1) bits.push('1 cut');
+    if (sPrep >= 2) bits.push(`${sPrep} prep-days`);
+    else if (sPrep === 1) bits.push('1 prep-day');
+    if (sSnub > 0) bits.push(`${sSnub} snub${sSnub > 1 ? 's' : ''}`);
+    samLine = `<br><span class="dim">${COPY.rivalBarista} counts ${bits.join(' · ')} — the chalkboard says TRY HARDER</span>`;
+  }
   // day 1 has no yesterday yet — show the streak opener
   let body;
   if (!y) {
@@ -1814,6 +1928,7 @@ function renderRivalLine() {
     body = `yesterday · <b>you served ${you}</b> · <b>Sam served ${them}</b> · ${lead}<br>`
       + `<span class="dim">${youDef} walked to ${COPY.rivalName} · ${themChose} skipped the queue and went straight across</span>`
       + reactLine
+      + samLine
       + weekLead
       + `<br>today · Sam moves with <b>${stratName}</b> at ${stratPrice}`;
   }
@@ -1831,7 +1946,9 @@ function showMorningBrief() {
     indexPrev: tapePrev, intel: marketIntel, player: playerName,
     extraFee: contractFeeExtra, mode: 'planning',
     units: exchange.contract ? exchange.contract.units : null,
+    lastHedge,
   };
+  snap.idris = buildIdrisMemory(snap);
   // MakeReadable: if the player hasn't seen headlines yet, the Brief is the
   // first place the wire's strongest tilt is explained — not just hinted.
   const L = composeLetter(snap);
@@ -2052,6 +2169,49 @@ function showMorningBrief() {
       apprentice.onclick = () => sel('apprentice', true);
       push.onclick = () => sel('push', true);
       staffRow.append(t, home, apprentice, push);
+      // Phase 4 — Ruth's arc, played in the staffing row. A promised rest
+      // day forces home (no choice to make); otherwise, once she's fading,
+      // the player can ask what's wrong, then promise her tomorrow off —
+      // locking tomorrow's staffing for a friend who becomes a regular.
+      if (ruthRestDay === day) {
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:11px;margin-top:6px;font-style:italic';
+        note.textContent = 'Ruth’s day off — promised. Solo bar today; she’ll be back.';
+        staffRow.append(note);
+        if (planDraft) planDraft.staffing = 'home';
+      } else if (baristaCondition < 0.55 && !ruthAsked) {
+        const ask = document.createElement('button');
+        ask.id = 'brief-ruth-ask';
+        ask.textContent = 'ask her what’s wrong';
+        ask.style.cssText = 'margin-top:6px';
+        ask.onclick = () => {
+          ruthAsked = true;
+          // the cause reads yesterday: drowned floor → the rush; else the opens.
+          const cause = (lastDayStats?.balked || 0) > 50 ? RUTH_CAUSES.rush : RUTH_CAUSES.opens;
+          const line = document.createElement('div');
+          line.style.cssText = 'font-size:11px;margin-top:6px;font-style:italic';
+          line.textContent = `Ruth, quietly: “${cause}”`;
+          ask.replaceWith(line);
+          if (day < CAMPAIGN.days) {
+            const prom = document.createElement('button');
+            prom.id = 'brief-ruth-promise';
+            prom.textContent = 'promise her tomorrow off — she’ll bring a friend';
+            prom.style.cssText = 'margin-top:6px';
+            prom.onclick = () => {
+              ruthRestDay = Math.min(day + 1, CAMPAIGN.days);
+              fx.toast(`promised — Ruth rests day ${ruthRestDay}. Tomorrow’s staffing is locked.`, 'good');
+              prom.disabled = true;
+            };
+            staffRow.append(prom);
+          }
+        };
+        staffRow.append(ask);
+      } else if (ruthAsked && ruthRestDay > 0 && ruthRestDay >= day) {
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:11px;margin-top:6px;font-style:italic';
+        note.textContent = `promised: Ruth rests day ${ruthRestDay} — and she’ll bring someone.`;
+        staffRow.append(note);
+      }
     } else staffRow.style.display = 'none';
   }
   // choice row: sizing is the position — header says what this means in one line
@@ -2187,6 +2347,26 @@ function prepareDay(d) {
   coached = d !== 1;   // the lever hint only coaches day 1, once per campaign
   patrons.reset(); fx.reset();
   walkins.ensureDay(d); evangelistServes = 0;   // Phase 1 — fresh strangers (yesterday's known faces carry), WOM counter reset
+  // Phase 4 — ceasefire Saturday: no crossings when the truce holds.
+  patrons.truceCeasefire = samTruce && d === 5;
+  // Phase 4 — Ruth's arc ticks at dawn: notice her fading (once), honor a
+  // promised rest day (forced home), and welcome the friend she brings back.
+  if (!ruthNoticed && d > 1 && baristaCondition < 0.45) {
+    ruthNoticed = true;
+    fx.toast('Ruth’s moving slow this morning — is she alright?', 'warn');
+  }
+  if (ruthRestDay === d) {
+    if (planDraft) planDraft.staffing = 'home';
+    fx.toast('Ruth’s day off — as promised. The bar is yours alone.', '');
+  }
+  if (ruthRestDay > 0 && d === ruthRestDay + 1 && !ruthReturned) {
+    ruthReturned = true;
+    const cand = walkins.heads.find(h => h.visits === 0) || walkins.heads[0];
+    if (cand) {
+      cand.visits = 5; cand._op = 0.5; cand.stage = stageFor(5, 0.5);
+      fx.toast(`Ruth brought ${cand.name} — she’s a regular now`, 'good');
+    }
+  }
   // Phase 2 — the cellar persists across days (stocks roast and age); only
   // the daily counters reset. dawnIndex freezes the pre-roll board for top-ups.
   dawnIndex = exchange.beanIndex;
@@ -2281,6 +2461,16 @@ function startTradingDay(d) {
       g.unlocked = true;
       g.unlockUntil = Math.max(g.unlockUntil, 5);
       fx.toast('Idris heard about the code — Panama Gesha on offer (60 cups)', 'good');
+    }
+  }
+  // Phase 4 — loyalty alpha: 2+ covers taken and Idris calls the frost a
+  // day early — Gesha opens now, not when the move lands.
+  if (ev.id === 'frost_minas' && contractsTaken >= 2) {
+    const g = lotState.entry('gesha');
+    if (g && !g.unlocked) {
+      g.unlocked = true;
+      g.unlockUntil = Math.max(g.unlockUntil, d + 2);
+      fx.toast('Idris called it early — Gesha open for loyalty', 'good');
     }
   }
   if (d === 1 && marketIntel && marketIntel.marketShift && marketIntel.marketShift.length) {
@@ -2400,7 +2590,9 @@ function campaignClose(insolvent = false) {
   const yourWeekTotal = cServed;
   const samWeekTotal = (cRivalServed || 0) + (cRivalChoices || 0);
   const weekDelta = yourWeekTotal - samWeekTotal;
-  const wkWin = weekDelta > 0 ? 'you' : (weekDelta < 0 ? COPY.rivalBarista : 'tie');
+  // Phase 4 — a snubbed Sam wants it more: he breaks DEUCE ties.
+  let wkWin = weekDelta > 0 ? 'you' : (weekDelta < 0 ? COPY.rivalBarista : 'tie');
+  if (wkWin === 'tie' && samGrudge.snubs > 0) wkWin = COPY.rivalBarista;
   const wkMargin = Math.abs(weekDelta);
   const lines = [
     [standName, playerName + ' — ' + playerRole],
@@ -2409,6 +2601,10 @@ function campaignClose(insolvent = false) {
     ['cups poured', cServed], ['walked to ' + COPY.rivalName, cDef], ['—', '—'],
     ['you vs ' + COPY.rivalBarista, `you ${cServed} · ${COPY.rivalBarista} ${cRivalServed + cRivalChoices}`],   // PR-B1 — final week tally
     ['WEEK WINNER', wkWin === 'tie' ? 'DEUCE — neither side blinks' : `${wkWin} won by ${wkMargin} cups`],   // PR-B3 — the week resolves
+    // Phase 4 — the season on the receipt: what Sam counts, and whether
+    // Saturday held.
+    [`${COPY.rivalBarista} remembers`, `${samGrudge.cuts} cuts · ${samGrudge.preps} prep-days · ${samGrudge.snubs} snubs`],
+    ...(samTruce ? [['Saturday ceasefire', 'held — no bleeding, no feast']] : []),
     ['NET WORTH', fmt(net)],
   ];
   // Finale: the street turns over on camera before the verdict lands. The
@@ -2854,6 +3050,13 @@ function reset() {
   rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day
   briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;
   realizedHedgeSavings = 0; hedgedCups = 0;
+  // Phase 4 — Ruth's arc rewinds with the campaign.
+  ruthNoticed = false; ruthAsked = false; ruthRestDay = 0; ruthReturned = false;
+  // Phase 4 — Idris's ledger rewinds too.
+  contractsTaken = 0; settledCount = 0; ignoredAdvice = 0; idrisHeldSack = false;
+  lastHedge = 'hold';
+  // Phase 4 — Sam's season rewinds: grudges, truce, offer flag.
+  samGrudge = { cuts: 0, preps: 0, snubs: 0 }; samTruce = false; truceShown = false;
   // Phase 2 — the cellar rewinds with the campaign (fresh starter sacks).
   lotState.reset(); selectedLot = 'huila'; topUpCups = 0; beanSpend = 0;
   pouredOther = 0; lastPour = 0; emergencyToast = false; staleNoted = new Set();

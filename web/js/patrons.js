@@ -20,6 +20,7 @@ export class PatronSystem {
     this.walkins = walkins;       // Phase 1 — day-pool of generated walk-in heads
     this.menuOffered = null;      // Phase 3 — {drink: bool} 86 board (null = everything offered)
     this.skillPts = 0;            // Phase 3 — Ruth's skill bonus bar-points, set at dawn
+    this.truceCeasefire = false;  // Phase 4 — Saturday ceasefire: no rival-bound spawns
     this.exchange = exchange;     // for contract unit consumption
     this.fx = fx;                 // for greeting bubbles on join
     this.patrons = [];
@@ -147,7 +148,8 @@ export class PatronSystem {
       ritualProps, ritualSeat, ritualDwell,
     };
     let toRival = false;
-    if (zone === 'counter' && this.rivalQ.length < 42) {
+    // Phase 4 — ceasefire Saturday: nobody crosses, neither way.
+    if (zone === 'counter' && !this.truceCeasefire && this.rivalQ.length < 42) {
       const ourPrice = this.exchange ? salePrice(this.exchange, this.repriced) : ECON.matchaFull;
       const op = this.regulars ? (this.regulars.reputation - 50) / 50 : 0;
       const pr = rivalChoiceProbability({
@@ -298,7 +300,8 @@ export class PatronSystem {
         this.counterQ.splice(i, 1);
         p.flash = 1; p.colorDirty = true;
         ev.push({ type: 'balked', p });
-        if (Math.random() < 0.7 && this.rivalQ.length < 42) {
+        // Phase 4 — ceasefire Saturday: walk-outs walk, they don't defect.
+        if (!this.truceCeasefire && Math.random() < 0.7 && this.rivalQ.length < 42) {
           p.state = 'defecting'; p.queueRef = 'rival'; p.rivalOrigin = 'defection'; this.rivalQ.push(p);
           p.goal = this._slotPos(rivalSlot, this.rivalQ.length - 1, p);
           p.path = [
