@@ -167,7 +167,7 @@ export const CAMPAIGN = {
   demand: {
     start: 0.28,          // opening-day awareness — nobody knows the stand yet
     spawnMin: 0.18,       // spawn multiplier at zero awareness — passing trade only
-    spawnMax: 1.3,        // spawn multiplier at full awareness (the street queues)
+    spawnMax: 1.22,         // spawn multiplier at full awareness (the street queues)
     decay: 0.055,         // awareness lost per close when coasting
     cataExtra: 0.04,      // catastrophes scare the street extra
     returnBase: 0.12,     // return rate at reputation 62

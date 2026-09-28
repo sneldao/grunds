@@ -16,6 +16,13 @@
 
 ## Log
 
+### 2026-09-28 - Phase 6 shipped: teeth calibration (autopsy + break-it pass)
+
+- **Week autopsy** (`web/js/autopsy.js` new, pure/DOM-free): `buildAutopsy(campaignDays, snapshot) → string[]` — stale-lot day ranges (`stale Yirgacheffe days 3–4 (20 cups)`), waste + compost cup totals, top-3 named coolers (per-day `opDrops`, end-of-week snapshot fallback), balk/defect counts, negative days, non-empty fallback. `main.js` counts stale/scorched cups by lot at serve time, snapshots dawn-day-1 opinions, pushes one cause record per `closeDay` (take-home stamped after ops), renders `lost because:` + `…` continuation rows into the `campaignClose` verdict receipt, rewinds on `reset()`.
+- **Stale game-feel assertions fixed** (`web/test/game-feel.mjs`, test-only): finale now asserts the branched `FOR LEASE`/`SOLD`/`DEUCE` cards (PR-B3 replaced the single SOLD line); `doReprice` regex accepts `(opts = {})`. `PASS` restored.
+- **Break-it pass** (caps only): `CAMPAIGN.demand.spawnMax` 1.30 → 1.22 — headless probes showed growth/queue policies leading every seed (e.g. seed 7 growth 19432 vs passive 18257); the cap shrinks the growth edge ~4–6% (~1175 → ~600) without touching levers, lots, or verbs. Same-lot-5-days noted as harness-blind (policy sim never stages a top-up, so the house default pours everything) — true per-cup emergency billing is logged follow-up, out of caps scope.
+- **Gate:** week-autopsy 7/7 + game-feel `PASS` + weekly-stakes 4/4 + waste 6/6 + lot-economy 14/14 + menu-pricing + roast + Phase-5 suites (pose-clips/prop-verbs/readable-place) + visible-rivalry 13/13 green; smoke relational holds (prep/price-cut beat cold bar); `tsc` clean.
+
 ### 2026-09-28 - Phase 5 shipped: visual payoff (poses, verbs, place)
 
 - **Pose/clip system** (`web/js/poses.js` new, pure): GAIT per cohort (elders 0.70 freq / 0.28 swing shuffle, commuters 1.15 / 0.70 stride), walk/sit/sip/celebrate/grumble/serveReact clips, moodFor shared with portraits, samplePose precedence walk→sit→sip→react. `patrons.js` update() samples one pose; phase rate scales by gait; serve→0.9s mood react (+0.2 op), balk→grumble (−0.08 op). Prop sway per gait.

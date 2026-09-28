@@ -38,6 +38,7 @@ import { createAnalytics } from './analytics.js';
 import { billing } from './billing.js';
 import { initDesk, wireHint } from './desk.js';
 import { createModalController } from './modals.js';
+import { buildAutopsy } from './autopsy.js';
 
 const urlParams = new URLSearchParams(location.search);
 const _liteFlag = urlParams.has('lite');
@@ -517,6 +518,11 @@ async function fetchOfferTake() {
   return _offerTakeCache.lines;
 }
 
+// Phase 6 — week autopsy: per-day cause records accumulate here; campaignClose
+// renders them via buildAutopsy() so a lost week names its causes.
+let campaignDays = [];
+let weekOpStart = null; // dawn-day-1 opinion baseline, for week-span drops
+let staleByLotToday = {}; // lotId → stale/scorched cups poured today
 // campaign accumulators (persist across the 5 days)
 let cRev = 0, cCost = 0, cBalked = 0, cServed = 0, cDef = 0, settledPaid = 0, campaignDone = false;
 let cRivalServed = 0, cRivalChoices = 0;   // PR-B1 — rival's week tally so the verdict reads side-by-side
@@ -651,6 +657,11 @@ function tick() {
         if (nudge) {
           const r = regulars.regulars[e.p.regularIdx];
           if (r) r.op = Math.max(-1, Math.min(1, r.op + nudge));
+        }
+        if ((scorched || isStale(age))) {
+          // Phase 6 — autopsy counts every stale/scorched cup by lot; the
+          // once-per-cohort toast stays as-is below.
+          staleByLotToday[e.lotId] = (staleByLotToday[e.lotId] || 0) + 1;
         }
         if ((scorched || isStale(age)) && !staleNoted.has(e.p.cohort)) {
           staleNoted.add(e.p.cohort);
@@ -1040,6 +1051,23 @@ function closeDay() {
   regulars.resolveDay({ served: servedN, balked, defections, priced: repriced });
   batchWaste = Math.max(0, ctx.batchUnits | 0);
   const wasteCost = batchWaste * (ECON.batchCupCost || 1);
+  // Phase 6 — autopsy record: one cause row per day (stale cups by lot,
+  // waste, compost, balks, defections, take-home, opinion deltas vs dawn).
+  // weekOpStart doubles as the per-day baseline and is refreshed at close.
+  try {
+    const opDrops = [];
+    for (const r of regulars.regulars) {
+      const from = weekOpStart?.get(r.name);
+      if (Number.isFinite(from) && Number.isFinite(r.op) && r.op < from - 0.05) {
+        opDrops.push({ name: r.name, from, to: r.op });
+      }
+    }
+    campaignDays.push({
+      day, staleCupsByLot: { ...staleByLotToday },
+      batchWaste, compost: compostToday, balked, defections, netToday: null, opDrops,
+    });
+    weekOpStart = new Map(regulars.regulars.map((r) => [r.name, r.op]));
+  } catch {}
   // Phase 3 — milk + skill close: leftover milk tips (tomorrow's delivery
   // adapts), training compounds into Ruth's skill (+1 bar point per level,
   // max 2 — level-ups toast once).
@@ -1063,6 +1091,11 @@ function closeDay() {
   cOps += ops.total;
   const operatingNet = till - cogs - ops.total;
   const netToday = operatingNet - feeToday - interestToday;   // today's take-home — settlement rides the balance sheet, not the P&L
+  // Phase 6 — stamp take-home onto today's autopsy row (pushed above).
+  try {
+    const row = campaignDays[campaignDays.length - 1];
+    if (row && row.day === day) row.netToday = netToday;
+  } catch {}
   rig.focus(world.focus.wide, 27, 6);
   const total = served + servedRetail + balked;
   const ratio = total ? balked / total : 0;
@@ -2371,6 +2404,13 @@ function prepareDay(d) {
   // the daily counters reset. dawnIndex freezes the pre-roll board for top-ups.
   dawnIndex = exchange.beanIndex;
   pouredOther = 0; beanSpend = 0; emergencyToast = false; staleNoted = new Set();
+  staleByLotToday = {};   // Phase 6 — fresh stale-cup count for the autopsy
+  // Phase 6 — week opinion baseline: snapshot roster ops at dawn day 1 so the
+  // autopsy can name week-span coolers even without per-day deltas.
+  if (d === 1) {
+    try { weekOpStart = new Map(regulars.regulars.map((r) => [r.name, r.op])); }
+    catch { weekOpStart = null; }
+  }
   // Phase 3 — morning clean-out + fresh milk + skill: compost stale sacks
   // (Ruth nurses beans a day longer at skill 2), deliver adaptive milk,
   // wire skill points and the live menu into the bar.
@@ -2629,6 +2669,15 @@ function campaignClose(insolvent = false) {
     [`${COPY.rivalBarista} remembers`, `${samGrudge.cuts} cuts · ${samGrudge.preps} prep-days · ${samGrudge.snubs} snubs`],
     ...(samTruce ? [['Saturday ceasefire', 'held — no bleeding, no feast']] : []),
     ['NET WORTH', fmt(net)],
+    // Phase 6 — week autopsy: traceable failure reads as fair, not cruel.
+    // The week's cause rows render under "lost because:" + continuation lines.
+    ...(() => {
+      try {
+        const snap = regulars.regulars.map((r) => ({ name: r.name, op: r.op }));
+        const causes = buildAutopsy(campaignDays, snap);
+        return causes.map((c, i) => [i === 0 ? 'lost because' : '…', c]);
+      } catch { return []; }
+    })(),
   ];
   // Finale: the street turns over on camera before the verdict lands. The
   // camera visits the sold storefronts, the card names it, then the receipt.
@@ -3106,7 +3155,9 @@ function reset() {
   if (sync.abandonRun) { sync.abandonRun(); if (sync.live && !sync.runDisabled) sync.beginRun(SEED).catch(() => {}); }
   const newOpWarm = (PERK_VALUES[perkBg] || {}).opWarm;
   for (const r of regulars.regulars) { r.op = newOpWarm != null ? Math.max(r.op, newOpWarm) : 0.15; r.seen = false; r.served = 0; r.balked = 0; }
-  cRev = cCost = cBalked = cServed = cDef = cRivalServed = cRivalChoices = settledPaid = 0; campaignDone = false; paused = false;
+  cRev = cCost = cBalked = cServed = cDef = cRivalServed = cRivalChoices = settledPaid = 0;
+  campaignDone = false; paused = false;
+  campaignDays = []; weekOpStart = null; staleByLotToday = {};   // Phase 6 — autopsy rewinds
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   if ($('pause')) $('pause').textContent = 'pause';
   prepareDay(1);

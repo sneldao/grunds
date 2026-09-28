@@ -475,14 +475,16 @@ Needs Phases 1–3 (arcs bite into systems, not air).
 - Mint district graduates to primary environment when credits land;
   `?classicDistrict` stays the fallback. All additions conform to `ART.md`.
 
-### Phase 6 — Teeth calibration + break-it pass (3–4 days)
+### Phase 6 — Teeth calibration + break-it pass (3–4 days) [SHIPPED Sept 28]
 
-- Week autopsy: verdict receipt gains cause attribution ("lost because:
-  stale Yirgacheffe days 3–4, 31 cups wasted, Mara cooled to 0.3").
-  Traceable failure reads as fair, not cruel.
-- Break-it pass: five days same lever/lot — tune caps until the solved
-  line breaks. Human-feel check on every Phase 1–3 constant.
-- Full gate + both deployments.
+- Week autopsy: verdict receipt gains cause attribution (`web/js/autopsy.js`
+  `buildAutopsy` — stale-lot day ranges, waste/compost cups, named coolers,
+  balks/defections, negative days). Traceable failure reads as fair, not cruel.
+  Test: `week-autopsy.mjs` (7/7).
+- Break-it pass: five days same lever/lot — `spawnMax` 1.30 → 1.22 until the
+  solved growth line narrows. Human-feel check on every Phase 1–3 constant.
+- Stale `game-feel` assertions repaired (branched finale cards, `doReprice(opts)`).
+- Full gate + `tsc` clean (deployments: no Convex changes this phase).
 
 ### Sequencing + guardrails
 

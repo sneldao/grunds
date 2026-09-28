@@ -99,7 +99,7 @@ ok(/queueFocus\(point/.test(readFileSync(join(ROOT, 'web/js/camera.js'), 'utf8')
 // 12) Finale, closing beat, rival silhouettes.
 const config = readFileSync(join(ROOT, 'web/js/config.js'), 'utf8');
 ok(/CLOSING TIME/.test(config) && /t: 1240/.test(config), 'no closing-time chapter at 1240');
-ok(/SOLD', 'a new tenant opens across the road'/.test(main), 'finale has no SOLD card');
+ok(/fx\.card\('FOR LEASE'/.test(main) && /fx\.card\('SOLD'/.test(main) && /fx\.card\('DEUCE'/.test(main), 'finale has no branched FOR LEASE/SOLD/DEUCE cards');
 ok(/world\.focus\.newbuild/.test(main), 'finale does not visit the sold storefronts');
 ok(/scheduleRun\(\(\) => \{[\s\S]{0,200}fx\.receipt\(\{ lines, verdict/.test(main), 'verdict receipt is not staged after the finale beat');
 ok(/newbuild: new THREE\.Vector3/.test(world), 'world has no newbuild focus point');
@@ -159,7 +159,7 @@ ok(/\$\('floorstats'\)\) \$\('floorstats'\)\.hidden = day < 2/.test(main),
 ok(/\$\('pressure'\)\) \$\('pressure'\)\.hidden = day < 2 && !repriced/.test(main),
   'day-1 price line shows before the cut');
 ok(/day >= 2 && marketIntel/.test(main), 'wire button can show on day 1');
-ok(/function doReprice\(\) \{[\s\S]*?fx\.notebook\(false\)/.test(main), 'reprice leaves the notebook up');
+ok(/function doReprice\([^)]*\) \{[\s\S]*?fx\.notebook\(false\)/.test(main), 'reprice leaves the notebook up');
 ok(/id="skiprush"/.test(index) && /function skipToRush/.test(main) && /skipping to the rush/.test(readFileSync(join(ROOT, 'web/js/nextAction.js'), 'utf8')),
   'no skip-to-14:00 after the lever');
 ok(/id="floorstats"/.test(index), 'walked and poured cannot be hidden apart from the till');
