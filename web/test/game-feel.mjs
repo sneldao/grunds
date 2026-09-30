@@ -18,10 +18,10 @@ const sync = readFileSync(join(ROOT, 'web/js/convexSync.js'), 'utf8');
 const index = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
 
 // 1) Bubble cap: oldest pops first once the pool is full.
-ok(/this\.bubbles\.length >= 10/.test(fx), 'fx.js has no live-bubble cap');
-ok(/this\.bubbles\.shift\(\)/.test(fx), 'fx.js does not pop the oldest bubble when capped');
+ok(/if \(this\.bubbles\.length\) return false/.test(fx), 'fx.js does not cap live bubbles at one');
+ok(/shown = this\._pushBubble/.test(fx) && /this\.startConversation\(fromP, to, kind\)/.test(fx), 'gossip conversation does not run when the bubble is blocked');
 ok(/_pushBubble/.test(fx), 'fx.js has no shared _pushBubble path (bubble + gossipBubbles)');
-console.log('CAP     bubbles bounded at 10, oldest-first eviction');
+console.log('CAP     one live bubble at a time, gossip still travels');
 
 // 2) Viewport clamp: bubbles never hang off-canvas.
 ok(/w \/ 2 \+ 6/.test(fx), 'fx.js does not width-clamp bubbles to the viewport');
@@ -132,7 +132,7 @@ ok(/if \(ctx\.createDynamicsCompressor\)/.test(readFileSync(join(ROOT, 'web/js/a
 ok(/if \(!this\.ctx\) return this\.muted/.test(readFileSync(join(ROOT, 'web/js/audio.js'), 'utf8')), 'pre-start mute still flips the label');
 ok(/touch-action: none/.test(index), 'canvas has no touch-action guard');
 ok(/@media \(max-width: 640px\)/.test(index), 'no small-screen layout pass');
-ok(/#sys \{ top: 132px/.test(index), 'sys row overlaps the HUD clock on phones');
+ok(/#sys \{ top: auto;/.test(index) && /bottom: calc\(var\(--lever-h\) \+ 12px\)/.test(index), 'sys row overlaps the HUD clock on phones');
 console.log('SHARE   seed challenge on the verdict; MIX glued; MOBILE holds 390px');
 ok(/rivalServed.*coinBurst/.test(main), 'rival sales have no coin payoff');
 console.log('RIVAL   sign burns with their line, camera shows first blood, coins on their sales');
@@ -152,7 +152,7 @@ ok(/revenue', fmt\(till \+ batchSpend\)/.test(main), 'receipt revenue is not gro
 ok(/matcha batch bought/.test(main), 'receipt has no batch-bought line');
 ok(!/estBalkNoBatchWave|waveBalked \+ \(prebatched \|\| repriced \? 12/.test(main),
   'waveRead still invents a fixed +12 saved count');
-ok(/\$\('batchline'\)\) \$\('batchline'\)\.hidden = day < 2 && !\(prebatched \|\| ctx\.batchUnits > 0\)/.test(main),
+ok(/\$\('batchline'\)\.hidden = day < 2 && !\(prebatched \|\| ctx\.batchUnits > 0\)/.test(main),
   'day-1 cups line stays up before a lever');
 ok(/\$\('floorstats'\)\) \$\('floorstats'\)\.hidden = day < 2/.test(main),
   'walked and poured stay on the day-1 till line');

@@ -91,26 +91,37 @@ export function buildWorld(scene, renderer, lite) {
 
   // ---- café shell ---------------------------------------------------------
   const cafe = new THREE.Group(); scene.add(cafe);
-  box(cafe, 24, 4.4, 0.4, PAL.plaster, 0, 2.2, -8.2, { cast: false });            // back wall
-  box(cafe, 0.4, 4.4, 14.4, PAL.plaster, -12.2, 2.2, -1, { cast: false });        // left wall
+  const backWall = box(cafe, 24, 4.4, 0.4, PAL.plaster, 0, 2.2, -8.2, { cast: false });            // back wall
+  const leftWall = box(cafe, 0.4, 4.4, 14.4, PAL.plaster, -12.2, 2.2, -1, { cast: false });        // left wall
   box(cafe, 0.3, 1.15, 14.4, PAL.wainscot, 12.1, 0.57, -1, { cast: false });      // right half-wall (cutaway)
   box(cafe, 24, 0.9, 0.5, PAL.wainscot, 0, 0.45, -8.05, { cast: false });         // back wainscot
   box(cafe, 0.5, 0.9, 14.4, PAL.wainscot, -12.05, 0.45, -1, { cast: false });
   // front: pillars + fascia beam + sign + awning (dollhouse — no front wall)
   for (const px of [-11.6, -7, -3, 11.6]) box(cafe, 0.42, 3.6, 0.42, PAL.walnutDark, px, 1.8, 6);
-  box(cafe, 24, 0.7, 0.5, PAL.walnutDark, 0, 3.75, 6, { cast: false });
+  const frontBeam = box(cafe, 24, 0.7, 0.5, PAL.walnutDark, 0, 3.75, 6, { cast: false });
   const signTex = shopSign('G R U N D S');
   const signMat = new THREE.MeshStandardMaterial({ map: signTex, emissive: 0xffc98a, emissiveMap: signTex, emissiveIntensity: 0.4, roughness: 0.8 });
-  plane(cafe, 6.4, 1.2, signMat, 0, 4.6, 6.42); box(cafe, 6.6, 1.35, 0.18, PAL.walnutDark, 0, 4.6, 6.32, { cast: false });
+  const signFace = plane(cafe, 6.4, 1.2, signMat, 0, 4.6, 6.42); const signBack = box(cafe, 6.6, 1.35, 0.18, PAL.walnutDark, 0, 4.6, 6.32, { cast: false });
   const awnTex = awning();
   const awnMat = new THREE.MeshStandardMaterial({ map: awnTex, roughness: 0.88, metalness: 0.01, side: THREE.DoubleSide });
-  plane(cafe, 13, 2.6, awnMat, -2, 3.15, 7.1, { rx: -Math.PI / 2 + 0.32 });
+  const awningPlane = plane(cafe, 13, 2.6, awnMat, -2, 3.15, 7.1, { rx: -Math.PI / 2 + 0.32 });
   // awning tie-downs — tiny brass dots where the awning meets the fascia
   for (const px of [-6.8, -3.9, -1.0, 1.8]) {
     const td = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mat(0xc9a227, { metal: 0.6, rough: 0.35, cast: false }));
     td.position.set(px, 3.52, 6.18); cafe.add(td);
   }
   W.signMat = signMat;
+  W.occluders = { backWall, leftWall, frontBeam, signFace, signBack, awning: awningPlane };
+  W.manageCutaway = (camPos, mode = 'play') => {
+    const o = W.occluders;
+    const play = mode === 'play' || mode === 'demo';
+    o.frontBeam.visible = !play;
+    o.signFace.visible = !play;
+    o.signBack.visible = !play;
+    o.awning.visible = !play;
+    o.backWall.visible = !(play && camPos.z < -8.2);
+    o.leftWall.visible = !(play && camPos.x < -12.2);
+  };
 
   // ---- the bar ------------------------------------------------------------
   const bar = new THREE.Group(); scene.add(bar);

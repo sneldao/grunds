@@ -104,7 +104,7 @@ export class Regulars {
     this.opContagion();
     // Phase 1 — restage AFTER contagion, mirroring server resolveDay (which
     // stages from post-contagion op). Same visits, same op → same stage.
-    for (const r of this.regulars) r.stage = stageFor(r.visits, r.op);
+    for (const r of this.regulars) { r.stage = stageFor(r.visits, r.op); r._spawned = false; }
   }
 
   // One round of friendship contagion. Two-pass: compute the new opinion
@@ -158,10 +158,10 @@ export class Regulars {
   // Phase 1: also returns visits/stage/drink so the floor greets returning
   // faces by history, not just by name.
   markSeen(cohort) {
-    const cands = this.regulars.filter(r => !r.seen && r.coh === cohort);
+    const cands = this.regulars.filter(r => !r.seen && !r._spawned && r.coh === cohort);
     if (!cands.length) return { found: false };
     const r = cands[(Math.random() * cands.length) | 0];
-    r.seen = true;
+    r.seen = true; r._spawned = true;
     return { found: true, idx: r.i, name: r.name, coh: r.coh, visits: r.visits, stage: r.stage, drink: r.drink };
   }
 

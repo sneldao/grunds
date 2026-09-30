@@ -54,7 +54,8 @@ test('Phase 3 · compost takes the skill-adjusted threshold', () => {
 test('Phase 3 · milk delivers adaptively and fails loudly once', () => {
   assert.equal(deliveryQty(0), 120);
   assert.equal(deliveryQty(200), 220);
-  assert.equal(deliveryQty(400), 400);
+  assert.equal(deliveryQty(1349), 1480);
+  assert.equal(deliveryQty(10000), 4000);
   assert.equal(deliveryQty(333), 370);
   // dawn delivery → bar stock; dry milky orders balk flagged milkOut.
   // Day 1 sizes from the wave sheet (no history); later days adapt.

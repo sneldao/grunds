@@ -100,6 +100,12 @@ await new Promise(r => setTimeout(r, 40));
 const G = globalThis.__grunds;
 const fails = [];
 const near = (a, b, eps = 0.001) => Math.abs(a - b) < eps;
+function stageLifecycleSupplies() {
+  const st = G.stats();
+  if (st.day < 2) return;
+  if (!G.stageCellar({ lot: 'cerrado', topup: 'restock' })) fails.push('lifecycle supplies rejected');
+  if (!G.stageDayPlan({ hedge: st.debt > 0 ? 'settle' : 'hold' })) fails.push('lifecycle supplier payment rejected');
+}
 
 if (G.phase !== 'onboarding') fails.push(`boot phase should be onboarding, got ${G.phase}`);
 registry.get('open').click();
@@ -154,7 +160,7 @@ if (!rc.lines.some(l => l[0] === 'operations')) fails.push('receipt dropped the 
 if (typeof rc.netToday !== 'number' || typeof rc.operatingNet !== 'number' || !rc.ops || typeof rc.hedgeSavings !== 'number' || typeof rc.fees !== 'number')
   fails.push('receipt missing numeric accounting fields (netToday/operatingNet/ops/hedgeSavings/fees)');
 if (!near(rc.netToday, rc.operatingNet - s.feeToday - s.interestToday)) fails.push('netToday should be operatingNet minus fee+interest');
-let sumNet = rc.netToday;
+let sumNet = rc.netToday - (s.sackSpend || 0);
 if (G.exc.contract) fails.push('tiny contract should have exhausted to null');
 if (G.applyReply('hold')) fails.push('applyReply should be inert outside planning');
 if (G.commitDayPlan().ok) fails.push('commit should fail in review');
@@ -180,13 +186,14 @@ for (let d = 2; d <= CAMPAIGN.days; d++) {
   }
   if (G.exc.day !== d - 1) fails.push(`day ${d}: exchange.day ran ahead before commit (${G.exc.day})`);
   G.stageDayPlan({ hedge: 'hold' });
+  stageLifecycleSupplies();
   const r = G.commitDayPlan();
   if (!r.ok) fails.push(`day ${d}: commit failed ${JSON.stringify(r)}`);
   if (G.exc.day !== d) fails.push(`day ${d}: exchange.day should align after commit (${G.exc.day})`);
   runFrames(220);
   if (G.phase !== 'review') fails.push(`day ${d}: expected review after close, got ${G.phase}`);
   const rcD = G.lastDayReceipt;
-  sumNet += rcD.netToday;
+  sumNet += rcD.netToday - (G.stats().sackSpend || 0);
   if (d >= 3 && !rcD.lines.some(l => l[0].includes('reval'))) fails.push(`day ${d}: receipt missing the pitch reval surcharge line`);
   if (d >= 4 && !rcD.lines.some(l => l[0].includes('oat surcharge'))) fails.push(`day ${d}: receipt missing the dairy surcharge line`);
 }
@@ -309,14 +316,15 @@ if (hedgeTerms('hold')) fails.push('hedgeTerms should return null for non-contra
   if (G.phase !== 'review') fails.push('post-reset day never closed');
   if (G.stats().cogs <= 0) fails.push('post-reset day has no COGS — purchaseCup not wired');
   G.continueFromReview(); await new Promise(r => setTimeout(r, 10));
-  G.stageDayPlan({ hedge: 'hold' }); G.commitDayPlan(); runFrames(220);
+  G.stageDayPlan({ hedge: 'hold' }); stageLifecycleSupplies(); G.commitDayPlan(); runFrames(220);
   G.continueFromReview(); await new Promise(r => setTimeout(r, 10));
-  G.stageDayPlan({ hedge: 'hold' }); G.commitDayPlan(); runFrames(220);
+  G.stageDayPlan({ hedge: 'hold' }); stageLifecycleSupplies(); G.commitDayPlan(); runFrames(220);
   G.continueFromReview(); await new Promise(r => setTimeout(r, 10));
   if (G.stats().day !== 4 || G.phase !== 'planning') fails.push(`expected day-4 planning, got ${G.stats().day}/${G.phase}`);
   G.testState({ baristaCondition: 0.15 });
   const condBefore = G.stats().staffCondition;
   if (!G.stageDayPlan({ staffing: 'apprentice' })) fails.push('tired-day apprentice staging rejected');
+  stageLifecycleSupplies();
   if (!G.commitDayPlan().ok) fails.push('day-4 apprentice commit failed');
   runFrames(220);
   const condAfter = G.stats().staffCondition;
@@ -329,6 +337,7 @@ if (hedgeTerms('hold')) fails.push('hedgeTerms should return null for non-contra
   if (!G.continueFromReview()) fails.push('day-5 continue rejected');
   G.testState({ baristaCondition: 0.15 });
   if (!G.stageDayPlan({ staffing: 'work' })) fails.push('day-5 push-on staging rejected');
+  stageLifecycleSupplies();
   if (!G.commitDayPlan().ok) fails.push('day-5 pushed commit failed');
   runFrames(220);
   if (G.stats().baristaCrisis !== true) fails.push('pushed day at 0.15 condition should trigger the barista crisis');

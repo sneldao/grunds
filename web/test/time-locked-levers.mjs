@@ -54,16 +54,22 @@ test('PR-5 · doPrebatch calls chargeLeverOverride when locked + dayMin >= 720',
   const idx = main.indexOf('function doPrebatch');
   assert.ok(idx > 0);
   const body = main.slice(idx, idx + 600);
-  assert.match(body, /leversTimeLocked\s*&&\s*dayMin\s*>=\s*720/);
-  assert.match(body, /chargeLeverOverride\(\s*['"]pre-batch['"]\s*\)/);
+  assert.match(body, /leverState\(leverSnapshot\(\)\)\.batch/, 'must gate via shared leverState');
+  assert.match(body, /changesPlan\s*&&\s*!opts\.asPlanned\s*&&\s*!chargeLeverOverride\(\s*['"]pre-batch['"]\s*\)/);
 });
 
 test('PR-5 · doReprice calls chargeLeverOverride when locked + dayMin >= 720', () => {
   const idx = main.indexOf('function doReprice');
   assert.ok(idx > 0);
   const body = main.slice(idx, idx + 600);
-  assert.match(body, /leversTimeLocked\s*&&\s*dayMin\s*>=\s*720/);
-  assert.match(body, /chargeLeverOverride\(\s*['"]reprice['"]\s*\)/);
+  assert.match(body, /leverState\(leverSnapshot\(\)\)\.reprice/, 'must gate via shared leverState');
+  assert.match(body, /changesPlan\s*&&\s*!opts\.asPlanned\s*&&\s*!chargeLeverOverride\(\s*['"]reprice['"]\s*\)/);
+});
+
+test('PR-5 · leverState owns the locked-after-noon gate', () => {
+  const na = readFileSync(resolve(root, 'web/js/nextAction.js'), 'utf8');
+  assert.match(na, /leversTimeLocked\s*&&\s*dayMin\s*>=\s*720/,
+    'the override gate (locked + past noon) must live in the shared helper');
 });
 
 // (5) chargeLeverOverride refuses when till < £4.20

@@ -53,6 +53,7 @@ export class FX {
     this.coins = new Pool(scene, 120, { size: 0.16, blending: THREE.AdditiveBlending, tint: 0xffd24a });
     this.huffs = new Pool(scene, 60, { size: 0.3, blending: THREE.NormalBlending, tint: 0x9a938a });
     this.bubbles = [];
+    this._greeted = new Set();
     this.steamAcc = 0;
     if (!lite) {
       this.dust = new Pool(scene, 90, { size: 0.05, blending: THREE.AdditiveBlending, tint: 0xffe9c0 });
@@ -164,8 +165,8 @@ export class FX {
   // update() so edge-of-screen patrons don't hang text off-canvas.
   bubble(fromP, text, kind = 'bad', chained = false) {
     const to = this.patrons.randomPatron(fromP);
-    if (!to) return;
-    this._pushBubble(fromP, to, text, kind, chained);
+    if (!to) return false;
+    return this._pushBubble(fromP, to, text, kind, chained);
   }
 
   // gossipBubbles: route the gossip through the friendship graph first.
@@ -178,16 +179,14 @@ export class FX {
   gossipBubbles(fromP, text, kind = 'bad', chainDepth = 0) {
     if (!fromP) return;
     const to = this.pickGossipTarget(fromP, kind, chainDepth) ?? this.patrons.randomPatron(fromP);
-    if (!to) return;
-    this._pushBubble(fromP, to, text, kind, chainDepth > 0);
+    if (!to) return false;
+    const shown = this._pushBubble(fromP, to, text, kind, chainDepth > 0);
     this.startConversation(fromP, to, kind);
+    return shown;
   }
 
   _pushBubble(fromP, to, text, kind, chained) {
-    if (this.bubbles.length >= 10) {
-      const old = this.bubbles.shift();
-      old.el.remove();
-    }
+    if (this.bubbles.length) return false;
     const el = document.createElement('div');
     el.className = 'bubble ' + kind;
     el.textContent = text;
@@ -196,6 +195,7 @@ export class FX {
     el.style.left = '50%'; el.style.top = '40%';
     this.layer.appendChild(el);
     this.bubbles.push({ el, from: fromP, to, t: 0, kind, chained });
+    return true;
   }
 
   // Pick the next-hop target for a bubble. Friend graph if `fromP` is a
@@ -296,9 +296,26 @@ export class FX {
       // padding). Fixed 70px margins strand wide bubbles off-screen on
       // phones; width-aware clamp holds everywhere. 7.8px/char matches the
       // 13px mono bubble font; +28 covers padding and border.
-      const w = b.el.textContent.length * 7.8 + 28;
-      b.el.style.left = Math.max(w / 2 + 6, Math.min(innerWidth - w / 2 - 6, px)) + 'px';
-      b.el.style.top = Math.max(30, Math.min(innerHeight - 10, py)) + 'px';
+      const w = Math.min(b.el.offsetWidth || b.el.textContent.length * 7.8 + 28, 230, Math.max(60, innerWidth - 12));
+      const bh = Math.max(b.el.offsetHeight || 0, 34);
+      let bx = Math.max(w / 2 + 6, Math.min(innerWidth - w / 2 - 6, px));
+      let by = Math.max(30 + bh, Math.min(innerHeight - 10, py));
+      for (const id of ['hud', 'feed', 'coach', 'levers']) {
+        const o = document.getElementById(id);
+        if (!o || o.hidden) continue;
+        const r = o.getBoundingClientRect?.();
+        if (!r || !r.width || !r.height) continue;
+        const overX = bx + w / 2 > r.left && bx - w / 2 < r.right;
+        const overY = by > r.top && by - bh < r.bottom;
+        if (overX && overY) {
+          const below = r.bottom + bh + 6;
+          by = below <= innerHeight - 10 ? below : Math.max(30 + bh, r.top - 6);
+        }
+      }
+      bx = Math.max(w / 2 + 6, Math.min(innerWidth - w / 2 - 6, bx));
+      by = Math.max(30 + bh, Math.min(innerHeight - 10, by));
+      b.el.style.left = bx + 'px';
+      b.el.style.top = by + 'px';
       b.el.style.opacity = vis ? String(t < 0.85 ? 1 : (1 - t) / 0.15) : '0';
       if (b.t >= 1) {
         b.el.remove(); this.bubbles.splice(i, 1);
@@ -310,7 +327,12 @@ export class FX {
       }
     }
   }
-  reset() { for (const b of this.bubbles) b.el.remove(); this.bubbles = []; this.conversations = []; }
+  greetOnce(key) {
+    if (this._greeted.has(key)) return true;
+    this._greeted.add(key);
+    return false;
+  }
+  reset() { for (const b of this.bubbles) b.el.remove(); this.bubbles = []; this.conversations = []; this._greeted.clear(); }
 
   // ---- Phase 5 — unified pooled verbs --------------------------------------
   // One budget, one guard: every particle verb routes through these.
@@ -408,10 +430,20 @@ export class FX {
   }
   toast(text, kind = '') {
     const feed = document.getElementById('feed');
+    const now = Date.now();
+    if (!this._toastAt) this._toastAt = new Map();
+    if (this._toastAt.size > 200) this._toastAt.clear();
+    if (now - (this._toastAt.get(text) || 0) < 3000) return;
+    this._toastAt.set(text, now);
+    for (const n of [...feed.children]) if (n.textContent === text) n.remove();
     const el = document.createElement('div');
     el.className = 'note ' + kind; el.textContent = text;
     feed.prepend(el);
-    while (feed.children.length > 3) feed.lastChild.remove();
+    while (feed.children.length > 3) {
+      const kids = [...feed.children];
+      const drop = kids.find(n => !(n.classList.contains('bad') || n.classList.contains('warn'))) || feed.lastChild;
+      drop.remove();
+    }
     setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 900); }, 5200);
   }
   notebook(show) { document.getElementById('notebook').classList.toggle('show', show); }
@@ -419,6 +451,8 @@ export class FX {
     const el = document.getElementById('receipt');
     const gen = this._receiptGen = (this._receiptGen || 0) + 1;
     if (!stats) { if (this.modals) this.modals.close('receipt'); else el.classList.remove('show'); return; }
+    const sumEl = document.getElementById('r-summary');
+    if (sumEl) sumEl.textContent = stats.summary || '';
     // stagger: till prints line-by-line, not instant spreadsheet
     const linesEl = document.getElementById('r-lines');
     linesEl.innerHTML = '';

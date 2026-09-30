@@ -26,7 +26,8 @@
   @keyframes grain { 0%{transform:translate(0,0)} 33%{transform:translate(-18px,12px)} 66%{transform:translate(14px,-16px)} 100%{transform:translate(0,0)} }
 
   /* ---- HUD ---- */
-  #hud { position: fixed; top: 18px; left: 20px; z-index: 10; text-shadow: 0 1px 8px rgba(0,0,0,.6); max-width: 380px; }
+  #hud { position: fixed; top: 18px; left: 20px; z-index: 10; text-shadow: 0 1px 8px rgba(0,0,0,.6); max-width: 380px;
+    background: rgba(23,19,16,.58); border: 1px solid rgba(239,230,211,.14); border-radius: 8px; padding: 10px 14px 12px; backdrop-filter: blur(3px); }
   #clock { font-family: var(--serif); font-size: 44px; font-weight: 600; letter-spacing: 2px; color: var(--cream); line-height: 1; }
   #hud .line { font-size: 13px; margin-top: 7px; opacity: .92; }
   #hud b { font-weight: 600; }
@@ -82,10 +83,10 @@
   .note.fade { opacity: 0; }
 
   /* ---- chapter cards ---- */
-  #chapter { position: fixed; top: 13%; left: 0; right: 0; z-index: 20; text-align: center; pointer-events: none; opacity: 0; }
+  #chapter { position: fixed; top: 9%; left: 0; right: 0; z-index: 20; text-align: center; pointer-events: none; opacity: 0; }
   #chapter.show { animation: chapter 3.6s ease forwards; }
   @keyframes chapter { 0%{opacity:0; transform:translateY(10px)} 12%{opacity:1; transform:none} 80%{opacity:1} 100%{opacity:0} }
-  #chapter .ck { font-family: var(--serif); font-size: 34px; letter-spacing: .42em; text-indent: .42em; color: var(--cream); text-shadow: 0 2px 18px rgba(0,0,0,.7); }
+  #chapter .ck { font-family: var(--serif); font-size: 26px; letter-spacing: .42em; text-indent: .42em; color: var(--cream); text-shadow: 0 2px 18px rgba(0,0,0,.7); }
   #chapter .ck::before, #chapter .ck::after { content: '—'; color: var(--brass); margin: 0 .35em; letter-spacing: 0; text-indent: 0; }
   #chapter .cs { font-size: 13px; letter-spacing: .12em; color: rgba(239,230,211,.85); margin-top: 8px; font-style: italic; font-family: var(--serif); }
 
@@ -94,7 +95,7 @@
   #hovercard.show { display: block; }
   #bubbles { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
   .bubble { position: absolute; transform: translate(-50%, -100%); font-size: 12px; padding: 5px 10px;
-    border-radius: 10px; white-space: nowrap; font-family: var(--mono);
+    border-radius: 10px; white-space: normal; max-width: 230px; text-align: center; font-family: var(--mono);
     background: #f2ecdc; color: #2a241c; border: 1.5px solid #2a241c;
     box-shadow: 0 2px 0 rgba(0,0,0,.35); }
   .bubble::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -4px;
@@ -112,6 +113,20 @@
     transform: rotate(1.2deg) translateY(18px); opacity: 0; pointer-events: none;
     transition: opacity .6s ease, transform .6s cubic-bezier(.2,1.4,.4,1); }
   #notebook.show { opacity: 1; transform: rotate(1.2deg) translateY(0); }
+
+  #coach { position: fixed; left: 20px; bottom: 96px; z-index: 16; width: min(300px, calc(100vw - 32px));
+    background: linear-gradient(173deg, #f2ead6, #e4d8bc); color: #3a3226;
+    padding: 12px 16px 14px; border-radius: 2px; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    transform: rotate(-.8deg); font-family: var(--mono); font-size: 12px; line-height: 1.55; }
+  #coach[hidden] { display: none; }
+  #coach .coach-kicker { font-size: 9.5px; letter-spacing: .22em; text-transform: uppercase; color: #7a5a2a; margin-bottom: 5px; }
+  #coach b { color: #2a241c; }
+  #coach-actions { margin-top: 9px; display: flex; flex-direction: column; gap: 5px; }
+  #coach-actions button { text-align: left; font-size: 11.5px; padding: 6px 9px; }
+  #coach-actions button.dim { opacity: .6; }
+  #r-summary { font-family: var(--serif); font-size: 14px; line-height: 1.5; padding: 8px 10px; margin-bottom: 10px;
+    background: rgba(201,162,39,.08); border-left: 3px solid var(--brass); }
+  #r-ledger summary { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; opacity: .55; cursor: pointer; margin-bottom: 6px; }
   #notebook h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 13px; letter-spacing: .28em; color: #7a5a2a; }
   #notebook p { margin: 0; font-size: 12.5px; line-height: 1.65; white-space: pre-line; }
 
@@ -281,7 +296,7 @@
     font-size: 11.5px; letter-spacing: .1em; text-decoration: underline; padding: 4px; }
   .l-desktoggle:hover:enabled { background: none; transform: none; color: #a3762f; }
 
-  .modal { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); overflow: auto; }
+  .modal { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); overflow: auto; grid-template-columns: minmax(0, 1fr); }
   .modal:not(.show) { visibility: hidden; }
   .modal-panel {
     display: flex; flex-direction: column;
@@ -341,7 +356,7 @@
   #speeds button.on { background: rgba(201,162,39,.5); border-color: var(--brass); }
 
   /* ---- title screen ---- */
-  #title { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
+  #title { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; grid-template-columns: minmax(0, 1fr);
     background: rgba(10, 8, 6, .45); backdrop-filter: blur(7px) saturate(1.1);
     transition: opacity 1.3s ease; }
   #title.gone { opacity: 0; pointer-events: none; }
@@ -370,18 +385,31 @@
 
   /* ---- small screens: readable HUD, tappable levers, no gesture fights ---- */
   canvas { touch-action: none; }
+  #sys-more { display: none; }
   @media (max-width: 640px) {
-    #hud { top: 10px; left: 12px; }
+    :root { --lever-h: 104px; --sys-h: 46px; --stack-h: 174px; --hud-b: 132px; }
+    #hud { top: 10px; left: 12px; right: 12px; }
     #clock { font-size: 30px; }
     #hud .line { font-size: 11px; margin-top: 5px; }
-    #sys { top: 132px; right: 10px; bottom: auto; }
-    #sys button { padding: 8px 9px; font-size: 11px; }
-    #feed { top: auto; bottom: 150px; right: 10px; }
+    #sys { top: auto; left: 10px; right: 10px; bottom: calc(var(--lever-h) + 12px); flex-wrap: wrap; }
+    #sys button { padding: 8px 9px; font-size: 11px; min-height: 44px; }
+    #sys #speeds button { min-height: 44px; }
+    #sys #camreset, #sys #photoBtn, #sys #mute, #sys #speeds button[data-s="1200"] { display: none; }
+    #sys.more-open #camreset, #sys.more-open #photoBtn, #sys.more-open #mute, #sys.more-open #speeds button[data-s="1200"] { display: inline-flex; }
+    #sys-more { display: inline-flex; }
+    #feed { top: auto; bottom: calc(var(--stack-h) + 8px); right: 10px; }
+    .coach-live #feed { top: calc(var(--hud-b) + 8px); bottom: auto; }
+    .coach-live #feed .note ~ .note { display: none; }
+    .coach-live #feed .note:not(.warn):not(.bad) { display: none; }
     .note { max-width: 240px; font-size: 11px; padding: 6px 10px; }
-    #levers { left: 10px; right: 10px; bottom: 12px; flex-wrap: wrap; }
-    #levers button { font-size: 11px; padding: 9px 10px; flex: 1 1 auto; }
-    #notebook { width: 86vw; right: 12px; bottom: 172px; }
-    #chapter .ck { font-size: 24px; }
+    #title h1 { font-size: clamp(40px, 12vw, 118px); letter-spacing: .12em; text-indent: .12em; }
+    #levers { left: 10px; right: 10px; bottom: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    #levers button { font-size: 11px; padding: 9px 10px; min-height: 44px; }
+    #levers button[hidden] { display: none; }
+    #coach { left: 10px; right: 10px; width: auto; top: auto; bottom: calc(var(--stack-h) + 8px); max-height: var(--coach-cap, 220px); overflow-y: auto; }
+    .coach-live #notebook { display: none; }
+    #notebook { width: 86vw; right: 12px; bottom: calc(var(--stack-h) + 8px); }
+    #chapter { display: none !important; }
     #letter-body { font-size: 13px; }
     .t-controls { padding: 0 12px; }
   }
@@ -405,6 +433,12 @@
     <div class="line" id="district"></div>
     <div class="line"><button id="wirebtn" style="display:none">⚡ the wire ↗</button> <button id="regularsbtn">☕ regulars</button></div>
   </header>
+
+  <div id="coach" hidden>
+    <div class="coach-kicker">GUIDANCE</div>
+    <div id="coach-body"></div>
+    <div id="coach-actions"></div>
+  </div>
 
   <div id="progressbar">
     <div id="progress"></div>
@@ -430,7 +464,8 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
       <header class="modal-header"><h2 id="receipt-heading">GRUNDS</h2><div class="rsub">end of day · Z-read</div><div class="beat-powered" id="verdict-powered" style="color: rgba(58,50,38,.6)"></div></header>
       <div class="modal-body">
         <div id="r-forecast" style="display:none"></div>
-        <div id="r-lines"></div>
+        <div id="r-summary"></div>
+        <details id="r-ledger" open><summary>the ledger</summary><div id="r-lines"></div></details>
         <div id="r-stands"></div>
         <p id="r-seed" style="display:none; margin-top:10px; font-family: var(--serif); font-size: 11px; color: #7a5a2a;">
           <span style="letter-spacing:.25em; text-transform:uppercase">seed</span>
@@ -572,7 +607,8 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
       <header class="modal-header">
         <div class="l-head" id="brief-heading">THE MORNING BRIEF</div>
         <div class="l-kicker" id="brief-kicker">Day 1/5 · plan before opening</div>
-        <div class="beat-powered" id="brief-powered">Synced via Convex · managed plan queue</div>
+        <div class="l-kicker" id="brief-objective" style="display:none; font-style: normal; letter-spacing: .02em;"></div>
+        <div class="beat-powered" id="brief-powered"></div>
       </header>
 
       <!-- Tier 2: Scrollable Progressive Drawers -->
@@ -581,8 +617,10 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <div id="brief-staff" style="display:none"></div>
         <div id="brief-nut" style="display:none"></div>
         <div id="brief-prep" style="display:none"></div>
+        <details id="brief-more"><summary>more planning options</summary>
         <div id="brief-lots" style="display:none"></div>
         <div id="brief-menu" style="display:none"></div>
+        </details>
         <div id="brief-demand" style="display:none"></div>
         <div id="brief-rival" style="display:none"></div>
         <div id="brief-actions"></div>
@@ -722,8 +760,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
       <div class="t-kicker">a day on the floor</div>
       <h1>GRUNDS</h1>
       <div class="t-sub">THE DISTRICT</div>
-      <p class="t-tag">You can’t control demand. You can only be ready for it —
-faster than the café across the street.</p>
+      <p class="t-tag">Keep your café viable for five days. Beat Sam as a bonus; win regulars over.</p>
       <button id="open" disabled>loading the day…</button>
       <p class="t-controls">1 buy cups · 2 cut the price · space pause</p>
     </div>

@@ -9,6 +9,7 @@
     "convex:deploy": "convex deploy",
     "typecheck": "tsc --noEmit",
     "build:dist": "sh tools/build-dist.sh",
+    "preview:local": "node tools/preview-local.mjs",
     "upload:site": "npx @convex-dev/static-hosting upload -d dist",
     "deploy:site": "npm run build:dist && npx convex dev --once && npx @convex-dev/static-hosting upload -d dist"
   },

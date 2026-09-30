@@ -62,13 +62,14 @@ export function createAnalytics() {
   // 5-question playtest script (console helper — copy/paste to QA)
   function playtestScript() {
     return [
-      'GRUNDS — 5-question playtest (ask after Day 1 close, before Day 2):',
-      '1. In your own words, what are you trying to win? (profit / rep / beat GLASSHOUSE)',
-      '2. What did [1] and [2] do? What did the chalkboard change?',
-      '3. What happened at 14:00? Did the debrief make sense?',
-      '4. What do you think happens tomorrow? (forecast recall)',
-      '5. Was anything too fast / too noisy at the start? (1=calm … 5=chaos)',
-      '— log answers, then run: __grunds.analytics.summary()',
+      'GRUNDS — first-day playtest (ask after the receipt, before Day 2):',
+      'Run from a fresh local session. Do not explain the controls or recommend a strategy. Record any help the player requests.',
+      '1. In your own words, what are you trying to accomplish over the five days?',
+      '2. Which morning approach did you choose, and what did you expect it to change?',
+      '3. What happened at 14:00? What could you still do, and why do you think customers stayed or walked?',
+      '4. Which person do you remember, and what happened between you?',
+      '5. What would you do differently tomorrow? Would you choose to play another day? Why?',
+      '— Record answers and observed actions separately. Automated checks do not establish understanding or engagement.'
     ].join('\n');
   }
 

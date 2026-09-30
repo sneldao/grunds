@@ -1,7 +1,7 @@
 // Cinematic camera — title orbit, crane-in, drag-orbit, beat push-ins, handheld breath.
 import * as THREE from '../vendor/three.module.js';
 
-const HOME = { target: new THREE.Vector3(0, 0.8, 2.5), theta: 0.12, phi: 1.02, r: 21 };
+const HOME = { target: new THREE.Vector3(0, 0.8, 4), theta: 0.12, phi: 0.70, r: 32 };
 
 // ---- written camera grammar — named shots, not magic numbers --------------
 // Phase 5: every cinematic beat names its shot. verdict (the till),
@@ -46,7 +46,7 @@ export class CameraRig {
   crane() { this.mode = 'crane'; this.craneT = 0; this._from = { target: this.target.clone(), theta: this.theta, phi: this.phi, r: this.r }; this._calm = performance.now(); }
 
   focus(point, r = 12, secs = 4, theta = null) {
-    this.beat = { point: point.clone(), r, until: performance.now() / 1000 + secs, blend: 0, theta };
+    this.beat = { point: point.clone(), r: Math.max(18, r), until: performance.now() / 1000 + secs, blend: 0, theta };
   }
   // queueFocus: a focus that waits for the current beat to finish (expiring
   // after ttl seconds) instead of stomping it. News beats chapters.
@@ -65,7 +65,11 @@ export class CameraRig {
     if (anchor) this.queueFocus(anchor, s.r, s.secs, ttl, s.theta);
   }
   shake(mag = 0.35) { this.shakeT = 1; this.shakeMag = mag; }
-  resetView() { this.beat = null; this.home = { ...HOME, target: HOME.target.clone() }; }
+  resetView() {
+    this.beat = null;
+    this.home = { ...HOME, target: HOME.target.clone() };
+    this.target.copy(HOME.target); this.theta = HOME.theta; this.phi = HOME.phi; this.r = HOME.r;
+  }
 
   update(dt, now) {
     const t = now / 1000;

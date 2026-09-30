@@ -11,6 +11,7 @@ import { buildPostFX } from './postfx.js';
 import { buildDirector } from './director.js';
 import { buildVitality } from './vitality.js';
 import { computeNextAction } from './nextAction.js';
+import { leverState } from './nextAction.js';
 import { buildHalo, shouldHalo } from './halo.js';
 import { buildKitBeat } from './kitArrival.js';
 import { PatronSystem } from './patrons.js';
@@ -20,7 +21,7 @@ import { AudioEngine } from './audio.js';
 import { Exchange, seeded } from './exchange.js';
 import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } from './economy.js';
 import { Regulars } from './regulars.js';
-import { WalkinPool, womReturnees, dossierLines, stageFor } from './identity.js';
+import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling } from './identity.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate } from './menu.js';
@@ -177,8 +178,11 @@ let kitPendingAtOpen = false;
 district.onGrown = (slots) => {
   if (kitPendingAtOpen) kitBeat.start(slots, SEED);
 };
+function leverSnapshot() {
+  return { dayMin, closed, phase, repriced, prebatched, batchUnits: ctx.batchUnits, leversTimeLocked };
+}
 function currentAction() {
-  return computeNextAction({ dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending, offerShown, eveningFast, rushFast });
+  return computeNextAction({ dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending, offerShown, eveningFast, rushFast, closed, phase, leversTimeLocked });
 }
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
@@ -306,6 +310,7 @@ window.addEventListener('keydown', (e) => {
 }, true);
 let till = 0, cogs = 0, balked = 0, served = 0, servedRetail = 0, defections = 0, rivalServed = 0;
 let evangelistServes = 0;   // Phase 1 — evangelist serves become tomorrow's crowd via womReturnees
+let womPids = new Set();
 // Phase 2 — cellar ledger: staged lot choice + top-up (committed with OPEN),
 // the day's bean outlay (dawn sacks ride the tab; per-cup emergency charges
 // are cash), yesterday's pour (adaptive restock), per-day toast guards, and
@@ -337,6 +342,8 @@ let prebatched = false, repriced = false;
 let stagedPrep = { batch: false, reprice: false };
 let prepHintOpen = false;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
+let waveBatchServed = 0, waveStockoutAt = 0;
+let coach = null, coachHold = false;
 let coached = false;   // day-1 lever hint, once per campaign
 // just-in-time nudges: each fires once per campaign, only when its
 // condition is on screen — teach at the moment of need, not at boot
@@ -464,19 +471,15 @@ const PAYWALL_PLACEMENTS = {
 function applyPaywallPlacements() {
   let isInsider = false, isFounder = false;
   try { isInsider = billing.isInsider(); isFounder = billing.isFounder(); } catch {}
-  for (const [surface, p] of Object.entries(PAYWALL_PLACEMENTS)) {
-    const el = document.getElementById(p.id); if (!el) continue;
-    let show;
-    if (p.isFounderOnly) show = !isFounder;
-    else                  show = !isInsider;
-    el.style.display = show ? '' : 'none';
-  }
   // The verdict CTA is founder-only on the inside, free upsell on the outside.
+  for (const [, p] of Object.entries(PAYWALL_PLACEMENTS)) {
+    const el = document.getElementById(p.id); if (el) el.style.display = 'none';
+  }
   try {
     const founderBtn = document.getElementById('founder-replay');
     const upsellBtn  = document.getElementById('verdict-upsell');
     if (founderBtn) founderBtn.style.display = isFounder ? '' : 'none';
-    if (upsellBtn)  upsellBtn.style.display  = isFounder ? 'none' : '';
+    if (upsellBtn)  upsellBtn.style.display  = 'none';
   } catch {}
 }
 // Run on every billing change so the surfaces reflect the live state
@@ -546,24 +549,18 @@ const BEAT_POWERED = {
 // One setter for the inline captions (brief/offer/verdict).
 function setBeatPower(id, text) {
   const el = document.getElementById(id + '-powered');
-  if (el) { el.textContent = text || ''; el.style.display = text ? '' : 'none'; }
+  if (el) { el.textContent = ''; el.style.display = 'none'; }
   // If the offer is the incident variant, swap copy — incidents are 'the
   // floor bites back', not AgentMail replies.
-  if (id === 'offer') {
-    const inc = document.getElementById('offer')?.classList.contains('incident');
-    if (el) el.textContent = inc ? 'Operating cost paid · live ledger' : BEAT_POWERED.offer;
-  }
 }
 // The wave HUD caption is the only floating one — it rises with the wave and
 // clears a few seconds later, like a sponsor watermark on the moment.
 function showWavePowered(ttlMs = 7000) {
   const el = $('wave-powered'); if (!el) return;
-  el.textContent = BEAT_POWERED.wave;
-  el.classList.add('show');
-  try { clearTimeout(showWavePowered._t); } catch {}
-  showWavePowered._t = setTimeout(() => el.classList.remove('show'), ttlMs);
+  el.textContent = '';
+  el.classList.remove('show');
 }
-const ctx = { prebatched: false, repriced: false, batchUnits: 0, milkStock: 0, milky: 0, milkOut: false, menuPrices };
+const ctx = { prebatched: false, repriced: false, batchUnits: 0, batchReservedUntil: 0, milkStock: 0, milky: 0, milkOut: false, menuPrices };
 const WALK_MUL = { 60: 1, 300: 3, 1200: 6 };
 // settle window: day 1, first 12 sim-min feel uncrowded even after the sim starts
 const CALM_UNTIL_MIN = DAY_START + 12;
@@ -614,6 +611,8 @@ function tick() {
       for (let i = 0; i < n; i++) patrons.spawn(s.c, s.z, speed > 60);
     }
   }
+  coachTick();
+  if (paused) { updateHUD(); return; }
   // run the floor
   const events = patrons.tick(dayMin, ctx);
   // deliver the wire's gossip once the named regular is actually on the
@@ -686,13 +685,16 @@ function tick() {
       // (visits count days-seen in resolveDay, both sides); walk-ins
       // accumulate in the day pool; evangelist serves seed tomorrow's crowd.
       if (e.p) {
+        const drinkName = e.p.drink && DRINKS[e.p.drink] ? DRINKS[e.p.drink].name : e.p.drink;
+        const womKey = e.p.pid || `roster-${e.p.regularIdx}`;
         if (e.p.regularIdx >= 0) {
-          const stage = regulars.noteVisit(e.p.regularIdx, { day, drink: e.p.drink });
+          const stage = regulars.noteVisit(e.p.regularIdx, { day, drink: drinkName });
           if (stage) e.p.stage = stage;
-          if (e.p.stage === 'evangelist') evangelistServes++;
+          if (e.p.stage === 'evangelist' && !womPids.has(womKey)) { womPids.add(womKey); evangelistServes++; }
         } else if (e.p.pid) {
-          const head = walkins.recordVisit(e.p.pid, { day, drink: e.p.drink, outcome: 'served' });
-          if (head) { e.p.stage = head.stage; e.p.visits = head.visits; if (head.stage === 'evangelist') evangelistServes++; }
+          const head = walkins.recordVisit(e.p.pid, { day, drink: drinkName, outcome: 'served' });
+          if (head) { e.p.stage = head.stage; e.p.visits = head.visits;
+            if (head.stage === 'evangelist' && !womPids.has(womKey)) { womPids.add(womKey); evangelistServes++; } }
         }
       }
       if (e.p && e.p.regularIdx < 0) {
@@ -700,7 +702,7 @@ function tick() {
         if (firstServedToast < 2) { firstServedToast++; fx.toast('a first-timer — the street’s trying you', 'good'); }
       }
       if (e.p && e.p.partyMember && party && !party.declined) party.served++;
-      if (dayMin >= 840 && dayMin <= 1020) waveServed++;
+      if (dayMin >= 840 && dayMin <= 1020) { waveServed++; if (e.fromBatch) waveBatchServed++; }
       audio.clink();
     } else if (e.type === 'balked') {
       balked++; balks++;
@@ -764,10 +766,12 @@ function tick() {
   // still stands (price cut stays locked).
   if (prebatched && ctx.batchUnits <= 0 && ctx.prebatched) {
     ctx.prebatched = false;
+    if (dayMin >= 840 && dayMin <= 1020 && !waveStockoutAt) waveStockoutAt = dayMin;
     fx.toast('batch exhausted — made-to-order until you top up (1)', 'warn');
   }
   peakQueue = Math.max(peakQueue, patrons.queueLength);
   beats();
+  coachTick();
   updateHUD();
 }
 
@@ -783,7 +787,7 @@ function beats() {
     if (ch.notebook) fx.notebook(true);
     if (ch.wave) {
       rig.shake(0.3);
-      if (prebatched) { fx.toast('the wave hits a warm till — 40 units ready', 'good'); prebatchHelped = true; }
+      if (prebatched) { fx.toast(`the wave hits a warm till — ${ctx.batchUnits} cups reserved`, 'good'); prebatchHelped = true; }
       else fx.toast('the wave hits a cold bar — 4 minutes a cup', 'bad');
     }
   }
@@ -910,17 +914,25 @@ function waveRead() {
   const waveN = waveServed + waveBalked;
   const ratio = waveN ? waveBalked / waveN : 0;
   const lever = prebatched ? 'prep' : repriced ? 'deal' : null;
-  const pace = ECON.prepMatcha / ECON.prepBatched;
   const sub = !lever
     ? (waveBalked ? 'No cups bought — the wave ate you.' : 'The wave passed quietly.')
-    : (ratio <= 0.06 ? 'You held the line.' : ratio <= 0.15 ? 'The call paid off.' : 'Tough wave — top up earlier tomorrow.');
+    : lever === 'deal'
+      ? (ratio <= 0.06 ? 'You held the line.' : ratio <= 0.15 ? 'The call paid off.' : 'Tough wave — the deal bought patience, not speed.')
+      : (ratio <= 0.06 ? 'You held the line.' : ratio <= 0.15 ? 'The call paid off.' : 'Tough wave — top up earlier tomorrow.');
+  const why = lever === 'prep'
+    ? `${waveBatchServed} batch cups poured${waveStockoutAt ? ` · the batch ran dry around ${Math.floor(waveStockoutAt / 60)}:${String(waveStockoutAt % 60).padStart(2, '0')}` : ` · ${ctx.batchUnits} left on the bar`}`
+    : lever === 'deal'
+      ? `the ${fmt(ECON.matchaDeal)} deal cut queue-abandonment odds to a quarter — milk or card incidents can still lose orders`
+      : 'every matcha poured made-to-order — four minutes a cup';
+  const tomorrow = lever === 'prep'
+    ? 'tomorrow — prep again; top up in the wave once cups hit 8'
+    : lever === 'deal'
+      ? 'tomorrow — the deal trades speed for patience; pre-batch is the faster route'
+      : 'tomorrow — prep before 14:00 buys speed · a price cut buys patience';
   const lines = [
-    `the wave: ${waveBalked} walked · ${waveServed} served`,
-    lever === 'prep'
-      ? `the batch moved matcha at ${pace}× pace — speed was the answer`
-      : lever === 'deal'
-        ? 'the deal kept them patient — balks ran at a quarter'
-        : `a ${ECON.batchUnits}-cup batch moves matcha at ${pace}× pace — a deal keeps them patient`,
+    `what happened — ${waveServed} served · ${waveBalked} walked`,
+    `why — ${why}`,
+    tomorrow,
   ];
   return { sub, lines, waveServed, waveBalked, ratio, lever };
 }
@@ -1131,8 +1143,8 @@ function closeDay() {
   // The tab has a fuse: warn when the week's position can't cover tomorrow's
   // committed costs — the supplier calls it at zero.
   const worthNow = cRev - cCost - cOps - settledPaid - exchange.debt;
-  if (worthNow <= 0) verdict += ' You owe more than the week is worth — Idris calls the tab.';
-  else if (worthNow < ops.total) verdict += ' Another day like this and Idris calls the tab.';
+  if (worthNow < 0) verdict += ' You owe more than the week is worth — Idris calls the tab.';
+  else if (worthNow < ops.total) verdict += ` The week so far is ${fmt(worthNow)} — today’s operating costs were ${fmt(ops.total)}.`;
   if (prebatchHelped && waveBalked < 80) verdict += ' The notebook paid off.';
   // the street talks back: coasting shows up as a sentence, not just a number
   if (dtrace.after < 0.35) verdict += ' The street is forgetting you — work it at dawn.';
@@ -1195,6 +1207,10 @@ function closeDay() {
     ],
     verdict,
     forecast,
+    summary: `net today ${fmt(netToday)} · ${served + servedRetail} served · ${balked} walked · ${
+      prebatched ? 'tomorrow: prep again — top up when cups hit 8'
+      : repriced ? 'tomorrow: a pre-batch serves faster than the deal'
+      : 'tomorrow: prep before 14:00 — or cut the price for patience'}`,
     netToday, operatingNet, ops, hedgeSavings: realizedHedgeSavings, fees: ops.fees,
   };
   lastDayReceipt = { ...receiptData, day };
@@ -1599,12 +1615,20 @@ function renderPlanQuote() {
   const stQ = lotState.entry(selectedLot);
   const cellarBit = (() => {
     if (!stQ || stQ.unlocked === false || topUpCups <= 0) return null;
-    const up = lotSpot(selectedLot, dawnIndex, stQ.priceMul);
-    const cost = Math.max(0, Math.floor(topUpCups)) * up;
-    if (cost <= 0) return null;
-    const headroom = Math.max(0, CAMPAIGN.creditLimit - (exchange.debt + (q.interest || 0)));
-    const fronted = Math.max(0, Math.ceil(cost - headroom));
-    return `cellar — ${LOT_CATALOG[selectedLot]?.name || selectedLot} restock ${fmt(cost)} on the tab${fronted > 0 ? ` (${fmt(fronted)} fronted at 1.5×)` : ''}`;
+    const res = resolveDecision(planSnapshot(), normalizePlan(planDraft));
+    if (!res.ok) return `cellar — this plan can't land: ${res.why}`;
+    const unitPrice = res.contract && res.contract.units > 0
+      ? res.contract.price * 1.3
+      : lotSpot(selectedLot, dawnIndex, stQ.priceMul);
+    const cups = Math.max(0, Math.floor(topUpCups));
+    const name = LOT_CATALOG[selectedLot]?.name || selectedLot;
+    if (!(unitPrice > 0)) return `cellar — ~${cups} ${name} cups, price pending the dawn board`;
+    const cap = LOT_CATALOG[selectedLot].stockCap;
+    const room = cap ? Math.min(cups, Math.max(0, cap - stQ.stock)) : cups;
+    const headroom = Math.max(0, CAMPAIGN.creditLimit - res.debt);
+    const funded = Math.min(room, Math.floor(headroom / unitPrice));
+    const est = `cellar — up to ${funded} of the ${cups} ${name} cups on the tab at ~${fmt(unitPrice)} each (dawn board may move)`;
+    return funded >= cups ? est : `${est} · the rest stays unbought — a dry cellar pays 1.5× spot per cup`;
   })();
   const netPos = cRev - cCost - cOps - settledPaid - exchange.debt;
   const pos = `campaign net position ${netPos < 0 ? '−' : ''}${fmt(Math.abs(netPos))}`;
@@ -1616,6 +1640,7 @@ function renderPlanQuote() {
       ? `beans — contracted at ${exchange.contract.price.toFixed(2)} (${exchange.contract.units} cups left)`
       : `beans — board ${exchange.beanIndex.toFixed(2)} spot${q.contractFee ? ` · insure for ${fmt(q.contractFee)} on the tab` : ''}`,
     ...(cellarBit ? [cellarBit] : []),
+    ...(stagedPrep.batch ? [`morning prep — ${ECON.batchUnits} cups batched −${fmt(ECON.batchCost)} from the till at open, not the tab`] : []),
   ];
   // the equation only earns a line when a fee or the tab's interest moves it
   if (q.contractFee > 0 || q.interest > 0)
@@ -1702,7 +1727,8 @@ function renderPrepSection() {
     b.id = id;
     b.dataset.prep = def.key;
     const sel = isSelected(def.key);
-    b.textContent = (sel ? '✓ ' : '') + def.label + (def.cost ? ` · −${fmt(def.cost)}` : '');
+    b.innerHTML = `${sel ? '✓ ' : ''}${def.label}${def.cost ? ` · −${fmt(def.cost)}` : ''}` +
+      `<br><span style="font-size:10px;font-weight:400;opacity:.72">${def.desc}</span>`;
     b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     else if (def.key === 'hold') { b.style.opacity = '0.7'; }
@@ -1715,6 +1741,8 @@ function renderPrepSection() {
       else if (def.key === 'batch') { stagedPrep.batch = true; stagedPrep.reprice = false; }
       else if (def.key === 'reprice') { stagedPrep.batch = false; stagedPrep.reprice = true; }
       renderPrepSection();
+      renderMenuSection();
+      renderPlanQuote();
     };
     return b;
   };
@@ -1723,16 +1751,19 @@ function renderPrepSection() {
     key: 'hold',
     label: 'hold steady',
     cost: null,
+    desc: 'no upfront spend · made-to-order all day · you can still buy in later — £40 + £4.20 late switch',
   }));
   pillRow.appendChild(makePill('brief-prep-batch', {
     key: 'batch',
     label: `pre-batch ${ECON.batchUnits} cups`,
     cost: ECON.batchCost,
+    desc: 'speed at full price · 40 reserved until 14:00 · leftovers waste',
   }));
   pillRow.appendChild(makePill('brief-prep-reprice', {
     key: 'reprice',
     label: `cut matcha to ${fmt(ECON.matchaDeal)}`,
     cost: null,
+    desc: 'slower service, more patience, lower income · no prep today',
   }));
   wrap.appendChild(pillRow);
 }
@@ -1760,11 +1791,21 @@ function renderLotSection() {
   const stale = house && isStale(age);
   const det = document.createElement('details');
   det.id = 'brief-lot-details';
-  if (drawerOpen('brief-lot-details', wasOpen || topUpCups > 0 || stale || (lotState.pending && lotState.pending.length))) det.open = true;
+  const houseEmpty = !!house && house.stock <= 0;
+  const cellarDry = LOT_IDS.every(id => (lotState.entry(id)?.stock ?? 0) <= 0);
+  if (houseEmpty || drawerOpen('brief-lot-details', wasOpen || topUpCups > 0 || stale || (lotState.pending && lotState.pending.length))) det.open = true;
   watchDrawer(det, 'brief-lot-details');
   const sum = document.createElement('summary');
   sum.textContent = `pouring ${name}${house ? ` · ${house.stock} left` : ''}${topUpCups > 0 ? ' · restocking' : ''}`;
   det.appendChild(sum);
+  if (houseEmpty) {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'font-size:11px;color:#8a4a2a;margin:4px 0 6px';
+    warn.textContent = cellarDry
+      ? 'cellar’s dry — every cup today bills an emergency sack at 1.5× spot'
+      : 'house lot empty — choose another lot or restock; a completely dry cellar bills 1.5× spot';
+    det.appendChild(warn);
+  }
   wrap.appendChild(det);
 
   const pillRow = document.createElement('div');
@@ -1785,7 +1826,7 @@ function renderLotSection() {
     b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
-    b.onclick = () => { selectedLot = id; topUpCups = 0; stagedRoast = lotState.entry(id)?.roast ?? 3; renderLotSection(); };
+    b.onclick = () => { selectedLot = id; topUpCups = 0; stagedRoast = lotState.entry(id)?.roast ?? 3; renderLotSection(); renderPlanQuote(); };
     pillRow.appendChild(b);
   }
   det.appendChild(pillRow);
@@ -1804,7 +1845,7 @@ function renderLotSection() {
       b.textContent = `${sel ? '✓ ' : ''}${label}`;
       b.style.cssText = 'font-size:11px;padding:6px 10px;flex:1;min-width:0';
       if (sel) { b.style.borderColor = 'var(--brass)'; b.style.background = 'rgba(201,162,39,.18)'; b.style.color = '#2a241c'; }
-      b.onclick = () => { topUpCups = (topUpCups === cups) ? 0 : cups; renderLotSection(); };
+      b.onclick = () => { topUpCups = (topUpCups === cups) ? 0 : cups; renderLotSection(); renderPlanQuote(); };
       return b;
     };
     const underContract = !!(exchange.contract && exchange.contract.units > 0);
@@ -1931,11 +1972,12 @@ function renderMenuSection() {
   clearEl(wrap);
   wrap.style.display = '';
   if (!stagedMenu) stagedMenu = { prices: { ...menuPrices }, offered: { ...menuOffered } };
+  stagedMenu.prices.matcha = stagedPrep.reprice ? ECON.matchaDeal : priceForDay(day);
 
   const bases = basePrices();
   const off = DRINK_IDS.filter(id => id !== 'matcha' && stagedMenu.offered[id] === false);
-  const repriced = DRINK_IDS.filter(id => stagedMenu.prices[id] !== bases[id]);
-  const changed = wasOpen || off.length > 0 || DRINK_IDS.some(id => stagedMenu.prices[id] !== bases[id]);
+  const repriced = DRINK_IDS.filter(id => id !== 'matcha' && stagedMenu.prices[id] !== bases[id]);
+  const changed = wasOpen || off.length > 0 || stagedPrep.reprice || DRINK_IDS.some(id => id !== 'matcha' && stagedMenu.prices[id] !== bases[id]);
   const det = document.createElement('details');
   det.id = 'brief-menu-details';
   if (drawerOpen('brief-menu-details', changed)) det.open = true;
@@ -1964,7 +2006,15 @@ function renderMenuSection() {
     const plus = document.createElement('button');
     plus.textContent = '+'; plus.style.cssText = 'padding:4px 9px';
     plus.onclick = () => { stagedMenu.prices[id] = clampPrice(id, stagedMenu.prices[id] + 0.20); renderMenuSection(); };
-    row.appendChild(nm); row.appendChild(minus); row.appendChild(val); row.appendChild(plus);
+    if (id === 'matcha') {
+      row.appendChild(nm); row.appendChild(val);
+      const byPlan = document.createElement('span');
+      byPlan.textContent = 'set by the plan';
+      byPlan.style.cssText = 'opacity:.55;font-size:10px;padding:4px 2px';
+      row.appendChild(byPlan);
+    } else {
+      row.appendChild(nm); row.appendChild(minus); row.appendChild(val); row.appendChild(plus);
+    }
     if (id !== 'matcha') {
       const off = stagedMenu.offered[id] === false;
       const b86 = document.createElement('button');
@@ -2124,6 +2174,11 @@ function showMorningBrief() {
     const tape = $('tape');
     if (tape && tilt) tape.style.color = (EVENTS[tilt.eventId]?.tier === 'good' ? '#9ad89a' : '#e07a7a');
     if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`;
+    const obj = $('brief-objective');
+    if (obj) {
+      obj.textContent = 'Keep your café viable for five days. Beat Sam as a bonus; win regulars over.';
+      obj.style.display = '';
+    }
   } catch { if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`; }
   const body = $('brief-letter');
   if (body) {
@@ -2297,6 +2352,9 @@ function showMorningBrief() {
   // Phase 3 — the menu: price each drink, 86 the slow ones. Stages here,
   // commits with OPEN (applyMenu).
   renderMenuSection();
+  const more = $('brief-more');
+  const houseEmptyNow = !!(lotState.entry(selectedLot) && lotState.entry(selectedLot).stock <= 0);
+  if (more) { watchDrawer(more, 'brief-more'); more.open = houseEmptyNow || drawerOpen('brief-more', day >= 2); }
   // PR-B1 — yesterday's rivalry. Day 1 has no yesterday, so the row stays shut;
   // the one-line price compare in the risk row carries the street.
   renderRivalLine();
@@ -2533,7 +2591,7 @@ function prepareDay(d) {
   if (d === 1) kitPendingAtOpen = !district.grown;   // the kit is an event only if it grows during play
   coached = d !== 1;   // the lever hint only coaches day 1, once per campaign
   patrons.reset(); fx.reset();
-  walkins.ensureDay(d); evangelistServes = 0;   // Phase 1 — fresh strangers (yesterday's known faces carry), WOM counter reset
+  walkins.ensureDay(d); evangelistServes = 0; womPids.clear();   // Phase 1 — fresh strangers (yesterday's known faces carry), WOM counter reset
   // Phase 4 — ceasefire Saturday: no crossings when the truce holds.
   patrons.truceCeasefire = samTruce && d === 5;
   // Phase 4 — Ruth's arc ticks at dawn: notice her fading (once), honor a
@@ -2597,9 +2655,11 @@ function prepareDay(d) {
   patrons.dwellMul = 1 + (dayMods.dwellBonus || 0);
   rivalStrategy = strategyForDay(d, exchange.event?.tier);
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
-  prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; patrons.repriced = false;
+  prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false;
   leversTimeLocked = false; leverOverrideCount = 0;
+  waveBatchServed = 0; waveStockoutAt = 0;
+  coach = null; coachHold = false; coachHide();
   stagedPrep = { batch: false, reprice: false };
   baristaCrisis = false;
   if (d === 1) { forecastShown = false; nudgedQueue = nudgedBalk = nudgedPrice = false; }
@@ -2814,7 +2874,8 @@ function campaignClose(insolvent = false) {
   const lines = [
     [standName, playerName + ' — ' + playerRole],
     [`revenue (${Math.min(day, CAMPAIGN.days)} days)`, fmt(cRev)], ['bean cost', fmt(cCost)], ['operating costs', fmt(cOps)],
-    ['final debt', fmt(exchange.debt)], ['—', '—'],
+    ['final debt', fmt(exchange.debt)],
+    ['the week', net >= 0 ? 'viable — the stand is still yours' : 'insolvent — the tab came due'], ['—', '—'],
     ['cups poured', cServed], ['walked to ' + COPY.rivalName, cDef], ['—', '—'],
     ['you vs ' + COPY.rivalBarista, `you ${cServed} · ${COPY.rivalBarista} ${cRivalServed + cRivalChoices}`],   // PR-B1 — final week tally
     ['WEEK WINNER', wkWin === 'tie' ? 'DEUCE — neither side blinks' : `${wkWin} won by ${wkMargin} cups`],   // PR-B3 — the week resolves
@@ -2928,8 +2989,9 @@ function updateHUD() {
   // Morning prep is one press. During the rush the button opens again
   // once the cups run down to 8, so topping up is a second decision.
   // Prep and the price cut lock each other out for the day.
-  $('prebatch').disabled = dayMin >= 960 || closed || repriced || (prebatched && ctx.batchUnits > (dayMin >= 840 ? 8 : 0));
-  $('reprice').disabled = repriced || closed || prebatched || ctx.batchUnits > 0;
+  const lv = leverState(leverSnapshot());
+  $('prebatch').disabled = !lv.batch.available;
+  $('reprice').disabled = !lv.reprice.available;
   // queue health bar: under 5 = ok → 5–10 = warm → 10+ = hot
   const qq = patrons.queueLength;
   const qHeat = qq > 10 ? 'hot' : qq > 5 ? 'warm' : 'ok';
@@ -2943,7 +3005,12 @@ function updateHUD() {
   try { world.setPlantHealth(qq); audio.purr(qq <= 5 && patrons.count > 2); } catch {}
   // the tape: the bean board as a visible object — yesterday's close →
   // today, the event that moved it, click-through to the wire
-  if ($('batchline')) $('batchline').hidden = day < 2 && !(prebatched || ctx.batchUnits > 0);
+  if ($('batchline')) {
+    $('batchline').hidden = day < 2 && !(prebatched || ctx.batchUnits > 0);
+    if ($('batchword')) $('batchword').textContent =
+      (prebatched && ctx.batchUnits > 0 && ctx.batchReservedUntil > dayMin)
+        ? 'reserved for 14:00' : (dayMin >= 840 && dayMin < 1020 ? 'cups left' : 'cups ready');
+  }
   if ($('skiprush')) $('skiprush').hidden = !canSkipToRush();
   if ($('wirebtn')) $('wirebtn').style.display = (day >= 2 && marketIntel) ? '' : 'none';
   if ($('floorstats')) $('floorstats').hidden = day < 2;
@@ -2970,14 +3037,16 @@ function updateHUD() {
       if (ctx.prebatched) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
     } else if (!ctx.batchUnits) { el.textContent = dayMin >= 840 ? '0' : 'none'; }
     el.classList.toggle('low', dayMin >= 840 && dayMin < 1020 && ctx.batchUnits <= 8);
-    if ($('batchword')) $('batchword').textContent = dayMin >= 840 && dayMin < 1020 ? 'cups left' : 'cups ready';
   }
   // lever attention: pulse until first use on day 1
   const cutSmall = $('reprice') && $('reprice').querySelector('small');
   if (cutSmall) {
-    if (prebatched || ctx.batchUnits > 0) cutSmall.textContent = 'locked — you bought the cups';
-    else if (repriced) cutSmall.textContent = `matcha is ${fmt(ECON.matchaDeal)} today`;
-    else {
+    if (repriced) cutSmall.textContent = `matcha is ${fmt(ECON.matchaDeal)} today`;
+    else if (!lv.reprice.available) cutSmall.textContent = lv.reprice.reason || 'locked';
+    else if (lv.reprice.changesPlan) {
+      const board = salePrice(exchange, false);
+      cutSmall.textContent = `down from £${board.toFixed(2)} · ${fmt(LEVER_OVERRIDE_PRICE)} late switch + the room hears it`;
+    } else {
       const board = salePrice(exchange, false);
       cutSmall.textContent = `down from £${board.toFixed(2)} · locks prep for today`;
     }
@@ -2987,12 +3056,14 @@ function updateHUD() {
     const inWave = dayMin >= 840 && dayMin < 960;
     const nodes = pb.childNodes || [];
     const label = nodes[0];
-    if (label && label.nodeType === 3) label.textContent = (inWave ? `Top up ${ECON.batchUnits} cups ` : `Buy ${ECON.batchUnits} cups `);
+    if (label && label.nodeType === 3) label.textContent = (inWave && prebatched ? `Top up ${ECON.batchUnits} cups ` : `Buy ${ECON.batchUnits} cups `);
     const sub = pb.querySelector('small');
     if (sub) {
-      if (repriced) sub.textContent = 'locked — you cut the price';
+      if (!lv.batch.available) sub.textContent = lv.batch.reason || 'locked';
+      else if (lv.batch.changesPlan) sub.textContent = `${fmt(lv.batch.cost)} — £40 stock + £4.20 late switch · the room hears it`;
+      else if (prebatched && ctx.batchUnits > 0) sub.textContent = `${ctx.batchUnits} ready · pay ${fmt(ECON.batchCost)} to top up`;
       else if (inWave) sub.textContent = `pay ${fmt(ECON.batchCost)} · leftovers spoil at close`;
-      else sub.textContent = `pay ${fmt(ECON.batchCost)} · fast bar · leftovers spoil`;
+      else sub.textContent = `pay ${fmt(ECON.batchCost)} · reserved for 14:00 · leftovers spoil`;
     }
   }
   const waveLow = dayMin >= 840 && dayMin < 960 && ctx.batchUnits <= 8 && !repriced;
@@ -3009,7 +3080,7 @@ function updateHUD() {
     const na = currentAction();
     let html = na.id === 'mail' ? `📬 ${na.text}` : na.text;
     if (party && !party.declined && dayMin >= 840 && dayMin < 1020) {
-      html = `<b>${party.name}</b> · ${party.served} stayed · ${party.walked} walked`;
+      html += `<br><span class="dim"><b>${party.name}</b> · ${party.served} stayed · ${party.walked} walked</span>`;
     }
     $('goal').innerHTML = html;
   }
@@ -3020,6 +3091,7 @@ function updateHUD() {
     const nowMs = performance.now();
     if (nowMs - lastHudText < 200) return;
     lastHudText = nowMs;
+    layoutMobile();
   }
   const h = String(Math.floor(dayMin / 60)).padStart(2, '0'), m = String(dayMin % 60).padStart(2, '0');
   $('clock').textContent = (paused ? '❚❚ ' : '') + `${h}:${m}`;
@@ -3051,36 +3123,39 @@ function updateHUD() {
 }
 
 // ---- levers ----------------------------------------------------------------------
+let _lastNudge = { t: 0, r: '' };
+function nudgeToast(reason) {
+  const n = performance.now();
+  if (n - _lastNudge.t < 1500 && _lastNudge.r === reason) return;
+  _lastNudge = { t: n, r: reason };
+  fx.toast(reason, 'warn');
+}
 function doPrebatch(opts = {}) {
-  if (closed || phase !== 'trading' || dayMin >= 960) return;
-  if (repriced) { fx.toast('you cut the price — prep is locked for today', 'warn'); return; }
+  const lv = leverState(leverSnapshot()).batch;
+  if (!lv.available) { if (lv.reason && !opts.asPlanned) nudgeToast(lv.reason); return; }
   // PR-5 — after commit, pressing the lever costs £4.20 + a small opinion hit.
   // PR-A1 — except when the player staged it in the Brief; that decision was
   // already made and auto-fired at commit time, so the press is free.
-  if (leversTimeLocked && dayMin >= 720 && !opts.asPlanned && !chargeLeverOverride('pre-batch')) return;
-  const cap = dayMin >= 840 ? 8 : 0;
-  if (prebatched && ctx.batchUnits > cap) return;          // morning is one prep; the rush reopens under 8 cups
+  if (lv.changesPlan && !opts.asPlanned && !chargeLeverOverride('pre-batch')) return;
   markIntent();
+  // morning is one prep; the rush reopens under 8 cups
   const topUp = prebatched || ctx.batchUnits > 0;
   const queueBefore = patrons.queueLength;
   const priceBefore = repriced ? ECON.matchaDeal : (exchange.matchaPrice ?? priceForDay(day));
   prebatched = true; ctx.prebatched = true;
   ctx.batchUnits = topUp ? ctx.batchUnits + ECON.batchUnits : ECON.batchUnits;
+  if (dayMin < 840) ctx.batchReservedUntil = 840;
   till -= ECON.batchCost; batchSpend += ECON.batchCost;
   fx.notebook(false);
   fx.toast((topUp
     ? `topped up — ${ECON.batchUnits} more cups (−${fmt(ECON.batchCost)}; leftovers spoil)`
-    : `${ECON.batchUnits} cups bought (−${fmt(ECON.batchCost)}) — fast bar, full price; leftovers spoil`)
+    : `${ECON.batchUnits} cups bought (−${fmt(ECON.batchCost)}) — ${dayMin < 840 ? 'reserved for the 14:00 wave' : 'fast bar, full price'}; leftovers spoil`)
     + (opts.asPlanned ? ' · as planned in the brief' : ''), 'good');
   audio.clink();
   world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced);
   world.flashChalk('batch');
   rivalReact('prebatch');   // PR-B2 — Sam clocks the prep
   try { audio.clink(); } catch {}
-  if (queueBefore > 3) {
-    const estAfter = Math.max(0, Math.round(queueBefore * 0.52));
-    fx.toast(`${queueBefore} in line → about ${estAfter} once the cups are ready`, 'good');
-  }
   batchPulseUntil = performance.now() + 650;
   $('prebatch').classList.remove('attention'); $('reprice').classList.remove('attention');
   // analytics: lever attribution
@@ -3108,11 +3183,11 @@ function skipToRush() {
 }
 
 function doReprice(opts = {}) {
-  if (repriced || closed || phase !== 'trading') return;
-  if (prebatched || ctx.batchUnits > 0) { fx.toast('you prepped the cups — the price stays on the board', 'warn'); return; }
+  const lv = leverState(leverSnapshot()).reprice;
+  if (!lv.available) { if (lv.reason && !opts.asPlanned) nudgeToast(lv.reason); return; }
   // PR-5 — after commit, pressing the lever costs £4.20 + a small opinion hit.
   // PR-A1 — except when the player staged it in the Brief.
-  if (leversTimeLocked && dayMin >= 720 && !opts.asPlanned && !chargeLeverOverride('reprice')) return;
+  if (lv.changesPlan && !opts.asPlanned && !chargeLeverOverride('reprice')) return;
   markIntent();
   const queueBefore = patrons.queueLength;
   repriced = true; ctx.repriced = true; patrons.repriced = true;
@@ -3294,9 +3369,11 @@ function reset() {
   menuOffered = Object.fromEntries(DRINK_IDS.map(id => [id, true]));
   patrons.menuOffered = menuOffered;
   stagedMenu = null; stagedRoast = 3;
+  try { localStorage.removeItem(DRAWER_KEY('brief-more')); } catch {}
   milkDelivery = 0; lastMilky = 0; milkTipped = 0; milkToastDone = false;
   compostToday = 0; trainingTotal = 0; ruthSkill = 0;
   phase = 'onboarding';
+  coach = null; coachHold = false; coachHide(); tutorialActive = false;
   demand.reset(); marketingSpend = 0;
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
   apprenticeHiredToday = false; rivalStrategy = 'DEFAULT'; rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];
@@ -3424,7 +3501,7 @@ function openDossier(p) {
   const head = $('dossier-heading');
   if (head) head.textContent = (ident.stage === 'regular' || ident.stage === 'friend' || ident.stage === 'evangelist') ? 'REGULAR' : 'A QUIET TABLE';
   const nm = $('dossier-name');
-  if (nm) nm.textContent = `${ident.name} — ${ident.stage}`;
+  if (nm) nm.textContent = `${ident.name} — ${stageLabel(ident)}`;
   const lines = $('dossier-lines');
   if (lines) lines.innerHTML = dossierLines(ident, { op, friends }).map(l => `<div>${l}</div>`).join('');
   modals.open('dossier');
@@ -3432,14 +3509,19 @@ function openDossier(p) {
 
 // Phase 1 — the regulars board: the cast (canon roster) plus graduated
 // walk-ins ("new faces"). Rendered fresh on every open.
-function boardRow({ name, stage, visits, drink, op, friends, faceSeed, cohort }) {
+function boardRow({ name, stage, visits, drink, op, friends, faceSeed, cohort, events }) {
   const row = document.createElement('div');
   row.className = 'b-row';
   const mood = op > 0.2 ? 'warm' : op < -0.2 ? 'sour' : 'flat';
   try { const c = portraitCanvas(faceSeed, cohort, 40, mood); c.className = 'b-face'; row.appendChild(c); } catch {}
   const t = document.createElement('div');
-  const pip = op > 0.2 ? '♥' : op < -0.2 ? '☹' : '—';
-  t.innerHTML = `<b>${name}</b> <span class="b-stage">${stage}</span><br><span style="opacity:.65">${visits} visit${visits === 1 ? '' : 's'} · ${drink} · ${pip} ${(op ?? 0).toFixed(2)}</span>${friends && friends.length ? `<br><span style="opacity:.5">friends: ${friends.slice(0, 3).join(', ')}</span>` : ''}`;
+  const last = events && events.length ? events[events.length - 1] : null;
+  const lastLine = !last ? null
+    : last.outcome === 'served' ? `day ${last.day} — served ${last.drink}${last.stayed ? ', stayed a while' : ''}`
+    : last.outcome === 'balked' ? `day ${last.day} — walked out (the line)`
+    : last.outcome === 'defected' ? `day ${last.day} — crossed to Glasshouse`
+    : null;
+  t.innerHTML = `<b>${name}</b> <span class="b-stage">${stageLabel({ stage, visits })}</span><br><span style="opacity:.65">${visits} visit${visits === 1 ? '' : 's'} · ${drink} · ${feeling(op)}</span>${lastLine ? `<br><span style="opacity:.5">${lastLine}</span>` : ''}${friends && friends.length ? `<br><span style="opacity:.5">friends: ${friends.slice(0, 3).join(', ')}</span>` : ''}`;
   row.appendChild(t);
   return row;
 }
@@ -3448,7 +3530,7 @@ function renderBoard() {
   if (cast) {
     cast.textContent = '';
     for (const r of regulars.regulars) {
-      cast.appendChild(boardRow({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, op: r.op, friends: r.friends, faceSeed: r.name, cohort: r.coh }));
+      cast.appendChild(boardRow({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, op: r.op, friends: r.friends, faceSeed: r.name, cohort: r.coh, events: r.events }));
     }
   }
   const grads = walkins.graduated();
@@ -3458,7 +3540,7 @@ function renderBoard() {
   if (nf) {
     nf.textContent = '';
     for (const h of grads) {
-      nf.appendChild(boardRow({ name: h.name, stage: h.stage, visits: h.visits, drink: h.drink, op: h._op, friends: [], faceSeed: h.faceSeed, cohort: h.cohort }));
+      nf.appendChild(boardRow({ name: h.name, stage: h.stage, visits: h.visits, drink: h.drink, op: h._op, friends: [], faceSeed: h.faceSeed, cohort: h.cohort, events: h.events }));
     }
   }
   modals.open('regulars');
@@ -3468,6 +3550,7 @@ function renderBoard() {
 function togglePause() {
   if (!started || closed || campaignDone || phase !== 'trading') return paused;
   markIntent();
+  coachHold = false;
   paused = !paused;
   if ($('pause')) $('pause').textContent = paused ? 'resume' : 'pause';
   fx.toast(paused ? 'paused — space to resume' : 'back on the floor', '');
@@ -3630,7 +3713,33 @@ addEventListener('keydown', e => {
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight); postfx.resize(innerWidth, innerHeight);
+  layoutMobile();
 });
+
+const sysBar = $('sys');
+if (sysBar) {
+  const moreBtn = document.createElement('button');
+  moreBtn.id = 'sys-more';
+  moreBtn.textContent = 'more';
+  moreBtn.title = 'more controls';
+  moreBtn.onclick = () => { sysBar.classList.toggle('more-open'); layoutMobile(); };
+  sysBar.appendChild(moreBtn);
+}
+function layoutMobile() {
+  if (innerWidth > 640 || !document.documentElement) return;
+  const root = document.documentElement.style;
+  const levH = $('levers')?.offsetHeight || 0;
+  const sysH = sysBar ? sysBar.offsetHeight : 0;
+  const stackH = Math.round(levH + sysH + 24);
+  root.setProperty('--lever-h', `${levH}px`);
+  root.setProperty('--sys-h', `${sysH}px`);
+  root.setProperty('--stack-h', `${stackH}px`);
+  const hudB = $('hud') ? $('hud').getBoundingClientRect().bottom : 130;
+  root.setProperty('--hud-b', `${Math.round(hudB)}px`);
+  const cap = Math.max(90, Math.floor(innerHeight - hudB - stackH - 24));
+  root.setProperty('--coach-cap', `${cap}px`);
+}
+layoutMobile();
 
 // ---- boot -------------------------------------------------------------------------
 fetch('./api/schedule.json').then(r => r.json()).then(s => {
@@ -3743,9 +3852,106 @@ function showTutStep(n) {
   try { analytics.track('tutorial_step', { step: n + 1, total: TUT_STEPS.length, title: TUT_STEPS[n].t }); } catch {}
 }
 function openTutorial() {
-  tutorialActive = true;
-  showTutStep(0);
-  modals.open('tutorial');
+  tutorialActive = false;
+  started = true;
+  paused = true;
+  if ($('pause')) $('pause').textContent = 'resume';
+  audio.start();
+  openDay(1);
+  rig.crane();
+  fx.card('DAY 1', 'keep the line under 5 — 1 buys cups or 2 cuts the price');
+  coachBegin();
+}
+function coachShow(html, actions) {
+  const card = $('coach'); if (!card) return;
+  const body = $('coach-body'); if (body) body.innerHTML = html;
+  const row = $('coach-actions');
+  if (row) {
+    clearEl(row);
+    for (const [label, fn] of actions) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.onclick = fn;
+      row.appendChild(b);
+    }
+    const sk = document.createElement('button');
+    sk.className = 'dim';
+    sk.textContent = 'skip guidance';
+    sk.onclick = coachSkip;
+    row.appendChild(sk);
+  }
+  card.hidden = false;
+  document.body?.classList.add('coach-live');
+  layoutMobile();
+}
+function coachHide() { const c = $('coach'); if (c) c.hidden = true; document.body?.classList.remove('coach-live'); layoutMobile(); }
+function coachPause() { coachHold = true; paused = true; if ($('pause')) $('pause').textContent = 'resume'; lastHudText = 0; updateHUD(); }
+function coachResume() {
+  if (coachHold && !modals.top()) { coachHold = false; paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
+  else coachHold = false;
+  coachHide();
+}
+function coachSkip() {
+  if (coach) coach.skipped = true;
+  coachResume();
+  try { analytics.track('coach_skip', { day, dayMin }); } catch {}
+}
+function coachBegin(force = false) {
+  if ((headless || !wantTutorial) && !force) return;
+  if (day !== 1) return;
+  coach = { skipped: false, wave: false, observed: false, lowStock: false };
+  coachShow(
+    `<b>First day on the floor.</b> The goal line under the clock names your next move — students land at <b>14:00</b>.`,
+    [['got it', coachHide]]
+  );
+  try { analytics.track('coach_start', { day }); } catch {}
+}
+function coachTick() {
+  if (!coach || coach.skipped) return;
+  if (day !== 1 || closed || phase !== 'trading' || dayMin >= 960) {
+    const held = coachHold;
+    coach = null; coachHold = false; coachHide();
+    if (held && !modals.top() && phase === 'trading' && !closed) { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
+    return;
+  }
+  if (modals.top()) return;
+  if (!coach.wave && dayMin >= 840) {
+    coach.wave = true;
+    coachPause();
+    try { analytics.track('coach_wave', { day, dayMin, lever: prebatched ? 'batch' : repriced ? 'deal' : 'hold' }); } catch {}
+    if (prebatched) {
+      coachShow(`<b>14:00 — they’re here.</b> Your ${ctx.batchUnits} reserved cups are live — a batch cup uses less bar time than a made-to-order pour.`, [['watch my plan', coachResume]]);
+    } else if (repriced) {
+      coachShow(`<b>14:00 — they’re here.</b> The ${fmt(ECON.matchaDeal)} deal lowers queue-abandonment odds — it doesn’t speed the bar, and it can’t stop every walk.`, [['watch my plan', coachResume]]);
+    } else {
+      coachShow(`<b>14:00 — they’re here.</b> Made-to-order is four minutes a cup — you can still buy in at the late-switch price.`, [
+        [`buy ${ECON.batchUnits} cups · ${fmt(ECON.batchCost + LEVER_OVERRIDE_PRICE)}`, () => { const u = ctx.batchUnits; doPrebatch(); if (ctx.batchUnits > u) coachResume(); }],
+        [`cut to ${fmt(ECON.matchaDeal)} · ${fmt(LEVER_OVERRIDE_PRICE)} + the room hears it`, () => { doReprice(); if (repriced) coachResume(); }],
+        ['ride it out', coachResume],
+      ]);
+    }
+    return;
+  }
+  if (coach.wave && !coach.lowStock && prebatched && dayMin >= 840 && dayMin < 960 && ctx.batchUnits <= 8) {
+    coach.lowStock = true;
+    coachPause();
+    try { analytics.track('coach_lowstock', { day, dayMin, batchUnits: ctx.batchUnits }); } catch {}
+    coachShow(`<b>cups are low.</b> Top up now or the rest of the wave goes made-to-order.`, [
+      [`top up ${ECON.batchUnits} cups · ${fmt(ECON.batchCost)}`, () => { const u = ctx.batchUnits; doPrebatch(); if (ctx.batchUnits > u) coachResume(); }],
+      ['ride it out', coachResume],
+    ]);
+    return;
+  }
+  if (coach.wave && !coach.observed && dayMin >= 840 && waveServed >= 5) {
+    coach.observed = true;
+    const seen = prebatched
+      ? `${waveBatchServed} batch cups poured${waveBalked ? ` · ${waveBalked} walked` : ' · none walked yet'} — a batch cup uses less bar time`
+      : repriced
+        ? `${waveServed} served · ${waveBalked} walked — the deal lowers queue-abandonment odds, it doesn’t prevent every walk`
+        : `${waveServed} served · ${waveBalked} walked — made-to-order is four minutes a cup`;
+    coachShow(`<b>the wave read.</b> ${seen}. The evening card at 17:00 sums it up.`, [['got it', coachHide]]);
+    return;
+  }
 }
 function closeTutorial() {
   tutorialActive = false;
@@ -3836,6 +4042,7 @@ function loop(now) {
   director.update({ dt, now, dayMin, night: world.night || 0, vitality: vitality.current });
   kitBeat.update(dt, now);
   mailT.update(dt, now);
+  try { world.manageCutaway?.(camera.position, document.body.classList.contains('photo') ? 'photo' : rig.mode); } catch {}
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
   patrons.update(dt, WALK_MUL[speed] || 2, now);
   world.updateRival(dt, now);
@@ -3871,12 +4078,16 @@ function loop(now) {
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null, rushFast, eveningFast,
     staffCondition: baristaCondition, staffing: planDraft ? planDraft.staffing : 'work', rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
     trainingSpend, sampleSpend, feeToday, interestToday, settleToday, marketingSpend,
+    milkDelivery, milkStock: ctx.milkStock, milky: ctx.milky, milkOut: ctx.milkOut,
+    waveBatchServed, waveStockoutAt, batchReservedUntil: ctx.batchReservedUntil,
     awareness: demand ? demand.awareness : 0, ops: lastOps, demand }),
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
   vitality, director, district, kitBeat, mailT,
   openDay, applyReply, reset, togglePause, resolveEvening, skipToRush,
   prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
+  doPrebatch, doReprice,
+  coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
   stageCellar,
   patrons, modals,
   renderBrief() { if (phase === 'planning') showMorningBrief(); },

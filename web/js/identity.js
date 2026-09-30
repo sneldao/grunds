@@ -82,6 +82,8 @@ export function stageFor(visits, op) {
 // appends a capped event, and restages against the supplied op. Mutates and
 // returns the identity (the pool/roster owns the object).
 export function recordVisit(ident, { day, drink, outcome, stayed }) {
+  if (day != null && ident._lastOutcomeDay === day) return ident;
+  if (day != null) ident._lastOutcomeDay = day;
   ident.visits += 1;
   ident.events.push({ day, drink: drink || ident.drink, outcome, stayed: !!stayed });
   if (ident.events.length > MAX_EVENTS) ident.events.splice(0, ident.events.length - MAX_EVENTS);
@@ -89,6 +91,14 @@ export function recordVisit(ident, { day, drink, outcome, stayed }) {
   ident.stage = stageFor(ident.visits, ident._op ?? 0.15);
   return ident;
 }
+
+export function stageLabel(ident) {
+  if (!ident || !ident.stage) return 'visitor';
+  if (ident.stage === 'first-timer' && (ident.visits || 0) > 1) return 'warming up';
+  return ident.stage;
+}
+
+export function feeling(op) { return op > 0.2 ? 'warming' : op < -0.2 ? 'unhappy' : 'neutral'; }
 
 // makeIdentity — the blank face. Callers fill canon fields for roster spawns.
 export function makeIdentity({ pid, name, cohort, drink, homeTable = null, visits = 0, op = 0.15, stage = null, events = [] } = {}) {
@@ -112,8 +122,8 @@ export function memoryLine({ name, stage, visits, drink, quirk = null, broughtFr
 // templated from real history. Pure.
 export function dossierLines(ident, { op = null, friends = [] } = {}) {
   const lines = [];
-  lines.push(`${ident.visits} visit${ident.visits === 1 ? '' : 's'} · ${ident.drink}`);
-  if (op != null) lines.push(`feels ${op > 0.2 ? 'warm' : op < -0.2 ? 'sour' : 'neutral'} about this place`);
+  lines.push(`${stageLabel(ident)} · ${ident.visits} visit${ident.visits === 1 ? '' : 's'} · ${ident.drink}`);
+  if (op != null) lines.push(`${feeling(op)} about this place`);
   if (friends.length) lines.push(`friends here: ${friends.slice(0, 3).join(', ')}`);
   for (const e of ident.events.slice(-5).reverse()) {
     const when = `day ${e.day}`;
@@ -148,10 +158,12 @@ export class WalkinPool {
     this.day = -1;
     this.heads = [];
     this.byPid = new Map();
+    this.drawn = new Set();
   }
   ensureDay(day) {
     if (day === this.day) return this.heads;
     this.day = day;
+    this.drawn = new Set();
     // carry the known faces — most visits first, capped so fresh blood
     // keeps arriving.
     const carry = this.heads
@@ -184,16 +196,18 @@ export class WalkinPool {
     return this.heads;
   }
   draw(cohort, rng = Math.random) {
-    const matching = this.heads.filter(h => h.cohort === cohort);
-    const from = matching.length ? matching : this.heads;
-    if (!from.length) return null;
-    return from[(rng() * from.length) | 0];
+    const matching = this.heads.filter(h => h.cohort === cohort && !this.drawn.has(h.pid));
+    if (!matching.length) return null;
+    const h = matching[(rng() * matching.length) | 0];
+    this.drawn.add(h.pid);
+    return h;
   }
   get(pid) { return this.byPid.get(pid) || null; }
   // outcome: 'served' | 'balked' | 'defected'. Nudges pool op, restages.
   recordVisit(pid, { day, drink, outcome, stayed }) {
     const head = this.byPid.get(pid);
     if (!head) return null;
+    if (day != null && head._lastOutcomeDay === day) return head;
     if (outcome === 'served') head._op = clamp(head._op + 0.05, -1, 1);
     else if (outcome === 'balked') head._op = clamp(head._op - 0.08, -1, 1);
     else if (outcome === 'defected') head._op = clamp(head._op - 0.12, -1, 1);

@@ -29,6 +29,7 @@ function el() {
   const e = { children: [], style: {}, dataset: {}, textContent: '', innerHTML: '', disabled: false, offsetWidth: 10,
     classList: { _s: new Set(), add(c){this._s.add(c);}, remove(c){this._s.delete(c);}, toggle(c, v){v?this._s.add(c):this._s.delete(c);}, contains(c){return this._s.has(c);} },
     appendChild(c){c._parent=e;e.children.push(c);return c;},
+    append(...cs){for(const c of cs)e.appendChild(c);},
     prepend(c){c._parent=e;e.children.unshift(c);},
     remove(){const p=e._parent;if(p){const i=p.children.indexOf(e);if(i>=0)p.children.splice(i,1);}},
     querySelector:()=>el(), querySelectorAll:()=>[], addEventListener(){},

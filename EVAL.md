@@ -1,6 +1,14 @@
 # Evaluation
 
-How we score the demo loop — deterministic, reproducible, run-to-run.
+How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
+
+## Current verification — September 30, 2026
+
+- The 64-suite non-balance Node gate passed using a temporary source mirror and the existing `dist/api/schedule.json` snapshot, without restoring the deleted `out/` files. After the final layout edits, `coach`, `lever-state`, `next-action`, `game-feel`, and `lifecycle-accounting` passed again against refreshed source; `npm run typecheck` passed.
+- Runtime regression cases cover reservation before 14:00, actual drink identifiers and milk use, routine top-ups without opinion penalties, late-switch charges, coaching pause ownership, and five-day lifecycle/accounting with explicit stock procurement and supplier settlement.
+- Earlier exploratory desktop checks exercised onboarding, prep and discount routes, the evening debrief, receipt, pause/resume, and reset. Limited phone checks preceded the final layout edits. Browser automation was then stopped at the user's request. Final 320px and wave-coach layout checks, physical-device testing, and deployed gameplay testing are not claimed.
+- Three scripted supply-managed queue probes (seeds 7, 42, 101; Cerrado restock plus settlement of an outstanding tab) remained viable, with recorded net worth £6,545.11, £6,202.96, and £7,024.77. Seed 7 queue control without procurement ended at −£697.08. These are a small diagnostic sample from a frozen source snapshot, not an updated 80-run benchmark, a general difficulty guarantee, or evidence of human engagement.
+- Publishing a playable build for feedback does not clear the submission gate. Fresh-player sessions remain outstanding.
 
 ## Demo metrics
 
@@ -9,21 +17,21 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 | Loop completeness | spawn → choose → buy → lever → visible payoff, no dead ends | all stages present |
 | Read legibility | player can state *why* the lever worked before seeing the result | demoable |
 | Wave fidelity | cohort wave shapes match `transform.py` hour-of-day profile | ±10% |
-| Calm open | day-1 opens at 1× with 3-step tutorial + reactive `#goal` + 3 just-in-time nudges (queue≥4 / first balk / 13:20 price, each once/campaign); first 12 sim-min ×0.5, 07–10 ×0.52, gossip 10%; controls line 8→3; auto-`lite` on ≤4 cores/GB, dynamic `lite` after 3×>32ms, shadow budget `queue>40`; then **06:00 [PAUSED] Morning Brief** holds the floor until `OPEN` | 1× + tutorial + Brief + perf |
-| Goal legibility | **reactive goal strip** answers “what now” live (`queue≥6` → *build—batch now* / `≥3` → *watch* / calm → *hold under 5 · 14:00 rush*) + queue bar + batch countdown visible before 14:00; levers pulse until first use; **3 nudges** teach at the moment of need | brass goal + nudges + health bar |
-| Lever prediction | pressing 1 shows predicted `12 → ~6 by 14:00` + chalkboard flash (desaturate + wobble); 2 puffs chalk dust + `screech` | toast + glow + dust |
-| Wave payoff | 14:00 debrief at 17:00: `balk/served` vs `saved ~£` vs GLASSHOUSE; `saved≥6` → fanfare + coin rain + crane + haptics, flop → rain; receipt prints line-by-line + typewrites verdict; Day-2 forecast on receipt + toast | debrief (juice) + forecast |
-| Signal payoff | matcha riser in zone heat + till (now `tabular-nums`); pre-batch lever pays in balk delta + coin burst | positive delta |
-| Gossip visibility | one bad review via ≥2 friendship hops (3D lines); warm gossip + hover story card (op ♥, friends) + click-to-wave | demoable |
-| Playtest instrumentation | `analytics.js` records tutorial/lever/balk/debrief/forecast + `desk_opened`/`desk_opened_free`/`paywall_shown`/`purchase_success`; The Wire desk open to all, deck tilt gated on `commodity_insider` | localStorage + `__grunds.analytics.summary()` |
+| Calm open | The pitch licence leads directly to a paused 06:00 Morning Brief, not a text-only tutorial clickthrough. Optional Day-1 coaching pauses at 14:00 before the first wave serve and at the first low-stock moment; skip and Space preserve pause ownership. | `coach.mjs` + fresh-player observation |
+| Goal legibility | `leverState()` supplies availability and costs to buttons, handlers, and guidance. Reserved stock is distinct from live stock; the discount route never recommends locked prep; late switches disclose their cost and opinion effect. | `lever-state.mjs`, `next-action.mjs` |
+| Lever feedback | Morning prep reserves 40 cups until 14:00. Routine replenishment costs £40 without an opinion penalty; the first unstaged post-noon batch costs £44.20. Feedback reports real stock rather than inventing a queue reduction. | Runtime stock, charge, and opinion assertions |
+| Wave payoff | The 17:00 debrief reports served/walked counts, actual batch cups and stockout timing or the discount's abandonment-probability rule, then a route-specific tomorrow option. Receipts lead with net and counts above the detailed ledger. | Reconciled counts + player explanation |
+| Signal payoff | The street and stock countdown show the chosen approach in action. Prep uses less bar time; discount lowers queue-abandonment risk rather than increasing service speed. | Player can distinguish the trade-off |
+| Gossip visibility | One visible speech bubble at a time; friendship conversations continue independently of the display cap. Named walk-ins are dealt once per day and accrue one meaningful visit outcome per day. | `game-feel.mjs`, `patron-arcs.mjs` |
+| Playtest instrumentation | Local events include coaching milestones, levers, balks, debriefs, and forecasts. Record observed actions and interview answers separately; the bounded event buffer can evict earlier events, so its summary is not a complete session measurement. | Manual observation + local event inspection |
 | Delight / craft | **1024 textures** (wood/pavement/road/awning 1024 + grain/knots/bevel), **brick facades + cornice + shopfront + bollards/decal**, **ticker 512×320 + brass collar**, till drawer + shadow, arcing coins + spin, sitters sip, cat Miso, plant health, **god rays + warm motes (180, amber, drift + cycle)**, rival lean/jeer, haptics, 90Hz tick at 1×, purr at ≤5, photo + `GRUNDS` | aggregate feel |
 | The Wire (inverted) | `⚡ the wire ↗` HUD when intel lands + bean tape click-through + Letter desklink; desk shows headlines + sources free, deck tilt × multipliers + per-card reasoning on `commodity_insider`; `#desk-edge` invite → modal 3 perks, live `formattedPrice`; restore + localStorage gate | gated tilt + headless `desk.mjs` |
 | Market legibility | HUD bean tape (index + Δ vs yesterday's close + event name); in-world ticker sparkline (index history) + bias glow when the wire tilts the deck; letter names the day's spot move + implication; **Brief 76px sparkline + wire headlines/host/why** | tape + ticker + Brief + `tapeLine` |
 | Drug Wars turn (06:00) | Planning pauses at 06:00; a reversible draft commits once before the next market roll. Five full trading days precede the finale. | `lifecycle-accounting.mjs`, `modals.mjs` |
 | Sizing | Price coverage of 1200/2400/4800 prepared cups; fees and realized hedge benefit are reported separately. Exhaustion returns to spot, never shortage or spoilage. | `lifecycle-accounting.mjs`, `deepening-mechanics.mjs` |
 | Dialogue | 11:00 named-regular offer (y/n, same modal pause contract as Brief; 5 with real payoffs: Pip +22% wave, Esther free-forever, Olu payout, Gwen prebatch stock, Mara queue-gated steal) | `agency.mjs` |
-| Identity | pitch licence before tutorial — name + stand + role + 1-perk background (pace/trim/warmth/circuit-whisper); signing is explicit activation only (the Sign button; Escape never signs); threads letter, receipts, tutorial, Convex owner (live `ownerName()`); `localStorage` + `?skipLicence` | `identity.mjs` |
-| Staff | Ruth — hidden `baristaCondition` (−0.14/shift, worse on brutal floors; +0.45 rested); Brief row at <0.55 → home (0.7× bar, wage saved) / apprentice (£65 + £12 training, 1.05× bar) / push; <0.35 dawn drag; <0.2 crisis (asleep 0.5× / snaps −rep); sick-call incident reads her state | `agency.mjs` (RUTH) |
+| Identity | Pitch licence before the Morning Brief — name, stand, role, and one-perk background. Signing requires explicit activation; Escape never signs. Identity threads letters, receipts, dossiers, and the Convex owner; `localStorage` and `?skipLicence` remain. | `identity.mjs`, `patron-arcs.mjs` |
+| Staff | Ruth's condition affects throughput and the staffing choices in the Brief. Apprentice day rate is £2,040 plus £12 training; home staffing saves the rostered wage but reduces throughput. Rest, training, and crisis behavior use the existing `CAMPAIGN`/staffing rules. | `agency.mjs`, `lifecycle-accounting.mjs` |
 | Costs | nightly incident `14:55–16:55` (days 2+, 6-way, red tint) + **cost-sheet P&L** at closeDay (staff+milk+rent+card+sundries + contract fees + interest + realized hedge benefit) — outcomes measured by the reproducible policy comparison, not a promised profit target | `agency.mjs` + receipt |
 | Agency | **the** agency fix — a sized position, not a binary toggle; every other midday choice reuses the same pause contract so turns compose | `agency.mjs` |
 | Share framing | finale X intent leads with `Held the line — 320 served, 12 walked` not just `£42` | outcome line |
@@ -35,38 +43,41 @@ How we score the demo loop — deterministic, reproducible, run-to-run.
 
 ## Determinism checks
 
-| Check | Requirement |
-|---|---|
-| Same seed → same run | identical patron sequence, prices, outcomes (bias paths included, clamped 0.2–3×) |
-| Event fairness | no two catastrophic events in consecutive draws (pity timer), including under bias | intact under bias |
-| Economy baseline | 13-week revenue ≈ GBP 157k; attach rate 8.2% preserved from source data |
-| Deterministic gate | loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`, so rail-adjacent assertions don't flake; `intel.mjs` pins bias + pity-under-bias |
-| Linkup citation | `intelLine` prints `Off the wire — <headline> (<domain>)` when sources arrive; absent offline | headless gate |
-| Gate scope | Node behavioral and structural suites plus TypeScript; the gate ran before the dev-deployment push and does not exercise deployed behavior. **No suite runs in a browser** — every one stubs DOM/GL/audio, so rendering, real input, and visual quality are unmeasured here. | Per-suite exit status is the evidence; source-string checks are not layout or gameplay proof. Closing the browser gap is the V0–V5 plan in `ARCHITECTURE.md` ("Verification roadmap"). |
+| Check | Requirement / scope | Evidence / limitation |
+|---|---|---|
+| Same seed → same run | Seeded market behavior and reproducible scripted probes. | Harnesses seed `Math.random` and fix clocks; full cosmetic RNG determinism remains roadmap work. |
+| Event fairness | The pity timer protects the first three days; days four and five retain the gamble. | `intel.mjs`, `clamp-asymmetry.mjs`; no blanket guarantee against consecutive catastrophes. |
+| Economy baseline | Historical 13-week revenue ≈ GBP 157k and source-data cake attach rate 8.2%. | Dataset context, not a current gameplay or player-engagement measurement. |
+| Deterministic gate | Loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`; `intel.mjs` pins bias behavior. | Controlled headless fixtures, not unseeded browser replay proof. |
+| Linkup citation | Research sources are cited when market intel is available; absent offline. | `intel.mjs`; no new live-provider call is implied by the test. |
+| Gate scope | Node behavioral/structural coverage plus TypeScript, with DOM/GL/audio/database stubs where appropriate. | Earlier exploratory browser checks are separate evidence; source-string checks are not layout, engagement, or live-backend proof. |
 
 ## Datasets
 
 - `out/square_item_sales.csv` — 13-week deterministic café export (26.5k rows) from `transform.py`
 - Planted signals: matcha riser, banana loaf faller, 8.2% cake attach rate
 
-## Playtest script (5 questions, ask after Day 1 close, before Day 2)
+## Fresh-player playtest gate — proposed, not yet measured
+
+Run from a fresh local session. Do not explain the controls or recommend a strategy. Record any help the player requests. Ask after the receipt, before Day 2:
 
 ```
-1. In your own words, what are you trying to win? (profit / rep / beat GLASSHOUSE)
-2. At 06:00 what did you choose (light/standard/heavy/hold/settle) and why? Did the sparkline + wire help?
-3. At 11:00 who asked you for what — did you say y or n, and what happened?
-4. What happened at 14:00? Did the debrief make sense vs the Brief hedge?
-5. Was anything too fast / too noisy at the start? (1=calm … 5=chaos)
-— then run: __grunds.analytics.summary()  // check brief_choice, offer_*, debriefs
+1. In your own words, what are you trying to accomplish over the five days?
+2. Which morning approach did you choose, and what did you expect it to change?
+3. What happened at 14:00? What could you still do, and why do you think customers stayed or walked?
+4. Which person do you remember, and what happened between you?
+5. What would you do differently tomorrow? Would you choose to play another day? Why?
 ```
 
-Targets: `skipRate` < 40%, Brief chosen before `OPEN` (`brief_choice` >80%), `% with a midday y/n answer` >60%, `first_lever_at_min` < 90s wall-clock, `% who press 1|2 before 14:00` > 60%, forecast/`tapeLine` recall > 50%.
+Record answers and observed actions separately. In an initial group of five fresh players, the proposed clarity gate is at least four who can explain the objective, make a meaningful choice without coaching from the observer, explain prep versus discount, understand why customers stayed or walked, and identify something to change tomorrow. In-game guidance is allowed; observer assistance must be recorded.
+
+Engagement is a separate qualitative check: observe whether players voluntarily continue to Day 2 before asking about intent, remember a named character and an interaction, and express a specific reason to try again. No engagement result or submission approval is claimed. Automated checks do not establish understanding or engagement.
 
 ## Reproduce
 
 ```bash
 python3 transform.py
-python3 -m grunds eval
+python3 -m grunds run
 failed=0; count=0
 for f in web/test/*.mjs; do
   case "$f" in *balance-policies.mjs) continue ;; esac
@@ -78,11 +89,15 @@ echo "$count suites, $failed failed"; test "$failed" -eq 0
 npm run typecheck
 ```
 
-Diagnostic policy comparison (not a pass/fail balance target):
+Diagnostic policy comparison (not a pass/fail balance target; requires regenerated `out/wave_schedule.json`):
 
 ```bash
 node web/test/balance-policies.mjs
 ```
+
+### Historical balance diagnostic — September 28, 2026
+
+The following table and capture describe the September 28 model, not the September 30 gameplay changes. The full 80-run comparison has not been rerun for the current code.
 
 `balance-policies.mjs` is a measurement harness, not a balance gate. It
 played eight policies across ten seeds (7, 42, 101, 202, 555, 13, 77, 150,
@@ -143,16 +158,10 @@ perfect-vs-delayed bookend in `ARCHITECTURE.md` V4 remains unperformed.
 Human playtest of the difficulty curve remains unperformed; these are
 scripted-policy results under fixed conditions.
 
-Tests use pure fixtures, mocked DOM/GL/audio, and mocked database/HTTP handlers
-as appropriate. Layout geometry and deployed Convex behavior are not verified.
-Headless import may attempt the existing RevenueCat remote module and report a
-non-fatal unsupported-URL warning; do not describe the gate as universally
-no-network. `npm run build:dist` is intentionally not part of it (it deletes
-`dist/`). After the gate, `npm run deploy:site` pushed functions and the
-static site to the dev deployment (`striped-anaconda-746`); codegen output
-matched the committed `convex/_generated/api.d.ts`. Deployed behavior itself
-is still outside the test evidence.
+The historical gate used pure fixtures, mocked DOM/GL/audio, and mocked database/HTTP handlers as appropriate. Its checks did not establish layout geometry or deployed Convex behavior. Headless import may attempt the existing RevenueCat remote module and report a non-fatal unsupported-URL warning; the gate is not universally no-network. The historical `npm run deploy:site` record refers to the September 28 dev deployment, not a new deployment claim.
+
+For the current pass, use the verification scope at the top of this document. `npm run preview:local` serves the latest web source with a local schedule or the existing `dist/api/schedule.json` fallback. Headless integration suites still require `out/wave_schedule.json`; the optional regeneration commands above write data, whereas this session used a temporary mirror. `npm run build:dist` is excluded from the code gate because it removes and recreates `dist/`. A fresh temporary static upload directory can publish the current source without regenerating local data or deleting the existing build. No backend schema or function changes are required for the gameplay pass.
 
 Gameplay verification: commit a hedge before a known test market move and reconcile the per-cup savings and fee; exhaust its quota and verify spot fallback. Exercise all five days, both modal keyboard paths, a tired apprentice shift, and the day-two/day-three/day-four modifiers. Human playtesting of pacing, audio, and visual fit remains a separate, unperformed check.
 
-Output: `out/eval_results.json` with per-run scores; console `__grunds.analytics.summary()` after Day 1.
+Outputs: per-suite console results and recorded scripted-probe data. `python3 -m grunds eval` is still a CLI stub and does not produce a verified `out/eval_results.json`. `__grunds.analytics.summary()` exposes the bounded local event buffer; use separately recorded observations and answers for the human gate.

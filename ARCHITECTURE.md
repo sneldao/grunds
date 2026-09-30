@@ -18,8 +18,8 @@ transform.py ──→ square_item_sales.csv ──→ ingest ──→ spatial 
 | System | Responsibility | Phase |
 |---|---|---|
 | `ingest` | Parse Square CSV, map each row to (zone, time, item, cohort); emit wave schedules | today |
-| `spatial` | Three.js floor: **1024 honey-oak floor + slab pavement + aggregate road** (all `anisotropy 8`), **brick facades** (two-tone + mortar, white frames + sill, cornice + shopfront), **9-block skyline**, **512×320 brass-collar ticker**, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), 3-step tutorial + calm-open throttling (reactive `#goal` + 3 just-in-time nudges), goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), **Morning Brief `#brief` (520px linen: 76px sparkline + wire headlines/host/why + 5 pills → `OPEN`) + `phase:'planning'` clock gate**, wave debrief (fanfare/coin rain/crane) + forecast + wire desk (headlines free / tilt gated) + 11:00 offer / 14:55–16:55 incident modals (same modal pause path), bean tape HUD + ticker sparkline + bias glow, living plant (HSL health + wilt), god rays + **motes** + mist, till drawer + stretching shadow, **bollards + street decal**, cat Miso, hover story card + photo mode, scuff decal + awning tie-downs, GLB cross-fade + shadow budget + bounce hemi | today |
-| `agent` | Patron decision loop (price/queue/rep) + barista levers (pre-batch/reprice + queue-drain prediction + chalk dust/screech) + named-Regular hat/bubble + wave + friend-graph gossip routing (throttled in calm open) + sitter sip at `dwell==4` + hover→story card (36px probe) + click-to-wave (+0.06 op) + cat spawn/sit/scatter + plant health + till slide | today |
+| `spatial` | Three.js floor: **1024 honey-oak floor + slab pavement + aggregate road** (all `anisotropy 8`), **brick facades** (two-tone + mortar, white frames + sill, cornice + shopfront), **9-block skyline**, **512×320 brass-collar ticker**, gossip bubbles + conversation lines, Kenney CC0 props (loader with cross-fade-in), day-5 scaffolds/tarps/dust, chalkboard flash (desaturate + wobble), paused-Brief onboarding + optional day-1 inline coach + calm-open throttling (reactive `#goal` + 3 just-in-time nudges), goal/queue/batch HUD (heartbeat/purr + `tabular-nums` + staggered receipt), **Morning Brief `#brief` (520px linen: 76px sparkline + wire headlines/host/why + 5 pills → `OPEN`) + `phase:'planning'` clock gate**, wave debrief (fanfare/coin rain/crane) + forecast + wire desk (headlines free / tilt gated) + 11:00 offer / 14:55–16:55 incident modals (same modal pause path), bean tape HUD + ticker sparkline + bias glow, living plant (HSL health + wilt), god rays + **motes** + mist, till drawer + stretching shadow, **bollards + street decal**, cat Miso, hover story card + photo mode, scuff decal + awning tie-downs, GLB cross-fade + shadow budget + bounce hemi | today |
+| `agent` | Patron decision loop (price/queue/rep) + barista levers (pre-batch/reprice + live inventory/ready-time readout + chalk dust/screech) + named-Regular hat/bubble + wave + friend-graph gossip routing (throttled in calm open) + sitter sip at `dwell==4` + hover→story card (36px probe) + click-to-wave (+0.06 op) + cat spawn/sit/scatter + plant health + till slide | today |
 | `precedent` | Patron memory: opinions persist; gossip via named-friend graph; 5%/day `opContagion` (Map<i→op> + `Number.isFinite` guard for sparse rosters); local `analytics.js` (tutorial/lever/balk/debrief/forecast + `desk_opened`/`paywall_shown`/`purchase_success`) + `desk.js` (The Wire — headlines free, tilt on `commodity_insider`) + `billing.js` (RevenueCat Web Billing → Test Store) | today |
 | `exchange` | Event deck (frost/harvest/hype, pity timers + Linkup `marketShift` bias clamped 0.2–3×; a `rumour_frost` day triples next-day frost/drought weights — the wire's warning is a real, imperfect signal); gentrification drift (per-day cost creep + matcha 4.80→5.40); forward contracts; supplier debt clock with a £1,500 tab limit; hidden `geshaUnlocked` (`GRUNDS` → £7.80 wink, persists as toast) | today |
 
@@ -46,7 +46,8 @@ back to patron memory — reputation, gossip, regulars, and the friendship graph
 persist across days. The gentrification drift is the *baseline* cost creep; the event
 deck is the *deviation* on top. Day 5 the visible scaffolding reads the drift as
 physical: three procedural scaffolds + striped tarps, drifting dust, and a low saw +
-hammer soundscape. Day 1 reads as curated: 1× with a 3-step tutorial + calm-open
+hammer soundscape. Day 1 reads as curated: 1× inside the paused Morning Brief
+with an optional inline coach card + calm-open
 throttling (first 12 sim-min half-demand, 07–10 half-demand, gossip 10%) and a goal-first
 HUD (goal strip + queue health bar + batch countdown); at 17:00 a wave debrief teaches
 the payoff, at 17:30 and on the Z-read a Day-2 forecast earns the replay.
@@ -75,14 +76,25 @@ single harvest-calendar multi-roll can stack two back-to-back shocks in
 
 ## Time-locked levers (post-commit override cost)
 
-The Morning Brief's commit also arms `leversTimeLocked`. From that moment until
-dawn reset, pressing either mid-rush lever (`doPrebatch`, `doReprice`) routes
-through `chargeLeverOverride(leverName)`:
+The Morning Brief's commit arms `leversTimeLocked`, and `nextAction.js`'s pure
+`leverState(snapshot)` is the single legality/cost source the buttons, the `1`/`2`
+keys, and the `#goal` strip all consult — so a disabled button, a refused key,
+and the guidance text can never disagree. The current rules:
 
-- **£4.20 from the till**, refused if the till can't cover it.
-- **−0.06 opinion** on every named regular — the gossip sees you change your
-  mind, and tomorrow's regulars carry it.
-- A `lever_override` analytics event with the lever name, day, dayMin, and
+- A morning **pre-batch buys 40 cups for £40 sealed until 14:00**
+  (`batchReservedUntil = 840`); they go live as the wave starts, and a
+  mid-morning press is refused while the reserve stands.
+- During the wave (14:00–16:00) a press while the batch is at **8 cups or less**
+  is a routine **£40 top-up** — no fee, no opinion hit.
+- The **first unstaged post-noon change of plan** (`leversTimeLocked` and
+  `dayMin ≥ 720`) carries the £4.20 late-switch charge: **£44.20 for a late
+  batch** (£40 stock + £4.20), **£4.20 for a late price cut** — and a
+  **−0.06 opinion** hit on every named regular either way.
+  Pressing the lever you'd already committed is not a switch.
+- **Reprice locks prep** (and a standing pre-batch locks reprice); both levers
+  refuse after **16:00** (`dayMin ≥ 960`) and outside the trading phase.
+- Invalid presses are pure no-ops: nothing is charged and no stock moves.
+- A `lever_override` analytics event records the lever name, day, dayMin, and
   remaining till.
 
 The Brief stays the place where the prep actually happens; the override is a
@@ -167,7 +179,7 @@ The route is wired but the secret isn't configured — until a real
 `REVENUECAT_WEBHOOK_SECRET` lands, the webhook returns 503 by design and
 the manual upsert path stays usable for the Web Test Store demo.
 
-**The pitch licence.** Before the tutorial, `#licence` (z-33 paper card over the diorama) signs the player in: name + stand name (pen-line inputs, activate the Sign button; Escape never signs or advances — Sam, THE CORNER CUP), a cosmetic role, and one of four backgrounds carrying a single small perk — `ex-barista` (`perkStaffMul 1.08`), `ex-accountant` (`perkCostMul 0.90` on card fees + every incident payout), `new to the trade` (regulars open at op 0.18), `a market regular` (the Brief whispers the wire's *direction* — the × stays insider). Identity threads `composeLetter` (`Dear Ada,` / `…do, Ada?`), nightly + finale receipts, the tutorial's first title, and the Convex owner — `convexSync` reads `ownerName()` live so the district board lists the stand name at the next dawn. Persists via `localStorage` `grunds.identity`; `?skipLicence`/`?skipTutorial`/headless bypass.
+**The pitch licence.** Before the floor opens, `#licence` (z-33 paper card over the diorama) signs the player in: name + stand name (pen-line inputs, activate the Sign button; Escape never signs or advances — Sam, THE CORNER CUP), a cosmetic role, and one of four backgrounds carrying a single small perk — `ex-barista` (`perkStaffMul 1.08`), `ex-accountant` (`perkCostMul 0.90` on card fees + every incident payout), `new to the trade` (regulars open at op 0.18), `a market regular` (the Brief whispers the wire's *direction* — the × stays insider). Identity threads `composeLetter` (`Dear Ada,` / `…do, Ada?`), the Morning Brief, nightly + finale receipts, and the Convex owner — `convexSync` reads `ownerName()` live so the district board lists the stand name at the next dawn. Persists via `localStorage` `grunds.identity`; `?skipLicence`/`?skipTutorial`/headless bypass.
 
 **Ruth — the staff layer.** Ruth loses 0.14 condition per worked shift, plus 0.08 for peak queues above 50 and 0.06 for more than 60 balks. Below 0.55 on day two onward, the Brief offers work, home, or apprentice cover. Home saves the wage, runs the solo bar at 0.7x, and restores 0.45 condition; apprentice cover costs a £2,040 temp day rate plus £12 training and £0.04 extra supplies per served cup, runs at 1.05x before the identity perk, and restores 0.25. Home and apprentice modes prevent Ruth's exhaustion crisis and incompatible sick call. Working below 0.35 slows dawn pace; working below 0.2 risks an afternoon crisis — asleep at the counter (`staffMul 0.5`) or snapping at a regular (`adjustOpinions −0.2`). No roster, no morale meter — the fiction carries the state; `staff_sent_home`/`staff_pushed`/`staff_crisis` land in analytics.
 
@@ -238,7 +250,8 @@ stores per-patron opinion state.
    **512×320 brass-collar ticker** + **Morning Brief `#brief` (sparkline + 5 pills)** place the district; Kenney CC0 props
    (cross-fade `opacity 0→1`, headless-aware) place the café; day-5
    scaffolds/tarps/dust render gentrification; the floor opens at 1×
-   through a 3-step tutorial with a 3.4s paused crane settle, a **reactive
+   inside the paused Morning Brief (day 1 adds an optional inline coach card)
+   as the crane settles home, a **reactive
    `#goal` strip + 3 just-in-time nudges** (queue≥4, first balk, 13:20 price,
    each once/campaign), a queue health bar (heartbeat at >10 / purr at ≤5,
    `tabular-nums` till, batch countdown, pulse-until-used levers), a flashing
@@ -255,7 +268,7 @@ stores per-patron opinion state.
    and the vitality glow the block wears
 4. At `06:00 [PAUSED]` the floor freezes for the Brief (commit the hedge), then `agent` patrons pick stands (price/queue/rep); named Regulars get a
    brass-band hat + greeting; the player pulls levers (pre-batch/reprice,
-   with predicted queue drain, chalk dust + screech on reprice) against the
+   with the live inventory + ready-time readout, chalk dust + screech on reprice) against the
    wave and answers the `11:00` offer / `14:55–16:55` incident (y/n, same pause contract as the Brief); gossip is throttled in the calm-open window; sitters sip at
    `dwell==4` (arm/head/lean + steam), the rival leans at `heat>6` and jeers
    at 5 defections, Idris quips at 10:00/12:00 rep checkpoints, and haptics
@@ -379,7 +392,56 @@ Every decision logs to `out/audit.jsonl`:
 {"ts": "...", "type": "gossip", "from": "patron_17", "to": "patron_23", "opinion": "-0.6"}
 ```
 
+## September 30 — current gameplay pass + verification state
+
+A gameplay-intuitiveness pass landed on top of the depth rebuild. Architecture
+is unchanged (vanilla Three.js, `web/` is the dist); the work is contract and
+presentation, not balance — the sole quantitative correction is the milk
+**delivery scale** bug (the 400-cap starved day 2); no difficulty constants
+were retuned:
+
+- **`nextAction.js` `leverState()`** is the one shared ruleset — buttons, keys,
+  and the goal strip all read it. `computeNextAction` order: evening/rush
+  fast-forward → mail → closed/non-trading → 16:00 status → repriced →
+  reserved-batch status → in-wave stock decisions → queue reads → hold.
+- **Inline day-1 coach** (`#coach`, `coachBegin/Tick/Pause/Skip`): a paper card
+  that owns its own pauses — the 14:00 pause fires before the first reserved
+  serve at exactly `dayMin === 840`, low-stock triggers at the real 8-cup
+  threshold, and a player-owned pause can never be released by coach dismissal
+  or skip. Cleared at close/evening/reset; silent from day 2 on.
+- **Honest observation only**: wave cards and the debrief quote live
+  `waveServed`/`waveBalked`/`waveBatchServed`/`waveStockoutAt`; the discount
+  route describes reduced queue-abandonment odds, not prevented walks.
+- **Patron contracts**: rolled drink ids survive identity attachment
+  (`p.drink` is always a real `DRINKS` id; `wantsMatcha`, milk, price, and
+  points all key off it); walk-ins draw once per face per day; visit outcomes
+  and WOM credit apply once per patron per day; `stageLabel` renders
+  "warming up" for returning first-timers.
+- **Supplies**: milk delivery is `min(4000, max(120, round10(lastMilky·1.1)))`
+  — the old 400 ceiling starved day 2 of milk. Cellar restock rides the tab
+  with a hard credit cap; the quote prices funded cups via the real
+  `resolveDecision` result and says the rest stays unbought.
+- **Mobile ≤640px**: `#sys` is a measured row above a 2-column 44px lever
+  grid, camera/photo/20×/mute fold behind a More toggle, the coach card is
+  bounded between HUD and controls, flavor toasts and the notebook hide while
+  guidance is up, and the chapter card yields to the floor.
+
+**Verification state, honestly.** The automated gate evidence is Node fixture
+suites plus `tsc --noEmit` — 64 non-balance suites pass in a temp mirror against the
+existing `dist` schedule snapshot, including new runtime checks for
+stock/order/cost/opinion consistency and coach pause ownership. Exploratory browser checks
+(manual desktop batch/discount/pause/receipt, limited 375px phone rects) ran
+before the final UI edits and were then stopped at the user's request;
+**320px, the wave-state phone layout, physical devices, and the deployed
+build are not yet verified**, and human playtests remain outstanding. See
+`EVAL.md` for the lead-owned readiness probes and fixed measurement fixtures —
+no numerical benchmarks are authored in this pass.
+
 ## Depth rebuild roadmap (adopted Sept 28)
+
+*Historical plan — the per-phase [SHIPPED Sept 28] tags below mark the subset
+actually delivered; the roadmap as a whole is not claimed complete, and its
+verification tail (human playtests) is still open.*
 
 Playtest verdict: "kinda liked it but didn't love it" — no connection to
 specific characters, visuals need craft, the coffee economy needs teeth.
@@ -497,6 +559,11 @@ Needs Phases 1–3 (arcs bite into systems, not air).
   or fear something, it doesn't ship.
 
 ## Verification roadmap (adopted Sept 28, post-depth-rebuild)
+
+*Status note (Sept 30): the Sept-30 gameplay pass is covered by the Node
+gate described in "September 30 — current gameplay pass + verification state"
+above; this roadmap's render/play/browser-proof items remain open, and human
+playtests are still pending.*
 
 The depth rebuild shipped all six phases, and the playtest verdict is still
 "liked, not loved". The next bottleneck is not features — it is that we cannot

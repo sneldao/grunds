@@ -63,7 +63,7 @@ export function rollDrink(cohort, offered = null, rng = Math.random) {
 
 // Milk delivery: yesterday's milky pour +10%, rounded to 10s, clamped.
 export function deliveryQty(lastMilky) {
-  return Math.min(400, Math.max(120, Math.round(((lastMilky || 0) * 1.1) / 10) * 10));
+  return Math.min(4000, Math.max(120, Math.round(((lastMilky || 0) * 1.1) / 10) * 10));
 }
 
 // Day-1 delivery (no history): size from today's wave sheet so the van

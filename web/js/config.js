@@ -253,7 +253,7 @@ export const LETTER = {
 export const VERDICTS = {
   star:      'The street is yours. The regulars are telling their friends.',
   good:      'A good week on the floor. The regulars noticed.',
-  held:      'Held the line when it mattered. The debt is paid.',
+  held:      'Held the line when it mattered. Your café remains viable.',
   scarped:   'You fed the chain across the road one too many times.',
   lost:      'The wave ate you, and the market ate the margin.',
 };

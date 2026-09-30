@@ -18,22 +18,22 @@ const html = readFileSync(resolve(root, 'web/index.html'), 'utf8');
 const modals = readFileSync(resolve(root, 'web/js/modals.js'), 'utf8');
 
 // (1) Stats line: visits + drink always first
-test('Phase 1 · dossierLines leads with visits + drink', () => {
+test('Phase 1 · dossierLines leads with stage + visits + drink', () => {
   const ident = makeIdentity({ pid: 'x', name: 'Mara', cohort: 'commuters', drink: 'flat white', visits: 9 });
   const lines = dossierLines(ident, { op: 0.3, friends: ['Dev', 'Olu'] });
-  assert.equal(lines[0], '9 visits · flat white');
+  assert.equal(lines[0], 'regular · 9 visits · flat white');
   assert.match(lines[1], /warm/);
   assert.match(lines[2], /Dev, Olu/);
 });
 
 // (2) Feel line follows op thresholds
-test('Phase 1 · feel line reads warm / neutral / sour from op', () => {
+test('Phase 1 · feel line reads warming / neutral / unhappy from op', () => {
   const ident = makeIdentity({ pid: 'x', name: 'T', cohort: 'students', drink: 'matcha', visits: 2 });
-  assert.match(dossierLines(ident, { op: 0.5 })[1], /warm/);
+  assert.match(dossierLines(ident, { op: 0.5 })[1], /warming/);
   assert.match(dossierLines(ident, { op: 0.0 })[1], /neutral/);
-  assert.match(dossierLines(ident, { op: -0.5 })[1], /sour/);
+  assert.match(dossierLines(ident, { op: -0.5 })[1], /unhappy/);
   // no op → no feel line, no friends → no friends line
-  assert.deepEqual(dossierLines(ident), ['2 visits · matcha']);
+  assert.deepEqual(dossierLines(ident), ['warming up · 2 visits · matcha']);
 });
 
 // (3) History: templated from real events, newest first, capped at 5

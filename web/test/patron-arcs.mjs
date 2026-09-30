@@ -98,27 +98,38 @@ test('Phase 1 · WalkinPool is deterministic per seed + day', () => {
 });
 
 // (7) draw matches cohort, falls back when empty
-test('Phase 1 · WalkinPool.draw prefers the cohort, falls back to any head', () => {
+test('Phase 1 · WalkinPool.draw deals each head once per day, null on exhaustion', () => {
   const pool = new WalkinPool(7); pool.ensureDay(1);
-  for (let i = 0; i < 20; i++) {
-    const h = pool.draw('elders', () => 0.99);
-    if (pool.heads.some(x => x.cohort === 'elders')) assert.equal(h.cohort, 'elders');
+  const seen = new Set();
+  for (let i = 0; i < 60; i++) {
+    const h = pool.draw('students', () => 0.99);
+    if (!h) break;
+    assert.ok(!seen.has(h.pid), 'a head never draws twice in a day');
+    assert.equal(h.cohort, 'students');
+    seen.add(h.pid);
   }
-  const any = pool.draw('rival');  // no rival heads ever dealt
-  assert.ok(any && any.pid);
+  assert.equal(pool.draw('students'), null, 'exhausted cohort returns null');
+  assert.equal(pool.draw('rival'), null, 'no rival heads ever dealt');
+  pool.ensureDay(2);
+  assert.ok(pool.draw('students') !== null || !pool.heads.some(h => h.cohort === 'students'),
+    'day 2 draws again for the same cohort');
 });
 
 // (8) Pool recordVisit nudges op by outcome and restages
-test('Phase 1 · pool recordVisit moves op: serve up, balk/defect down', () => {
+test('Phase 1 · pool recordVisit moves op: serve up, balk/defect down, once per day', () => {
   const pool = new WalkinPool(7); pool.ensureDay(1);
   const pid = pool.heads[0].pid;
   pool.recordVisit(pid, { day: 1, outcome: 'served' });
   assert.ok(Math.abs(pool.get(pid)._op - 0.20) < 1e-9);
+  const visitsAfter1 = pool.get(pid).visits;
   pool.recordVisit(pid, { day: 1, outcome: 'balked' });
+  assert.ok(Math.abs(pool.get(pid)._op - 0.20) < 1e-9, 'same-day balk after a serve must not move op again');
+  assert.equal(pool.get(pid).visits, visitsAfter1, 'same-day outcome must not double-count the visit');
+  pool.recordVisit(pid, { day: 2, outcome: 'balked' });
   assert.ok(Math.abs(pool.get(pid)._op - 0.12) < 1e-9);
-  pool.recordVisit(pid, { day: 1, outcome: 'defected' });
+  pool.recordVisit(pid, { day: 3, outcome: 'defected' });
   assert.ok(pool.get(pid)._op < 0.12);
-  assert.equal(pool.recordVisit('nope', { day: 1, outcome: 'served' }), null);
+  assert.equal(pool.recordVisit('nope', { day: 3, outcome: 'served' }), null);
 });
 
 // (9) Carry-over: known faces survive dawn, strangers don't, pool stays 24
@@ -138,7 +149,7 @@ test('Phase 1 · graduated lists regular+ walk-ins by visits', () => {
   const pool = new WalkinPool(7); pool.ensureDay(1);
   assert.deepEqual(pool.graduated(), []);
   const pid = pool.heads[0].pid;
-  for (let d = 1; d <= 4; d++) pool.recordVisit(pid, { day: 1, outcome: 'served' });
+  for (let d = 1; d <= 4; d++) pool.recordVisit(pid, { day: d, outcome: 'served' });
   const grads = pool.graduated();
   assert.ok(grads.length >= 1 && grads[0].pid === pid);
   assert.ok(grads.every(h => STAGES.indexOf(h.stage) >= STAGES.indexOf('regular')));
@@ -188,14 +199,15 @@ test('Phase 1 · Regulars entries start established; noteVisit + resolveDay rest
   assert.match(regulars, /drink: CANON_DRINKS/);
   assert.match(regulars, /noteVisit\(idx/);
   assert.match(regulars, /r\.visits \+= 1/);
-  assert.match(regulars, /for \(const r of this\.regulars\) r\.stage = stageFor/);
+  assert.match(regulars, /for \(const r of this\.regulars\) \{\s*r\.stage = stageFor/);
   assert.match(regulars, /visits: r\.visits, stage: r\.stage, drink: r\.drink/);
 });
 
 // (15) patrons.js: identity attach + companion hook + memory greeting
 test('Phase 1 · spawn attaches identity, hooks companions, greets by memory', () => {
   assert.match(patrons, /walkins = null/);
-  assert.match(patrons, /pid: null, pname: null, faceSeed: null, drink: null/);
+  assert.match(patrons, /drink, wantsMatcha: drink === 'matcha'/);
+  assert.match(patrons, /pid: null, pname: null, faceSeed: null, preferredDrink: null/);
   assert.match(patrons, /this\.walkins\.draw\(cohort\)/);
   assert.match(patrons, /shouldBringCompanion\(p\.stage, this\.random\)/);
   assert.match(patrons, /this\.spawn\(cohort, zone, quick, true\)/);

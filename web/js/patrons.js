@@ -141,7 +141,7 @@ export class PatronSystem {
       // Phase 1 — identity: roster regulars fill canon fields below;
       // walk-ins draw a generated head from the day pool. Same fields both
       // paths so greetings/dossiers never branch on population.
-      pid: null, pname: null, faceSeed: null, drink: null,
+      pid: null, pname: null, faceSeed: null, preferredDrink: null,
       stage: 'visitor', visits: 0, broughtFriend: null,
       // PR-6 ritual record — survives the spawn so analytics + greeting
       // bubbles can show which cohort the patron belongs to without
@@ -170,7 +170,7 @@ export class PatronSystem {
         p.regularName = r.name; p.regularIdx = r.idx; p.hasHat = true;
         // Phase 1 — canon identity: roster history rides on the patron.
         p.pid = `roster-${r.name}`; p.pname = r.name; p.faceSeed = r.name;
-        p.drink = r.drink; p.stage = r.stage; p.visits = r.visits;
+        p.preferredDrink = r.drink; p.stage = r.stage; p.visits = r.visits;
         // copy the friend list onto the patron so the gossip router can route
         // by name (without re-walking the Regulars graph on every bubble)
         const reg = this.regulars.regulars[r.idx];
@@ -186,7 +186,7 @@ export class PatronSystem {
       const head = this.walkins.draw(cohort);
       if (head) {
         p.pid = head.pid; p.pname = head.name; p.faceSeed = head.faceSeed;
-        p.drink = head.drink; p.stage = head.stage; p.visits = head.visits;
+        p.preferredDrink = head.drink; p.stage = head.stage; p.visits = head.visits;
       }
     }
     // Phase 1 — friends bring a +1: a friend-stage arrival sometimes spawns a
@@ -261,7 +261,7 @@ export class PatronSystem {
     for (let i = 0; i < this.counterQ.length && points > 0 && servedN < ECON.servePerTick;) {
       const p = this.counterQ[i];
       if (p.state !== 'inQueue') { i++; continue; }
-      const fromBatch = p.wantsMatcha && (ctx.batchUnits || 0) > 0;
+      const fromBatch = p.wantsMatcha && (ctx.batchUnits || 0) > 0 && dayMin >= (ctx.batchReservedUntil || 0);
       // Phase 3 — drink drives points; legacy mock patrons without a drink
       // fall back to the wantsMatcha flag.
       const dk = p.drink || (p.wantsMatcha ? 'matcha' : 'flatwhite');
@@ -290,7 +290,7 @@ export class PatronSystem {
       const ticket = dk === 'matcha'
         ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull)
         : (ctx.menuPrices?.[dk] ?? ECON.other);
-      ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: ticket, ...cup });
+      ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: ticket, fromBatch, ...cup });
       // Phase 5 — the serve lands on camera: a 0.9s mood reaction.
       p.reactKind = 'serve'; p.reactT = 0.9;
       p.op = (Number.isFinite(p.op) ? p.op : 0) + 0.2;
@@ -302,7 +302,7 @@ export class PatronSystem {
     for (let i = this.counterQ.length - 1; i >= 0; i--) {
       const p = this.counterQ[i];
       const balkChance = ECON.balkChance * (this.repriced ? 0.25 : 1) * (this.balkMul || 1);   // a deal buys patience; a bad floor loses it
-      const hasBatch = (ctx.batchUnits || 0) > 0;
+      const hasBatch = (ctx.batchUnits || 0) > 0 && dayMin >= (ctx.batchReservedUntil || 0);
       if (p.state === 'inQueue' && p.wantsMatcha && !hasBatch && p.waitMin > ECON.balkAfter && Math.random() < balkChance) {
         this.counterQ.splice(i, 1);
         p.flash = 1; p.colorDirty = true;
@@ -600,8 +600,12 @@ export class PatronSystem {
             p.state = 'inQueue'; p.waitMin = 0;
             if (!p.greeted && this.fx) {
               const line = this._greetingFor(p);
-              if (line) this.fx.bubble(p, line, 'good');
-              p.greeted = true;
+              const gk = p.pname || p.regularName || p;
+              const seen = this.fx._greeted && this.fx._greeted.has(gk);
+              if (line && !seen && this.fx.bubble(p, line, 'good')) {
+                if (this.fx.greetOnce) this.fx.greetOnce(gk);
+                p.greeted = true;
+              }
             }
           }
           else if (p.state === 'toRegister') { p.state = 'inRegisterQ'; p.waitMin = 0; }
