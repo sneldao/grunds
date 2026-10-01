@@ -2,13 +2,13 @@
 
 How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
 
-## Current verification — October 1, 2026: economy incentives pass
+## Current verification — October 1, 2026: economy incentives pass (`c94b822`; deployed to dev)
 
 - Baseline on the then-current code (80 runs, 10 seeds × 8 scripted policies): every policy averaged a loss (−£1,188 to −£287), none reached "held", and about 28–30 of 50 player-days per policy were negative. Causes found by reading the per-day ledgers: (1) the supplier tab capped at £1,500 was smaller than one day of beans (~£3.3k at full service), so from day 3 the cellar ran dry and every cup billed the till at 1.5× spot (revenue per cup fell from £3.55 to £1.70); (2) the hedge and `settle` share one slot, so hedging meant not settling, which meant a capped tab; (3) the Brief's "restock" bought yesterday's pour +25% regardless of stock on hand, so a larger tab alone would have composted the surplus.
 - Changes: `creditLimit` 1,500 → 3,500 (`web/js/config.js`, `convex/gameConfig.ts`); `restockQty(poured, onHand)` tops up to the same target net of stock on hand; the final receipt gains a "the turning point" row (`turningPoint` in `autopsy.js`) that names the costliest avoidable decision (dry cellar premium, interest, an uncovered frost/drought) from fields now on the per-day record. Prices, costs, demand and hedge fees are unchanged.
 - Harness: competent policies now restock each morning and settle an open tab (`passive` and `reckless` stay naive as floors). Same 80-run grid afterward, mean net worth: passive −£793 (8 lost, 2 scarped); queue £3,697; growth £3,295; conservative £4,228 (5 held); aggressive £3,870; forecaster £4,249 (3 held); engaged £4,084 (3 held, 1 good); reckless −£1,187. Lowest single run for any competent policy rose from −£2,944 to +£1,584. Hedge benefit after fees: forecaster +£95 and engaged +£71 (both read the rumour), aggressive −£290 (blind heavy cover), so informed reading now beats blind hedging by about £385 a run.
 - Not fixed, found while measuring: service capacity binds at roughly 2,500–2,850 cups a day, and the opening demand is already near it, so awareness above about 0.3 adds little (the `growth` policy trails `queue`; `engaged` at awareness 1.0 served only ~14% more). Marketing has almost no payoff until demand or capacity is retuned. A competent week still mostly lands at "scarped" (£0–4.5k); "held" is 10–50% of runs by policy and "good"/"star" are rare.
-- Gate: 72 suites pass (incl. new `restockQty` net-of-stock cases and `turningPoint` cases), `tsc --noEmit` clean. The two tests that hard-coded the £1,500 cap were updated (`orientation.mjs` now derives it from `CAMPAIGN.creditLimit`). No browser run and no human playtest.
+- Gate: all 72 non-balance suites pass (including new `restockQty` net-of-stock and `turningPoint` cases); the separate `stage-site.mjs` check passes from the project checkout; `tsc --noEmit` is clean. The two tests that hard-coded the £1,500 cap were updated (`orientation.mjs` now derives it from `CAMPAIGN.creditLimit`). Commit `c94b822` is pushed and deployed to the dev site; sampled live files match the staged artifact by SHA-256. No browser run and no human playtest.
 
 ## Current verification — October 1, 2026: staged soft morning
 
@@ -125,9 +125,11 @@ How we check gameplay correctness and readiness. Automated regression checks, sc
 - `out/square_item_sales.csv` — 13-week deterministic café export (26.5k rows) from `transform.py`
 - Planted signals: matcha riser, banana loaf faller, 8.2% cake attach rate
 
-## Fresh-player playtest gate — proposed, not yet measured
+## Fresh-player playtest gate — next step; not yet measured
 
-Run from a fresh local session. Do not explain the controls or recommend a strategy. Record any help the player requests. Ask after the receipt, before Day 2:
+**Build to test:** release `c94b822`, deployed to the Convex dev site at https://striped-anaconda-746.convex.site. Use a fresh browser profile/session for each participant so saved identity, curriculum and tutorial state do not carry over. The environment should be the deployed dev build; backend and static assets are live there. This is a five-person formative test, not a statistically powered balance study.
+
+**Facilitator:** run from a fresh session. Do not explain the controls or recommend a strategy. Record any help the player requests. Do not intervene when they make a choice you consider suboptimal. Ask after the receipt, before Day 2:
 
 ```
 1. In your own words, what are you trying to accomplish over the five days?
@@ -140,6 +142,26 @@ Run from a fresh local session. Do not explain the controls or recommend a strat
 Record answers and observed actions separately. In an initial group of five fresh players, the proposed clarity gate is at least four who can explain the objective, make a meaningful choice without coaching from the observer, explain prep versus discount, understand why customers stayed or walked, and identify something to change tomorrow. In-game guidance is allowed; observer assistance must be recorded.
 
 Engagement is a separate qualitative check: observe whether players voluntarily continue to Day 2 before asking about intent, remember a named character and an interaction, and express a specific reason to try again. No engagement result or submission approval is claimed. Automated checks do not establish understanding or engagement.
+
+### Session record and review
+
+For each participant, capture (with consent):
+
+- Session/build identifier (`c94b822`), date, device/browser, fresh-profile confirmation, and any technical interruption.
+- The participant's unprompted morning plan, whether they found the cellar/restock control, and whether they changed it; record the choice and rationale without grading it during the session.
+- 14:00 observations: whether they notice the queue and levers, what they think prep versus discount changes, any customers walking, and what they believe caused that outcome.
+- At the finale receipt: whether they notice and can explain the "turning point" row; whether the attributed cost matches what they noticed during play.
+- Requested help and facilitator intervention (quote or summarize), plus verbatim answers to the five questions above.
+- Voluntary continuation/restart before being asked, character recall, and a specific replay intention. Do not treat a stated "yes" alone as engagement evidence.
+
+After five sessions, summarize the five participants individually before aggregating. Report the clarity gate as `x/5`, noting exactly which objective each participant could or could not explain and any facilitator help. Keep usability/clarity findings separate from enjoyment and continuation. Compare prep/deal/wait, restock, hedge, sampling/sponsorship choices with the observed reasons and outcomes; identify confusing feedback or unintended exploit/dominated choices. Do not retune from one participant's outcome. If the same misunderstanding or dead end appears repeatedly, propose a narrowly scoped fix and re-run the relevant automated suites plus the sessions affected by it.
+
+### Follow-up order
+
+1. **Run the five fresh-player sessions** on the deployed dev build and record results using the session record above. Test desktop first; note device constraints and any rendering/performance issues rather than assuming the 3D presentation is equivalent on every device.
+2. **Triage findings by evidence:** first fix blockers (can't open, understand, or complete a day); then repeated comprehension failures; then economy/incentive tuning supported by repeated observed choices. Leave prices and costs unchanged until the results show what players misread versus what is actually under-rewarded.
+3. **Re-run the balance grid after any economy change.** The current 80-run results use scripted policies that now restock and settle competently; passive/reckless are intentionally weak baselines. Marketing currently shows weak marginal return because service capacity binds near opening demand. Treat a demand/capacity retune as a separate, measured proposal, not as a playtest conclusion.
+4. **Record the outcome here and in `hackathon.md`:** participant count and context, clarity `x/5`, repeated friction, voluntary continuation, technical issues, and the next agreed change. Do not claim engagement, balance, or release readiness from automated tests alone.
 
 ## Reproduce
 

@@ -12,9 +12,17 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T14:54:42Z
+- **Last updated:** 2026-10-01T16:58:00+01:00
 
 ## Log
+
+### 2026-10-01 - c94b822 - supplier credit and restock incentives
+
+- **Economy diagnosis:** a fresh 80-run balance comparison on the current code showed every policy losing on average. The £1,500 supplier tab was below a busy day's bean requirement; when cellar stock ran out, drinks incurred the 1.5× emergency price. Restock also added yesterday's pour +25% without subtracting stock already on hand. This made hedging compete with the cash needed to restock.
+- **Changes:** the supplier credit limit is now £3,500 in both the browser and Convex configuration. Restock tops up to yesterday's pour +25%, net of stock on hand. The finale receipt adds a "turning point" line attributing the largest measured avoidable cost (emergency cellar premium or supplier interest) or an uncovered frost/drought. Prices, demand and hedge fees were not changed.
+- **Verification:** the same 10-seed × 8-policy diagnostic grid was rerun after the fix, with competent scripted policies restocking and settling their supplier tab; passive and reckless remain naive comparison policies. Competent policy mean net worth was £3.3k–£4.2k; lowest competent run was +£1,584. Forecaster and engaged policies had positive hedge benefit after fees; blind heavy cover remained negative. See `EVAL.md` for per-policy figures and limitations. 72 automated suites and `tsc --noEmit` passed; `git diff --check`, repository secret scan, and pre-commit gitleaks passed.
+- **Push + dev deploy:** commit `c94b822` is on `origin/main`; Convex functions deployed to the existing dev deployment `striped-anaconda-746` (`striped-anaconda-746.convex.cloud`). A 71-file versioned static artifact plus `release.json` was uploaded to https://striped-anaconda-746.convex.site as release `c94b822`. The served index references `main.js?v=c94b822`; live `config.js`, `lots.js`, `autopsy.js`, `main.js`, schedule, and `release.json` matched the upload artifact by SHA-256. Production was not touched.
+- **Next:** run the fresh-player study in `EVAL.md` with five people. Do not coach controls or strategy; record observed choices, requested help, and interview answers separately. Focus on whether the Brief's restock choice is understood, whether the revised day-3 supply pressure feels fair, whether players understand the receipt's turning point, and whether sampling/sponsorship feel worth their costs. No browser QA or human playtest has been completed yet; the scripted balance grid is diagnostic, not proof of fun or balance.
 
 ### 2026-10-01 - f552528 - card = introduction, row = tool
 
