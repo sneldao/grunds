@@ -8,7 +8,7 @@ How we check gameplay correctness and readiness. Automated regression checks, sc
 - An initial 65-suite non-balance Node gate passed in a temporary mirror using the existing schedule snapshot. After review fixes, the affected orientation, coaching, modal, lifecycle/accounting, prep, and guidance suites passed again; TypeScript checking passed during the pass. The last narrow cleanup was covered by orientation, coach, modals, and lifecycle/accounting reruns, without repeating the full gate.
 - `orientation.mjs` parses the actual `web/index.html` markup into a simplified headless fixture and checks primary versus folded content, explicit choice gating, numeric shortcut routing, replacement-button focus, opening charges, and the transition to Day 2. Its captured text is not a browser screenshot, layout measurement, or proof of native focus behavior.
 - Closing bills stay available in the full plan, not as a large number on the initial primary surface. Opening preparation cash, selected insurance fees, settlement, and estimated credit-funded stock remain disclosed before commit.
-- No browser automation was run for this pass. Visual composition, physical-device behavior, emotional connection, and whether new players find the first day intuitive remain human-playtest questions. These changes are local and have not been committed or deployed.
+- No browser automation was run for this pass. Visual composition, physical-device behavior, emotional connection, and whether new players find the first day intuitive remain human-playtest questions. Commit `f3e0d18` is published to the existing Convex dev site for playtesting. HTTP-only checks matched the upload artifact; deployed gameplay remains unverified.
 
 ## Previous verification — September 30, 2026
 

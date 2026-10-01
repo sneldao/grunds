@@ -518,8 +518,10 @@ Coverage: `web/test/orientation.mjs` plus the focused suites (coach,
 brief-staged-prep, next-action, modals, lifecycle-accounting, identity,
 menu-pricing, time-locked-levers, showfloor-autoplay) — all pass in a temp
 mirror; full non-balance suite gate also green (65 suites), `tsc --noEmit`
-clean. Node fixtures only — **no browser evidence this pass, nothing
-deployed**; human playtests still outstanding.
+clean. Code-only verification; no browser evidence this pass. Published for playtesting
+at https://striped-anaconda-746.convex.site from commit `f3e0d18`. Live HTTP
+checks matched the upload artifact; deployed gameplay and human engagement
+remain unverified.
 
 ## Previous build (Sept 30) — gameplay-intuitiveness pass
 

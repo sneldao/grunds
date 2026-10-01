@@ -436,8 +436,9 @@ Verified by `orientation.mjs` + the focused suites and a full 65-suite
 non-balance gate in a fresh mirror (`tsc --noEmit` clean). No browser evidence
 was gathered this pass — by instruction — so the first-morning surface is
 asserted only through a headless fixture that parses the real `index.html`
-markup (no layout, paint, or focus-behavior proof); nothing was committed or
-deployed.
+markup (no layout, paint, or focus-behavior proof). Commit `f3e0d18` was
+published to the existing Convex dev site; HTTP file checks matched the upload
+artifact, which does not establish deployed gameplay or engagement.
 
 ## September 30 — current gameplay pass + verification state
 
