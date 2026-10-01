@@ -22,8 +22,9 @@ import { Exchange, seeded } from './exchange.js';
 import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } from './economy.js';
 import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS } from './identity.js';
-import { profileView } from './cast.js';
+import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD } from './consequences.js';
+import { isQuiet, QUIET_MUL } from './pace.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate } from './menu.js';
@@ -393,6 +394,9 @@ let coached = false;   // day-1 lever hint, once per campaign
 let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false;
 
 let eveningCallShown = false, eveningFast = false, rushFast = false;
+let paceTest = false, momentsTest = false, moveTickTest = false;
+let momentPending = [], momentActive = null;
+const momentDone = new Set(), momentSeen = new Set();
 let offerResolved = false;   // the 11:00 ask has been answered — skip may jump to 14:00
 let forecastShown = false;     // day-2 forecast tease, once per campaign (day 1 evening)
 let pendingGossip = null;      // a named regular's Nebius take on the market, one per day
@@ -785,6 +789,7 @@ function tick() {
       if (e.p && e.p.pid && e.p.regularIdx < 0) walkins.recordVisit(e.p.pid, { day, outcome: 'defected' });
       const widx = e.p ? (e.p.defectedFrom ?? e.p.regularIdx) : -1;
       if (widx >= 0) regulars.noteWalkout(widx, { day, outcome: 'defected' });
+      if (widx >= 0) { const rr = regulars.regulars[widx]; if (rr) momentEnqueue('sam', `sam:${rr.name}`, { name: rr.name }); }
       if (defections === 1) fx.toast('they’re crossing the road to ' + COPY.rivalName + '…', 'bad');
       if (defections === 1 && speed <= 300) rig.queueFocus(world.focus.rival, 13, 4, 12, Math.PI);
       if (defections === 5) {
@@ -932,6 +937,8 @@ function beats() {
     else { regulars.adjustOpinions(-0.2); fx.toast('Ruth snapped at a regular — the room went cold.', 'bad'); }
     try { analytics.track('staff_crisis', { day, condition: Math.round(baristaCondition * 100) / 100 }); } catch {}
   }
+  momentScan();
+  momentPump();
   // 17:00: the rush, the incident, and any deferred ask have landed.
   // One call, then the evening resolves itself. Headless holds and keeps
   // ticking so a full day still closes at 21:00.
@@ -2925,6 +2932,8 @@ function prepareDay(d) {
   companionsYesterday = patrons.companionsToday || [];
   patrons.reset(); fx.reset();
   greetedToday.clear();
+  momentPending = []; momentActive = null; momentDone.clear(); momentSeen.clear();
+  { const me = $('moment'); if (me) me.hidden = true; }
   if (d >= 2) planAttendance(regulars.regulars, { day: d });
   walkins.ensureDay(d); evangelistServes = 0; womPids.clear();   // Phase 1 — fresh strangers (yesterday's known faces carry), WOM counter reset
   // Phase 4 — ceasefire Saturday: no crossings when the truce holds.
@@ -4413,6 +4422,97 @@ $('open').onclick = () => {
   else { started = true; audio.start(); openDay(1); rig.crane(); }
 };
 
+const MOMENT_TTL = 45;
+const MOMENT_PRIO = { returning: 0, sam: 1, line: 2, counter: 3 };
+const momentsOn = () => !headless || momentsTest;
+function momentEnqueue(type, key, data = {}) {
+  if (!momentsOn() || momentDone.has(key)) return;
+  momentDone.add(key);
+  momentPending.push({ type, key, at: dayMin, ...data });
+}
+function momentBtn(label, fn) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = label; b.onclick = fn;
+  return b;
+}
+function momentAct(m) {
+  try { analytics.track('moment_action', { type: m.type, day, dayMin }); } catch {}
+  momentHide();
+}
+function momentHide() {
+  const el = $('moment'); if (el) el.hidden = true;
+  momentActive = null;
+}
+function momentShow(m) {
+  const el = $('moment'), body = $('moment-body'), row = $('moment-actions');
+  if (!el || !body || !row) return false;
+  clearEl(body); clearEl(row);
+  const b = document.createElement('b');
+  if (m.type === 'returning') {
+    b.textContent = `${m.name} is back.`;
+    body.append(b, ` Giving you another chance after ${m.why}.`);
+    if (!greetedToday.has(`cast:${m.name}`))
+      row.appendChild(momentBtn('Say hello', () => { greet({ name: m.name }, true, m.patron); momentAct(m); }));
+    row.appendChild(momentBtn('Leave it', () => momentAct(m)));
+  } else if (m.type === 'counter') {
+    b.textContent = `${m.name} is at the counter.`;
+    body.append(b, ` ${CAST_PROFILES[m.name] ? CAST_PROFILES[m.name].wants : ''}`);
+    if (!greetedToday.has(`cast:${m.name}`))
+      row.appendChild(momentBtn('Say hello', () => { greet({ name: m.name }, true, m.patron); momentAct(m); }));
+    row.appendChild(momentBtn(`Meet ${m.name}`, () => {
+      const r = regulars.regulars[m.idx];
+      if (r) openProfile({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, events: r.events },
+        { op: r.op, friends: r.friends || [], faceSeed: r.name, cohort: r.coh, isCast: true, quirk: r.quirk, patron: m.patron, absence: r.absence });
+      momentAct(m);
+    }));
+    row.appendChild(momentBtn('Leave it', () => momentAct(m)));
+  } else if (m.type === 'line') {
+    b.textContent = 'The line is getting long.';
+    body.append(b, ` ${m.queue} waiting — people may leave once it passes five.`);
+    const lv = leverState(leverSnapshot()).reprice;
+    if (lv.available)
+      row.appendChild(momentBtn(`Cut matcha to ${fmt(ECON.matchaDeal)}${lv.cost > 0 ? ` · ${fmt(lv.cost)} + regulars lose warmth` : ''}`, () => { doReprice(); momentAct(m); }));
+    row.appendChild(momentBtn('Ride it out', () => momentAct(m)));
+  } else if (m.type === 'sam') {
+    b.textContent = `${m.name} crossed to Glasshouse.`;
+    body.append(b, ' Sam’s line was shorter.');
+    row.appendChild(momentBtn('Got it', () => momentAct(m)));
+  } else return false;
+  momentActive = { ...m, shownAt: dayMin };
+  el.hidden = false;
+  try { analytics.track('moment_shown', { type: m.type, day, dayMin }); } catch {}
+  return true;
+}
+function momentPump() {
+  if (!momentsOn()) return;
+  if (momentActive && dayMin - momentActive.shownAt >= MOMENT_TTL) momentHide();
+  if (momentActive) return;
+  momentPending = momentPending.filter(m => dayMin - m.at < MOMENT_TTL);
+  if (!momentPending.length) return;
+  const coachCard = $('coach');
+  if (coachCard && !coachCard.hidden) return;
+  momentPending.sort((a, b) => MOMENT_PRIO[a.type] - MOMENT_PRIO[b.type]);
+  momentShow(momentPending.shift());
+}
+function momentScan() {
+  if (!momentsOn() || phase !== 'trading') return;
+  for (const p of patrons.counterQ) {
+    if (p.regularIdx == null || p.regularIdx < 0 || momentSeen.has(p)) continue;
+    momentSeen.add(p);
+    const r = regulars.regulars[p.regularIdx];
+    if (!r) continue;
+    if (r.absence === 'returning') {
+      const last = (r.events || []).length ? r.events[r.events.length - 1] : null;
+      const why = last && last.outcome === 'balked' ? 'walking out yesterday'
+        : last && last.outcome === 'defected' ? 'trying Glasshouse' : 'a rough patch';
+      momentEnqueue('returning', `ret:${r.name}`, { name: r.name, why, patron: p, idx: p.regularIdx });
+    } else if (r.absence !== 'away' && r.absence !== 'lost' && dayMin < 630 && !greetedToday.has(`cast:${r.name}`)) {
+      momentEnqueue('counter', 'counter', { name: r.name, idx: p.regularIdx, patron: p });
+    }
+  }
+  if (dayMin < 840 && patrons.queueLength >= 6) momentEnqueue('line', 'line', { queue: patrons.queueLength });
+}
+
 // ---- loop ---------------------------------------------------------------------------
 let acc = 0, last = performance.now();
 let _slowFrames = 0, _liteSwitched = false;
@@ -4431,10 +4531,24 @@ function loop(now) {
   // shadow budget: at peak queue shadows are noise — save the fill rate
   try { renderer.shadowMap.enabled = (lite || _liteSwitched) ? false : (patrons.queueLength <= 40); } catch {}
   // numbers snap to RAF, not tick: jank-free even at 20× (see updateHUD throttle)
+  const quietNow = (!headless || paceTest) && isQuiet({
+    phase, paused, closed, modalOpen: !!modals.top(), cardVisible: !!momentActive,
+    momentPending: momentPending.length > 0, dayMin, day, offerResolved,
+    incidentPending: day >= 2 && !incidentShown && dayMin < 1015,
+    settled: day >= 2 || !coach || coach.skipped || coach.craftObserved || dayMin >= 540,
+  });
+  const pf = $('paceflag'); if (pf) pf.hidden = !quietNow;
+  const effSpeed = quietNow ? Math.min(1200, speed * QUIET_MUL) : speed;
+  const movePerTick = quietNow || (headless && moveTickTest);
+  let ticked = 0;
   if (started && !closed && !paused && !tutorialActive && schedule && phase === 'trading') {
     acc += dt * 1000;
-    const msPerMin = 300 / (speed / 60);
-    while (acc > msPerMin && phase === 'trading' && !paused && !closed) { acc -= msPerMin; tick(); }
+    const msPerMin = 300 / (effSpeed / 60);
+    while (acc > msPerMin && phase === 'trading' && !paused && !closed) {
+      acc -= msPerMin;
+      if (movePerTick) patrons.update(300 / (speed / 60) / 1000, WALK_MUL[speed] || 2, now);
+      tick(); ticked++;
+    }
     // After the evening call the rest of the day resolves in a short burst
     // instead of another stretch of watching.
     if (eveningFast) {
@@ -4455,7 +4569,7 @@ function loop(now) {
   mailT.update(dt, now);
   try { world.manageCutaway?.(camera.position, document.body.classList.contains('photo') ? 'photo' : rig.mode); } catch {}
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
-  patrons.update(dt, WALK_MUL[speed] || 2, now);
+  if (!(movePerTick && ticked)) patrons.update(dt, WALK_MUL[speed] || 2, now);
   world.updateRival(dt, now);
   try { world.updateCat(dt, patrons.queueLength); world._updateDelight(now, dt); } catch {}
   fx.steamFrom(dt);
@@ -4499,6 +4613,7 @@ function loop(now) {
   prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
   doPrebatch, doReprice,
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
+  moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key) },
   stageCellar,
   patrons, modals, openDossier, showIncident,
   renderBrief() { if (phase === 'planning') showMorningBrief(); },
@@ -4512,8 +4627,11 @@ function loop(now) {
     }) : null;
   },
   get paused() { return paused; },
-  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci } = {}) => {
+  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci, pace: pc, moments: mo, moveTick: mt } = {}) => {
     if (typeof c === 'number') baristaCondition = c;
+    if (pc !== undefined) paceTest = !!pc;
+    if (mo !== undefined) momentsTest = !!mo;
+    if (mt !== undefined) moveTickTest = !!mt;
     if (og !== undefined) { guidedOpening = !!og; firstPrepChosen = !(og && day === 1); }
     if (cu !== undefined) {
       curriculumUnlockAll = !cu;

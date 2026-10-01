@@ -12,15 +12,24 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T03:14:25Z
+- **Last updated:** 2026-10-01T04:15:47Z
 
 ## Log
 
-### 2026-10-01 - working tree - absence trigger: personal experience, not mood
+### 2026-10-01 - working tree - quiet auto-pacing + in-day moments (roadmap step 3)
+
+- **`web/js/pace.js` (new, pure)**: `isQuiet(s)` — quiet iff trading, unpaused, open, no modal, no card shown or queued, settled (day ≥ 2 or the day-1 coach done/skipped/09:00+), and in a decision-free window (before 11:00, or after the 11:00 ask until 13:30, or 16:00–17:00 when no incident is pending). `QUIET_MUL = 4` → the loop derives `effSpeed = min(1200, speed × 4)` while quiet; only wall-clock tick rate changes. A `#paceflag` HUD line reads `quiet — time moves faster` while active. Headless needs `testState({ pace: true })`.
+- **`#moment` card** (`index.html`, same paper style and corner as `#coach`): four non-modal moments, never pausing the clock — **returning regular** (`… is back. Giving you another chance after …`, with `Say hello`/`Leave it`), **regular at the counter** (once/day before 10:30, `Say hello`/`Meet ${name}`/`Leave it`), **line building** (once/day before 14:00 at queue ≥ 6, `Cut matcha to …` via `doReprice` when the lever is legal + `Ride it out`), **Sam takes a regular** (on a cast `defected` walkout, `Got it`). Priority returning > sam > line > counter; queued not dropped; each expires unshown after 45 game-minutes; a visible card hides on any button and counts as `cardVisible` for quiet pacing. `moment_shown`/`moment_action` analytics; headless needs `testState({ moments: true })`.
+- **Economic neutrality**: quiet pace only changes how many `tick()`s a frame runs. While quiet (and in headless `testState({ moveTick: true })`), `patrons.update` steps once per tick at the base rate's wall-time per game-minute instead of once per frame — walking cost per game-minute is rate-invariant, so a fixed-seed day is bit-identical with pace on vs off (asserted in `moments.mjs` on served/balked/till/netToday).
+- **Coverage**: new `pace.mjs` (pure truth table — settled gate, modal/shown-card/queued-moment, window edges 659/660 · 809/810 · 959/960/1019/1020, `incidentPending`) and `moments.mjs` (real triggers, exact copy, once/day, priority order, 45-minute pending + shown expiry, `Say hello` +0.06 once, `Cut matcha` charges the `leverState` cost, no clock pause, pace identity). Full non-balance gate in `/tmp/grunds-test-mirror13`; `tsc --noEmit`, `git diff --check`, `secret_scan` clean.
+- **Limitations**: no browser evidence; during quiet windows `patrons.update` runs ~QUIET_MUL more times per frame (movement per game-minute is unchanged, but it is the heaviest per-frame work — worth a low-end perf sanity check).
+
+### 2026-10-01 - 02febc2 - absence trigger: personal experience, not mood
 
 - **`consequences.js` `planAttendance` retuned**: measurement showed dawn opinions live in −0.06..+0.32 so the op < −0.2 trigger never fired. The trigger is now personal experience — `hadBadDay(r, day)` (an own `balked`/`defected` event on `day − 1`) OR op < −0.2: present → `away`; `away` → `returning` (the second-chance day, unconditional); `returning` → `lost` on a repeat walkout/defection or still-unhappy, else `present`; `lost` sticky. `absentReason` still comes from the real last event; the generic line is only for the op path.
 - **Reset history fix** (same tree): `reset()` now restores roster constructor defaults (`visits 5`, `stage 'regular'`, canon drink, `events []`, `_lastOutcomeDay`/`_lastWalkoutDay` cleared) and `WalkinPool.reset()` rebuilds the pool fresh (`day −1`, empty heads/byPid/drawn) — no more last-week dossiers or stale bad-day reasons on a new campaign.
 - **Coverage**: `consequences.mjs` rewritten for the new trigger (bad-day away, returning → present after a clean/no-event day, returning → lost on repeat walkout, op path intact); `lifecycle-accounting.mjs` Step-2 fixture now drives the arc through real `noteWalkout` events (no op forcing), asserts reset clears roster + walk-in history and a fresh-campaign profile reads `You haven’t met properly yet.`. Focused reruns + `tsc --noEmit` + `git diff --check` clean.
+- **Deploy**: `02febc2` published to the existing **dev** deployment `striped-anaconda-746` (deployment ID `d0d688d6-cfe8-49b4-a279-508d56744078`) as a `?v=02febc2` versioned artifact after a 68-suite non-balance gate on the committed tree. HTTP checks matched the artifact.
 
 ### 2026-10-01 - fb787d3 - consequences through people (roadmap step 2)
 

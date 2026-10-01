@@ -548,9 +548,14 @@ ledger lines, not people.
    roster, the Brief's "Who's coming in" block, receipt lessons for
    walkouts/companions, and `incidentCost` scaling incidents to the live
    till.
-3. **Pacing.** Either there is a decision, or the clock moves quickly: short
-   in-day moments (a regular at the counter, a forming queue, Sam poaching,
-   Ruth needing a call) and a faster idle clock.
+3. **Pacing (in progress; shipped so far: quiet auto-pace + four non-modal
+   moments).** Either there is a decision, or the clock moves quickly:
+   `pace.js` `isQuiet` accelerates the wall-clock rate in decision-free
+   windows (`QUIET_MUL = 4`, capped at 20×, HUD `#paceflag`), and `#moment`
+   cards surface a returning regular, a regular at the counter, a building
+   line, and Sam poaching — non-modal, 45 game-minute lifetimes, priority
+   returning > sam > line > counter, one of each per day. Ruth needing a
+   call is not yet built.
 4. **Economy scale.** Decide between a smaller, intimate café (tens of visible
    customers) and costs scaled to the current crowd — only after 1–3,
    measured before and after with fixed seeds and policies, never eyeballed.
