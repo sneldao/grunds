@@ -438,8 +438,7 @@ await new Promise(r => setTimeout(r, 5400));
   if (!G.commitDayPlan().ok) fails.push('step2 day-1 commit failed');
   runFrames(220);
   if (G.phase !== 'review') fails.push('step2 day-1 did not close');
-  mara.op = -0.5;
-  mara.events.push({ day: 1, drink: 'flat white', outcome: 'balked', stayed: false });
+  G.reg.noteWalkout(0, { day: 1, outcome: 'balked' });   // Mara walked out on day 1 — personal experience trigger
 
   // dawn 2 — unhappy present → away, and the brief says so
   if (!G.continueFromReview()) fails.push('step2 day-2 continue rejected');
@@ -490,8 +489,7 @@ await new Promise(r => setTimeout(r, 5400));
   if (!rc2 || !rc2.lessons.some(l => l === 'Dev walked out of the line.')) fails.push(`day-2 receipt missing the walkout lesson: ${JSON.stringify(rc2 && rc2.lessons)}`);
   try { writeFileSync('/tmp/grunds-step2-logs/receipt-lessons-walkout.txt', (rc2 ? rc2.lessons : []).join('\n')); } catch {}
 
-  // dawn 3 — away + still unhappy → returning, one more chance
-  mara.op = -0.5;
+  // dawn 3 — the day after a walkout she comes back for one more chance
   if (!G.continueFromReview()) fails.push('step2 day-3 continue rejected');
   if (mara.absence !== 'returning') fails.push(`Mara should be returning on day 3, got ${mara.absence}`);
   {
@@ -512,9 +510,9 @@ await new Promise(r => setTimeout(r, 5400));
   runFrames(220);
   if (G.phase !== 'review') fails.push('step2 day-3 did not close');
 
-  // dawn 4 — still unhappy after the second chance → lost, and the street
-  // shows her crossing to Glasshouse without touching her opinion
-  mara.op = -0.5;
+  // dawn 4 — she walked out again on her second-chance day → lost, and the
+  // street shows her crossing to Glasshouse without touching her opinion
+  G.reg.noteWalkout(0, { day: 3, outcome: 'balked' });
   if (!G.continueFromReview()) fails.push('step2 day-4 continue rejected');
   if (mara.absence !== 'lost') fails.push(`Mara should be lost on day 4, got ${mara.absence}`);
   if (!mara.justLost) fails.push('justLost should be set on the day she goes');
@@ -530,7 +528,7 @@ await new Promise(r => setTimeout(r, 5400));
   if (!G.commitDayPlan().ok) fails.push('step2 day-4 commit failed');
   runFrames(3);
   {
-    const origRandom = G.patrons.random;
+    const origRandom = G.patrons.random, opBefore = mara.op;
     G.patrons.random = () => 0.001;
     let glimpse = null;
     for (let i = 0; i < 60 && !glimpse; i++) {
@@ -542,7 +540,7 @@ await new Promise(r => setTimeout(r, 5400));
     else {
       if (glimpse.regularName !== 'Mara' || !glimpse.hasHat || glimpse.pname !== 'Mara') fails.push('lost glimpse patron not tagged as Mara');
       if (mara.seen || mara._spawned) fails.push('a lost glimpse marked Mara seen');
-      if (!near(mara.op, -0.5)) fails.push(`lost glimpse changed opinion: ${mara.op}`);
+      if (!near(mara.op, opBefore)) fails.push(`lost glimpse changed opinion: ${mara.op}`);
       if (mara.events.some(e => e.day === 4)) fails.push(`lost glimpse wrote a day-4 event: ${JSON.stringify(mara.events.filter(e => e.day === 4))}`);
     }
   }

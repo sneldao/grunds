@@ -7,7 +7,7 @@ function t(name, fn) { try { fn(); pass++; } catch (e) { fails.push(`${name}: ${
 function eq(a, b, m) { if (a !== b) throw new Error(`${m || ''} expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); }
 
 const mk = (op, absence = 'present', events = []) => ({ name: 'X', absence, op, events, coh: 'commuters' });
-const ev = (outcome) => ({ day: 1, drink: 'flat white', outcome, stayed: false });
+const ev = (outcome, day = 1) => ({ day, drink: 'flat white', outcome, stayed: false });
 
 t('unhappy present → away with reason', () => {
   const r = mk(-0.5, 'present', [ev('balked')]);
@@ -16,10 +16,46 @@ t('unhappy present → away with reason', () => {
   eq(out.away.length, 1); eq(out.returning.length, 0); eq(out.lost.length, 0);
 });
 
+t('walked out yesterday with fine op → away (personal experience trigger)', () => {
+  const r = mk(0.3, 'present', [ev('served'), ev('balked')]);
+  planAttendance([r], { day: 2 });
+  eq(r.absence, 'away'); eq(r.absentReason, 'still annoyed about walking out of a long line');
+});
+
+t('defected yesterday with fine op → away, Glasshouse reason', () => {
+  const r = mk(0.1, 'present', [ev('defected')]);
+  planAttendance([r], { day: 2 });
+  eq(r.absence, 'away'); eq(r.absentReason, 'tried Glasshouse instead yesterday');
+});
+
+t('old walkout (day before yesterday) does not trigger', () => {
+  const r = mk(0.3, 'present', [ev('balked', 1)]);
+  planAttendance([r], { day: 3 });
+  eq(r.absence, 'present');
+});
+
+t('op path with no bad event → generic reason', () => {
+  const r = mk(-0.5, 'present', [ev('served')]);
+  planAttendance([r], { day: 2 });
+  eq(r.absence, 'away'); eq(r.absentReason, 'not happy with how things have been');
+});
+
 t('unhappy away → returning (second chance regardless of op)', () => {
   const r = mk(-0.9, 'away');
   planAttendance([r], { day: 3 });
   eq(r.absence, 'returning'); eq(r.justLost, false);
+});
+
+t('away whose bad day was yesterday → returning', () => {
+  const r = mk(0.2, 'away', [ev('balked', 2)]);
+  planAttendance([r], { day: 3 });
+  eq(r.absence, 'returning');
+});
+
+t('away always gets the second-chance day → returning', () => {
+  const r = mk(0.2, 'away', [ev('served', 2)]);
+  planAttendance([r], { day: 3 });
+  eq(r.absence, 'returning');
 });
 
 t('unhappy returning → lost (first time, justLost set)', () => {
@@ -28,31 +64,28 @@ t('unhappy returning → lost (first time, justLost set)', () => {
   eq(r.absence, 'lost'); eq(r.justLost, true); eq(out.lost.length, 1);
 });
 
-t('lost stays lost', () => {
-  const r = mk(0.9, 'lost'); r.justLost = true;
-  const out = planAttendance([r], { day: 5 });
-  eq(r.absence, 'lost'); eq(r.justLost, false); eq(out.lost.length, 0);
+t('returning + repeat walkout yesterday → lost', () => {
+  const r = mk(0.3, 'returning', [ev('balked', 3)]);
+  const out = planAttendance([r], { day: 4 });
+  eq(r.absence, 'lost'); eq(r.justLost, true); eq(out.lost.length, 1);
 });
 
-t('recovered op → present', () => {
-  const r = mk(-0.1, 'returning');
+t('returning with a clean served day → present', () => {
+  const r = mk(0.1, 'returning', [ev('served', 3)]);
   planAttendance([r], { day: 4 });
   eq(r.absence, 'present'); eq(r.absentReason, null);
 });
 
-t('away recovered before returning → present', () => {
-  const r = mk(0.2, 'away');
-  planAttendance([r], { day: 3 });
+t('returning with no event at all and fine op → present', () => {
+  const r = mk(0.1, 'returning', []);
+  planAttendance([r], { day: 4 });
   eq(r.absence, 'present');
 });
 
-t('reasons: defected → Glasshouse; no event → generic', () => {
-  const a = mk(-0.5, 'present', [ev('defected')]);
-  planAttendance([a], { day: 2 });
-  eq(a.absentReason, 'tried Glasshouse instead yesterday');
-  const b = mk(-0.5, 'present', []);
-  planAttendance([b], { day: 2 });
-  eq(b.absentReason, 'not happy with how things have been');
+t('lost stays lost', () => {
+  const r = mk(0.9, 'lost'); r.justLost = true;
+  const out = planAttendance([r], { day: 5 });
+  eq(r.absence, 'lost'); eq(r.justLost, false); eq(out.lost.length, 0);
 });
 
 t('reason reads last own event only', () => {

@@ -8,6 +8,10 @@ export const ABSENCE_WORD = {
 
 const UNHAPPY = -0.2;
 
+function hadBadDay(r, day) {
+  return (r.events || []).some(e => e.day === day - 1 && (e.outcome === 'balked' || e.outcome === 'defected'));
+}
+
 function awayReason(r) {
   const last = r.events && r.events.length ? r.events[r.events.length - 1] : null;
   if (last && last.outcome === 'balked') return 'still annoyed about walking out of a long line';
@@ -22,13 +26,18 @@ export function planAttendance(roster, { day } = {}) {
     r._defectShown = false;
     if (r.absence === 'lost') continue;
     const unhappy = (r.op ?? 0) < UNHAPPY;
-    if (unhappy && r.absence === 'returning') {
-      r.absence = 'lost'; r.absentReason = null; r.justLost = true;
-      out.lost.push(r);
-    } else if (unhappy && r.absence === 'away') {
+    const bad = hadBadDay(r, day);
+    if (r.absence === 'returning') {
+      if (unhappy || bad) {
+        r.absence = 'lost'; r.absentReason = null; r.justLost = true;
+        out.lost.push(r);
+      } else {
+        r.absence = 'present'; r.absentReason = null;
+      }
+    } else if (r.absence === 'away') {
       r.absence = 'returning'; r.absentReason = null;
       out.returning.push(r);
-    } else if (unhappy) {
+    } else if (unhappy || bad) {
       r.absence = 'away'; r.absentReason = awayReason(r);
       out.away.push(r);
     } else {

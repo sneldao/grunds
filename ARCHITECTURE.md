@@ -543,10 +543,11 @@ ledger lines, not people.
    regular seats, lost regulars seen at Glasshouse, happy regulars bringing
    named friends, a bad review thinning tomorrow's crowd, street events you
    can see. Scale incidents to the café's real numbers. Landed so far:
-   `consequences.js` `planAttendance` (unhappy → away → returning → lost at
-   dawn), named walkouts on the roster, the Brief's "Who's coming in" block,
-   receipt lessons for walkouts/companions, and `incidentCost` scaling
-   incidents to the live till.
+   `consequences.js` `planAttendance` (a bad day — yesterday's balk/defect —
+   or op < −0.2 → away → returning → lost at dawn), named walkouts on the
+   roster, the Brief's "Who's coming in" block, receipt lessons for
+   walkouts/companions, and `incidentCost` scaling incidents to the live
+   till.
 3. **Pacing.** Either there is a decision, or the clock moves quickly: short
    in-day moments (a regular at the counter, a forming queue, Sam poaching,
    Ruth needing a call) and a faster idle clock.

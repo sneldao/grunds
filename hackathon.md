@@ -12,9 +12,15 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T03:11:34Z
+- **Last updated:** 2026-10-01T03:14:25Z
 
 ## Log
+
+### 2026-10-01 - working tree - absence trigger: personal experience, not mood
+
+- **`consequences.js` `planAttendance` retuned**: measurement showed dawn opinions live in −0.06..+0.32 so the op < −0.2 trigger never fired. The trigger is now personal experience — `hadBadDay(r, day)` (an own `balked`/`defected` event on `day − 1`) OR op < −0.2: present → `away`; `away` → `returning` (the second-chance day, unconditional); `returning` → `lost` on a repeat walkout/defection or still-unhappy, else `present`; `lost` sticky. `absentReason` still comes from the real last event; the generic line is only for the op path.
+- **Reset history fix** (same tree): `reset()` now restores roster constructor defaults (`visits 5`, `stage 'regular'`, canon drink, `events []`, `_lastOutcomeDay`/`_lastWalkoutDay` cleared) and `WalkinPool.reset()` rebuilds the pool fresh (`day −1`, empty heads/byPid/drawn) — no more last-week dossiers or stale bad-day reasons on a new campaign.
+- **Coverage**: `consequences.mjs` rewritten for the new trigger (bad-day away, returning → present after a clean/no-event day, returning → lost on repeat walkout, op path intact); `lifecycle-accounting.mjs` Step-2 fixture now drives the arc through real `noteWalkout` events (no op forcing), asserts reset clears roster + walk-in history and a fresh-campaign profile reads `You haven’t met properly yet.`. Focused reruns + `tsc --noEmit` + `git diff --check` clean.
 
 ### 2026-10-01 - fb787d3 - consequences through people (roadmap step 2)
 
