@@ -12,9 +12,20 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T02:25:13Z
+- **Last updated:** 2026-10-01T02:57:43Z
 
 ## Log
+
+### 2026-10-01 - working tree - consequences through people (roadmap step 2)
+
+- **Named walkouts** (`regulars.js` `noteWalkout` + `main.js` balk/defect handlers): a cast regular who balks or defects now records `{day, outcome, stayed:false}` on `r.events` and takes the same opinion deltas walk-ins already had (−0.08 balked / −0.12 defected, clamped), once per regular per day (`_lastWalkoutDay`); `patrons.js` `unsee` on defect is unchanged.
+- **Attendance state machine** (`web/js/consequences.js` new, pure): `planAttendance(roster, {day})` runs at dawn (day ≥ 2, deterministic): op < −0.2 → `away` one day → `returning` (a second chance regardless of op) → `lost` the next unhappy dawn, `lost` is sticky for the campaign. `absentReason` comes from the real last event (`balked`/`defected`/generic). `markSeen` filters `away`/`lost` so they never spawn as themselves; once per day a `lost` regular tags the first rival-bound spawn of their cohort (`p.regularName`/`hasHat`/`pname`/`faceSeed`/`lostGlimpse`, display only — no seen, no opinion, no events). `absence`/`absentReason`/`justLost`/`_defectShown` reset on campaign reset.
+- **Who's coming in** (`#brief-people`, after `#brief-learning`, day ≥ 2): away (`${name} isn’t coming in today — ${reason}.`), returning (`giving you another chance`), newly lost (`has started going to Glasshouse.`, one day only via `justLost`), companions from yesterday (`patrons.companionsToday` recorded when `broughtFriend` is set), and footfall lines only when |pct| ≥ 3 off `regulars.footfallMul`.
+- **Receipt lessons**: cast walkouts derive from real `r.events` (`walked out of the line.` / `crossed to Glasshouse.`); companions today (`${name} brought ${friend}.`).
+- **Profiles/board**: `ABSENCE_WORD` maps away/returning/lost to words in `profileView` and board rows; `Say hello` disables to `Not in today.` for away/lost (returning stays greetable — the recovery path).
+- **Incidents scale to the till** (`incidentCost(base, share, till) = max(base, round(share·till/5)·5)`): plumber 0.05, agency cover 0.06 (both Ruth variants), card dongle 0.03, inspector 0.04, solicitor settle 0.06 + contest 0.14 (replaces fixed £140, same 50% logic via `solicitorCharge`), supplier COD 0.04, re-roast 0.02. Cost computed once in `showIncident` and used verbatim in line/effect/yes copy and `accept()`; `perkCostMul` still applies; decline effects and the +£18 supplier fee unchanged.
+- **Coverage**: new pure `consequences.mjs` (14 checks — state machine, reasons, incident floors/rounding); `lifecycle-accounting.mjs` gained a Step-2 fixture driving Mara away → returning → lost across days 2–5 with brief lines, markSeen skip, a real once-per-day walkout on the receipt, incident copy == charged amount, and a forced rival-bound spawn asserting the lost glimpse touches nothing. Full non-balance gate: 68 suites pass in `/tmp/grunds-test-mirror8` (logs `/tmp/grunds-step2-logs/gate/`); `tsc --noEmit`, `git diff --check`, `secret_scan` clean. Captures: `/tmp/grunds-step2-logs/brief-people-{away,returning,lost}.txt`, `receipt-lessons-walkout.txt`.
+- **Limitations**: no commits, deploys, or browser evidence this pass; the lost-glimpse cohort match is display-only (no toast yet), and incident scaling uses the till at the moment the card opens.
 
 ### 2026-10-01 - df82b4f - cast profiles (roadmap step 1)
 

@@ -203,6 +203,7 @@ export class WalkinPool {
     return h;
   }
   get(pid) { return this.byPid.get(pid) || null; }
+  reset() { this.day = -1; this.heads = []; this.byPid = new Map(); this.drawn = new Set(); }
   // outcome: 'served' | 'balked' | 'defected'. Nudges pool op, restages.
   recordVisit(pid, { day, drink, outcome, stayed }) {
     const head = this.byPid.get(pid);

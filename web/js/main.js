@@ -21,8 +21,9 @@ import { AudioEngine } from './audio.js';
 import { Exchange, seeded } from './exchange.js';
 import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } from './economy.js';
 import { Regulars } from './regulars.js';
-import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling } from './identity.js';
+import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS } from './identity.js';
 import { profileView } from './cast.js';
+import { planAttendance, incidentCost, ABSENCE_WORD } from './consequences.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate } from './menu.js';
@@ -335,6 +336,7 @@ let womPids = new Set();
 let selectedLot = 'huila', topUpCups = 0, beanSpend = 0, emergencySpend = 0, sackSpend = 0;
 let pouredOther = 0, lastPour = 0, dawnIndex = 1.0;
 let pouredByLotToday = {}, servedByDrinkToday = {};
+let companionsYesterday = [];
 let emergencyToast = false, emergencyCups = 0;
 let staleNoted = new Set();
 // Phase 3 — menu + roast + milk + skill: committed prices/offered board,
@@ -751,6 +753,7 @@ function tick() {
       // Phase 1 — a walk-out sours a walk-in (roster balks already flow
       // through resolveDay's served/balked counters).
       if (e.p && e.p.pid && e.p.regularIdx < 0) walkins.recordVisit(e.p.pid, { day, outcome: 'balked' });
+      if (e.p && e.p.regularIdx >= 0) regulars.noteWalkout(e.p.regularIdx, { day, outcome: 'balked' });
       if (e.p && e.p.regularIdx < 0) {
         firstWalked++;
         if (firstWalkedToast < 2) { firstWalkedToast++; fx.toast('a first-timer walked — first impressions travel', 'warn'); }
@@ -780,6 +783,8 @@ function tick() {
       // Phase 1 — crossing to Glasshouse burns a walk-in (roster defectors
       // are unsee'd in patrons.js and never earned the day).
       if (e.p && e.p.pid && e.p.regularIdx < 0) walkins.recordVisit(e.p.pid, { day, outcome: 'defected' });
+      const widx = e.p ? (e.p.defectedFrom ?? e.p.regularIdx) : -1;
+      if (widx >= 0) regulars.noteWalkout(widx, { day, outcome: 'defected' });
       if (defections === 1) fx.toast('they’re crossing the road to ' + COPY.rivalName + '…', 'bad');
       if (defections === 1 && speed <= 300) rig.queueFocus(world.focus.rival, 13, 4, 12, Math.PI);
       if (defections === 5) {
@@ -915,8 +920,8 @@ function beats() {
   if (solicitorAt && dayMin >= solicitorAt) {
     solicitorAt = 0;
     if (Math.random() < 0.5) {
-      till -= 140 * perkCostMul; regulars.adjustOpinions(-0.1);
-      fx.toast('the scald claim stuck — −£140 and the story did the rounds', 'bad');
+      till -= solicitorCharge * perkCostMul; regulars.adjustOpinions(-0.1);
+      fx.toast(`the scald claim stuck — −£${solicitorCharge} and the story did the rounds`, 'bad');
     } else fx.toast('the scald claim went away — their solicitor stopped calling', 'good');
   }
   // Ruth breaks — pushed under a fifth of her condition and worked anyway,
@@ -1237,6 +1242,13 @@ function closeDay() {
     } else if (t === 'tab' && settleToday > 0) lessons.push(`Tab settled: ${fmt(settleToday)}`);
   }
   if (menuNeedsLine && !toolsIntroducedToday.includes('menu')) lessons.push(menuServedLine());
+  for (const r of regulars.regulars) {
+    for (const ev2 of r.events) {
+      if (ev2.day === day && ev2.outcome === 'balked') lessons.push(`${r.name} walked out of the line.`);
+      else if (ev2.day === day && ev2.outcome === 'defected') lessons.push(`${r.name} crossed to Glasshouse.`);
+    }
+  }
+  for (const c of (patrons.companionsToday || [])) lessons.push(`${c.name} brought ${c.friend}.`);
   const receiptData = {
     lessons,
     lines: [
@@ -2453,6 +2465,35 @@ function showMorningBrief() {
       else { learning.textContent = ls.text; learning.style.display = ''; lessonUrgent = ls.urgent; }
     }
   }
+  const people = $('brief-people');
+  if (people) {
+    const pl = [];
+    if (day >= 2) {
+      for (const r of regulars.regulars) {
+        if (r.justLost) pl.push(`${r.name} has started going to Glasshouse.`);
+        else if (r.absence === 'away') pl.push(`${r.name} isn’t coming in today — ${r.absentReason}.`);
+        else if (r.absence === 'returning') pl.push(`${r.name} is giving you another chance today. Say hello if you see them.`);
+      }
+      for (const c of companionsYesterday) pl.push(`${c.name} brought ${c.friend} in yesterday.`);
+      const pct = Math.round((regulars.footfallMul - 1) * 100);
+      if (pct >= 3) pl.push(`Word is getting around — about ${pct}% more people are expected because of how your regulars feel.`);
+      else if (pct <= -3) pl.push(`Word is getting around — about ${Math.abs(pct)}% fewer people are expected because of how your regulars feel.`);
+    }
+    clearEl(people);
+    if (pl.length) {
+      const h = document.createElement('div');
+      h.className = 'l-kicker';
+      h.textContent = 'Who’s coming in';
+      people.appendChild(h);
+      for (const l of pl) {
+        const d = document.createElement('div');
+        d.className = 'd-line';
+        d.textContent = l;
+        people.appendChild(d);
+      }
+      people.style.display = '';
+    } else people.style.display = 'none';
+  }
   const body = $('brief-letter');
   if (body) {
     // Progressive disclosure (stage 1 = the news only): the sizing explainer
@@ -2881,8 +2922,10 @@ function prepareDay(d) {
   planDraft = { day: d, hedge: 'hold', staffing: 'work', marketing: {} };
   if (d === 1) kitPendingAtOpen = !district.grown;   // the kit is an event only if it grows during play
   coached = d !== 1;   // the lever hint only coaches day 1, once per campaign
+  companionsYesterday = patrons.companionsToday || [];
   patrons.reset(); fx.reset();
   greetedToday.clear();
+  if (d >= 2) planAttendance(regulars.regulars, { day: d });
   walkins.ensureDay(d); evangelistServes = 0; womPids.clear();   // Phase 1 — fresh strangers (yesterday's known faces carry), WOM counter reset
   // Phase 4 — ceasefire Saturday: no crossings when the truce holds.
   patrons.truceCeasefire = samTruce && d === 5;
@@ -3534,44 +3577,47 @@ function showOffer() {
 // a real cost or a real trade, not flavor: slow bar, lost sales, rep hits,
 // deferred risk. Seed-offset so different seeds see different weeks.
 const INCIDENTS = [
-  { who: 'the plumber', line: '“Bathroom’s backed up. Emergency callout’s forty-five quid, cash.”',
-    effect: 'pay £45 · or the floor loses patience — walk-outs run hotter today',
-    yes: 'pay the £45', no: 'they can hold it',
-    accept() { till -= 45 * perkCostMul; },
+  { who: 'the plumber', base: 45, share: 0.05, line: c => `“Bathroom’s backed up. Emergency callout’s £${c}, cash.”`,
+    effect: c => `pay £${c} · or the floor loses patience — walk-outs run hotter today`,
+    yes: c => `pay the £${c}`, no: 'they can hold it',
+    accept() { till -= this._cost * perkCostMul; },
     decline() { patrons.balkMul = 1.6; } },
-  { who: 'Ruth, your barista', line: '“So sorry — I’ve woken up with no voice. I can’t make it in.”',
-    effect: '£55 agency cover · or solo shift — the bar runs ~40% slower',
+  { who: 'Ruth, your barista', base: 55, share: 0.06, line: '“So sorry — I’ve woken up with no voice. I can’t make it in.”',
+    effect: c => `£${c} agency cover · or solo shift — the bar runs ~40% slower`,
     yes: 'book the cover', no: 'work it solo',
-    accept() { till -= 55 * perkCostMul; },
+    accept() { till -= this._cost * perkCostMul; },
     decline() { patrons.staffMul = 0.6; } },
-  { who: 'the card machine', line: 'The reader’s dead. Cash only until a 4G dongle lands.',
-    effect: '£25 for the dongle · or a fifth of today’s sales die at the till',
+  { who: 'the card machine', base: 25, share: 0.03, line: 'The reader’s dead. Cash only until a 4G dongle lands.',
+    effect: c => `£${c} for the dongle · or a fifth of today’s sales die at the till`,
     yes: 'order the dongle', no: 'cash only today',
-    accept() { till -= 25 * perkCostMul; },
+    accept() { till -= this._cost * perkCostMul; },
     decline() { cashOnly = 0.2; } },
-  { who: 'the inspector', line: '“Council. Routine check — that milk needs a dated fridge log.”',
-    effect: '£30 compliance fix now · or −6 reputation when the report lands',
-    yes: 'pay the £30', no: 'take the report',
-    accept() { till -= 30 * perkCostMul; },
+  { who: 'the inspector', base: 30, share: 0.04, line: '“Council. Routine check — that milk needs a dated fridge log.”',
+    effect: c => `£${c} compliance fix now · or −6 reputation when the report lands`,
+    yes: c => `pay the £${c}`, no: 'take the report',
+    accept() { till -= this._cost * perkCostMul; },
     decline() { regulars.adjustOpinions(-0.16); } },
-  { who: 'a solicitor’s letter', line: 'Someone claims a scalded wrist. “Settle for sixty and it goes away.”',
-    effect: 'pay £60 nuisance settlement · or contest — it lands at 16:30, half the time it sticks for £140',
-    yes: 'settle the £60', no: 'contest it',
-    accept() { till -= 60 * perkCostMul; },
-    decline() { solicitorAt = 990; } },
-  { who: 'the supplier', line: '“Milk van’s here — account’s overdue, it’s cash on delivery today.”',
-    effect: '£40 cash now · or your next contract carries a +£18 fee',
-    yes: 'pay the £40', no: 'put it on the account',
-    accept() { till -= 40 * perkCostMul; },
+  { who: 'a solicitor’s letter', base: 60, share: 0.06, contestShare: 0.14, contestBase: 140,
+    line: 'Someone claims a scalded wrist. “Settle and it goes away.”',
+    effect: (c, c2) => `pay £${c} nuisance settlement · or contest — it lands at 16:30, half the time it sticks for £${c2}`,
+    yes: c => `settle the £${c}`, no: 'contest it',
+    accept() { till -= this._cost * perkCostMul; },
+    decline() { solicitorAt = 990; solicitorCharge = this._contest; } },
+  { who: 'the supplier', base: 40, share: 0.04, line: '“Milk van’s here — account’s overdue, it’s cash on delivery today.”',
+    effect: c => `£${c} cash now · or your next contract carries a +£18 fee`,
+    yes: c => `pay the £${c}`, no: 'put it on the account',
+    accept() { till -= this._cost * perkCostMul; },
     decline() { contractFeeExtra += 18; } },
   // Phase 3 — the roast can scorch: re-roast fresh for £18 (roast clock
   // resets) or serve it dark and let the room taste it all day.
-  { who: 'the roast', line: '“Left the house lot on too long — it’s scorched.” Ruth won’t serve it proud.',
-    effect: '£18 emergency re-roast, fresh clock · or serve it dark — every roast-sensitive cup sours',
-    yes: 're-roast (£18)', no: 'serve it dark',
-    accept() { till -= 18 * perkCostMul; const e = lotState.entry(lotState.house); if (e) { e.roastedOn = day; e.scorched = false; } },
+  { who: 'the roast', base: 18, share: 0.02, line: '“Left the house lot on too long — it’s scorched.” Ruth won’t serve it proud.',
+    effect: c => `£${c} emergency re-roast, fresh clock · or serve it dark — every roast-sensitive cup sours`,
+    yes: c => `re-roast (£${c})`, no: 'serve it dark',
+    accept() { till -= this._cost * perkCostMul; const e = lotState.entry(lotState.house); if (e) { e.roastedOn = day; e.scorched = false; } },
     decline() { const e = lotState.entry(lotState.house); if (e) e.scorched = true; } },
 ];
+
+let solicitorCharge = 140;
 
 function showIncident() {
   const idx = (day - 2 + ((SEED * 7) | 0)) % INCIDENTS.length;
@@ -3582,9 +3628,15 @@ function showIncident() {
     if (baristaHomeToday || apprenticeHiredToday) o = INCIDENTS[(idx + 1) % INCIDENTS.length];
     else if (baristaCondition < 0.4) o = { ...o,
       line: '“I can’t do another one like yesterday.” Ruth’s voice is flat — she’s on fumes.',
-      effect: '£55 agency cover · or she pushes on — the bar runs ~60% slower',
+      effect: c => `£${c} agency cover · or she pushes on — the bar runs ~60% slower`,
       decline() { patrons.staffMul = 0.4; } };
   }
+  o = { ...o };
+  o._cost = incidentCost(o.base, o.share, till);
+  o._contest = o.contestShare ? incidentCost(o.contestBase, o.contestShare, till) : 0;
+  if (typeof o.line === 'function') o.line = o.line(o._cost);
+  if (typeof o.effect === 'function') o.effect = o.effect(o._cost, o._contest);
+  if (typeof o.yes === 'function') o.yes = o.yes(o._cost);
   presentBeat(o, 'the floor bites back · y / n', true);
 }
 
@@ -3647,7 +3699,7 @@ function reset() {
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   rushFast = false;
   party = null; batchWaste = 0; batchSpend = 0;
-  incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; cOps = 0;
+  incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; solicitorCharge = 140; cOps = 0;
   rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day
   briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;
   greetedToday.clear();
@@ -3684,11 +3736,13 @@ function reset() {
   { const ob = $('brief-open'), mb = $('letter-mail-btn'); if (ob) ob.disabled = false; if (mb) mb.disabled = false; }
   if (sync.abandonRun) { sync.abandonRun(); if (sync.live && !sync.runDisabled) sync.beginRun(SEED).catch(() => {}); }
   const newOpWarm = (PERK_VALUES[perkBg] || {}).opWarm;
-  for (const r of regulars.regulars) { r.op = newOpWarm != null ? Math.max(r.op, newOpWarm) : 0.15; r.seen = false; r.served = 0; r.balked = 0; }
+  for (const r of regulars.regulars) { r.op = newOpWarm != null ? Math.max(r.op, newOpWarm) : 0.15; r.visits = 5; r.stage = 'regular'; r.drink = CANON_DRINKS[r.name] || 'filter'; r.events = []; r.seen = false; r._spawned = false; r.served = 0; r.balked = 0; r.absence = 'present'; r.absentReason = null; r.justLost = false; r._defectShown = false; r._lastWalkoutDay = undefined; r._lastOutcomeDay = undefined; }
+  walkins.reset();
   cRev = cCost = cBalked = cServed = cDef = cRivalServed = cRivalChoices = settledPaid = 0;
   campaignDone = false; paused = false;
   campaignDays = []; weekOpStart = null; staleByLotToday = {};   // Phase 6 — autopsy rewinds
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
+  companionsYesterday = [];
   if ($('pause')) $('pause').textContent = 'pause';
   prepareDay(1);
   if (wasFinale) {
@@ -3792,7 +3846,7 @@ function openDossier(p) {
     const r = regulars.regulars[p.regularIdx];
     if (!r) return;
     openProfile({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, events: r.events },
-      { op: r.op, friends: r.friends || [], faceSeed: r.name, cohort: r.coh, isCast: true, quirk: r.quirk, patron: p, pid: null });
+      { op: r.op, friends: r.friends || [], faceSeed: r.name, cohort: r.coh, isCast: true, quirk: r.quirk, patron: p, pid: null, absence: r.absence });
   } else if (p.pid) {
     const head = walkins.get(p.pid);
     if (!head) return;
@@ -3800,8 +3854,8 @@ function openDossier(p) {
   }
 }
 
-function openProfile(ident, { op = null, friends = [], faceSeed = 'stranger', cohort = 'commuters', isCast = false, quirk = null, patron = null, pid = null } = {}) {
-  const view = profileView(ident, { op, friends, quirk, isCast, greetedToday: greetedToday.has(greetKey(isCast, ident)) });
+function openProfile(ident, { op = null, friends = [], faceSeed = 'stranger', cohort = 'commuters', isCast = false, quirk = null, patron = null, pid = null, absence = null } = {}) {
+  const view = profileView(ident, { op, friends, quirk, isCast, greetedToday: greetedToday.has(greetKey(isCast, ident)), absence });
   const box = $('dossier-portrait'); if (box) {
     box.textContent = '';
     try {
@@ -3824,7 +3878,8 @@ function openProfile(ident, { op = null, friends = [], faceSeed = 'stranger', co
   if (lines) { lines.textContent = ''; for (const l of view.history) { const d = document.createElement('div'); d.textContent = l; lines.appendChild(d); } }
   const hello = $('dossier-hello');
   if (hello) {
-    if (view.greetedToday) { hello.disabled = true; hello.textContent = 'You said hello today.'; }
+    if (absence === 'away' || absence === 'lost') { hello.disabled = true; hello.textContent = 'Not in today.'; }
+    else if (view.greetedToday) { hello.disabled = true; hello.textContent = 'You said hello today.'; }
     else {
       hello.disabled = false; hello.textContent = 'Say hello';
       hello.onclick = () => {
@@ -3838,7 +3893,7 @@ function openProfile(ident, { op = null, friends = [], faceSeed = 'stranger', co
 
 // Phase 1 — the regulars board: the cast (canon roster) plus graduated
 // walk-ins ("new faces"). Rendered fresh on every open.
-function boardRow({ name, stage, visits, drink, op, friends, faceSeed, cohort, events }, onOpen) {
+function boardRow({ name, stage, visits, drink, op, friends, faceSeed, cohort, events, absence }, onOpen) {
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'b-row';
@@ -3852,7 +3907,7 @@ function boardRow({ name, stage, visits, drink, op, friends, faceSeed, cohort, e
     : last.outcome === 'balked' ? `day ${last.day} — walked out (the line)`
     : last.outcome === 'defected' ? `day ${last.day} — crossed to Glasshouse`
     : null;
-  t.innerHTML = `<b>${name}</b> <span class="b-stage">${stageLabel({ stage, visits })}</span><br><span style="opacity:.65">${visits} visit${visits === 1 ? '' : 's'} · ${drink} · ${feeling(op)}</span>${lastLine ? `<br><span style="opacity:.5">${lastLine}</span>` : ''}${friends && friends.length ? `<br><span style="opacity:.5">friends: ${friends.slice(0, 3).join(', ')}</span>` : ''}`;
+  t.innerHTML = `<b>${name}</b> <span class="b-stage">${stageLabel({ stage, visits })}</span><br><span style="opacity:.65">${visits} visit${visits === 1 ? '' : 's'} · ${drink} · ${ABSENCE_WORD[absence] || feeling(op)}</span>${lastLine ? `<br><span style="opacity:.5">${lastLine}</span>` : ''}${friends && friends.length ? `<br><span style="opacity:.5">friends: ${friends.slice(0, 3).join(', ')}</span>` : ''}`;
   row.appendChild(t);
   return row;
 }
@@ -3861,9 +3916,9 @@ function renderBoard() {
   if (cast) {
     cast.textContent = '';
     for (const r of regulars.regulars) {
-      cast.appendChild(boardRow({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, op: r.op, friends: r.friends, faceSeed: r.name, cohort: r.coh, events: r.events },
+      cast.appendChild(boardRow({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, op: r.op, friends: r.friends, faceSeed: r.name, cohort: r.coh, events: r.events, absence: r.absence },
         () => openProfile({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, events: r.events },
-          { op: r.op, friends: r.friends || [], faceSeed: r.name, cohort: r.coh, isCast: true, quirk: r.quirk })));
+          { op: r.op, friends: r.friends || [], faceSeed: r.name, cohort: r.coh, isCast: true, quirk: r.quirk, absence: r.absence })));
     }
   }
   const grads = walkins.graduated();
@@ -4445,7 +4500,7 @@ function loop(now) {
   doPrebatch, doReprice,
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
   stageCellar,
-  patrons, modals, openDossier,
+  patrons, modals, openDossier, showIncident,
   renderBrief() { if (phase === 'planning') showMorningBrief(); },
   get phase() { return phase; },
   get plan() { return planDraft ? { ...planDraft, marketing: { ...demand.staged } } : null; },

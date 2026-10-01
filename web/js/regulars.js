@@ -28,6 +28,8 @@ export class Regulars {
       stage: 'regular',
       drink: CANON_DRINKS[r.name] || 'filter',
       events: [],
+      absence: 'present',
+      absentReason: null,
     }));
     // Build the friendship graph once. Map<idx, Set<idx>> for O(1) edge lookup.
     // Edges are stored once (the undirected edge, not both directions).
@@ -158,7 +160,7 @@ export class Regulars {
   // Phase 1: also returns visits/stage/drink so the floor greets returning
   // faces by history, not just by name.
   markSeen(cohort) {
-    const cands = this.regulars.filter(r => !r.seen && !r._spawned && r.coh === cohort);
+    const cands = this.regulars.filter(r => !r.seen && !r._spawned && r.coh === cohort && r.absence !== 'away' && r.absence !== 'lost');
     if (!cands.length) return { found: false };
     const r = cands[(Math.random() * cands.length) | 0];
     r.seen = true; r._spawned = true;
@@ -177,6 +179,17 @@ export class Regulars {
     if (r.events.length > MAX_EVENTS) r.events.splice(0, r.events.length - MAX_EVENTS);
     r.stage = stageFor(r.visits, r.op);
     return r.stage;
+  }
+
+  noteWalkout(idx, { day, outcome } = {}) {
+    const r = this.regulars[idx];
+    if (!r) return null;
+    if (day != null && r._lastWalkoutDay === day) return false;
+    if (day != null) r._lastWalkoutDay = day;
+    r.events.push({ day, drink: r.drink, outcome, stayed: false });
+    if (r.events.length > MAX_EVENTS) r.events.splice(0, r.events.length - MAX_EVENTS);
+    r.op = clamp(r.op + (outcome === 'defected' ? -0.12 : -0.08), -1, 1);
+    return r;
   }
 
   // Reverse a seen-mark when a patron defects to the rival before being served

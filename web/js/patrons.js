@@ -197,6 +197,7 @@ export class PatronSystem {
       if (c && c !== p) {
         c.companionOf = p.pid || p.regularName;
         p.broughtFriend = c.pname || 'a friend';
+        if (p.regularName) (this.companionsToday ||= []).push({ name: p.regularName, friend: p.broughtFriend });
       }
     }
     // The 11:00 ask's party — stamp members during the rush so the evening
@@ -209,6 +210,8 @@ export class PatronSystem {
     this.patrons.push(p);
     const door = V3(LAYOUT.door.x + (Math.random() - 0.5) * 2.2, 0, LAYOUT.door.z + 0.5);
     if (toRival) {
+      const lost = this.regulars && this.regulars.regulars.find(r => r.absence === 'lost' && !r._defectShown && r.coh === cohort);
+      if (lost) { lost._defectShown = true; p.regularName = lost.name; p.hasHat = true; p.pname = lost.name; p.faceSeed = lost.name; p.lostGlimpse = true; }
       p.rivalOrigin = 'choice'; p.queueRef = 'rival'; this.rivalChoices++;
       this.rivalQ.push(p);
       p.goal = this._slotPos(rivalSlot, this.rivalQ.length - 1, p);
@@ -320,7 +323,7 @@ export class PatronSystem {
             V3(LAYOUT.crossX, 0, 14.6),
           ];
           // they walked out before being served — don't credit them with having been "seen"
-          if (p.regularIdx >= 0 && this.regulars) this.regulars.unsee(p.regularIdx);
+          if (p.regularIdx >= 0 && this.regulars) { p.defectedFrom = p.regularIdx; this.regulars.unsee(p.regularIdx); }
           p.regularName = null; p.regularIdx = -1;
           ev.push({ type: 'defect', p });
         } else this._leave(p);
@@ -732,6 +735,7 @@ export class PatronSystem {
     for (let i = this.patrons.length - 1; i >= 0; i--) this._despawn(this.patrons[i]);
     this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.rivalClock = 0; this.rivalCredit = 0; this.rivalChoices = 0;
     this.staffMul = 1; this.balkMul = 1; this.dwellMul = 1;
+    this.companionsToday = [];
   }
 }
 

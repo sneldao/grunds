@@ -1,4 +1,5 @@
 import { stageLabel, feeling, dossierLines } from './identity.js';
+import { ABSENCE_WORD } from './consequences.js';
 
 export const CAST_PROFILES = {
   Mara:   { bio: 'Catches the 8:10 into the city. Knows your name before you know hers.', wants: 'A short line in the morning. She won’t wait for anyone.' },
@@ -31,16 +32,16 @@ export function walkinProfile(head) {
 const drinkLc = d => (d || '').toLowerCase();
 const drinkArticle = d => { const l = drinkLc(d); return `${/^[aeiou]/.test(l) ? 'an' : 'a'} ${l}`; };
 
-export function profileView(ident, { op = null, friends = [], quirk = null, isCast = false, greetedToday = false } = {}) {
+export function profileView(ident, { op = null, friends = [], quirk = null, isCast = false, greetedToday = false, absence = null } = {}) {
   const cast = isCast ? CAST_PROFILES[ident.name] : null;
   const walk = cast ? null : walkinProfile(ident);
   const bio = cast ? cast.bio : walk.bio;
   const wants = cast ? cast.wants : walk.wants;
   const established = isCast || ['regular', 'friend', 'evangelist'].includes(ident.stage);
-  const feel = op == null ? null
+  const feel = ABSENCE_WORD[absence] || (op == null ? null
     : feeling(op) === 'warming' ? 'warming to you'
     : feeling(op) === 'unhappy' ? 'unhappy with you'
-    : 'still making up their mind';
+    : 'still making up their mind');
   const last = ident.events && ident.events.length ? ident.events[ident.events.length - 1] : null;
   const lastBetween = !last ? 'You haven’t met properly yet.'
     : last.outcome === 'served' ? `Last time: had ${drinkArticle(last.drink || ident.drink)}${last.stayed ? ' and stayed a while' : ''}`
@@ -70,6 +71,6 @@ export function profileView(ident, { op = null, friends = [], quirk = null, isCa
     bio, wants, usual, feeling: feel, lastBetween,
     friends: friends.length ? `friends here: ${friends.slice(0, 3).join(', ')}` : null,
     history,
-    quirk, greetedToday,
+    quirk, greetedToday, absence,
   };
 }

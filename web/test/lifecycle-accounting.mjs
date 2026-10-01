@@ -2,7 +2,7 @@
 // boot → planning (no roll) → stage → commit (charges once, then rolls) →
 // trading → closeDay → review → explicit continue. No hidden day advances.
 // Run: node web/test/lifecycle-accounting.mjs   (from the repo root)
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { CAMPAIGN, ECON } from '../js/config.js';
@@ -10,6 +10,7 @@ import { Exchange } from '../js/exchange.js';
 import { PatronSystem } from '../js/patrons.js';
 import { salePrice, operatingCosts, hedgeTerms, campaignVerdict } from '../js/economy.js';
 import { priceForDay } from '../js/gentrification.js';
+import { profileView } from '../js/cast.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const schedule = JSON.parse(readFileSync(join(ROOT, 'out', 'wave_schedule.json'), 'utf8'));
@@ -416,6 +417,147 @@ await new Promise(r => setTimeout(r, 5400));
   const stE = G.stats();
   const wantRev = '£' + (stE.till + stE.batchSpend).toFixed(2);
   if (!revLine || revLine[1] !== wantRev) fails.push(`revenue should be gross of batch spend: got ${revLine && revLine[1]}, want ${wantRev}`);
+}
+
+// Step 2 — consequences through people: attendance state machine, Who's
+// coming in, walkout receipt lines, incident copy == charged amount.
+G.reset();
+await new Promise(r => setTimeout(r, 5400));
+{
+  const mara = G.reg.regulars[0];
+  if (mara.name !== 'Mara') fails.push(`fixture expected Mara at idx 0, got ${mara.name}`);
+  if (mara.events.length !== 0 || mara.visits !== 5 || mara.stage !== 'regular')
+    fails.push(`reset left prior-campaign history on the roster: ${mara.events.length} events, ${mara.visits} visits, ${mara.stage}`);
+  if (mara.drink !== 'flat white') fails.push(`reset lost Mara's canon drink: ${mara.drink}`);
+  const heads = G.patrons.walkins?.heads || [];
+  if (heads.some(h => h.visits > 0 || (h.events || []).length)) fails.push('reset carried prior-campaign walk-in faces into day 1');
+  const mv = profileView(mara, { isCast: true, op: mara.op });
+  if (mv.lastBetween !== 'You haven’t met properly yet.') fails.push(`fresh-campaign profile should have no history: ${mv.lastBetween}`);
+
+  G.stageDayPlan({ hedge: 'hold' });
+  if (!G.commitDayPlan().ok) fails.push('step2 day-1 commit failed');
+  runFrames(220);
+  if (G.phase !== 'review') fails.push('step2 day-1 did not close');
+  mara.op = -0.5;
+  mara.events.push({ day: 1, drink: 'flat white', outcome: 'balked', stayed: false });
+
+  // dawn 2 — unhappy present → away, and the brief says so
+  if (!G.continueFromReview()) fails.push('step2 day-2 continue rejected');
+  if (mara.absence !== 'away') fails.push(`Mara should be away on day 2, got ${mara.absence}`);
+  if (mara.absentReason !== 'still annoyed about walking out of a long line') fails.push(`Mara reason wrong: ${mara.absentReason}`);
+  {
+    const seen = new Set();
+    for (let i = 0; i < 12; i++) { const m = G.reg.markSeen('commuters'); if (m.found) seen.add(m.name); }
+    if (seen.has('Mara')) fails.push('markSeen spawned an away regular');
+    G.reg.regulars.forEach(r => { r.seen = false; r._spawned = false; });
+    registry.get('brief-people').children.length = 0;
+    G.renderBrief();
+    const pt = deepText(registry.get('brief-people'));
+    if (!pt.includes('Who’s coming in')) fails.push('day-2 brief missing the people header');
+    if (!pt.includes('Mara isn’t coming in today — still annoyed about walking out of a long line.')) fails.push(`day-2 people line wrong: ${pt}`);
+    try { mkdirSync('/tmp/grunds-step2-logs', { recursive: true }); writeFileSync('/tmp/grunds-step2-logs/brief-people-away.txt', pt); } catch {}
+  }
+
+  G.stageDayPlan({ hedge: 'hold' });
+  stageLifecycleSupplies();
+  if (!G.commitDayPlan().ok) fails.push('step2 day-2 commit failed');
+  if (G.phase !== 'trading') fails.push(`step2 day-2 should be trading, got ${G.phase}`);
+
+  // a real cast walkout records once per day and lands on the receipt
+  const dev = G.reg.regulars.find(r => r.name === 'Dev');
+  const devOp = dev.op;
+  if (!G.reg.noteWalkout(G.reg.regulars.indexOf(dev), { day: 2, outcome: 'balked' })) fails.push('noteWalkout returned falsy on first balk');
+  if (!near(dev.op, Math.max(-1, Math.min(1, devOp - 0.08)))) fails.push(`balk op delta wrong: ${devOp} -> ${dev.op}`);
+  const devEvents = dev.events.length;
+  if (G.reg.noteWalkout(G.reg.regulars.indexOf(dev), { day: 2, outcome: 'balked' })) fails.push('noteWalkout double-counted a same-day balk');
+  if (dev.events.length !== devEvents) fails.push('same-day second balk appended an event');
+
+  // incident copy == charged amount: force one open and read the card
+  G.showIncident();
+  const tillBefore = G.stats().till;
+  const effectTxt = registry.get('offer-effect').textContent;
+  const mAmt = effectTxt.match(/£(\d+)/);
+  if (!mAmt) fails.push(`incident effect has no £ amount: ${effectTxt}`);
+  const want = Number(mAmt[1]);
+  if (!(want >= 18)) fails.push(`incident scaled below the smallest base: ${want}`);
+  registry.get('offer-yes').click();
+  const charged = tillBefore - G.stats().till;
+  if (mAmt && !near(charged, want)) fails.push(`incident copy £${want} but charged £${charged}`);
+
+  runFrames(220);
+  if (G.phase !== 'review') fails.push('step2 day-2 did not close');
+  const rc2 = G.lastDayReceipt;
+  if (!rc2 || !rc2.lessons.some(l => l === 'Dev walked out of the line.')) fails.push(`day-2 receipt missing the walkout lesson: ${JSON.stringify(rc2 && rc2.lessons)}`);
+  try { writeFileSync('/tmp/grunds-step2-logs/receipt-lessons-walkout.txt', (rc2 ? rc2.lessons : []).join('\n')); } catch {}
+
+  // dawn 3 — away + still unhappy → returning, one more chance
+  mara.op = -0.5;
+  if (!G.continueFromReview()) fails.push('step2 day-3 continue rejected');
+  if (mara.absence !== 'returning') fails.push(`Mara should be returning on day 3, got ${mara.absence}`);
+  {
+    registry.get('brief-people').children.length = 0;
+    G.renderBrief();
+    const pt = deepText(registry.get('brief-people'));
+    if (!pt.includes('Mara is giving you another chance today. Say hello if you see them.')) fails.push(`day-3 returning line wrong: ${pt}`);
+    try { writeFileSync('/tmp/grunds-step2-logs/brief-people-returning.txt', pt); } catch {}
+    // returning means she can spawn again
+    const seen = new Set();
+    for (let i = 0; i < 12; i++) { const m = G.reg.markSeen('commuters'); if (m.found) seen.add(m.name); }
+    if (!seen.has('Mara')) fails.push('returning Mara was skipped by markSeen');
+    G.reg.regulars.forEach(r => { r.seen = false; r._spawned = false; });
+  }
+  G.stageDayPlan({ hedge: 'hold' });
+  stageLifecycleSupplies();
+  if (!G.commitDayPlan().ok) fails.push('step2 day-3 commit failed');
+  runFrames(220);
+  if (G.phase !== 'review') fails.push('step2 day-3 did not close');
+
+  // dawn 4 — still unhappy after the second chance → lost, and the street
+  // shows her crossing to Glasshouse without touching her opinion
+  mara.op = -0.5;
+  if (!G.continueFromReview()) fails.push('step2 day-4 continue rejected');
+  if (mara.absence !== 'lost') fails.push(`Mara should be lost on day 4, got ${mara.absence}`);
+  if (!mara.justLost) fails.push('justLost should be set on the day she goes');
+  {
+    registry.get('brief-people').children.length = 0;
+    G.renderBrief();
+    const pt = deepText(registry.get('brief-people'));
+    if (!pt.includes('Mara has started going to Glasshouse.')) fails.push(`day-4 lost line missing: ${pt}`);
+    try { writeFileSync('/tmp/grunds-step2-logs/brief-people-lost.txt', pt); } catch {}
+  }
+  G.stageDayPlan({ hedge: 'hold' });
+  stageLifecycleSupplies();
+  if (!G.commitDayPlan().ok) fails.push('step2 day-4 commit failed');
+  runFrames(3);
+  {
+    const origRandom = G.patrons.random;
+    G.patrons.random = () => 0.001;
+    let glimpse = null;
+    for (let i = 0; i < 60 && !glimpse; i++) {
+      const p = G.patrons.spawn('commuters', 'counter', true);
+      if (p && p.lostGlimpse) glimpse = p;
+    }
+    G.patrons.random = origRandom;
+    if (!glimpse) fails.push('lost Mara never glimpsed crossing to Glasshouse');
+    else {
+      if (glimpse.regularName !== 'Mara' || !glimpse.hasHat || glimpse.pname !== 'Mara') fails.push('lost glimpse patron not tagged as Mara');
+      if (mara.seen || mara._spawned) fails.push('a lost glimpse marked Mara seen');
+      if (!near(mara.op, -0.5)) fails.push(`lost glimpse changed opinion: ${mara.op}`);
+      if (mara.events.some(e => e.day === 4)) fails.push(`lost glimpse wrote a day-4 event: ${JSON.stringify(mara.events.filter(e => e.day === 4))}`);
+    }
+  }
+  runFrames(220);
+
+  // dawn 5 — lost stays lost, no repeat line
+  if (G.phase !== 'review') fails.push('step2 day-4 did not reach review');
+  if (!G.continueFromReview()) fails.push('step2 day-5 continue rejected');
+  if (mara.absence !== 'lost' || mara.justLost) fails.push(`lost should persist without re-firing: ${mara.absence}/${mara.justLost}`);
+  {
+    registry.get('brief-people').children.length = 0;
+    G.renderBrief();
+    const pt = deepText(registry.get('brief-people'));
+    if (pt.includes('Mara has started going to Glasshouse.')) fails.push('justLost line repeated on day 5');
+  }
 }
 
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }

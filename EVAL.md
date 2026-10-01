@@ -2,7 +2,15 @@
 
 How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
 
-## Current verification — October 1, 2026: meet the cast (roadmap step 1)
+## Current verification — October 1, 2026: consequences through people (roadmap step 2)
+
+- Named regulars now record walkouts and defections in their history and lose the same opinion walk-ins lose (−0.08 / −0.12, once per day). An unhappy regular (opinion below −0.2 at dawn) stays away for a day, returns once for a second chance, and starts going to Glasshouse for the rest of the campaign if still unhappy the next dawn; lost regulars are seen walking into Glasshouse with no further effect. The Morning Brief's "Who's coming in" section reports absences, second chances, losses, companions, and the reputation footfall effect when it is at least 3%. Receipts name walkouts, defections, and companions. Incidents now cost a share of the till when they open (2–6%, solicitor contest 14%) with the old fixed amounts as floors; decline effects are unchanged. Campaign reset now clears roster history and the walk-in pool.
+- `consequences.mjs` (pure state machine, reasons, cost rounding) and an extended `lifecycle-accounting.mjs` (away → returning → lost, walkout recording, incident copy equals charge, reset clears history) pass. A 68-suite non-balance gate passed before the reset fix; affected suites passed again afterward with TypeScript clean.
+- Before/after probe (lead-authored; seeds 7, 42, 101, 202, 555; Cerrado restock + tab settlement; `queue` declines offers and incidents, `engaged` accepts; same wrapper on `df82b4f` and on this change; `/tmp/grunds-step2-before-after.json`): incidents now cost £155–£300 instead of £18–£60. Accepting every incident lowered five-day net worth by £651 on average (range −£583 to −£701), and one engaged run moved from "held" to "scarped". Declining policies moved by −£0 to +£403 (mean +£148), within run-to-run variation from the changed spawn path. Named regulars recorded 11 walkouts across the ten runs, versus none before.
+- No regular stayed away or was lost in these ten runs: the regulars who became unhappy (Olu and Esther under the declining policy, about −0.29) crossed the threshold only on the final day. The absence path is exercised by fixtures, not yet by these sampled policies; whether opinion moves fast enough for players to see it within a week is an open tuning question, not settled here.
+- No browser automation was run.
+
+## Previous verification — October 1, 2026: meet the cast (roadmap step 1)
 
 - Any named patron, queuing or seated, and every regulars-board row opens a profile: bio, wants, usual (most frequent actual order, else their canon drink), feeling in words, the last thing that happened, friends, and recent history. The hover card no longer shows raw opinion numbers.
 - The previous uncapped click-to-wave opinion gain is removed. "Say hello" applies the same +0.06 opinion once per person per day; identity-less patrons get a greeting bubble with no effect.
