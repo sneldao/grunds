@@ -261,6 +261,9 @@ console.log('FOCUSABLES hidden/disabled/closed-details excluded');
   for (const rule of ['.modal:not(.show) { visibility: hidden', '.modal-body', 'overflow: auto', '.modal-footer', 'border-top: 1px solid',
     '#brief-summary', 'text-overflow: ellipsis', '#brief-open { min-height: 44px', 'min(760px, 86', 'calc(100dvh - 32px)'])
     check(css.includes(rule), `stylesheet missing: ${rule}`);
+  const src = read('web/js/modals.js');
+  check(src.includes("'softintro'"), 'OWNED missing softintro');
+  check(html.includes('id="softintro"') && html.includes('id="softintro-dots"'), 'index.html missing #softintro');
   check(!css.includes('38vh'), 'old 38vh drawer cap should be gone');
 }
 console.log('STRUCTURE six modals share panel/header/body/footer; CSS scroll+footer rules present (structural only — no geometry proof)');

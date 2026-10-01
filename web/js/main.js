@@ -233,6 +233,8 @@ const modals = createModalController({
       else if (e.key === 'n' || e.key === 'N') resolveOffer(false);
     } else if (t === 'tutorial') {
       if (e.key === 'Enter') { const n = $('tnext'); if (n) n.click(); }
+    } else if (t === 'softintro') {
+      if (e.key === 'Enter') { const p = $('softintro-primary'); if (p && !p.disabled) p.click(); }
     }
   },
   allowNumericShortcut: (t, target, key) => t === 'brief' && day === 1 && /^[1-3]$/.test(key) && !!(target && target.dataset && target.dataset.prep),
@@ -1944,25 +1946,21 @@ function renderFirstDayChoices(wrap) {
     nm.textContent = def.label;
     const tag = document.createElement('span');
     tag.className = 'pc-tag';
-    tag.textContent = def.tag;
+    tag.textContent = guidedOpening ? def.tag : '';
     lab.append(nm, tag);
-    const cost = document.createElement('div');
-    cost.className = 'pc-cost';
-    cost.style.cssText = 'font-family:var(--mono);font-size:11px;margin-top:2px';
-    cost.textContent = def.cost;
-    const desc = document.createElement('div');
-    desc.className = 'pc-desc';
-    desc.textContent = def.desc;
-    b.append(lab, cost, desc);
+    const line = document.createElement('div');
+    line.className = 'pc-desc';
+    line.textContent = def.line;
+    b.append(lab, line);
     b.onclick = () => pick(def.key);
     wrap.appendChild(b);
   }
   const note = document.createElement('details');
   note.className = 'prep-note';
   const nsum = document.createElement('summary');
-  nsum.textContent = 'what if I change my mind?';
+  nsum.textContent = 'what’s the difference?';
   const nbody = document.createElement('div');
-  nbody.textContent = FM.lateNote;
+  nbody.textContent = `${FM.diff} ${FM.lateNote}`;
   note.append(nsum, nbody);
   wrap.appendChild(note);
 }
@@ -2952,6 +2950,36 @@ function showMorningBrief() {
   try { analytics.track('brief_shown', { day, event: exchange.event ? exchange.event.id : null, index: exchange.beanIndex, hasWire: !!marketIntel }); } catch {}
 }
 
+function showSoftIntro(step = 0) {
+  const el = $('softintro'); if (!el) return;
+  const wrap = $('softintro-step');
+  const head = $('softintro-heading'), port = $('softintro-portrait');
+  const line = $('softintro-line'), prim = $('softintro-primary'), skip = $('softintro-skip');
+  const dots = $('softintro-dots');
+  if (dots) [...dots.children].forEach((d, i) => d.classList.toggle('on', i === step));
+  head.textContent = standName;
+  port.style.display = step === 1 ? '' : 'none';
+  if (step === 1) {
+    clearEl(port);
+    try { port.appendChild(portraitCanvas('ruth', 'commuters', 72)); } catch {}
+  }
+  line.textContent = step === 0
+    ? 'Your café — before anyone knows it’s here.'
+    : 'Ruth makes every drink. You watch the room and make the calls.';
+  prim.textContent = step === 0 ? 'Step inside' : 'Open the doors';
+  prim.onclick = () => {
+    if (step === 0) { showSoftIntro(1); return; }
+    try { modals.close('softintro'); } catch {}
+    stagedPrep.batch = false; stagedPrep.reprice = false;
+    firstPrepChosen = true;
+    Promise.resolve(commitDayPlan()).then(res => { if (res && res.ok) updateHUD(); }).catch(() => {});
+  };
+  skip.style.display = step === 0 ? '' : 'none';
+  skip.onclick = () => { try { modals.close('softintro'); } catch {} beginWeek(); };
+  if (wrap) { wrap.classList.remove('si-in'); void wrap.offsetWidth; wrap.classList.add('si-in'); }
+  modals.open('softintro');
+}
+
 function dismissBriefAndStartDay() {
   const el = $('brief'); if (!el) return;
   if (day === 1 && guidedOpening && !firstPrepChosen) return;
@@ -3086,7 +3114,7 @@ function prepareDay(d) {
   // Headless and tutorial-driven opens skip it (they own their own clock).
   if (!headless && !tutorialActive) {
     // open the Brief on the next microtask so the DOM/HUD is painted first
-    scheduleRun(() => { if (phase === 'planning') showMorningBrief(); }, 120);
+    scheduleRun(() => { if (phase === 'planning') { if (softDay) showSoftIntro(0); else showMorningBrief(); } }, 120);
   }
   return true;
 }
@@ -3638,7 +3666,7 @@ function showOffer() {
   const o = softDay ? { ...OFFERS[0],
     line: '“Mind if the study group lands at 14:00? Twenty-four of us — all matcha.”',
     effect: 'say yes → twenty-four students arrive at 14:00 for matcha — Pip’s group is counted on the evening card',
-    accept() { party = { name: 'Pip', cohort: 'students', left: 24, served: 0, walked: 0 }; },
+    accept() { party = { name: 'Pip', cohort: 'students', left: 24, served: 0, walked: 0 }; momentEnqueue('plan', 'plan', { expiresAt: 840 }); },
   } : OFFERS[(day - 1) % OFFERS.length];
   presentBeat(o, 'a regular asks · y / n', false);
 }
@@ -4393,7 +4421,9 @@ function coachBegin(force = false) {
 function coachIntro() {
   coach.intro = true;
   coachShow(
-    `<b>Ruth has the bar.</b> Watch the first orders, look around the café, and notice who comes back. Your afternoon plan is already set.`,
+    softDay
+      ? `<b>Ruth has the bar.</b> Watch the first orders and notice who comes in.`
+      : `<b>Ruth has the bar.</b> Watch the first orders, look around the café, and notice who comes back. Your afternoon plan is already set.`,
     [
       ['Watch Ruth work', () => { try { rig.focus(world.focus.counter, 18, 4); } catch {} coachHide(); }],
       ['Meet the regulars', () => { try { renderBoard(); } catch {} }],
@@ -4513,7 +4543,7 @@ $('open').onclick = () => {
 };
 
 const MOMENT_TTL = 45;
-const MOMENT_PRIO = { returning: 0, sam: 1, line: 2, counter: 3 };
+const MOMENT_PRIO = { plan: -1, returning: 0, sam: 1, line: 2, counter: 3 };
 const momentsOn = () => !headless || momentsTest;
 function momentEnqueue(type, key, data = {}) {
   if (!momentsOn() || momentDone.has(key)) return;
@@ -4563,6 +4593,22 @@ function momentShow(m) {
     if (lv.available)
       row.appendChild(momentBtn(`Cut matcha to ${fmt(ECON.matchaDeal)}${lv.cost > 0 ? ` · ${fmt(lv.cost)} + regulars lose warmth` : ''}`, () => { doReprice(); momentAct(m); }));
     row.appendChild(momentBtn('Ride it out', () => momentAct(m)));
+  } else if (m.type === 'plan') {
+    b.textContent = '24 students at 14:00.';
+    body.append(b, ' How will you get ready?');
+    const lv = leverState(leverSnapshot());
+    if (lv.batch.available)
+      row.appendChild(momentBtn(`Starter batch · ${fmt(lv.batch.cost)} · 40 cups ready, served faster`, () => { doPrebatch(); momentAct(m); }));
+    if (lv.reprice.available)
+      row.appendChild(momentBtn(`Matcha deal · ${fmt(ECON.matchaDeal)} a cup · they’ll wait longer${lv.reprice.cost > 0 ? ` · ${fmt(lv.reprice.cost)} extra` : ''}`, () => { doReprice(); momentAct(m); }));
+    row.appendChild(momentBtn('Wait and see · every cup made to order', () => momentAct(m)));
+    const det = document.createElement('details');
+    const sum = document.createElement('summary');
+    sum.textContent = 'what’s the difference?';
+    const db = document.createElement('div');
+    db.textContent = firstMorningCopy().diff;
+    det.append(sum, db);
+    row.appendChild(det);
   } else if (m.type === 'sam') {
     b.textContent = `${m.name} crossed to Glasshouse.`;
     body.append(b, ' Sam’s line was shorter.');
@@ -4575,9 +4621,9 @@ function momentShow(m) {
 }
 function momentPump() {
   if (!momentsOn()) return;
-  if (momentActive && dayMin - momentActive.shownAt >= MOMENT_TTL) momentHide();
+  if (momentActive && (momentActive.expiresAt != null ? dayMin >= momentActive.expiresAt : dayMin - momentActive.shownAt >= MOMENT_TTL)) momentHide();
   if (momentActive) return;
-  momentPending = momentPending.filter(m => dayMin - m.at < MOMENT_TTL);
+  momentPending = momentPending.filter(m => m.expiresAt != null ? dayMin < m.expiresAt : dayMin - m.at < MOMENT_TTL);
   if (!momentPending.length) return;
   const coachCard = $('coach');
   if (coachCard && !coachCard.hidden) return;
@@ -4695,7 +4741,7 @@ function loop(now) {
     trainingSpend, sampleSpend, feeToday, interestToday, settleToday, marketingSpend,
     milkDelivery, milkStock: ctx.milkStock, milky: ctx.milky, milkOut: ctx.milkOut,
     waveBatchServed, waveStockoutAt, batchReservedUntil: ctx.batchReservedUntil,
-    awareness: demand ? demand.awareness : 0, ops: lastOps, demand }),
+    awareness: demand ? demand.awareness : 0, ops: lastOps, demand, repriced, prebatched }),
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
   vitality, director, district, kitBeat, mailT,
@@ -4703,11 +4749,12 @@ function loop(now) {
   prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
   doPrebatch, doReprice,
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
-  moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key) },
+  moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key), enqueue: (t, k, d = {}) => momentEnqueue(t, k, d) },
   stageCellar,
   patrons, modals, openDossier, showIncident,
-  renderBrief() { if (phase === 'planning') showMorningBrief(); },
+  renderBrief() { if (phase === 'planning') { if (softDay) showSoftIntro(0); else showMorningBrief(); } },
   get phase() { return phase; },
+  get party() { return party; },
   get softDay() { return softDay; },
   get softWeekDone() { return softWeekDone; },
   get coachedOpening() { return coachedOpening; },

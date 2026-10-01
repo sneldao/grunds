@@ -369,6 +369,14 @@ writeFileSync(join(LOGS, 'first-morning-visible.txt'), primary);
 
 const prepBtns = () => collect(byId('brief-prep'), c => c.tagName === 'BUTTON' && c.dataset && c.dataset.prep);
 check('three full choices in order batch → deal → wait', prepBtns().map(b => b.dataset.prep).join(',') === 'batch,reprice,hold', prepBtns().map(b => b.dataset.prep).join(','));
+check('guided batch carries the one-line copy + tag', (() => { const t = deepText(prepBtns()[0]); return t.includes('Starter batch') && t.includes('£40.00 now · 40 cups ready at 14:00, served faster') && t.includes('Recommended for your first day'); })(), deepText(prepBtns()[0]));
+check('deal one-line copy', deepText(prepBtns()[1]).includes('Matcha deal') && deepText(prepBtns()[1]).includes('£4.20 a cup · they’ll wait longer'), deepText(prepBtns()[1]));
+check('wait one-line copy', deepText(prepBtns()[2]).includes('Wait and see') && deepText(prepBtns()[2]).includes('Every cup made to order — decide later'), deepText(prepBtns()[2]));
+{
+  const det = collect(byId('brief-prep'), c => c.tagName === 'DETAILS')[0];
+  const dt = det ? deepText(det) + (det.textContent || '') : '';
+  check('merged what’s-the-difference details', dt.includes('what’s the difference?') && dt.includes('A batch is made ahead, so the rush moves faster — leftovers spoil.'), dt.slice(0, 200));
+}
 check('guided: nothing pre-selected', prepBtns().every(b => !b.classList.contains('picked') && b.getAttribute('aria-pressed') === 'false'));
 check('guided: OPEN disabled until a real choice', byId('brief-open').disabled === true);
 const ftr = () => byId('brief-summary').textContent;

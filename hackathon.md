@@ -12,9 +12,16 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T12:12:21Z
+- **Last updated:** 2026-10-01T12:50:20Z
 
 ## Log
+
+### 2026-10-01 - working tree - staged soft morning (uncommitted, on a8b0b53)
+
+- **`#softintro` replaces the soft-day brief**: a two-step owned modal — step 1 shows the stand name with `Step inside` + `Skip the soft opening` (→ `beginWeek()`), step 2 Ruth's portrait (`portraitCanvas('ruth','commuters',72)`) with `Open the doors` staging hold/no-prep through the normal `commitDayPlan()` path. Progress dots (2, current filled), a 260ms fade-and-rise between steps (off under `prefers-reduced-motion`), Enter fires the primary, Escape is inert. The 14:00 plan question no longer leaks before Pip asks. The soft coach intro is trimmed to `Watch the first orders and notice who comes in.`
+- **`plan` moment on accepted Pip ask**: highest moment priority (`plan: -1`), expires at `dayMin >= 840` instead of the 45-minute TTL, live costs from `leverState(leverSnapshot())` — Starter batch → `doPrebatch()`, Matcha deal → `doReprice()` (`· £x.xx extra` only when the reprice fee applies), Wait and see dismisses. Buttons for unavailable levers are omitted; a `what's the difference?` details carries the merged explainer.
+- **One-line Day-1 choices everywhere**: `firstMorningCopy()` choices are now title + one line (`£40.00 now · 40 cups ready at 14:00, served faster` / `£4.20 a cup · they'll wait longer` / `Every cup made to order — decide later`), guided tag kept on Starter batch, and the old change-of-mind details merged into one `what's the difference?` block — applied to the first-morning, OPENING WEEK, and veteran briefs.
+- Verified in a fresh mirror: `soft-opening` 79 checks, focused battery (orientation/moments/coach/modals/curriculum/lifecycle-accounting/time-locked-levers) and the full 72-suite non-balance gate all exit 0; `tsc --noEmit` and `git diff --check` clean; `secret_scan` clean. No commits/deploys/browser.
 
 ### 2026-10-01 - cbdc424 - soft opening slice
 

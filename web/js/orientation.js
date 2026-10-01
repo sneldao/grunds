@@ -19,30 +19,31 @@ export function firstMorningCopy() {
       `£${(ECON.batchCost + 4.20).toFixed(2)}` +
       ' (£40 stock + £4.20 change-of-plan fee); choosing a late deal costs £4.20. ' +
       'Either late change lowers regulars’ warmth. Refilling an existing batch costs £40 without that penalty.',
+    diff:
+      'A batch is made ahead, so the rush moves faster — leftovers spoil. ' +
+      'A deal doesn’t speed Ruth up, but people wait longer before leaving. ' +
+      'Waiting keeps your options open; after noon, a first change of plan costs a little extra.',
     choices: [
       {
         key: 'batch',
         id: 'brief-prep-batch',
-        label: 'Prepare a starter batch',
+        label: 'Starter batch',
         tag: 'Recommended for your first day',
-        cost: `£${ECON.batchCost.toFixed(2)} now · ${ECON.batchUnits} cups saved for 14:00`,
-        desc: 'Matcha serves faster during the rush; watch the stock and top up if needed. Leftovers spoil.',
+        line: `£${ECON.batchCost.toFixed(2)} now · 40 cups ready at 14:00, served faster`,
       },
       {
         key: 'reprice',
         id: 'brief-prep-reprice',
-        label: 'Offer a matcha deal',
+        label: 'Matcha deal',
         tag: '',
-        cost: `£${ECON.matchaDeal.toFixed(2)} per cup`,
-        desc: 'Customers are less likely to leave the queue. Ruth still makes each cup to order, and you earn less per sale. No batching today.',
+        line: `£${ECON.matchaDeal.toFixed(2)} a cup · they’ll wait longer`,
       },
       {
         key: 'hold',
         id: 'brief-prep-hold',
         label: 'Wait and see',
         tag: '',
-        cost: 'No preparation spend now',
-        desc: 'Every cup is made to order; you can choose later.',
+        line: 'Every cup made to order — decide later',
       },
     ],
   };

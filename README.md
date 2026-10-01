@@ -583,12 +583,20 @@ pool's met faces — and resets everything else to the tested fresh campaign
 start, landing on an `OPENING WEEK` brief with ungated choices and no coach
 (the coach spent itself on the soft day). The soft day never touches Convex.
 Veterans, `?skipTutorial`, demo and headless keep the straight-to-week path.
+The soft morning itself is staged: a two-step `#softintro` card (stand name →
+`Step inside` → Ruth's portrait → `Open the doors`) replaces the brief so the
+14:00 plan is never spoiled early; accepting Pip's ask surfaces an in-context
+`plan` moment whose batch/deal buttons read live costs from `leverState()` and
+expire at 14:00. Day-1 choices now render as one-liners with a merged
+`what's the difference?` details on every Day-1 brief.
 
-Coverage: new `soft-opening.mjs` (46 checks: thinned walk-in band, cast
-restriction and arrival times, Pip's 24-person party on accept vs none on
-decline, receipt shape with no evening letter, beginWeek equal to a fresh start with only the
+Coverage: `soft-opening.mjs` (79 checks: softintro steps/dots/skip/Escape,
+thinned walk-in band, cast restriction and arrival times, Pip's 24-person
+party on accept vs none on decline, the plan card's live costs, expiry,
+priority and lever wiring, receipt shape with no evening letter, beginWeek
+equal to a fresh start with only the
 social layer carried, the skip button, and the veteran bypass) plus the
-focused suites and a 71-suite non-balance gate — all green in a temp mirror;
+focused suites and a 72-suite non-balance gate — all green in a temp mirror;
 `tsc --noEmit` clean. Code-only verification; no browser evidence this pass.
 Shipped in `cbdc424` and published to the dev site
 https://striped-anaconda-746.convex.site (`?v=cbdc424`); live HTTP checks

@@ -351,6 +351,23 @@
   #brief.first-morning { place-items: center end; background: rgba(10,8,6,.30); backdrop-filter: blur(1px); }
   #brief.first-morning #brief-summary { white-space: normal; overflow: visible; text-overflow: clip; height: auto; }
   #brief.first-morning .modal-panel { --modal-width: 460px; margin-right: 28px; height: min(760px, 86vh); height: min(760px, 86dvh); }
+  #softintro { position: fixed; inset: 0; z-index: 31; display: grid; place-items: center;
+    background: rgba(10,8,6,.30); }
+  #softintro .modal-panel { --modal-width: 340px; background: var(--cream); color: var(--ink);
+    text-align: center; padding: 26px 24px 20px; }
+  #softintro-heading { font-family: var(--serif); font-size: 24px; letter-spacing: .16em;
+    text-indent: .16em; margin: 0 0 12px; }
+  #softintro-portrait { display: flex; justify-content: center; margin: 2px 0 10px; }
+  #softintro-line { font-family: var(--serif); font-size: 14px; line-height: 1.55; margin: 0 0 16px; color: #2a241c; }
+  #softintro-primary { width: 100%; font-size: 13px; letter-spacing: .14em; border-color: var(--brass); min-height: 44px; }
+  #softintro-skip { margin-top: 10px; font-size: 10.5px; letter-spacing: .08em; border: 0;
+    background: none; opacity: .6; padding: 0; }
+  #softintro-dots { display: flex; justify-content: center; gap: 6px; margin-top: 14px; }
+  #softintro-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(58,50,38,.22); }
+  #softintro-dots span.on { background: var(--brass); }
+  #softintro-step.si-in { animation: siIn .26s ease-out; }
+  @keyframes siIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { #softintro-step.si-in { animation: none; } }
   #brief-intro { font-family: var(--serif); font-size: 13.5px; line-height: 1.55; color: #2a241c; }
   #brief-intro .fm-quote { font-style: italic; opacity: .85; margin: 4px 0 10px; }
   #brief-intro p { margin: 0 0 8px; }
@@ -718,6 +735,21 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <button id="brief-softskip" style="display:none; margin-top:6px; font-size:10.5px; letter-spacing:.08em;">Skip the soft opening →</button>
         <button id="brief-offline" style="display:none; margin-top:6px; font-size:10.5px; letter-spacing:.08em;">start a local-only week</button>
       </footer>
+    </div>
+  </div>
+
+  <div id="softintro" class="modal" role="dialog" aria-labelledby="softintro-heading" aria-hidden="true" inert>
+    <div class="paper modal-panel" tabindex="-1">
+      <div class="modal-body">
+        <div id="softintro-step" class="si-in">
+          <h2 id="softintro-heading"></h2>
+          <div id="softintro-portrait" style="display:none"></div>
+          <p id="softintro-line"></p>
+          <button id="softintro-primary"></button>
+          <button id="softintro-skip" type="button" style="display:none">Skip the soft opening</button>
+        </div>
+        <div id="softintro-dots"><span class="on"></span><span></span></div>
+      </div>
     </div>
   </div>
 

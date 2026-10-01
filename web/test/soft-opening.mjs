@@ -300,7 +300,8 @@ check('boot lands in planning day 1', G.phase === 'planning' && G.stats().day ==
 
 // The headless path has wantTutorial=false, so the soft day must be opted
 // into explicitly — the same gate the spec calls softOpening.
-G.testState({ softOpening: true, tutorial: true, openingGuidance: true, curriculum: true });
+const key = k => { for (const h of keyHandlers) h({ key: k, preventDefault() {} }); };
+G.testState({ softOpening: true, tutorial: true, openingGuidance: true, curriculum: true, moments: true });
 check('softOpening testState arms the soft day', G.softDay === true);
 
 // ---- the soft day itself ----------------------------------------------------
@@ -322,16 +323,35 @@ G.patrons.spawn = (cohort, zone, quick, via) => {
 };
 
 G.renderBrief();
-check('soft brief kicker', byId('brief-kicker').textContent === 'Soft opening · before the street knows you', byId('brief-kicker').textContent);
-const sIntro = deepText(byId('brief-intro'));
-check('soft brief welcome', sIntro.includes('Before your first full week, a quiet soft opening. Only neighbours and a few early regulars know you’re here.'));
-check('soft brief aim', sIntro.includes('Today: meet your first regulars and try your plan on a small afternoon rush.'));
-check('soft brief has the skip button', byId('brief-softskip') && byId('brief-softskip').style.display !== 'none');
-writeFileSync(join(LOGS, 'brief-soft.txt'), visibleText(byId('brief')));
-
-G.stageDayPlan({ hedge: 'hold' });
-const c1 = G.commitDayPlan();
-check('soft-day commit lands trading', c1.ok === true && G.phase === 'trading', JSON.stringify(c1));
+check('soft day opens #softintro, not the brief',
+  byId('softintro').classList.contains('show') && !byId('brief').classList.contains('show'));
+const sHead = byId('softintro-heading'), sLine = byId('softintro-line'), sPrim = byId('softintro-primary'), sSkip = byId('softintro-skip'), sDots = byId('softintro-dots');
+check('step 1 heading is the stand name', sHead.textContent.length > 0, sHead.textContent);
+check('step 1 line', sLine.textContent === 'Your café — before anyone knows it’s here.', sLine.textContent);
+check('step 1 primary', sPrim.textContent === 'Step inside', sPrim.textContent);
+check('step 1 skip button visible', sSkip.style.display !== 'none' && sSkip.textContent === 'Skip the soft opening', sSkip.textContent);
+check('two dots, first current', sDots.children.length === 2 && sDots.children[0].classList.contains('on') && !sDots.children[1].classList.contains('on'));
+check('no 14:00 plan spoiler on the soft morning', !/14:00|Students/.test(deepText(byId('softintro'))), deepText(byId('softintro')));
+writeFileSync(join(LOGS, 'softintro-step1.txt'), visibleText(byId('softintro')));
+key('Escape');
+check('Escape does not advance or skip', sLine.textContent === 'Your café — before anyone knows it’s here.' && G.phase === 'planning' && G.softDay === true);
+sPrim.click();
+check('step 2 line', sLine.textContent === 'Ruth makes every drink. You watch the room and make the calls.', sLine.textContent);
+check('step 2 primary', sPrim.textContent === 'Open the doors', sPrim.textContent);
+check('step 2 shows the Ruth portrait', byId('softintro-portrait').children.length > 0 && byId('softintro-portrait').style.display !== 'none');
+check('step 2 dots advance', sDots.children[1].classList.contains('on') && !sDots.children[0].classList.contains('on'));
+check('reduced-motion rule exists', readFileSync(join(ROOT, 'web/index.html'), 'utf8').includes('@media (prefers-reduced-motion: reduce) { #softintro-step.si-in { animation: none; } }'));
+writeFileSync(join(LOGS, 'softintro-step2.txt'), visibleText(byId('softintro')));
+key('Escape');
+check('Escape on step 2 does not open the doors', G.phase === 'planning' && byId('softintro').classList.contains('show'));
+sPrim.click();
+check('Open the doors commits and starts trading', G.phase === 'trading' && byId('softintro').classList.contains('show') === false, `phase=${G.phase}`);
+check('the soft commit staged no prep', G.stats().batchUnits === 0 && G.stats().batchSpend === 0, `units=${G.stats().batchUnits}`);
+check('the soft commit kept hedge hold', !G.plan || G.plan.hedge === 'hold', JSON.stringify(G.plan));
+runFrames(2);
+check('coach begins on the soft day', !!G.coach.state(), JSON.stringify(G.coach.state()));
+check('soft coach intro line', (byId('coach-body').innerHTML || byId('coach-body').textContent || '').includes('Watch the first orders and notice who comes in.'), (byId('coach-body').innerHTML || '').slice(0, 160));
+G.coach.skip();
 let guard = 0;
 while (G.phase === 'trading' && guard++ < 4000) runFrames(1);
 check('soft day closes into review', G.phase === 'review', `phase=${G.phase} dayMin=${G.stats().dayMin}`);
@@ -341,6 +361,7 @@ check('only Mara/Pip/Olu are ever tagged', [...spies.cast].every(n => ['Mara', '
 check('Mara arrives by 08:30', spies.maraAt !== null && spies.maraAt <= 510, `maraAt=${spies.maraAt}`);
 check('Olu arrives by 13:00', spies.oluAt !== null && spies.oluAt <= 780, `oluAt=${spies.oluAt}`);
 check('declining the soft offer lands no party students', spies.partyCount === 0, `party=${spies.partyCount}`);
+check('declined offer never queues the plan card', !G.moment.done().includes('plan'), G.moment.done().join(','));
 
 // ---- soft receipt -----------------------------------------------------------
 {
@@ -401,7 +422,8 @@ G.reset();
 await new Promise(r => setTimeout(r, 10));
 check('reset re-arms the soft day', G.softDay === true);
 G.renderBrief();
-byId('brief-softskip').click();
+check('skip run shows the softintro step 1', byId('softintro').classList.contains('show') && byId('softintro-primary').textContent === 'Step inside', byId('softintro-primary').textContent);
+byId('softintro-skip').click();
 check('skip jumps straight into the week brief', G.phase === 'planning' && G.softDay === false && G.softWeekDone === true, `phase=${G.phase}`);
 const skipStart = { index: G.exc.beanIndex, debt: G.exc.debt, history: G.exc.history.length, cRev: G.stats().cRev, cCost: G.stats().cCost, cOps: G.stats().cOps, settledPaid: G.stats().settledPaid, staff: G.stats().staffCondition, awareness: G.stats().awareness,
   lots: Object.fromEntries(Object.keys(LOT_CATALOG).map(id => [id, G.exc.lots.entry(id)?.stock ?? null])) };
@@ -416,7 +438,7 @@ check('veteran skips the soft day', G.softDay === false && G.softWeekDone === fa
 check('veteran daytag is the normal week', byId('daytag').textContent.startsWith('DAY 1/5'), byId('daytag').textContent);
 
 // ---- accepting Pip's offer lands the whole study group ----------------------
-G.testState({ softOpening: null, tutorial: true, curriculumIntroduced: null });
+G.testState({ softOpening: null, tutorial: true, curriculumIntroduced: null, moments: true });
 G.reset();
 await new Promise(r => setTimeout(r, 10));
 check('eligible path arms the soft day without a test flag', G.softDay === true);
@@ -429,11 +451,74 @@ G.patrons.spawn = (cohort, zone, quick, via) => {
 G.stageDayPlan({ hedge: 'hold' });
 const c2 = G.commitDayPlan();
 check('accept run commits', c2.ok === true);
+G.coach.skip();
 let g2 = 0;
-while (G.phase === 'trading' && g2++ < 4000) runFrames(1, { acceptOffer: true });
-check('accepting Pip lands exactly 24 party students', spy2.party === 24, `party=${spy2.party}`);
+let planSeen = null, prioInjected = false, prioWon = false;
+while (G.phase === 'trading' && g2++ < 4000) {
+  runFrames(1, { acceptOffer: true });
+  if (G.moment.active() === 'plan') {
+    if (!planSeen) {
+      const det = collect(byId('moment-actions'), c => c.tagName === 'DETAILS')[0];
+      planSeen = { dayMin: G.stats().dayMin, text: visibleText(byId('moment')), actions: collect(byId('moment-actions'), c => c.tagName === 'BUTTON').map(b => b.textContent),
+        details: det ? deepText(det) : '' };
+      if (!prioInjected) {
+        prioInjected = true;
+        G.moment.enqueue('counter', 'prio-c', { name: 'Olu' });
+        G.moment.enqueue('plan', 'prio-p', { expiresAt: 900 });
+      }
+    }
+  }
+  if (prioInjected && planSeen && G.stats().dayMin >= 840 && G.moment.active() === 'plan') prioWon = true;
+}
+check('accepting Pip lands exactly 24 party students', G.party && G.party._landed === 24, `landed=${G.party && G.party._landed} tagged=${spy2.party} left=${G.party && G.party.left}`);
+check('every tagged member counted (none lost silently)', G.party && spy2.party === 24 - G.party.left, `tagged=${spy2.party} left=${G.party && G.party.left}`);
 check('the first party member is Pip', spy2.first === 'Pip', `first=${spy2.first}`);
 check('accept run closes into review', G.phase === 'review');
+check('accepted offer shows the plan card', !!planSeen, `seen=${!!planSeen}`);
+if (planSeen) {
+  check('plan card body copy', /24 students at 14:00\./.test(planSeen.text) && /How will you get ready\?/.test(planSeen.text), planSeen.text.slice(0, 160));
+  check('plan card batch line at the live £40', planSeen.actions.some(a => a === 'Starter batch · £40.00 · 40 cups ready, served faster'), planSeen.actions.join(' | '));
+  check('plan card deal line, no extra fee before noon', planSeen.actions.some(a => a === 'Matcha deal · £4.20 a cup · they’ll wait longer'), planSeen.actions.join(' | '));
+  check('plan card wait line', planSeen.actions.some(a => a === 'Wait and see · every cup made to order'), planSeen.actions.join(' | '));
+  check('plan card shows before 14:00', planSeen.dayMin < 840, `dayMin=${planSeen.dayMin}`);
+  check('plan card details merge', planSeen.details.includes('what’s the difference?') && planSeen.details.includes('A batch is made ahead, so the rush moves faster — leftovers spoil. A deal doesn’t speed Ruth up, but people wait longer before leaving. Waiting keeps your options open; after noon, a first change of plan costs a little extra.'), planSeen.details.slice(0, 200));
+  writeFileSync(join(LOGS, 'plan-card.txt'), planSeen.text);
+}
+check('plan outranks a queued counter moment for the next slot', prioWon, `done=${G.moment.done().join(',')}`);
+check('plan cards are gone after 14:00', G.moment.active() !== 'plan' && G.moment.pending().every(m => m.type !== 'plan'), `active=${G.moment.active()} dayMin=${G.stats().dayMin}`);
+
+// ---- the plan card's buttons drive the real levers --------------------------
+async function softAcceptRun(clickText) {
+  G.testState({ softOpening: true, tutorial: true, openingGuidance: true, curriculum: true, moments: true });
+  G.reset();
+  await new Promise(r => setTimeout(r, 10));
+  G.renderBrief();
+  byId('softintro-primary').click();
+  byId('softintro-primary').click();
+  if (G.phase !== 'trading') return { ok: false };
+  G.coach.skip();
+  let g = 0;
+  while (G.phase === 'trading' && g++ < 4000) {
+    runFrames(1, { acceptOffer: true });
+    if (G.moment.active() === 'plan') {
+      const btn = collect(byId('moment-actions'), c => c.tagName === 'BUTTON').find(b => b.textContent.startsWith(clickText));
+      if (btn) { btn.click(); return { ok: true, dayMin: G.stats().dayMin }; }
+      return { ok: false, actions: collect(byId('moment-actions'), c => c.tagName === 'BUTTON').map(b => b.textContent).join('|') };
+    }
+  }
+  return { ok: false };
+}
+{
+  const r = await softAcceptRun('Starter batch');
+  check('plan Starter batch fires', r.ok === true && r.dayMin < 720, JSON.stringify(r));
+  check('Starter batch reserves 40 cups for 14:00', G.stats().prebatched === true && G.stats().batchUnits === 40 && G.stats().batchReservedUntil === 840, `units=${G.stats().batchUnits} until=${G.stats().batchReservedUntil}`);
+  check('Starter batch charged only the £40 batch cost', G.stats().batchSpend === 40, `batchSpend=${G.stats().batchSpend}`);
+}
+{
+  const r = await softAcceptRun('Matcha deal');
+  check('plan Matcha deal fires', r.ok === true && r.dayMin < 720, JSON.stringify(r));
+  check('Matcha deal reprices with no fee before noon', G.stats().repriced === true && G.stats().batchSpend === 0, `repriced=${G.stats().repriced} spend=${G.stats().batchSpend}`);
+}
 
 if (fails.length) { console.error('soft-opening FAIL:'); for (const f of fails) console.error(' -', f); process.exit(1); }
 console.log(`soft-opening: all pass (${fails.length} fails)`);

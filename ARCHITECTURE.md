@@ -586,6 +586,20 @@ first played Day 1). The soft receipt hides Idris's evening letter. Shipped
 in `cbdc424` and published to the dev site; days 2–3 of the soft opening are a
 later slice, pending a fresh-player check of this one.
 
+The soft morning itself is a two-step `#softintro` modal (owned by the modal
+controller, Escape-inert, Enter activates the primary) rather than the
+first-morning brief: step 1 is the stand name plus `Step inside` /
+`Skip the soft opening` (the latter calls `beginWeek()`), step 2 a Ruth
+portrait plus `Open the doors` — which stages hold/no-prep and runs the
+normal `commitDayPlan()` path. If Pip's 11:00 ask is accepted, a `plan`
+moment (highest priority, expires at 14:00 rather than the 45-minute TTL)
+offers the three afternoon choices with costs read live from
+`leverState(leverSnapshot())` — Starter batch → `doPrebatch()`, Matcha
+deal → `doReprice()`, Wait and see → dismiss — so no second lever
+implementation exists. Day-1 choices everywhere (first morning, OPENING
+WEEK, veteran) render as one-line choices with a single merged
+`what's the difference?` details.
+
 ## Depth rebuild roadmap (adopted Sept 28)
 
 *Historical plan — the per-phase [SHIPPED Sept 28] tags below mark the subset
