@@ -12,16 +12,18 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T04:15:47Z
+- **Last updated:** 2026-10-01T04:30:09Z
 
 ## Log
 
-### 2026-10-01 - working tree - quiet auto-pacing + in-day moments (roadmap step 3)
+### 2026-10-01 - a18bb28 - quiet auto-pacing + in-day moments (roadmap step 3)
 
 - **`web/js/pace.js` (new, pure)**: `isQuiet(s)` — quiet iff trading, unpaused, open, no modal, no card shown or queued, settled (day ≥ 2 or the day-1 coach done/skipped/09:00+), and in a decision-free window (before 11:00, or after the 11:00 ask until 13:30, or 16:00–17:00 when no incident is pending). `QUIET_MUL = 4` → the loop derives `effSpeed = min(1200, speed × 4)` while quiet; only wall-clock tick rate changes. A `#paceflag` HUD line reads `quiet — time moves faster` while active. Headless needs `testState({ pace: true })`.
 - **`#moment` card** (`index.html`, same paper style and corner as `#coach`): four non-modal moments, never pausing the clock — **returning regular** (`… is back. Giving you another chance after …`, with `Say hello`/`Leave it`), **regular at the counter** (once/day before 10:30, `Say hello`/`Meet ${name}`/`Leave it`), **line building** (once/day before 14:00 at queue ≥ 6, `Cut matcha to …` via `doReprice` when the lever is legal + `Ride it out`), **Sam takes a regular** (on a cast `defected` walkout, `Got it`). Priority returning > sam > line > counter; queued not dropped; each expires unshown after 45 game-minutes; a visible card hides on any button and counts as `cardVisible` for quiet pacing. `moment_shown`/`moment_action` analytics; headless needs `testState({ moments: true })`.
 - **Economic neutrality**: quiet pace only changes how many `tick()`s a frame runs. While quiet (and in headless `testState({ moveTick: true })`), `patrons.update` steps once per tick at the base rate's wall-time per game-minute instead of once per frame — walking cost per game-minute is rate-invariant, so a fixed-seed day is bit-identical with pace on vs off (asserted in `moments.mjs` on served/balked/till/netToday).
 - **Coverage**: new `pace.mjs` (pure truth table — settled gate, modal/shown-card/queued-moment, window edges 659/660 · 809/810 · 959/960/1019/1020, `incidentPending`) and `moments.mjs` (real triggers, exact copy, once/day, priority order, 45-minute pending + shown expiry, `Say hello` +0.06 once, `Cut matcha` charges the `leverState` cost, no clock pause, pace identity). Full non-balance gate in `/tmp/grunds-test-mirror13`; `tsc --noEmit`, `git diff --check`, `secret_scan` clean.
+- **Measured** (lead probe, seeds 7/42/101, moments on and never clicked): 380–426 of 900 minutes a day run quiet (mean 415); a modelled 1× day drops from ~270 s to ~174–185 s. An earlier draft gated on a line of ≤3, which applied only 40–130 minutes a day because the line exceeds ten people ~70% of the time — the rule now keys off pending decisions.
+- **Deploy**: `a18bb28` pushed to `origin/main` and published to the existing **dev** deployment `striped-anaconda-746` (deployment ID `5c167421-4d3d-472b-bd20-8ccf00dc6dbd`, `?v=a18bb28`, 71 files + `release.json`) after a 70-suite gate on the committed tree; HTTP checks of index, main/pace/consequences/cast, schedule, and `release.json` matched the artifact. Backend and production untouched.
 - **Limitations**: no browser evidence; during quiet windows `patrons.update` runs ~QUIET_MUL more times per frame (movement per game-minute is unchanged, but it is the heaviest per-frame work — worth a low-end perf sanity check).
 
 ### 2026-10-01 - 02febc2 - absence trigger: personal experience, not mood

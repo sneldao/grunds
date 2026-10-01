@@ -8,6 +8,7 @@ How we check gameplay correctness and readiness. Automated regression checks, sc
 - `pace.mjs` (22 checks) and `moments.mjs` pass, including exact copy, once-per-day triggers, priority, expiry, the existing +0.06 greeting, the lever cost on the price cut, and an identical fixed-seed day (served, walked, till, net) with pace on and off. Coach, orientation, and lifecycle/accounting suites pass with TypeScript clean.
 - Lead pace probe (`/tmp/grunds-step3-pace2-*.json`; seeds 7, 42, 101; `queue` policy; moments enabled and never clicked): an earlier draft that required a line of three or fewer was quiet for only 40–130 of 900 minutes a day, because the line exceeds ten people about 70% of the time in these windows (`/tmp/grunds-step3-queue-*.json`); the rule now keys off pending decisions instead. Final: 380–426 quiet minutes a day (mean 415), and a modelled 1× day of about 174–185 seconds instead of 270. The model ignores existing rush and evening fast-forwards and time in modals.
 - Quiet windows run customer movement about four times as often per frame; low-end device performance is unchecked. No browser automation was run, and whether the faster mornings feel calmer or rushed is a playtest question.
+- `a18bb28` passed the full 70-suite non-balance gate on the committed tree and is published to the existing Convex dev site (`?v=a18bb28`); HTTP-only checks matched the artifact, and deployed gameplay remains unverified.
 
 ## Previous verification — October 1, 2026: regulars react to their own bad day (step 2b)
 

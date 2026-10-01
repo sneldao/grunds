@@ -548,8 +548,8 @@ ledger lines, not people.
    roster, the Brief's "Who's coming in" block, receipt lessons for
    walkouts/companions, and `incidentCost` scaling incidents to the live
    till.
-3. **Pacing (in progress; shipped so far: quiet auto-pace + four non-modal
-   moments).** Either there is a decision, or the clock moves quickly:
+3. **Pacing (shipped `a18bb28`: quiet auto-pace + four non-modal
+   moments; a Ruth moment is not yet built).** Either there is a decision, or the clock moves quickly:
    `pace.js` `isQuiet` accelerates the wall-clock rate in decision-free
    windows (`QUIET_MUL = 4`, capped at 20×, HUD `#paceflag`), and `#moment`
    cards surface a returning regular, a regular at the counter, a building
