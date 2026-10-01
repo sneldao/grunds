@@ -582,7 +582,9 @@ events}` (events relabelled day 0, rendered `soft opening — …`) and the
 walk-in pool heads (pids relabelled `d0-`), runs `reset(true)` for a clean
 campaign start, restores the social layer, and opens the `OPENING WEEK`
 brief ungated and uncoached (`coachedOpening` spends the day-1 coach on the
-first played Day 1). Days 2–3 of the soft opening are a later slice.
+first played Day 1). The soft receipt hides Idris's evening letter. Shipped
+in `cbdc424` and published to the dev site; days 2–3 of the soft opening are a
+later slice, pending a fresh-player check of this one.
 
 ## Depth rebuild roadmap (adopted Sept 28)
 

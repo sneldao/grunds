@@ -584,13 +584,16 @@ start, landing on an `OPENING WEEK` brief with ungated choices and no coach
 (the coach spent itself on the soft day). The soft day never touches Convex.
 Veterans, `?skipTutorial`, demo and headless keep the straight-to-week path.
 
-Coverage: new `soft-opening.mjs` (45 checks: thinned walk-in band, cast
+Coverage: new `soft-opening.mjs` (46 checks: thinned walk-in band, cast
 restriction and arrival times, Pip's 24-person party on accept vs none on
-decline, receipt shape, beginWeek equal to a fresh start with only the
+decline, receipt shape with no evening letter, beginWeek equal to a fresh start with only the
 social layer carried, the skip button, and the veteran bypass) plus the
 focused suites and a 71-suite non-balance gate — all green in a temp mirror;
 `tsc --noEmit` clean. Code-only verification; no browser evidence this pass.
-Uncommitted working-tree change on `d96cfeb`; not deployed.
+Shipped in `cbdc424` and published to the dev site
+https://striped-anaconda-746.convex.site (`?v=cbdc424`); live HTTP checks
+matched the artifact, while deployed gameplay and human engagement remain
+unverified.
 
 ## Previous build (Sept 30) — gameplay-intuitiveness pass
 

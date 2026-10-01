@@ -8,6 +8,7 @@ How we check gameplay correctness and readiness. Automated regression checks, sc
 - `soft-opening.mjs` (46 checks) covers the 17:00 close, the walk-in band, cast restriction and arrival times, 24 party students on accept and none on decline, the receipt contents, the hidden letter, the OPENING WEEK brief with ungated choices and no coach, skip parity, the veteran bypass, and that the week's ledger, market, cellar, awareness, and staff state equal a fresh reset with the same seed. The full 71-suite non-balance gate passed before a final one-line change (hiding the letter), after which soft-opening, orientation, lifecycle/accounting, moments, and coach suites passed again with TypeScript clean.
 - Measured only on the test fixture (seed 7, Pip declined): 60 customers served, none walked, £226.80 practice takings. Crowd size across other seeds and with Pip accepted, and the soft day's real-time length, are not measured here; from the quiet-pace windows it should be roughly a minute and a half at 1×, an estimate rather than a measurement.
 - Carried opinions can shift week reputation slightly through footfall; that effect is not measured. No browser automation was run. Whether the soft day feels cosy and teaches the controls is the purpose of the next fresh-player check.
+- `cbdc424` passed the full non-balance gate on the committed tree and is published to the existing Convex dev site (`?v=cbdc424`); HTTP-only checks matched the artifact, and deployed gameplay remains unverified.
 
 ## Previous verification — October 1, 2026: pacing (roadmap step 3)
 
