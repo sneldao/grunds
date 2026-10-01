@@ -290,6 +290,11 @@ const deepText = el => {
   for (const c of el.children || []) t += c.nodeType === 3 ? c.v + '\n' : deepText(c);
   return t;
 };
+const sumOf = (id) => {
+  const d = collect(byId(id), c => c.tagName === 'DETAILS')[0];
+  const s = d ? collect(d, c => c.tagName === 'SUMMARY')[0] : null;
+  return s ? s.textContent : null;
+};
 
 {
   const FM = firstMorningCopy();
@@ -524,6 +529,9 @@ for (const id of ['brief-menu', 'brief-demand', 'brief-context']) {
 }
 check('day 2 shows the nut row', byId('brief-nut').style.display !== 'none' && /counted at closing|the nut/i.test(deepText(byId('brief-nut'))), deepText(byId('brief-nut')).slice(0, 200));
 check('day 2 shows the risk line', byId('brief-risk').style.display !== 'none' && /matcha £/.test(deepText(byId('brief-risk'))), deepText(byId('brief-risk')).slice(0, 200));
+check('day-2 tool rows all end · change ›',
+  ['brief-nut', 'brief-lots', 'brief-rival'].every(id => /· change ›$/.test(sumOf(id) || '')),
+  ['brief-nut', 'brief-lots', 'brief-rival'].map(sumOf).join(' | '));
 check('day 2 no actions row without insurance or tab', byId('brief-actions').style.display === 'none', deepText(byId('brief-actions')).slice(0, 200));
 {
   const before = G.plan && G.plan.hedge;
@@ -563,6 +571,7 @@ G.renderBrief();
 {
   const briefNew3 = deepText(byId('brief-new'));
   check('day 3 introduces the menu card', /New today/.test(briefNew3) && /Your menu/.test(briefNew3), briefNew3.slice(0, 300));
+  check('the menu row ends · change ›', /· change ›$/.test(sumOf('brief-menu') || ''), sumOf('brief-menu'));
   check('day 3 keeps the coffee row as an introduced tool', byId('brief-lots').style.display !== 'none' && !/New today/.test(deepText(byId('brief-lots'))), deepText(byId('brief-lots')).slice(0, 120));
   const debt = G.stats().debt;
   if (debt > 0) {
@@ -632,6 +641,69 @@ key('Enter');
 await new Promise(r => setTimeout(r, 10));
 check('the reset run re-opens on a real choice', G.phase === 'trading' || G.phase === 'review', `phase=${G.phase}`);
 check('coach begins again only after the new commit', !!G.coach.state(), `coach=${JSON.stringify(G.coach.state())}`);
+
+// ---- the wire row: one more tool row, folded on a calm dawn ---------------------
+G.reset();
+await new Promise(r => setTimeout(r, 200));
+G.testState({ curriculum: false });
+G.renderBrief();
+{
+  const wireCtx = byId('brief-context');
+  const wireSum = () => (collect(wireCtx, c => c.tagName === 'SUMMARY')[0] || {}).textContent || '';
+  check('the wire row is a real <details> in the stack', !!wireCtx && wireCtx.tagName === 'DETAILS');
+  check('no sources fold lives inside the wire row', byId('brief-wire-details') === null
+    && collect(wireCtx, c => c.id === 'brief-wire-details').length === 0);
+  check('a calm dawn folds the wire', wireCtx.open === false && wireSum() === 'the wire', `open=${wireCtx.open} "${wireSum()}"`);
+  writeFileSync(join(LOGS, 'brief-wire-calm.txt'), `summary: ${wireSum()}\nopen: ${wireCtx.open}\n\n${visibleText(wireCtx)}`);
+  G.exc.event = { id: 'frost_minas', tier: 'cata', head: 'FROST HITS MINAS', line: 'The belt froze overnight.' };
+  G.renderBrief();
+  check('a market signal opens the wire and says so', wireCtx.open === true && wireSum() === 'the wire — a warning in it', `open=${wireCtx.open} "${wireSum()}"`);
+  writeFileSync(join(LOGS, 'brief-wire-warning.txt'), `summary: ${wireSum()}\nopen: ${wireCtx.open}\n\n${visibleText(wireCtx)}`);
+  G.exc.event = null;
+  check('the desk door still sits in the markup', !!byId('brief-desklink'));
+  const dSum = collect(byId('brief-demand'), c => c.tagName === 'SUMMARY')[0];
+  check('the street row ends · change ›', !!dSum && /· change ›$/.test(dSum.textContent), dSum && dSum.textContent);
+  const prepDiff = collect(byId('brief-prep'), c => c.tagName === 'SUMMARY').find(s => /the difference\?/.test(s.textContent || ''));
+  check("the prep row still asks 'what's the difference?'", !!prepDiff);
+  const mainSrc = readFileSync(join(ROOT, 'web', 'js', 'main.js'), 'utf8');
+  check("both 'what's the difference?' folds still stand", (mainSrc.match(/what’s the difference\?/g) || []).length >= 2);
+}
+
+// ---- the licence card: three staged steps, Enter walks them ---------------------
+G.showLicence();
+check('the licence opens as the top modal', G.modals.top() === 'licence', G.modals.top());
+{
+  const licStepOn = () => [0, 1, 2].find(i => byId(`lic-step-${i}`) && !byId(`lic-step-${i}`).hidden);
+  const licText = () => visibleText(byId('licence'));
+  const dotsOn = () => [...byId('lic-dots').children].map(d => d.classList.contains('on')).join(',');
+  check('step 0 carries the two fields + the lease/sign line',
+    licStepOn() === 0 && /the name on the lease · the name on the sign/.test(licText())
+    && dotsOn() === 'true,false,false', `${licStepOn()} ${dotsOn()} :: ${licText().slice(0, 200)}`);
+  writeFileSync(join(LOGS, 'licence-step-0.txt'), licText());
+  byId('lic-name').focus();
+  key('Enter');
+  check('Enter inside a field advances to the background step', licStepOn() === 1, `step=${licStepOn()}`);
+  const bgs = deepText(byId('lic-bgs'));
+  check('all four backgrounds sit flat on step 1 — no fold',
+    byId('lic-bgs').children.filter(c => c.tagName === 'BUTTON').length === 4
+    && collect(byId('licence'), c => c.tagName === 'DETAILS').length === 0, bgs.slice(0, 200));
+  check('every background keeps its perk line',
+    /8% faster/.test(bgs) && /fees & payouts −10%/.test(bgs) && /regulars warm quicker/.test(bgs) && /names its lean/.test(bgs), bgs.slice(0, 300));
+  writeFileSync(join(LOGS, 'licence-step-1.txt'), licText());
+  key('Enter', byId('lic-step-1'));
+  check('Enter on the card advances to signing', licStepOn() === 2, `step=${licStepOn()}`);
+  check('the last step carries role pills + the blank-is-fine hint',
+    /signed as/.test(licText()) && /blank is fine — the district decides/.test(licText())
+    && dotsOn() === 'false,false,true', `${dotsOn()} :: ${licText().slice(0, 300)}`);
+  writeFileSync(join(LOGS, 'licence-step-2.txt'), licText());
+  key('Escape');
+  check('Escape stays inert on the licence — it is gated', G.modals.top() === 'licence', G.modals.top());
+  key('Enter', byId('lic-step-2'));
+  await new Promise(r => setTimeout(r, 20));
+  check('Enter on the last step signs and closes the card', G.modals.top() !== 'licence', G.modals.top());
+  const sig = globalThis.localStorage.getItem('grunds.identity') || '';
+  check('the signature persists to localStorage', /"playerName":"Sam"/.test(sig) && /"standName":"THE CORNER CUP"/.test(sig), sig);
+}
 
 if (fails.length) { console.error('\nFAILURES:'); for (const f of fails) console.error(' -', f); process.exit(1); }
 console.log('\norientation.mjs OK');

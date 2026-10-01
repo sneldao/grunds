@@ -262,8 +262,11 @@
   .lic-pills button.on { border-color: #7a2a18; background: #7a2a18; }
   .lic-bgs button { flex: 1 1 46%; text-align: left; }
   .lic-bgs button small { display: block; opacity: .62; font-size: 10px; margin-top: 2px; }
-  #lic-sign { width: 100%; margin-top: 0; letter-spacing: .16em; border-color: var(--brass); }
+  #lic-sign, #lic-next { width: 100%; margin-top: 0; letter-spacing: .16em; border-color: var(--brass); }
   .lic-hint { text-align: center; font-size: 10px; opacity: .5; margin-top: 8px; font-style: italic; }
+  #lic-dots { display: flex; justify-content: center; gap: 6px; margin-top: 14px; }
+  #lic-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(58,50,38,.22); }
+  #lic-dots span.on { background: var(--brass); }
   #desk, #paywall, #offer, #evening, #customer-center { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center;
     background: rgba(10,8,6,.55); backdrop-filter: blur(4px); opacity: 0; pointer-events: none;
     transition: opacity .5s ease; }
@@ -365,9 +368,9 @@
   #softintro-dots { display: flex; justify-content: center; gap: 6px; margin-top: 14px; }
   #softintro-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(58,50,38,.22); }
   #softintro-dots span.on { background: var(--brass); }
-  #softintro-step.si-in { animation: siIn .26s ease-out; }
+  #softintro-step.si-in, #lic-step.si-in { animation: siIn .26s ease-out; }
   @keyframes siIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) { #softintro-step.si-in { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { #softintro-step.si-in, #lic-step.si-in { animation: none; } }
   #brief-intro { font-family: var(--serif); font-size: 13.5px; line-height: 1.55; color: #2a241c; }
   #brief-intro .fm-quote { font-style: italic; opacity: .85; margin: 4px 0 10px; }
   #brief-intro p { margin: 0 0 8px; }
@@ -389,8 +392,6 @@
     #brief.first-morning { place-items: center; }
     #brief.first-morning .modal-panel { margin-right: 0; width: 100%; }
   }
-  #lic-more { margin-top: 16px; }
-  #lic-more summary { cursor: pointer; font-family: var(--serif); font-size: 16px; letter-spacing: .02em; }
   #letter-mail { font-size: 11px; letter-spacing: .06em; margin-top: 10px; }
   @media (max-width: 640px) { :root { --modal-pad: 18px; --modal-gap: 10px; } }
   @media (max-height: 480px) {
@@ -761,19 +762,27 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <div class="l-kicker">one week, one stand</div>
       </header>
       <div class="modal-body">
-        <label class="lic-field">name<input id="lic-name" maxlength="16" placeholder="Sam" autocomplete="off"></label>
-        <label class="lic-field">stand<input id="lic-stand" maxlength="22" placeholder="THE CORNER CUP" autocomplete="off"></label>
-        <details id="lic-more">
-          <summary id="lic-more-sum">the new owner · an ex-barista</summary>
-          <div class="lic-label">signed as</div>
-          <div id="lic-roles" class="lic-pills"></div>
-          <div class="lic-label">before this</div>
-          <div id="lic-bgs" class="lic-pills lic-bgs"></div>
-        </details>
+        <div id="lic-step" class="si-in">
+          <div id="lic-step-0">
+            <label class="lic-field">name<input id="lic-name" maxlength="16" placeholder="Sam" autocomplete="off"></label>
+            <label class="lic-field">stand<input id="lic-stand" maxlength="22" placeholder="THE CORNER CUP" autocomplete="off"></label>
+            <div class="lic-hint">the name on the lease · the name on the sign</div>
+          </div>
+          <div id="lic-step-1" hidden>
+            <div class="lic-label">before this</div>
+            <div id="lic-bgs" class="lic-pills lic-bgs"></div>
+          </div>
+          <div id="lic-step-2" hidden>
+            <div class="lic-label">signed as</div>
+            <div id="lic-roles" class="lic-pills"></div>
+            <div class="lic-hint">blank is fine — the district decides</div>
+          </div>
+        </div>
       </div>
       <footer class="modal-footer">
-        <button id="lic-sign">SIGN THE WEEK →</button>
-        <div class="lic-hint">blank is fine — the district decides</div>
+        <button id="lic-next">Next →</button>
+        <button id="lic-sign" hidden>SIGN THE WEEK →</button>
+        <div id="lic-dots"><span class="on"></span><span></span><span></span></div>
       </footer>
     </div>
   </div>

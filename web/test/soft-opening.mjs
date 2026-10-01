@@ -340,7 +340,7 @@ check('step 2 line', sLine.textContent === 'Ruth makes every drink. You watch th
 check('step 2 primary', sPrim.textContent === 'Open the doors', sPrim.textContent);
 check('step 2 shows the Ruth portrait', byId('softintro-portrait').children.length > 0 && byId('softintro-portrait').style.display !== 'none');
 check('step 2 dots advance', sDots.children[1].classList.contains('on') && !sDots.children[0].classList.contains('on'));
-check('reduced-motion rule exists', readFileSync(join(ROOT, 'web/index.html'), 'utf8').includes('@media (prefers-reduced-motion: reduce) { #softintro-step.si-in { animation: none; } }'));
+check('reduced-motion rule exists', readFileSync(join(ROOT, 'web/index.html'), 'utf8').includes('@media (prefers-reduced-motion: reduce) { #softintro-step.si-in, #lic-step.si-in { animation: none; } }'));
 writeFileSync(join(LOGS, 'softintro-step2.txt'), visibleText(byId('softintro')));
 key('Escape');
 check('Escape on step 2 does not open the doors', G.phase === 'planning' && byId('softintro').classList.contains('show'));

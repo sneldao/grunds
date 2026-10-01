@@ -101,8 +101,9 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
   assert.ok(crons.includes('wire-merge-refresh'), 'merged wire refreshes on the nightly cron');
   const main = read('web/js/main.js');
   const desk = read('web/js/desk.js');
-  assert.ok(main.includes("s.origin ? ' · ' + s.origin") && desk.includes("s.origin ? ' · ' + s.origin"),
-    'wire sources carry an origin tag on both surfaces');
+  // the brief's wire row carries the signal; the cited sources live in the desk
+  assert.ok(desk.includes("s.origin ? ' · ' + s.origin"), 'wire sources carry an origin tag in the desk');
+  assert.ok(!main.includes('brief-wire-details'), 'the brief no longer folds the sources inline');
   console.log('WIRE    Linkup + Firecrawl merge · corroboration boost · OpenAI why-line · origin tags');
 }
 

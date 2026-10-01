@@ -600,6 +600,12 @@ implementation exists. Day-1 choices everywhere (first morning, OPENING
 WEEK, veteran) render as one-line choices with a single merged
 `what's the difference?` details.
 
+The disclosure rule across the UI is `card = introduction, row = tool`:
+staged paper cards (`#softintro`, the three-step `#licence`) introduce, while
+collapsed `<details>` rows in the Brief (summary ending `· change ›`,
+persisted per drawer) are the tools — the wire row auto-opens only when a
+signal is in it.
+
 ## Depth rebuild roadmap (adopted Sept 28)
 
 *Historical plan — the per-phase [SHIPPED Sept 28] tags below mark the subset

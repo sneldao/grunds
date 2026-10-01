@@ -603,6 +603,13 @@ https://striped-anaconda-746.convex.site (`?v=cbdc424`); live HTTP checks
 matched the artifact, while deployed gameplay and human engagement remain
 unverified.
 
+Working tree (Oct 1, uncommitted): the same disclosure model now holds
+everywhere — `card = introduction, row = tool`. The pitch licence is a
+three-step `#softintro`-style card (name+stand → backgrounds → sign; Enter
+advances, Escape inert), every Brief tool row folds with a `· change ›`
+summary persisted per drawer, and the wire row auto-opens only on a signal
+day (`the wire — a warning in it`); wire sources moved desk-only.
+
 ## Previous build (Sept 30) — gameplay-intuitiveness pass
 
 **The goal today:** keep the café **viable for five days**. Beating Sam's cup count

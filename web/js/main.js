@@ -235,6 +235,8 @@ const modals = createModalController({
       if (e.key === 'Enter') { const n = $('tnext'); if (n) n.click(); }
     } else if (t === 'softintro') {
       if (e.key === 'Enter') { const p = $('softintro-primary'); if (p && !p.disabled) p.click(); }
+    } else if (t === 'licence') {
+      if (e.key === 'Enter') { const b = licPrimary(); if (b && !b.disabled) b.click(); }
     }
   },
   allowNumericShortcut: (t, target, key) => t === 'brief' && day === 1 && /^[1-3]$/.test(key) && !!(target && target.dataset && target.dataset.prep),
@@ -1801,7 +1803,7 @@ function renderPlanQuote() {
   if (drawerOpen('brief-nut-details', wasOpen || q.contractFee > 0 || q.interest > 0 || q.settlement || q.training || q.sampling || q.marketing)) det.open = true;
   watchDrawer(det, 'brief-nut-details');
   const sum = document.createElement('summary');
-  sum.textContent = `bills counted at closing · ${fmt(q.fixedMinimum)} before per-cup costs`;
+  sum.textContent = `bills counted at closing · ${fmt(q.fixedMinimum)} before per-cup costs · change ›`;
   const body = document.createElement('div');
   body.style.whiteSpace = 'pre-wrap';
   body.textContent = full;
@@ -2394,7 +2396,7 @@ function renderRivalLine() {
   if (drawerOpen('brief-rival-details', wasOpen || delta < 0)) det.open = true;
   watchDrawer(det, 'brief-rival-details');
   const sum = document.createElement('summary');
-  sum.textContent = `across the street — ${delta >= 0 ? `you lead by ${delta}` : `Sam leads by ${-delta}`} · week ${weekYou}–${weekSam}`;
+  sum.textContent = `across the street — ${delta >= 0 ? `you lead by ${delta}` : `Sam leads by ${-delta}`} · week ${weekYou}–${weekSam} · change ›`;
   det.appendChild(sum);
   const row = document.createElement('div');
   row.className = 'brief-row';
@@ -2560,46 +2562,34 @@ function showMorningBrief() {
       .join('\n').replace(/\n{3,}/g, '\n\n');
   }
   const ctxEl = $('brief-context');
-  if (ctxEl) ctxEl.style.display = toolsToday.visible.has('insurance') ? '' : 'none';
-  // wire block: clickable source links + why-this-matters
+  if (ctxEl) {
+    ctxEl.style.display = toolsToday.visible.has('insurance') ? '' : 'none';
+    const signal = !!(marketIntel?.marketShift?.length || exchange.event);
+    const csum = ctxEl.querySelector && ctxEl.querySelector('summary');
+    if (csum) csum.textContent = signal ? 'the wire — a warning in it' : 'the wire';
+    ctxEl.open = drawerOpen('brief-context', signal);
+  }
+  // wire block: the signal is flat now — why it matters, the insider edge,
+  // the whisper. The cited sources themselves live in the wire desk.
   const wire = $('brief-wire');
   if (wire) {
     wire.textContent = '';
     wire.style.display = '';
     const srcs = (marketIntel && marketIntel.sources) || [];
     const shift = marketIntel?.marketShift?.[0];
-    if (srcs.length) {
-      // Progressive disclosure (stage 2 = folded wire): the kicker already
-      // promises "tap the wire for sources" — the summary counts the cost
-      // (free) and everything inside is one tap away, not ten lines.
-      // First tap opens + marks the wire read so the kicker stops shouting.
-      const det = document.createElement('details'); det.id = 'brief-wire-details';
-      const sum = document.createElement('summary');
-      sum.textContent = `on the wire — ${Math.min(srcs.length, 2)} headline${srcs.length > 1 ? 's' : ''} (free) · tap for sources`;
-      det.appendChild(sum);
-      wire.appendChild(det);
+    if (srcs.length || shift) {
       if (head) {
         head.style.cursor = 'pointer';
-        head.title = 'tap to open the wire’s sources';
+        head.title = 'tap to open the wire';
         head.onclick = () => {
           const c = $('brief-context'); if (c) c.open = true;
-          det.open = true;
           try { analytics.track('wire_opened', { day }); } catch {}
         };
       }
-      for (const s of srcs.slice(0, 2)) {
-        const row = document.createElement('div'); row.style.marginTop = '6px';
-        const a = document.createElement('a'); a.textContent = s.title || 'untitled';
-        a.href = s.url || '#'; a.target = '_blank'; a.rel = 'noopener'; if (s.snippet) a.title = s.snippet;
-        let host = ''; try { host = new URL(s.url).hostname.replace(/^www\./, ''); } catch {}
-        const b = document.createElement('span'); b.style.opacity = '.5'; b.style.fontSize = '10px';
-        b.textContent = (host ? ' · ' + host : '') + (s.origin ? ' · ' + s.origin : '');
-        row.append(a, b); det.appendChild(row);
-      }
-      if (shift && shift.reason) {
+      if (shift && (shift.why || shift.reason)) {
         const why = document.createElement('div'); why.style.marginTop = '8px'; why.style.fontSize = '10.5px';
         why.style.opacity = '.72'; why.textContent = 'why this matters · ' + String(shift.why || shift.reason).slice(0, 160);
-        det.appendChild(why);
+        wire.appendChild(why);
       }
       // insider tilt callout
       const edge = document.createElement('div'); edge.style.marginTop = '8px'; edge.style.fontSize = '10px';
@@ -2607,9 +2597,9 @@ function showMorningBrief() {
       if (billing.isSubscribed() && shift) {
         edge.textContent = 'insider tilt — ' + (shift.eventId || 'deck') + ' ×' + shift.weightMul;
       } else if (shift) {
-        edge.textContent = 'the quantitative tilt (×) is District Insider · headlines above are yours';
-      } else edge.textContent = 'headlines free · the wire lives inside the brief and the desk';
-      det.appendChild(edge);
+        edge.textContent = 'the quantitative tilt (×) is District Insider · sources live in the desk';
+      } else edge.textContent = 'the wire lives in the desk — sources and the tilt';
+      wire.appendChild(edge);
       // a market regular hears the direction without the multiplier — the
       // whisper is qualitative, the × stays insider
       if (perkBg === 'circuit' && shift) {
@@ -2618,19 +2608,11 @@ function showMorningBrief() {
         const w = document.createElement('div');
         w.style.cssText = 'margin-top:6px;font-size:10.5px;opacity:.78;font-style:italic';
         w.textContent = `the circuit whispers — the board leans ${lean}`;
-        det.appendChild(w);
+        wire.appendChild(w);
       }
-      // the desk lives inside the open wire now — context at the point of
-      // curiosity, not a footer under OPEN. The standalone #brief-desklink
-      // stays as the quiet-day fallback (no details element those mornings).
-      const dl = document.createElement('button');
-      dl.className = 'l-desktoggle';
-      dl.style.cssText = 'margin:8px 0 0;font-size:11px;text-align:left;opacity:.85';
-      dl.textContent = billing.isSubscribed() ? '⚡ open the full wire desk' : '⚡ headlines free — open the desk for the tilt';
-      dl.onclick = () => desk.open(marketIntel);
-      det.appendChild(dl);
     } else {
       wire.textContent = 'The wire is quiet today — no headlines tilted the deck.';
+      if (head) { head.onclick = null; head.style.cursor = ''; head.title = ''; }
     }
   }
   // Street work — the demand turn inside the Brief. Awareness decays every
@@ -2902,12 +2884,9 @@ function showMorningBrief() {
   if (rl) rl.style.display = lastDayReceipt ? '' : 'none';
   const desklink = $('brief-desklink');
   if (desklink) {
-    // Quiet days have no wire details, so the footer button is the only door
-    // to the desk. On wire days the desk entry lives inside the open details
-    // (built above) and the footer stays hidden — one door, not two.
-    if ($('brief-wire-details')) {
-      desklink.style.display = 'none';
-    } else if (marketIntel) {
+    // The desk holds the sources — this button inside the context drawer is
+    // the one door, shown whenever the wire has anything to say.
+    if (marketIntel) {
       desklink.style.display = '';
       desklink.textContent = billing.isSubscribed() ? '⚡ open the full wire desk' : '⚡ headlines free — open the desk for the tilt';
       desklink.onclick = () => desk.open(marketIntel);
@@ -2995,6 +2974,7 @@ function dismissBriefAndStartDay() {
 
 if ($('brief-open')) $('brief-open').onclick = () => dismissBriefAndStartDay();
 if ($('brief-desklink')) $('brief-desklink').onclick = () => { if (marketIntel) desk.open(marketIntel); };
+if ($('brief-context')) watchDrawer($('brief-context'), 'brief-context');
 if ($('brief-offline')) $('brief-offline').onclick = () => { if (sync.disableRun) sync.disableRun(); reset(); };
 if ($('brief-softskip')) $('brief-softskip').onclick = () => beginWeek();
 
@@ -4129,6 +4109,10 @@ addEventListener('keydown', e => {
     const pick = { '1': 'topup', '2': 'hold', '3': 'close' }[e.key];
     if (pick) { e.preventDefault(); resolveEvening(pick); return; }
   }
+  if (e.key === 'Enter' && modals.top() === 'licence') {
+    const t = e.target;
+    if (t && t.tagName === 'INPUT') { e.preventDefault(); const p = licPrimary(); if (p && !p.disabled) p.click(); return; }
+  }
   if (modals.handleKey(e)) return;
   // typing belongs to the field — never let an email fire game keys
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
@@ -4278,12 +4262,19 @@ const LIC_BGS = [
   { id: 'newcomer',      label: 'new to the trade', perk: 'a fresh face — the regulars warm quicker' },
   { id: 'circuit',       label: 'a market regular', perk: 'you know the circuit — the wire names its lean' },
 ];
-let licRole = 0, licBg = 0;
-function paintLicMore() {
-  const sum = $('lic-more-sum');
-  if (!sum) return;
-  const bg = LIC_BGS[licBg] || LIC_BGS[0];
-  sum.textContent = `${LIC_ROLES[licRole] || LIC_ROLES[0]} · ${bg.label}`;
+const LIC_STEPS = 3;
+let licRole = 0, licBg = 0, licStep = 0;
+function licPrimary() { return licStep >= LIC_STEPS - 1 ? $('lic-sign') : $('lic-next'); }
+function paintLicenceStep() {
+  licStep = Math.max(0, Math.min(LIC_STEPS - 1, licStep));
+  for (let i = 0; i < LIC_STEPS; i++) { const s = $(`lic-step-${i}`); if (s) s.hidden = i !== licStep; }
+  const next = $('lic-next'), sign = $('lic-sign');
+  if (next) next.hidden = licStep >= LIC_STEPS - 1;
+  if (sign) sign.hidden = licStep < LIC_STEPS - 1;
+  const dots = $('lic-dots');
+  if (dots) [...dots.children].forEach((d, i) => d.classList.toggle('on', i === licStep));
+  const wrap = $('lic-step');
+  if (wrap) { wrap.classList.remove('si-in'); void wrap.offsetWidth; wrap.classList.add('si-in'); }
 }
 function showLicence() {
   const el = $('licence'); if (!el) return;
@@ -4304,7 +4295,7 @@ function showLicence() {
   LIC_ROLES.forEach((r, i) => {
     const b = document.createElement('button');
     b.textContent = r; b.className = i === licRole ? 'on' : '';
-    b.onclick = () => { licRole = i; [...roles.children].forEach((c, j) => c.className = j === i ? 'on' : ''); paintLicMore(); };
+    b.onclick = () => { licRole = i; [...roles.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
     roles.appendChild(b);
   });
   const bgs = $('lic-bgs');
@@ -4313,10 +4304,11 @@ function showLicence() {
     const b = document.createElement('button');
     b.innerHTML = g.label + '<small>' + g.perk + '</small>';
     b.className = i === licBg ? 'on' : '';
-    b.onclick = () => { licBg = i; [...bgs.children].forEach((c, j) => c.className = j === i ? 'on' : ''); paintLicMore(); };
+    b.onclick = () => { licBg = i; [...bgs.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
     bgs.appendChild(b);
   });
-  paintLicMore();
+  licStep = 0;
+  paintLicenceStep();
   modals.open('licence');
   setTimeout(() => { try { (nameEl.value ? standEl : nameEl).focus(); } catch {} }, 350);
   try { analytics.track('licence_shown'); } catch {}
@@ -4354,6 +4346,11 @@ function signLicence() {
   else { started = true; audio.start(); openDay(1); rig.crane(); }
 }
 if ($('lic-sign')) $('lic-sign').onclick = signLicence;
+if ($('lic-next')) $('lic-next').onclick = () => {
+  licStep = Math.min(LIC_STEPS - 1, licStep + 1);
+  paintLicenceStep();
+  try { const p = licPrimary(); if (p && p.focus) p.focus(); } catch {}
+};
 
 // ---- tutorial: 3 steps, then the floor runs. Headless + ?skipTutorial bypass it.
 const TUT_STEPS = [
@@ -4751,7 +4748,7 @@ function loop(now) {
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
   moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key), enqueue: (t, k, d = {}) => momentEnqueue(t, k, d) },
   stageCellar,
-  patrons, modals, openDossier, showIncident,
+  patrons, modals, openDossier, showIncident, showLicence,
   renderBrief() { if (phase === 'planning') { if (softDay) showSoftIntro(0); else showMorningBrief(); } },
   get phase() { return phase; },
   get party() { return party; },

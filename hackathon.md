@@ -12,9 +12,16 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T13:00:42Z
+- **Last updated:** 2026-10-01T14:39:25Z
 
 ## Log
+
+### 2026-10-01 - working tree - card = introduction, row = tool
+
+- **`#licence` is a staged card like `#softintro`**: three steps on the same paper card with the `si-in` fade-and-rise (off under `prefers-reduced-motion`) and progress dots — step 1 asks name + stand (`the name on the lease · the name on the sign`), step 2 shows all four backgrounds flat (no fold — each keeps its perk line), step 3 shows the role pills with `blank is fine — the district decides` and `SIGN THE WEEK →`. Enter activates the step's primary (from inside the fields too), Escape stays inert, and the `#lic-more` details fold is deleted. Defaults (Sam / THE CORNER CUP / the new owner / ex-barista), `grunds.identity`/`grunds.owner` persistence, `licence_signed` analytics, and the `?skipLicence`/headless/demo/tutorial paths are unchanged.
+- **Uniform tool rows in the Brief**: every folded row — nut, coffee, menu, rival, street — persists via `grunds:drawer:*` and ends its summary `· change ›`; the nut and rival rows gained the suffix.
+- **The wire is a tool row**: `#brief-context` persists like the rest — folded on calm dawns (`the wire`), auto-open with `the wire — a warning in it` when the deck has a signal (`marketIntel.marketShift` or `exchange.event`), unless a stored drawer preference overrides. The inline `#brief-wire-details` sources fold is deleted — sources live in the wire desk (`⚡ open the full wire desk` and the insider upsell stay). Both `what's the difference?` explainers (prep choices + the plan moment) keep their folds.
+- **Coverage**: `identity.mjs` rewritten for the staged contract (three steps/dots, flat backgrounds, defaults, persistence, staged Enter, inert Escape); `orientation.mjs` asserts the `· change ›` rows, calm-folded vs warning-open wire, no `brief-wire-details`, and captures each licence step + both wire rows to the test logs; `intel.mjs` pins desk-only sources.
 
 ### 2026-10-01 - 0eb2d71 - staged soft morning
 
