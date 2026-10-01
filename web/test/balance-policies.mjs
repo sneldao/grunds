@@ -86,7 +86,7 @@ async function run(seed, policy) {
   for (let day = 1; day <= CAMPAIGN.days; day++) {
     assert.equal(game.phase, 'planning');
     const before = game.stats();
-    let hedge = 'hold';
+    let hedge = before.debt > 0 && policy !== 'passive' && policy !== 'reckless' ? 'settle' : 'hold';   // competent policies clear the tab before re-borrowing
     if (policy === 'conservative') {
       if (!game.exc.contract && before.index <= 1.1) hedge = 'contract_light';
       else if (before.debt > 0) hedge = 'settle';
@@ -100,6 +100,9 @@ async function run(seed, policy) {
     if (policy === 'reckless' && !game.exc.contract) hedge = 'contract_heavy';
     const staffing = policy !== 'passive' && policy !== 'reckless' && day >= 2 && before.staffCondition < .55 ? 'apprentice' : 'work';
     const marketing = { sample: (policy === 'growth' || policy === 'engaged') && day < CAMPAIGN.days, sponsor: (policy === 'growth' || policy === 'engaged' || policy === 'reckless') && day >= 3 && day < CAMPAIGN.days };
+    // Competent policies restock the cellar every morning (the Brief's coffee
+    // tool); passive and reckless stay naive so the harness keeps a floor.
+    if (policy !== 'passive' && policy !== 'reckless') assert.equal(game.stageCellar({ topup: 'restock' }), true);
     assert.equal(game.stageDayPlan({ hedge, staffing, marketing }), true);
     let quote = game.quote;
     let res = await game.commitDayPlan();

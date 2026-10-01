@@ -44,7 +44,7 @@ import { createAnalytics } from './analytics.js';
 import { billing } from './billing.js';
 import { initDesk, wireHint } from './desk.js';
 import { createModalController } from './modals.js';
-import { buildAutopsy } from './autopsy.js';
+import { buildAutopsy, turningPoint } from './autopsy.js';
 
 const urlParams = new URLSearchParams(location.search);
 const _liteFlag = urlParams.has('lite');
@@ -1170,6 +1170,7 @@ function closeDay() {
     campaignDays.push({
       day, staleCupsByLot: { ...staleByLotToday },
       batchWaste, compost: compostToday, balked, defections, netToday: null, opDrops,
+      emergencyCups, emergencySpend, interest: interestToday, event: exchange.event?.id || null, covered: hedgedCups > 0 || !!exchange.contract,
     });
     weekOpStart = new Map(regulars.regulars.map((r) => [r.name, r.op]));
   } catch {}
@@ -2073,7 +2074,7 @@ function renderLotSection() {
   const st = lotState.entry(selectedLot);
   if (st) {
     const price = lotSpot(selectedLot, dawnIndex, st.priceMul);
-    const qty = restockQty(lastPour);
+    const qty = restockQty(lastPour, st.stock);
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px';
     const mkTop = (id, label, cups) => {
@@ -2151,8 +2152,8 @@ function stageCellar({ lot, topup } = {}) {
     stagedRoast = lotState.entry(lot)?.roast ?? 3;
   }
   if (topup !== undefined) {
-    if (topup === 'restock') topUpCups = restockQty(lastPour);
-    else if (topup === 'double') topUpCups = restockQty(lastPour) * 2;
+    if (topup === 'restock') topUpCups = restockQty(lastPour, lotState.entry(selectedLot)?.stock);
+    else if (topup === 'double') topUpCups = restockQty(lastPour, lotState.entry(selectedLot)?.stock) * 2;
     else if (topup === 'skip' || topup === 0) topUpCups = 0;
     else if (Number.isFinite(+topup) && +topup > 0) topUpCups = Math.floor(+topup);
     else return false;
@@ -3300,7 +3301,8 @@ function campaignClose(insolvent = false) {
       try {
         const snap = regulars.regulars.map((r) => ({ name: r.name, op: r.op }));
         const causes = buildAutopsy(campaignDays, snap);
-        return causes.map((c, i) => [i === 0 ? 'lost because' : '…', c]);
+        const turn = turningPoint(campaignDays);
+        return [...(turn ? [['the turning point', turn]] : []), ...causes.map((c, i) => [i === 0 ? 'lost because' : '…', c])];
       } catch { return []; }
     })(),
   ];

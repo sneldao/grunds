@@ -117,7 +117,7 @@ export const CAMPAIGN = {
   wastePct: 0.06,          // 6% of sales lost to waste (Business Waste / Notions)
   debtInterest: 4.0,      // daily floor on outstanding supplier credit
   debtInterestRate: 0.025, // plus 2.5%/day — the tab compounds, not just ticks
-  creditLimit: 1500,      // the supplier's tab limit — past it you settle before you hedge
+  creditLimit: 3500,      // the supplier's tab limit — past it you settle before you hedge
   startReputation: 62,     // 0..100 — the regulars' aggregate opinion
   // The operating cost sheet — what a real stand pays beyond beans. The load
   // sits in committed costs (a rostered shift, the pitch's base rent) rather

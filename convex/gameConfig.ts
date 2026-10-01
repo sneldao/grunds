@@ -21,7 +21,7 @@ export const CAMPAIGN_TUNING = {
   wastePct: 0.06,
   debtInterest: 4.0,
   debtInterestRate: 0.025,
-  creditLimit: 1500,        // supplier tab ceiling — resolveDecision enforces it
+  creditLimit: 3500,        // supplier tab ceiling — resolveDecision enforces it
   startReputation: 62,
 } as const;
 

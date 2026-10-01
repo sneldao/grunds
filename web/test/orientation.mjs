@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { ECON } from '../js/config.js';
+import { ECON, CAMPAIGN } from '../js/config.js';
 import { firstMorningCopy, economicsLesson } from '../js/orientation.js';
 import { computeNextAction } from '../js/nextAction.js';
 
@@ -583,7 +583,7 @@ G.renderBrief();
   }
   writeFileSync(join(LOGS, 'day3-brief-visible.txt'), visibleText(byId('brief')));
   const savedDebt = G.exc.debt;
-  G.exc.debt = 1200;
+  G.exc.debt = CAMPAIGN.creditLimit - 300;
   G.stageCellar({ topup: 'restock' });
   G.renderBrief();
   const lbl = (byId('brief-top-rest') || {}).textContent || '';

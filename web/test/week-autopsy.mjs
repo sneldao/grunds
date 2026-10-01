@@ -55,9 +55,31 @@ test('Phase 6 · empty week still returns one line', () => {
 });
 
 test('Phase 6 · floor wires the autopsy into closeDay + campaignClose + reset', () => {
-  assert.ok(main.includes("import { buildAutopsy } from './autopsy.js'"), 'main must import buildAutopsy');
+  assert.ok(main.includes("import { buildAutopsy, turningPoint } from './autopsy.js'"), 'main must import buildAutopsy');
   assert.ok(main.includes('staleByLotToday[e.lotId]'), 'serve loop counts stale cups by lot');
   assert.ok(main.includes('campaignDays.push({'), 'closeDay pushes a cause record');
   assert.ok(main.includes("'lost because'"), 'campaignClose renders lost-because rows');
   assert.ok(main.includes('campaignDays = []; weekOpStart = null; staleByLotToday = {};'), 'reset rewinds the autopsy');
+});
+
+test('Turning point · names the priciest decision, prices beat unpriced', async () => {
+  const { turningPoint } = await import('../js/autopsy.js');
+  assert.equal(turningPoint([]), null);
+  assert.equal(turningPoint([{ day: 1, netToday: 10 }]), null);
+  const dry = { day: 3, emergencyCups: 900, emergencySpend: 1800, interest: 0, event: 'stable', covered: false };
+  assert.match(turningPoint([dry]), /cellar ran dry on day 3 — 900 cups .* about £600 extra/);
+  const tab = { day: 4, interest: 90, event: 'stable', covered: false };
+  assert.match(turningPoint([tab]), /£90 in interest/);
+  const bare = { day: 2, event: 'frost_minas', covered: false };
+  assert.match(turningPoint([bare]), /day 2: a frost hit and the week had no cover/);
+  assert.doesNotMatch(turningPoint([{ ...bare, covered: true }]) || '', /no cover/);
+  assert.match(turningPoint([bare, dry, tab]), /cellar ran dry/);   // £600 beats £90 beats unpriced
+  assert.match(turningPoint([bare, tab]), /interest/);
+  assert.equal(turningPoint([{ day: 3, emergencyCups: 10, emergencySpend: 20 }]), null);   // trivial premium is noise
+});
+
+test('Turning point · wired into the final receipt and the day record', () => {
+  assert.match(main, /turningPoint\(campaignDays\)/);
+  assert.match(main, /'the turning point'/);
+  assert.match(main, /emergencyCups, emergencySpend, interest: interestToday/);
 });

@@ -94,3 +94,27 @@ export function buildAutopsy(campaignDays = [], regularsSnapshot = []) {
   if (!lines.length) lines.push('no single cause — the week just never caught fire');
   return lines;
 }
+
+// The one decision that cost the most. The rows above list symptoms; this
+// names a choice the player could have made differently tomorrow. Priced causes
+// (£) outrank unpriced ones. Optional per-day fields: emergencyCups,
+// emergencySpend (billed at 1.5× spot, so a third of it was premium), interest,
+// event, covered (a contract was live or paid out that day).
+const SHOCKS = { frost_minas: 'a frost', drought_ea: 'an East Africa drought' };
+const gbp = (n) => `£${Math.round(n).toLocaleString('en-GB')}`;
+export function turningPoint(campaignDays = []) {
+  const days = Array.isArray(campaignDays) ? campaignDays : [];
+  const causes = [];
+  const dry = days.filter((d) => (d.emergencyCups || 0) > 0 && (d.emergencySpend || 0) > 0);
+  if (dry.length) {
+    const premium = dry.reduce((n, d) => n + d.emergencySpend / 3, 0);
+    const cups = dry.reduce((n, d) => n + d.emergencyCups, 0);
+    if (premium >= 25) causes.push({ cost: premium, line: `the cellar ran dry on day ${dry[0].day} — ${cups} cups at emergency prices cost about ${gbp(premium)} extra. Restock before close.` });
+  }
+  const interest = days.reduce((n, d) => n + (d.interest || 0), 0);
+  if (interest >= 25) causes.push({ cost: interest, line: `the supplier tab charged ${gbp(interest)} in interest. Settle it sooner.` });
+  const bare = days.find((d) => SHOCKS[d.event] && !d.covered);
+  if (bare) causes.push({ cost: 0, line: `day ${bare.day}: ${SHOCKS[bare.event]} hit and the week had no cover. The wire warned a day earlier.` });
+  causes.sort((a, b) => b.cost - a.cost);
+  return causes.length ? causes[0].line : null;
+}

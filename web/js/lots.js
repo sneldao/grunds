@@ -100,9 +100,11 @@ export function serveNudge(lotId, cohort, ageDays, roastMul = 1, scorched = fals
   return (aff - 1) * AFFINITY_NUDGE * roastMul;
 }
 
-// Adaptive restock: yesterday's pour + 25% buffer, rounded to 50s.
-export function restockQty(pouredYesterday) {
-  return Math.max(0, Math.ceil((pouredYesterday * 1.25) / 50) * 50);
+// Adaptive restock: top the cellar up to yesterday's pour + 25% buffer, net of
+// the stock already on hand, rounded to 50s. Buying the whole target on top of
+// a full sack just composts the surplus.
+export function restockQty(pouredYesterday, onHand = 0) {
+  return Math.max(0, Math.ceil((pouredYesterday * 1.25 - Math.max(0, onHand)) / 50) * 50);
 }
 
 // LotsState — the cellar. Lots keyed by id:

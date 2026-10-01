@@ -61,7 +61,7 @@ in the day and a different lever that works on them.
 gentrifies — rents and bean costs creep, willingness-to-pay rises but expectations
 rise faster. Standing still loses. (Supplier credit is the Drug Wars debt clock,
 delivered by the Roaster's Letter — dawn bean sacks ride the tab, which caps at
-£1,500 and compounds 2.5%/day; a bone-dry cellar bills every cup from the till
+£3,500 (about one full day of beans) and compounds 2.5%/day; a bone-dry cellar bills every cup from the till
 at 1.5× spot; and a campaign that ends a review worth less than it owes is
 called: insolvency closes the stand early.)
 

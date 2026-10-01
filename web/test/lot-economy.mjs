@@ -74,6 +74,11 @@ test('Phase 2 · restockQty adapts to yesterday’s pour', () => {
   assert.equal(restockQty(400), 500);
   assert.equal(restockQty(100), 150);
   assert.equal(restockQty(1000), 1250);
+  // top-up, not a blind buy: net of the stock already on hand
+  assert.equal(restockQty(1000, 600), 650);
+  assert.equal(restockQty(1000, 1250), 0);
+  assert.equal(restockQty(1000, 5000), 0);
+  assert.equal(restockQty(400, -5), 500);
 });
 
 // (6) Starter cellar: house huila deep, others shallow, gesha locked
@@ -204,7 +209,7 @@ test('Phase 2 · dry cellar bills every emergency cup at 1.5× spot', async () =
 test('Phase 2 · stageCellar stages house lot + top-up for policy probes', () => {
   assert.match(main, /function stageCellar\(\{ lot, topup \} = \{\}\)/);
   assert.match(main, /if \(!LOT_IDS\.includes\(lot\)\) return false/);
-  assert.match(main, /topUpCups = restockQty\(lastPour\)/);
+  assert.match(main, /topUpCups = restockQty\(lastPour, lotState\.entry\(selectedLot\)\?\.stock\)/);
   assert.match(main, /stageCellar,/);
   // the serve loop bills every emergency cup from the till, toast once/day
   assert.match(main, /till -= e\.spotCost; beanSpend \+= e\.spotCost; emergencySpend \+= e\.spotCost; emergencyCups\+\+;/);
