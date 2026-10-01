@@ -165,7 +165,7 @@ export class PatronSystem {
     // Is this spawn a named Regular? If so, mark seen, tag the patron, and
     // emit a one-line greeting when they actually join the queue.
     if (!toRival && this.regulars && zone === 'counter') {
-      const r = this.regulars.markSeen(cohort);
+      const r = this.regulars.markSeen(cohort, this.markSeenOnly || null);
       if (r.found) {
         p.regularName = r.name; p.regularIdx = r.idx; p.hasHat = true;
         // Phase 1 — canon identity: roster history rides on the patron.

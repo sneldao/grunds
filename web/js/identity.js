@@ -126,7 +126,7 @@ export function dossierLines(ident, { op = null, friends = [] } = {}) {
   if (op != null) lines.push(`${feeling(op)} about this place`);
   if (friends.length) lines.push(`friends here: ${friends.slice(0, 3).join(', ')}`);
   for (const e of ident.events.slice(-5).reverse()) {
-    const when = `day ${e.day}`;
+    const when = e.day === 0 ? 'soft opening' : `day ${e.day}`;
     if (e.outcome === 'served') lines.push(`${when} — served ${e.drink}${e.stayed ? ', stayed a while' : ''}`);
     else if (e.outcome === 'balked') lines.push(`${when} — walked out (the line)`);
     else if (e.outcome === 'defected') lines.push(`${when} — crossed to Glasshouse`);

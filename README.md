@@ -568,6 +568,30 @@ artifact (`?v=df82b4f`, 67-suite gate green on the committed tree); live HTTP
 checks matched the artifact, while deployed gameplay and human engagement
 remain unverified.
 
+## Current build (Oct 1c) — soft opening slice
+
+New players (`wantTutorial` and the curriculum not fully introduced) now get
+one cosy **soft opening** day before the five-day week: the same day-1 engine
+under a `softDay` flag with a thinned, seeded crowd (`SOFT_MUL`, ~59
+walk-ins), only Mara/Pip/Olu on the floor (Mara guaranteed by 08:10, Olu by
+12:30, Pip arriving with her 24-student study group at 14:00 via a rewritten
+11:00 ask), the day closing at 17:00 with a practice-ledger receipt
+(served/walked/takings — no costs, nut, debt or forecast) and a "practice
+money" lesson. `beginWeek()` then carries only relationships forward —
+roster opinion/visits/events relabelled `soft opening — …` plus the walk-in
+pool's met faces — and resets everything else to the tested fresh campaign
+start, landing on an `OPENING WEEK` brief with ungated choices and no coach
+(the coach spent itself on the soft day). The soft day never touches Convex.
+Veterans, `?skipTutorial`, demo and headless keep the straight-to-week path.
+
+Coverage: new `soft-opening.mjs` (45 checks: thinned walk-in band, cast
+restriction and arrival times, Pip's 24-person party on accept vs none on
+decline, receipt shape, beginWeek equal to a fresh start with only the
+social layer carried, the skip button, and the veteran bypass) plus the
+focused suites and a 71-suite non-balance gate — all green in a temp mirror;
+`tsc --noEmit` clean. Code-only verification; no browser evidence this pass.
+Uncommitted working-tree change on `d96cfeb`; not deployed.
+
 ## Previous build (Sept 30) — gameplay-intuitiveness pass
 
 **The goal today:** keep the café **viable for five days**. Beating Sam's cup count

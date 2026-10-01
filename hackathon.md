@@ -12,9 +12,15 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T04:30:09Z
+- **Last updated:** 2026-10-01T12:01:46Z
 
 ## Log
+
+### 2026-10-01 - working tree - soft opening slice (uncommitted on d96cfeb)
+
+- **One practice day before the week** (`softDay` on the day-1 engine): eligible new players get a soft opening — thinned crowd via a dedicated `softRng = seeded(SEED + 101)` with `SOFT_MUL = 0.005` (~59 walk-ins, no return bonus), cast restricted to Mara/Pip/Olu (`patrons.markSeenOnly`; guaranteed commuter at 08:10 → Mara, elder at 12:30 → Olu; Pip is held for the study group so the first party member is her), Pip's 11:00 ask rewritten (`"Mind if the study group lands at 14:00? Twenty-four of us — all matcha."`, 24 students at 2/min across 14:00–14:12, `offerWaveMul` left at 1), counter moments once per cast regular instead of once per day, and close at 17:00 with no evening call or incident.
+- **Practice ledger + `beginWeek()`**: the soft receipt carries only served/walked/takings plus batch and group lines — no ops/nut/debt/net-worth/forecast — leads lessons with `Practice money — today's takings don't count toward the week.`, and offers `open the week →`. `beginWeek()` (also wired to the brief's `Skip the soft opening →`) snapshots roster `{op, visits, stage, drink, events}` — events relabelled day 0, rendered `soft opening — …` in dossiers/board/cast history — and the walk-in pool heads (pids relabelled `d0-`), then `reset(true)` rebuilds the tested fresh start, restores the social layer (`walkins.day = 0` so `ensureDay(1)` carries known faces), and lands on the `OPENING WEEK` brief ungated with `coachedOpening` spent — the day-1 coach only ever runs on the first played Day 1. The soft day never touches Convex (`preparePlan`/`commitPlan`/`finishDay` all skipped) and nothing economic carries.
+- **Coverage**: new `soft-opening.mjs` — 45 checks incl. the [35,90] walk-in band on seed 7, cast-only tagging and arrival times, 24-party accept vs zero decline, receipt shape, `beginWeek` byte-equal to a fresh `reset()` on the ledger fields, skip parity, and the all-tools-introduced bypass. Full non-balance gate in `/tmp/grunds-test-mirror15`: 71 suites green; `tsc --noEmit`, `git diff --check`, `secret_scan` clean. Working tree only — no commit, push, or deploy.
 
 ### 2026-10-01 - a18bb28 - quiet auto-pacing + in-day moments (roadmap step 3)
 

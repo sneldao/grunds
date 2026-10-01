@@ -278,7 +278,7 @@ let batchPulseUntil = 0;
 // resolves every modal + lever for the player so the floor tells its own
 // story for screen-recording / judge demo. A keypress flips it off.
 const demoMode = !headless && urlParams.has('demo');
-const wantTutorial = !headless && !demoMode && !urlParams.has('skipTutorial') && !urlParams.has('notutorial');
+let wantTutorial = !headless && !demoMode && !urlParams.has('skipTutorial') && !urlParams.has('notutorial');
 // the pitch licence precedes the tutorial — ?skipTutorial/?notutorial/?skipLicence/?demo
 // or headless all bypass it (the district assigns defaults: Sam, THE CORNER CUP)
 const skipLicence = headless || demoMode || urlParams.has('skipLicence') || !wantTutorial;
@@ -408,6 +408,9 @@ let offerShown = false, offerWaveMul = 1, officeRunAt = 0, oluPayoutAt = 0, esth
 let party = null;   // { name, cohort, left, served, walked, declined? } | null
 let batchWaste = 0; // prepaid cups still on the bar at close
 let batchSpend = 0; // cash spent on cups up front — the receipt shows it beside revenue
+let softDay = false, softWeekDone = false, coachedOpening = false, softTest = null, softRng = null;
+const SOFT_MUL = 0.005, SOFT_CAST = new Set(['Mara', 'Pip', 'Olu']), SOFT_EARLY = new Set(['Mara', 'Olu']);
+const wantsSoftDay = () => wantTutorial && !TOOL_IDS.every(t => introducedSet().has(t));
 let incidentShown = false, activeBeat = null, cashOnly = 0, cashOnlyToast = false, contractFeeExtra = 0, solicitorAt = 0;
 // Morning Brief — the Drug Wars turn: paused at 06:00, read then commit
 let briefChoice = null;
@@ -624,7 +627,7 @@ let leverOverrideCount = 0;
 // ---- the day ------------------------------------------------------------------
 function tick() {
   if (phase !== 'trading' || paused || closed) return;
-  if (dayMin >= DAY_END) { closeDay(); return; }
+  if (dayMin >= (softDay ? 1020 : DAY_END)) { closeDay(); return; }
   dayMin++;
   // Drop 20× when the rush starts — the cup countdown has to be readable.
   if (!headless && speed >= 1200 && dayMin === 840) {
@@ -651,11 +654,30 @@ function tick() {
       ? Math.round(demand.todayReturnees / dayWaves.length) : 0;
     let firstSpawn = true;
     patrons.party = party;
-    patrons.partyActive = dayMin >= 840 && dayMin <= 1020;
+    patrons.partyActive = softDay ? false : (dayMin >= 840 && dayMin <= 1020);
     for (const s of w.spawns) {
-      const n = Math.max(1, Math.round(s.q * ECON.spawnScale * mul)) + (firstSpawn ? returnBonus : 0);
+      let n;
+      if (softDay) {
+        const expected = s.q * ECON.spawnScale * SOFT_MUL;
+        n = Math.floor(expected) + (softRng() < expected - Math.floor(expected) ? 1 : 0);
+      } else {
+        n = Math.max(1, Math.round(s.q * ECON.spawnScale * mul)) + (firstSpawn ? returnBonus : 0);
+      }
       firstSpawn = false;
       for (let i = 0; i < n; i++) patrons.spawn(s.c, s.z, speed > 60);
+    }
+  }
+  if (softDay) {
+    patrons.markSeenOnly = dayMin < 840 ? SOFT_EARLY : SOFT_CAST;
+    if (dayMin === 490) patrons.spawn('commuters', 'counter', speed > 60);
+    if (dayMin === 750) patrons.spawn('elders', 'counter', speed > 60);
+    if (party && !party.declined && dayMin >= 840 && dayMin < 852) {
+      patrons.party = party;
+      patrons.partyActive = true;
+      for (let i = 0; i < 2 && (party._landed || 0) < 24; i++) {
+        if (patrons.spawn('students', 'counter', speed > 60)) party._landed = (party._landed || 0) + 1;
+      }
+      patrons.partyActive = false;
     }
   }
   coachTick();
@@ -1226,7 +1248,7 @@ function closeDay() {
     forecast = forecast ? forecast + ' \n' + line : line;
   }
   const lessons = [];
-  if (day === 1) {
+  if (day === 1 && !softDay) {
     lessons.push(`Running the café today cost ${fmt(ops.total)} — ${(ops.marketing || ops.training || ops.sampling) ? 'including ' : ''}staff, pitch rent, milk and cups, card fees and sundries — paid at closing.`);
   }
   const menuVisible = introducedSet().has('menu') || toolsIntroducedToday.includes('menu');
@@ -1256,7 +1278,25 @@ function closeDay() {
     }
   }
   for (const c of (patrons.companionsToday || [])) lessons.push(`${c.name} brought ${c.friend}.`);
-  const receiptData = {
+  if ($('receipt-heading')) $('receipt-heading').textContent = softDay ? 'SOFT OPENING' : 'GRUNDS';
+  if ($('receipt-sub')) $('receipt-sub').textContent = softDay ? 'soft opening · practice ledger' : 'end of day · Z-read';
+  const receiptData = softDay ? {
+    lessons: ['Practice money — today’s takings don’t count toward the week.', ...lessons],
+    lines: [
+      [standName, playerName],
+      ['served', served + servedRetail],
+      ['walked', balked],
+      ['takings', fmt(till + batchSpend)],
+      ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
+      ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
+      ...(party && !party.declined ? [[party.name + '’s group', `${party.served} stayed · ${party.walked} walked`]] : []),
+      ...(party && party.declined ? [[party.name, 'stayed away']] : []),
+    ],
+    verdict: 'Soft opening',
+    forecast: null,
+    summary: 'a quiet day — the week starts from a clean sheet',
+    netToday: till, operatingNet: till, ops: { total: 0 }, hedgeSavings: 0, fees: 0,
+  } : {
     lessons,
     lines: [
       [standName, playerName],
@@ -1305,12 +1345,12 @@ function closeDay() {
   fx.receipt(receiptData);
   if ($('review-continue')) {
     $('review-continue').style.display = '';
-    $('review-continue').textContent = day >= CAMPAIGN.days ? 'the week’s verdict →' : 'open day ' + (day + 1) + ' →';
+    $('review-continue').textContent = softDay ? 'open the week →' : day >= CAMPAIGN.days ? 'the week’s verdict →' : 'open day ' + (day + 1) + ' →';
   }
-  if ($('review-letter')) $('review-letter').style.display = '';
+  if ($('review-letter')) $('review-letter').style.display = softDay ? 'none' : '';
   if ($('receipt-back')) $('receipt-back').style.display = 'none';
   refreshStands();
-  if (sync.managed && sync.managed()) {
+  if (!softDay && sync.managed && sync.managed()) {
     sync.finishDay(day, {
       index: exchange.beanIndex,
       debt: exchange.debt,
@@ -1597,7 +1637,7 @@ function applyCommittedPlan(res) {
     }
     persistIntroduced();
   }
-  if (day === 1 && guidedOpening && !coach) coachBegin(true);
+  if (day === 1 && guidedOpening && !coach && !coachedOpening) coachBegin(true);
   briefSyncError('');
   return { ok: true };
 }
@@ -1606,7 +1646,7 @@ function commitDayPlan() {
   if (phase !== 'planning' || !planDraft) return { ok: false, why: 'not planning' };
   const plan = normalizePlan(planDraft);
   leversTimeLocked = true;
-  if (sync.managed && sync.managed()) {
+  if (!softDay && sync.managed && sync.managed()) {
     phase = 'committing';
     const gen = runGen;
     briefSyncError('saving the plan…');
@@ -1632,6 +1672,7 @@ function commitDayPlan() {
 
 function continueFromReview() {
   if (phase !== 'review') return false;
+  if (softDay) { beginWeek(); return true; }
   // The supplier calls the tab: a campaign that owes more than it's worth can't
   // open tomorrow. Same net-worth formula as stats()/the verdict.
   if (cRev - cCost - cOps - settledPaid - exchange.debt < 0) {
@@ -2386,14 +2427,17 @@ function showMorningBrief() {
   const firstDay = day === 1;
   toolsToday = briefTools();
   el.classList.toggle('first-morning', firstDay);
+  { const sk = $('brief-softskip'); if (sk) sk.style.display = softDay ? '' : 'none'; }
   try {
     const tilt = marketIntel?.marketShift?.[0];
     // highlight the bean tape when a tilt is active
     const tape = $('tape');
     if (tape && tilt) tape.style.color = (EVENTS[tilt.eventId]?.tier === 'good' ? '#9ad89a' : '#e07a7a');
-    if (head) head.textContent = firstDay ? 'Day 1 of 5 · before opening' : `Day ${day}/${CAMPAIGN.days} · plan before opening`;
+    if (head) head.textContent = softDay ? 'Soft opening · before the street knows you'
+      : firstDay && softWeekDone ? 'Day 1 of 5 · the street knows you’re open'
+      : firstDay ? 'Day 1 of 5 · before opening' : `Day ${day}/${CAMPAIGN.days} · plan before opening`;
     const heading = $('brief-heading');
-    if (heading) heading.textContent = firstDay ? firstMorningCopy().heading : 'THE MORNING BRIEF';
+    if (heading) heading.textContent = firstDay ? (softWeekDone ? 'OPENING WEEK' : firstMorningCopy().heading) : 'THE MORNING BRIEF';
     const obj = $('brief-objective');
     if (obj) {
       if (firstDay) { obj.textContent = ''; obj.style.display = 'none'; }
@@ -2405,7 +2449,13 @@ function showMorningBrief() {
   } catch { if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`; }
   const intro = $('brief-intro');
   if (intro) {
-    if (firstDay) {
+    if (firstDay && softWeekDone) {
+      intro.style.display = '';
+      intro.textContent = '';
+      const p = document.createElement('p');
+      p.textContent = 'The soft opening is behind you. Today the whole street can find you — same choices, many more people.';
+      intro.appendChild(p);
+    } else if (firstDay) {
       const FM = firstMorningCopy();
       intro.style.display = '';
       intro.textContent = '';
@@ -2413,12 +2463,12 @@ function showMorningBrief() {
       stand.className = 'fm-stand';
       stand.textContent = standName;
       const welcome = document.createElement('p');
-      welcome.textContent = FM.welcome;
+      welcome.textContent = softDay ? 'Before your first full week, a quiet soft opening. Only neighbours and a few early regulars know you’re here.' : FM.welcome;
       const rival = document.createElement('p');
       rival.textContent = FM.rival;
       const aim = document.createElement('p');
       aim.style.fontStyle = 'italic';
-      aim.textContent = FM.aim;
+      aim.textContent = softDay ? 'Today: meet your first regulars and try your plan on a small afternoon rush.' : FM.aim;
       const mkRole = (seed, cohort, name, line) => {
         const row = document.createElement('div');
         row.className = 'fm-role';
@@ -2918,10 +2968,12 @@ function dismissBriefAndStartDay() {
 if ($('brief-open')) $('brief-open').onclick = () => dismissBriefAndStartDay();
 if ($('brief-desklink')) $('brief-desklink').onclick = () => { if (marketIntel) desk.open(marketIntel); };
 if ($('brief-offline')) $('brief-offline').onclick = () => { if (sync.disableRun) sync.disableRun(); reset(); };
+if ($('brief-softskip')) $('brief-softskip').onclick = () => beginWeek();
 
 // ---- dawns -------------------------------------------------------------------
 function prepareDay(d) {
   if (phase !== 'onboarding' && phase !== 'review') return false;
+  if (d === 1 && phase === 'onboarding' && !softWeekDone) softDay = softTest !== null ? softTest : wantsSoftDay();
   if (d !== exchange.day + 1 || d < 1 || d > CAMPAIGN.days) return false;
   phase = 'planning';
   day = d;
@@ -3013,6 +3065,8 @@ function prepareDay(d) {
   pendingGossip = null;
   offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
   party = null; batchWaste = 0; batchSpend = 0; patrons.party = null; patrons.partyActive = false;
+  patrons.markSeenOnly = softDay ? SOFT_CAST : null;
+  if (softDay && d === 1) softRng = seeded(seedNow() + 101);
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; solicitorAt = 0;
   briefChoice = null;
   world.setMatchaPrice(priceForDay(d).toFixed(2), false);
@@ -3021,7 +3075,7 @@ function prepareDay(d) {
   try { modals.close('letter'); modals.close('receipt'); } catch {}
   paused = true; if ($('pause')) $('pause').textContent = 'resume';
   updateHUD();
-  if (sync.managed && sync.managed()) {
+  if (!softDay && sync.managed && sync.managed()) {
     const gen = runGen, dd = d;
     sync.preparePlan(planSnapshot(), normalizePlan(planDraft)).then(r => {
       if (gen === runGen && day === dd && phase === 'planning' && (!r || !r.ok)) briefSyncError('Could not save the plan. Retry or start a local-only week.', true);
@@ -3444,7 +3498,8 @@ function updateHUD() {
   const h = String(Math.floor(dayMin / 60)).padStart(2, '0'), m = String(dayMin % 60).padStart(2, '0');
   $('clock').textContent = (paused ? '❚❚ ' : '') + `${h}:${m}`;
   world.setRivalHeat(patrons.rivalQ.length);   // their sign burns as their line grows
-  if ($('daytag')) $('daytag').textContent = 'DAY ' + day + '/' + CAMPAIGN.days + '  ·  regulars ' + regulars.reputation;
+  if ($('daytag')) $('daytag').textContent = softDay ? 'SOFT OPENING · regulars ' + regulars.reputation
+    : 'DAY ' + day + '/' + CAMPAIGN.days + '  ·  regulars ' + regulars.reputation;
   $('till').textContent = fmt(till);
   $('balk').textContent = balked;
   if ($('poured')) $('poured').textContent = String(served + servedRetail);
@@ -3580,7 +3635,12 @@ const OFFERS = [
 ];
 
 function showOffer() {
-  presentBeat(OFFERS[(day - 1) % OFFERS.length], 'a regular asks · y / n', false);
+  const o = softDay ? { ...OFFERS[0],
+    line: '“Mind if the study group lands at 14:00? Twenty-four of us — all matcha.”',
+    effect: 'say yes → twenty-four students arrive at 14:00 for matcha — Pip’s group is counted on the evening card',
+    accept() { party = { name: 'Pip', cohort: 'students', left: 24, served: 0, walked: 0 }; },
+  } : OFFERS[(day - 1) % OFFERS.length];
+  presentBeat(o, 'a regular asks · y / n', false);
 }
 // The floor bites back — operational incidents, days 2+, post-wave. Each is
 // a real cost or a real trade, not flavor: slow bar, lost sales, rep hits,
@@ -3697,11 +3757,12 @@ if ($('evening-close')) $('evening-close').onclick = () => resolveEvening('close
 if ($('skiprush')) $('skiprush').onclick = () => skipToRush();
 $('tape').onclick = () => { if (marketIntel) desk.open(marketIntel); };
 
-function reset() {
+function reset(coreOnly = false) {
   // full campaign restart: the market and the regulars rewind to their start state
   const wasFinale = campaignDone;   // restarting from the verdict gets a send-off
   runGen++;
   guidedOpening = wantTutorial; firstPrepChosen = false;
+  softWeekDone = false; coachedOpening = false;
   exchange.rng = seeded(seedNow());
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
@@ -3753,11 +3814,39 @@ function reset() {
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   companionsYesterday = [];
   if ($('pause')) $('pause').textContent = 'pause';
+  if (coreOnly) return wasFinale;
   prepareDay(1);
   if (wasFinale) {
     rig.crane();   // swoop home from the sold street into the new week
     fx.toast('a new week on the floor — same street, new regulars', '');
   }
+}
+
+function beginWeek() {
+  if (!softDay) return false;
+  const kept = regulars.regulars.map(r => ({
+    name: r.name, op: r.op, visits: r.visits, stage: r.stage, drink: r.drink,
+    events: r.events.map(e => ({ ...e, day: 0 })),
+  }));
+  const keptHeads = walkins.heads.map(h => ({
+    ...h, pid: h.pid.replace(/^d\d+-/, 'd0-'),
+    events: (h.events || []).map(e => ({ ...e, day: 0 })), _lastOutcomeDay: undefined,
+  }));
+  reset(true);
+  for (const r of regulars.regulars) {
+    const k = kept.find(x => x.name === r.name);
+    if (!k) continue;
+    r.op = k.op; r.visits = k.visits; r.stage = k.stage; r.drink = k.drink; r.events = k.events;
+    delete r._lastOutcomeDay; delete r._lastWalkoutDay;
+  }
+  walkins.heads = keptHeads;
+  walkins.byPid = new Map(keptHeads.map(h => [h.pid, h]));
+  walkins.drawn = new Set();
+  walkins.day = 0;
+  softDay = false; softWeekDone = true; coachedOpening = true; guidedOpening = false;
+  prepareDay(1);
+  if (!headless) showMorningBrief();
+  return true;
 }
 
 // PR-4b — Founder's replay. Replays the entire 5-day campaign with a fresh
@@ -3911,10 +4000,11 @@ function boardRow({ name, stage, visits, drink, op, friends, faceSeed, cohort, e
   try { const c = portraitCanvas(faceSeed, cohort, 40, mood); c.className = 'b-face'; row.appendChild(c); } catch {}
   const t = document.createElement('div');
   const last = events && events.length ? events[events.length - 1] : null;
+  const when = last && last.day === 0 ? 'soft opening' : `day ${last ? last.day : ''}`;
   const lastLine = !last ? null
-    : last.outcome === 'served' ? `day ${last.day} — served ${last.drink}${last.stayed ? ', stayed a while' : ''}`
-    : last.outcome === 'balked' ? `day ${last.day} — walked out (the line)`
-    : last.outcome === 'defected' ? `day ${last.day} — crossed to Glasshouse`
+    : last.outcome === 'served' ? `${when} — served ${last.drink}${last.stayed ? ', stayed a while' : ''}`
+    : last.outcome === 'balked' ? `${when} — walked out (the line)`
+    : last.outcome === 'defected' ? `${when} — crossed to Glasshouse`
     : null;
   t.innerHTML = `<b>${name}</b> <span class="b-stage">${stageLabel({ stage, visits })}</span><br><span style="opacity:.65">${visits} visit${visits === 1 ? '' : 's'} · ${drink} · ${ABSENCE_WORD[absence] || feeling(op)}</span>${lastLine ? `<br><span style="opacity:.5">${lastLine}</span>` : ''}${friends && friends.length ? `<br><span style="opacity:.5">friends: ${friends.slice(0, 3).join(', ')}</span>` : ''}`;
   row.appendChild(t);
@@ -4257,7 +4347,7 @@ function openTutorial() {
   audio.start();
   openDay(1);
   rig.crane();
-  fx.card('DAY 1', 'Ruth has the bar — watch the room settle');
+  fx.card(softDay ? 'SOFT OPENING' : 'DAY 1', 'Ruth has the bar — watch the room settle');
   coachBegin();
 }
 function coachShow(html, actions) {
@@ -4296,7 +4386,7 @@ function coachSkip() {
 }
 function coachBegin(force = false) {
   if ((headless || !wantTutorial) && !force) return;
-  if (day !== 1) return;
+  if (day !== 1 || coachedOpening) return;
   coach = { skipped: false, wave: false, observed: false, lowStock: false, intro: false, craftObserved: false };
   try { analytics.track('coach_start', { day }); } catch {}
 }
@@ -4392,7 +4482,7 @@ function dismissTutorialAndStart(fromSkip = false) {
   audio.start();
   openDay(1);
   rig.crane();
-  fx.card('DAY 1', 'Ruth has the bar — watch the room settle');
+  fx.card(softDay ? 'SOFT OPENING' : 'DAY 1', 'Ruth has the bar — watch the room settle');
   // The Brief owns day 1 too: once the crane settles, Brief pauses at 06:00.
   // (openDay() already queued showMorningBrief; this just unblocks the re-arm.)
   scheduleRun(() => {
@@ -4507,7 +4597,7 @@ function momentScan() {
         : last && last.outcome === 'defected' ? 'trying Glasshouse' : 'a rough patch';
       momentEnqueue('returning', `ret:${r.name}`, { name: r.name, why, patron: p, idx: p.regularIdx });
     } else if (r.absence !== 'away' && r.absence !== 'lost' && dayMin < 630 && !greetedToday.has(`cast:${r.name}`)) {
-      momentEnqueue('counter', 'counter', { name: r.name, idx: p.regularIdx, patron: p });
+      momentEnqueue(softDay ? 'counter:' + r.name : 'counter', 'counter', { name: r.name, idx: p.regularIdx, patron: p });
     }
   }
   if (dayMin < 840 && patrons.queueLength >= 6) momentEnqueue('line', 'line', { queue: patrons.queueLength });
@@ -4600,7 +4690,7 @@ function loop(now) {
   window.__grunds = {
   stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count, phase, hedgedCups, hedgeSavings: realizedHedgeSavings, batchUnits: ctx.batchUnits, batchSpend, batchWaste,
     emergencyCups, beanSpend, emergencySpend, sackSpend, houseLot: lotState.house, houseStock: lotState.entry(lotState.house)?.stock ?? 0,
-    index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null, rushFast, eveningFast,
+    index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, cRev, cCost, cOps, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null, rushFast, eveningFast,
     staffCondition: baristaCondition, staffing: planDraft ? planDraft.staffing : 'work', rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
     trainingSpend, sampleSpend, feeToday, interestToday, settleToday, marketingSpend,
     milkDelivery, milkStock: ctx.milkStock, milky: ctx.milky, milkOut: ctx.milkOut,
@@ -4618,6 +4708,10 @@ function loop(now) {
   patrons, modals, openDossier, showIncident,
   renderBrief() { if (phase === 'planning') showMorningBrief(); },
   get phase() { return phase; },
+  get softDay() { return softDay; },
+  get softWeekDone() { return softWeekDone; },
+  get coachedOpening() { return coachedOpening; },
+  beginWeek,
   get plan() { return planDraft ? { ...planDraft, marketing: { ...demand.staged } } : null; },
   get lastDayReceipt() { return lastDayReceipt; },
   get quote() {
@@ -4627,8 +4721,10 @@ function loop(now) {
     }) : null;
   },
   get paused() { return paused; },
-  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci, pace: pc, moments: mo, moveTick: mt } = {}) => {
+  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci, pace: pc, moments: mo, moveTick: mt, softOpening: so, tutorial: tu } = {}) => {
     if (typeof c === 'number') baristaCondition = c;
+    if (tu !== undefined) wantTutorial = !!tu;
+    if (so !== undefined) { softTest = so === null ? null : !!so; if (phase === 'planning' && day === 1 && !softWeekDone) { softDay = softTest !== null ? softTest : wantsSoftDay(); patrons.markSeenOnly = softDay ? SOFT_CAST : null; if (softDay && !softRng) softRng = seeded(seedNow() + 101); } }
     if (pc !== undefined) paceTest = !!pc;
     if (mo !== undefined) momentsTest = !!mo;
     if (mt !== undefined) moveTickTest = !!mt;

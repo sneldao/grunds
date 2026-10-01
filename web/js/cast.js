@@ -62,7 +62,7 @@ export function profileView(ident, { op = null, friends = [], quirk = null, isCa
     if (n > best || (n === best && seen.get(d) > bestDay)) { best = n; bestDay = seen.get(d); usual = d; }
   }
   const older = ident.events && ident.events.length > 1 ? { ...ident, events: ident.events.slice(0, -1) } : null;
-  const history = older ? dossierLines(older, {}).filter(l => /^day \d+ — /.test(l)).slice(0, 4)
+  const history = older ? dossierLines(older, {}).filter(l => /^(day \d+|soft opening) — /.test(l)).slice(0, 4)
     .map(l => l.replace(/served (.+?)(, stayed a while)?$/, (m, d, s) => `served ${drinkLc(d)}${s || ''}`)) : [];
   return {
     heading: established ? 'REGULAR' : 'A NEW FACE',

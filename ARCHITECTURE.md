@@ -560,6 +560,30 @@ ledger lines, not people.
    customers) and costs scaled to the current crowd — only after 1–3,
    measured before and after with fixed seeds and policies, never eyeballed.
 
+## Soft opening (slice)
+
+A single practice day ahead of the five-day week for eligible players
+(`wantTutorial` and not every curriculum tool introduced — veterans,
+`?skipTutorial`, demo and headless go straight to the week; headless opts in
+with `testState({ softOpening: true })`). The day reuses the day-1 engine
+under `softDay` with: a dedicated thinning RNG `softRng = seeded(SEED + 101)`
+and `SOFT_MUL = 0.005` on the spawn schedule (no return bonus, ≈59 walk-ins);
+cast arrivals restricted to Mara/Pip/Olu (`patrons.markSeenOnly`; Pip only
+from 14:00 so she lands with the party) plus guaranteed 08:10 commuter and
+12:30 elder spawns; Pip's 11:00 ask rewritten to a 24-student study group
+(2 per minute across 14:00–14:12, `offerWaveMul` untouched); counter moments
+allowed once per cast regular (up to 3); close at 17:00 with no evening
+call; and no Convex contact (`sync.preparePlan`/`commitPlan`/`finishDay`
+all skipped). The receipt is a practice ledger — served/walked/takings plus
+batch and Pip's-group lines only — with a `Practice money` lesson and an
+`open the week →` continue. `beginWeek()` (the continue, or the brief's
+`Skip the soft opening →`) snapshots roster `{op, visits, stage, drink,
+events}` (events relabelled day 0, rendered `soft opening — …`) and the
+walk-in pool heads (pids relabelled `d0-`), runs `reset(true)` for a clean
+campaign start, restores the social layer, and opens the `OPENING WEEK`
+brief ungated and uncoached (`coachedOpening` spends the day-1 coach on the
+first played Day 1). Days 2–3 of the soft opening are a later slice.
+
 ## Depth rebuild roadmap (adopted Sept 28)
 
 *Historical plan — the per-phase [SHIPPED Sept 28] tags below mark the subset

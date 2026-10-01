@@ -517,7 +517,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
 
   <div id="receipt" class="modal" role="dialog" aria-labelledby="receipt-heading" aria-hidden="true" inert>
     <div class="paper modal-panel" tabindex="-1">
-      <header class="modal-header"><h2 id="receipt-heading">GRUNDS</h2><div class="rsub">end of day · Z-read</div><div class="beat-powered" id="verdict-powered" style="color: rgba(58,50,38,.6)"></div></header>
+      <header class="modal-header"><h2 id="receipt-heading">GRUNDS</h2><div class="rsub" id="receipt-sub">end of day · Z-read</div><div class="beat-powered" id="verdict-powered" style="color: rgba(58,50,38,.6)"></div></header>
       <div class="modal-body">
         <div id="r-forecast" style="display:none"></div>
         <div id="r-summary"></div>
@@ -715,6 +715,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <div id="brief-error" role="status" style="display:none; font-size:11px; color:#8a4a2a; margin-bottom:6px;"></div>
         <div id="brief-summary" aria-live="polite"></div>
         <button id="brief-open">OPEN FOR DAY →</button>
+        <button id="brief-softskip" style="display:none; margin-top:6px; font-size:10.5px; letter-spacing:.08em;">Skip the soft opening →</button>
         <button id="brief-offline" style="display:none; margin-top:6px; font-size:10.5px; letter-spacing:.08em;">start a local-only week</button>
       </footer>
     </div>

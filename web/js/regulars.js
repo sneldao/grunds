@@ -159,8 +159,8 @@ export class Regulars {
   // A chance to be a real, named regular (not just cohort colour) per cohort.
   // Phase 1: also returns visits/stage/drink so the floor greets returning
   // faces by history, not just by name.
-  markSeen(cohort) {
-    const cands = this.regulars.filter(r => !r.seen && !r._spawned && r.coh === cohort && r.absence !== 'away' && r.absence !== 'lost');
+  markSeen(cohort, only = null) {
+    const cands = this.regulars.filter(r => !r.seen && !r._spawned && r.coh === cohort && r.absence !== 'away' && r.absence !== 'lost' && (!only || only.has(r.name)));
     if (!cands.length) return { found: false };
     const r = cands[(Math.random() * cands.length) | 0];
     r.seen = true; r._spawned = true;
