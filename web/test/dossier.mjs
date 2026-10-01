@@ -50,17 +50,21 @@ test('Phase 1 · history lines template served / balked / defected, newest first
   assert.ok(dossierLines(ident, {}).length <= 1 + 5 + 2);
 });
 
-// (4) openDossier resolves canon + walk-in, paints mood-mapped portrait
-test('Phase 1 · openDossier paints a 96px mood portrait and opens the modal', () => {
-  const idx = main.indexOf('function openDossier');
-  assert.ok(idx > 0, 'openDossier must be defined');
+// (4) openProfile paints a mood portrait, fills the card, opens the modal
+test('Phase 1 · openProfile paints a 96px mood portrait and opens the modal', () => {
+  const idx = main.indexOf('function openProfile');
+  assert.ok(idx > 0, 'openProfile must be defined');
   const body = main.slice(idx, idx + 2200);
-  assert.match(body, /regulars\.regulars\[p\.regularIdx\]/);
-  assert.match(body, /walkins\.get\(p\.pid\)/);
+  assert.match(body, /profileView\(ident/);
   assert.match(body, /portraitCanvas\(faceSeed, cohort, 96/);
   assert.match(body, /op > 0\.2 \? 'warm' : op < -0\.2 \? 'sour' : 'flat'/);
-  assert.match(body, /dossierLines\(ident, \{ op, friends \}\)/);
+  assert.match(body, /dossier-hello/);
   assert.match(body, /modals\.open\('dossier'\)/);
+  const didx = main.indexOf('function openDossier');
+  assert.ok(didx > 0, 'openDossier must be defined');
+  const dbody = main.slice(didx, didx + 1200);
+  assert.match(dbody, /regulars\.regulars\[p\.regularIdx\]/);
+  assert.match(dbody, /walkins\.get\(p\.pid\)/);
 });
 
 // (5) Board: cast + graduated new faces, fresh every open
@@ -98,22 +102,52 @@ test('Phase 1 · index.html carries dossier + board modals, buttons, CSS', () =>
   assert.match(html, /\.b-row/);
 });
 
-// (8) Click routing: sitters open dossiers, the queue keeps the wave
-test('Phase 1 · seated clicks open dossiers; queue clicks still wave', () => {
+// (8) Click routing: any identified patron opens a profile; identity-less keeps
+// the bubble with NO opinion change (the uncapped wave exploit is gone)
+test('Phase 1 · identified clicks open profiles; the wave exploit is removed', () => {
   const idx = main.indexOf("renderer.domElement.addEventListener('click'");
   assert.ok(idx > 0, 'click handler must exist');
-  const body = main.slice(idx, idx + 900);
+  const body = main.slice(idx, idx + 900).split('});')[0];
+  assert.match(body, /p\.regularIdx >= 0 \|\| p\.pid/);
   assert.match(body, /openDossier\(p\); return/);
-  assert.match(body, /welcome back/);
-  assert.match(body, /op \+ 0\.06/);
+  assert.doesNotMatch(body, /op \+ 0\.06|op \+= 0\.06/);
+  const gidx = main.indexOf('function greet(');
+  assert.ok(gidx > 0, 'greet must exist');
+  const gbody = main.slice(gidx, gidx + 900);
+  assert.match(gbody, /greetedToday\.has\(k\)/);
+  assert.match(gbody, /Math\.min\(1, r\.op \+ 0\.06\)/);
+  assert.match(gbody, /Math\.min\(1, \(head\._op \?\? 0\) \+ 0\.06\)/);
 });
 
-// (9) Hover names the relationship (stage + visits, dossier hint when seated)
-test('Phase 1 · hover shows stage/visits and hints the dossier when seated', () => {
+// (9) Hover names the relationship in words — never raw op numbers
+test('Phase 1 · hover shows stage + feeling words, no op numbers', () => {
   const idx = main.indexOf('function showHover');
   assert.ok(idx > 0, 'showHover must exist');
-  const body = main.slice(idx, idx + 1400);
-  assert.match(body, /r\.stage.*r\.visits|stage\} · .*visits/);
-  assert.match(body, /click for their story/);
+  const body = main.slice(idx, idx + 1600);
+  assert.match(body, /click to meet them/);
   assert.match(body, /p\.pname/);
+  assert.doesNotMatch(body, /op \$\{|`op |\.toFixed\(2\)/);
+});
+
+// (10) The gesture is once per person per day, reset with the day
+test('Phase 1 · Say hello is daily-gated and reset per day', () => {
+  assert.match(main, /const greetedToday = new Set\(\)/);
+  const pidx = main.indexOf('function prepareDay');
+  assert.ok(pidx > 0);
+  assert.match(main.slice(pidx, pidx + 1500), /greetedToday\.clear\(\)/);
+  const ridx = main.indexOf('function reset()');
+  assert.ok(ridx > 0);
+  assert.match(main.slice(ridx, ridx + 2600), /greetedToday\.clear\(\)/);
+  assert.match(html, /id="dossier-hello"/);
+});
+
+// (11) Board rows are real buttons that open the same profile on top
+test('Phase 1 · board rows are buttons opening the profile', () => {
+  const bidx = main.indexOf('function boardRow');
+  const bbody = main.slice(bidx, bidx + 400);
+  assert.match(bbody, /createElement\('button'\)/);
+  assert.match(bbody, /row\.onclick = onOpen/);
+  const ridx = main.indexOf('function renderBoard');
+  assert.match(main.slice(ridx, ridx + 1600), /openProfile\(/);
+  assert.match(modals, /'dossier', 'regulars'/);
 });

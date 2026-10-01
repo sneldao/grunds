@@ -22,6 +22,7 @@ import { Exchange, seeded } from './exchange.js';
 import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } from './economy.js';
 import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling } from './identity.js';
+import { profileView } from './cast.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate } from './menu.js';
@@ -2881,6 +2882,7 @@ function prepareDay(d) {
   if (d === 1) kitPendingAtOpen = !district.grown;   // the kit is an event only if it grows during play
   coached = d !== 1;   // the lever hint only coaches day 1, once per campaign
   patrons.reset(); fx.reset();
+  greetedToday.clear();
   walkins.ensureDay(d); evangelistServes = 0; womPids.clear();   // Phase 1 — fresh strangers (yesterday's known faces carry), WOM counter reset
   // Phase 4 — ceasefire Saturday: no crossings when the truce holds.
   patrons.truceCeasefire = samTruce && d === 5;
@@ -3648,6 +3650,7 @@ function reset() {
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; cOps = 0;
   rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day
   briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;
+  greetedToday.clear();
   realizedHedgeSavings = 0; hedgedCups = 0;
   // Phase 4 — Ruth's arc rewinds with the campaign.
   ruthNoticed = false; ruthAsked = false; ruthRestDay = 0; ruthReturned = false;
@@ -3735,18 +3738,15 @@ function showHover(p, x, y) {
   const name = p.regularName || p.pname || p.cohort;
   const quirk = p.regularName ? (regulars.regulars[p.regularIdx]?.quirk || '') : '';
   const op = p.regularIdx >= 0 ? regulars.regulars[p.regularIdx]?.op : (p.pid ? walkins.get(p.pid)?._op : null);
-  // Phase 1 — the hover names the relationship: stage + visits, not just op.
-  let rel = '';
-  if (p.regularIdx >= 0) {
-    const r = regulars.regulars[p.regularIdx];
-    if (r) rel = ` · ${r.stage} · ${r.visits} visits`;
-  } else if (p.pid) {
-    const h = walkins.get(p.pid);
-    if (h && h.visits > 0) rel = ` · ${h.stage} · ${h.visits} visits`;
-  }
-  const friends = p.regularFriends ? [...p.regularFriends].slice(0, 3).join(', ') : '';
-  const hint = p.state === 'sit' ? 'click for their story' : 'click to wave';
-  el.innerHTML = `<b>${name}</b>${rel}${quirk ? ` — ${quirk}` : ''}${op != null ? `<br>op ${op > 0.2 ? '♥' : op < -0.2 ? '☹' : '—'} ${op.toFixed(2)}` : ''}${friends ? `<br><span style="opacity:.7">friends: ${friends}</span>` : ''}<br><span style="opacity:.6">${hint}</span>`;
+  const ident = p.regularIdx >= 0 ? regulars.regulars[p.regularIdx]
+    : p.pid ? walkins.get(p.pid) : null;
+  const view = ident ? profileView(
+    p.regularIdx >= 0 ? { name: ident.name, stage: ident.stage, visits: ident.visits, drink: ident.drink, events: ident.events } : ident,
+    { op, friends: p.regularIdx >= 0 ? (ident.friends || []) : (p.regularFriends ? [...p.regularFriends] : []), isCast: p.regularIdx >= 0 },
+  ) : null;
+  const feel = view ? view.feeling : (op != null ? feeling(op) : null);
+  const friends = view && view.friends ? view.friends.replace(/^friends here: /, '') : '';
+  el.innerHTML = `<b>${name}</b>${view ? ` · ${view.stage}` : ''}${quirk ? ` — ${quirk}` : ''}${feel ? `<br>${feel}` : ''}${friends ? `<br><span style="opacity:.7">friends: ${friends}</span>` : ''}<br><span style="opacity:.6">${view ? 'click to meet them' : 'click to wave'}</span>`;
   el.style.left = Math.min(innerWidth - 230, x + 14) + 'px';
   el.style.top = Math.min(innerHeight - 80, y + 14) + 'px';
   el.classList.add('show');
@@ -3764,29 +3764,44 @@ renderer.domElement.addEventListener('pointerleave', hideHover);
 renderer.domElement.addEventListener('click', e => {
   const p = nearestPatronAt(e.clientX, e.clientY);
   if (!p) return;
-  // Phase 1 — sitters have time to talk: click opens their dossier. The
-  // queue keeps the wave (existing behavior below).
-  if (p.state === 'sit' && (p.regularName || p.pid)) { openDossier(p); return; }
-  // wave: bubble + tiny heal
-  fx.bubble(p, p.regularName ? `hey ${p.regularName} — welcome back` : 'hey — welcome', 'good');
-  if (p.regularIdx >= 0) regulars.regulars[p.regularIdx].op = Math.min(1, regulars.regulars[p.regularIdx].op + 0.06);
+  if (p.regularIdx >= 0 || p.pid) { openDossier(p); return; }
+  fx.bubble(p, 'hey — welcome', 'good');
   try { if (navigator.vibrate) navigator.vibrate(20); } catch {}
 });
+
+const greetedToday = new Set();
+function greetKey(isCast, ident) { return isCast ? `cast:${ident.name}` : `pid:${ident.pid}`; }
+function greet(ident, isCast, patron) {
+  const k = greetKey(isCast, ident);
+  if (greetedToday.has(k)) return;
+  greetedToday.add(k);
+  if (isCast) {
+    const r = regulars.regulars.find(x => x.name === ident.name);
+    if (r) r.op = Math.min(1, r.op + 0.06);
+  } else {
+    const head = walkins.get(ident.pid);
+    if (head) head._op = Math.min(1, (head._op ?? 0) + 0.06);
+  }
+  if (patron) fx.bubble(patron, isCast ? `hey ${ident.name} — welcome back` : 'hey — welcome', 'good');
+}
 
 // Phase 1 — dossier: click a sitter, meet them. Portrait + stage + history,
 // assembled from the roster entry (canon) or the day-pool head (walk-ins).
 function openDossier(p) {
-  let ident = null, op = null, friends = [], faceSeed = 'stranger', cohort = 'commuters';
   if (p.regularIdx >= 0) {
     const r = regulars.regulars[p.regularIdx];
     if (!r) return;
-    ident = { name: r.name, visits: r.visits, drink: r.drink, events: r.events, stage: r.stage };
-    op = r.op; friends = r.friends || []; faceSeed = r.name; cohort = r.coh;
+    openProfile({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, events: r.events },
+      { op: r.op, friends: r.friends || [], faceSeed: r.name, cohort: r.coh, isCast: true, quirk: r.quirk, patron: p, pid: null });
   } else if (p.pid) {
     const head = walkins.get(p.pid);
     if (!head) return;
-    ident = head; op = head._op; faceSeed = head.faceSeed; cohort = head.cohort;
-  } else return;
+    openProfile(head, { op: head._op, friends: p.regularFriends ? [...p.regularFriends] : [], faceSeed: head.faceSeed, cohort: head.cohort, isCast: false, patron: p, pid: p.pid });
+  }
+}
+
+function openProfile(ident, { op = null, friends = [], faceSeed = 'stranger', cohort = 'commuters', isCast = false, quirk = null, patron = null, pid = null } = {}) {
+  const view = profileView(ident, { op, friends, quirk, isCast, greetedToday: greetedToday.has(greetKey(isCast, ident)) });
   const box = $('dossier-portrait'); if (box) {
     box.textContent = '';
     try {
@@ -3795,19 +3810,39 @@ function openDossier(p) {
     } catch {}
   }
   const head = $('dossier-heading');
-  if (head) head.textContent = (ident.stage === 'regular' || ident.stage === 'friend' || ident.stage === 'evangelist') ? 'REGULAR' : 'A QUIET TABLE';
+  if (head) head.textContent = view.heading;
   const nm = $('dossier-name');
-  if (nm) nm.textContent = `${ident.name} — ${stageLabel(ident)}`;
+  if (nm) nm.textContent = `${view.name} — ${view.stage}`;
+  const set = (id, txt) => { const el = $(id); if (el) { el.textContent = txt || ''; el.style.display = txt ? '' : 'none'; } };
+  set('dossier-bio', view.bio);
+  set('dossier-wants', view.wants ? `Wants: ${view.wants}` : null);
+  set('dossier-usual', view.usual ? `Usual: ${view.usual}` : null);
+  set('dossier-feeling', view.feeling);
+  set('dossier-last', view.lastBetween);
+  set('dossier-friends', view.friends);
   const lines = $('dossier-lines');
-  if (lines) lines.innerHTML = dossierLines(ident, { op, friends }).map(l => `<div>${l}</div>`).join('');
+  if (lines) { lines.textContent = ''; for (const l of view.history) { const d = document.createElement('div'); d.textContent = l; lines.appendChild(d); } }
+  const hello = $('dossier-hello');
+  if (hello) {
+    if (view.greetedToday) { hello.disabled = true; hello.textContent = 'You said hello today.'; }
+    else {
+      hello.disabled = false; hello.textContent = 'Say hello';
+      hello.onclick = () => {
+        greet(ident, isCast, patron);
+        hello.disabled = true; hello.textContent = 'You said hello today.';
+      };
+    }
+  }
   modals.open('dossier');
 }
 
 // Phase 1 — the regulars board: the cast (canon roster) plus graduated
 // walk-ins ("new faces"). Rendered fresh on every open.
-function boardRow({ name, stage, visits, drink, op, friends, faceSeed, cohort, events }) {
-  const row = document.createElement('div');
+function boardRow({ name, stage, visits, drink, op, friends, faceSeed, cohort, events }, onOpen) {
+  const row = document.createElement('button');
+  row.type = 'button';
   row.className = 'b-row';
+  if (onOpen) row.onclick = onOpen;
   const mood = op > 0.2 ? 'warm' : op < -0.2 ? 'sour' : 'flat';
   try { const c = portraitCanvas(faceSeed, cohort, 40, mood); c.className = 'b-face'; row.appendChild(c); } catch {}
   const t = document.createElement('div');
@@ -3826,7 +3861,9 @@ function renderBoard() {
   if (cast) {
     cast.textContent = '';
     for (const r of regulars.regulars) {
-      cast.appendChild(boardRow({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, op: r.op, friends: r.friends, faceSeed: r.name, cohort: r.coh, events: r.events }));
+      cast.appendChild(boardRow({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, op: r.op, friends: r.friends, faceSeed: r.name, cohort: r.coh, events: r.events },
+        () => openProfile({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, events: r.events },
+          { op: r.op, friends: r.friends || [], faceSeed: r.name, cohort: r.coh, isCast: true, quirk: r.quirk })));
     }
   }
   const grads = walkins.graduated();
@@ -3836,7 +3873,8 @@ function renderBoard() {
   if (nf) {
     nf.textContent = '';
     for (const h of grads) {
-      nf.appendChild(boardRow({ name: h.name, stage: h.stage, visits: h.visits, drink: h.drink, op: h._op, friends: [], faceSeed: h.faceSeed, cohort: h.cohort, events: h.events }));
+      nf.appendChild(boardRow({ name: h.name, stage: h.stage, visits: h.visits, drink: h.drink, op: h._op, friends: [], faceSeed: h.faceSeed, cohort: h.cohort, events: h.events },
+        () => openProfile(h, { op: h._op, friends: [], faceSeed: h.faceSeed, cohort: h.cohort, isCast: false, pid: h.pid })));
     }
   }
   modals.open('regulars');
@@ -4407,7 +4445,7 @@ function loop(now) {
   doPrebatch, doReprice,
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
   stageCellar,
-  patrons, modals,
+  patrons, modals, openDossier,
   renderBrief() { if (phase === 'planning') showMorningBrief(); },
   get phase() { return phase; },
   get plan() { return planDraft ? { ...planDraft, marketing: { ...demand.staged } } : null; },

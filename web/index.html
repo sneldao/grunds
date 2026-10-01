@@ -264,8 +264,13 @@
     transition: opacity .5s ease; }
   #dossier.show, #regulars.show { opacity: 1; pointer-events: auto; }
   #dossier-portrait canvas { border-radius: 50%; display: block; }
-  .b-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .b-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; width: 100%; min-height: 44px; text-align: left; background: none; border: none; padding: 4px 6px; cursor: pointer; color: inherit; font: inherit; }
+  .b-row:hover { background: rgba(201,162,39,.07); border-radius: 4px; }
   .b-row .b-face { border-radius: 50%; flex: none; }
+  .d-bio { font-family: var(--serif); font-style: italic; font-size: 13px; line-height: 1.5; margin-bottom: 8px; }
+  .d-line { font-size: 12px; line-height: 1.7; }
+  .d-actions { margin-top: 10px; }
+  #dossier-hello:disabled { opacity: .55; cursor: default; }
   .b-stage { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; opacity: .75;
     border: 1px solid var(--brass); border-radius: 3px; padding: 1px 5px; }
   #offer .d-paper { border-top-color: var(--brass); --modal-width: 420px; }
@@ -557,14 +562,20 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
     <div class="d-paper modal-panel" tabindex="-1">
       <header class="modal-header">
         <div class="l-head" id="dossier-heading">REGULAR</div>
-        <div class="l-kicker">sit a while — they’ll tell you who they are</div>
       </header>
       <div class="modal-body">
         <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
           <div id="dossier-portrait"></div>
           <div id="dossier-name" style="font-family:var(--serif);font-size:16px"></div>
         </div>
-        <div id="dossier-lines" style="font-size:12px;line-height:1.7"></div>
+        <div id="dossier-bio" class="d-bio"></div>
+        <div id="dossier-wants" class="d-line"></div>
+        <div id="dossier-usual" class="d-line"></div>
+        <div id="dossier-feeling" class="d-line"></div>
+        <div id="dossier-last" class="d-line"></div>
+        <div id="dossier-friends" class="d-line"></div>
+        <div id="dossier-lines" style="font-size:11px;line-height:1.7;opacity:.6;margin-top:8px"></div>
+        <div class="d-actions"><button id="dossier-hello" type="button">Say hello</button></div>
       </div>
       <footer class="modal-footer"><button id="dossier-close">← back to the floor</button></footer>
     </div>

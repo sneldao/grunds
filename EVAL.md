@@ -2,7 +2,13 @@
 
 How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
 
-## Current verification — October 1, 2026: progressive Brief curriculum
+## Current verification — October 1, 2026: meet the cast (roadmap step 1)
+
+- Any named patron, queuing or seated, and every regulars-board row opens a profile: bio, wants, usual (most frequent actual order, else their canon drink), feeling in words, the last thing that happened, friends, and recent history. The hover card no longer shows raw opinion numbers.
+- The previous uncapped click-to-wave opinion gain is removed. "Say hello" applies the same +0.06 opinion once per person per day; identity-less patrons get a greeting bubble with no effect.
+- `cast.mjs`, `dossier.mjs`, `patron-arcs.mjs`, and `orientation.mjs` (real `index.html` markup) passed with TypeScript checking clean; the full suite was not rerun for this step. No browser automation was run, and whether profiles make the cast memorable is a playtest question. These changes are local and uncommitted.
+
+## Previous verification — October 1, 2026: progressive Brief curriculum
 
 - Day 1 shows only the afternoon plan. Later tools arrive one at a time through a "New today" card: coffee (Day 2), menu (Day 3), street work (Day 4), bean insurance and the Wire (Day 5, or earlier after a market warning). Needs bypass the schedule: low coffee stock surfaces the coffee tool, and an outstanding supplier tab always shows the tab and its daily interest. Introduced tools stay visible as rows; finishing a week unlocks all of them for the next run. Headless, demo, and skip-tutorial modes show every tool, so existing financial fixtures are unchanged.
 - `curriculum.mjs` covers the unlock schedule and need overrides. `orientation.mjs`, using the actual `index.html` markup, checks that Day 1 hides cellar, menu, insurance, Wire, and bill details; that a drained Day 1 still produces the Day-2 coffee card with only cellar-available coffees; that Day 3 introduces the menu; and that restock labels show what the supplier tab will actually fund. Receipt lessons report measured values only: Day-1 running costs and, on introduction days, cups poured or drinks served.

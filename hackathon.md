@@ -12,9 +12,15 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T01:51:15Z
+- **Last updated:** 2026-10-01T02:17:51Z
 
 ## Log
+
+### 2026-10-01 - working tree - cast profiles (roadmap step 1)
+
+- **Meet the cast** (`web/js/cast.js` new + `main.js`, `index.html`): per the adopted character/consequence/pacing roadmap (`ARCHITECTURE.md`), the dossier is now a profile card — any named person (cast roster or walk-in head) opens it from a floor click (queue or table) or from a regulars-board row, which are now real ≥44px buttons stacking the dossier over the board. `cast.js` is pure: `CAST_PROFILES` (lead-authored bio + want per roster name), `walkinProfile` (stage/cohort copy), `profileView` → heading/name/stage/bio/wants/usual/feeling-in-words/lastBetween/friends/history.
+- **One gesture per person per day**: the card's `Say hello` applies the existing +0.06 wave effect once per person per day (cast `r.op` or walk-in `head._op`, clamped to 1, tracked in a `greetedToday` Set cleared in `prepareDay`/`reset`); the uncapped click-to-wave opinion bump is removed — identity-less patrons still get the bubble with no opinion change. The hover card drops raw `op` numbers for `name · stage`, feeling words, friends, and `click to meet them`.
+- **Coverage**: new pure `cast.mjs`; `dossier.mjs` updated to the new contract; `orientation.mjs` drives the real dossier DOM — board row → profile → `Say hello` (+0.06 exactly once) → Escape back to the board, plus walk-in `A NEW FACE` profile. Node fixtures only — no browser evidence, nothing deployed, human playtests outstanding.
 
 ### 2026-10-01 - working tree - Morning Brief curriculum + versioned staging
 

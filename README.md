@@ -543,6 +543,12 @@ Receipts gained a `lessons` band (between summary and ledger) quoting real
 per-day counters: `pouredByLotToday` for the coffee payoff, `servedByDrinkToday`
 for the menu line, the actual `ops.total` for the day-1 running-cost line.
 
+Step 1 of the character/consequence/pacing roadmap (see `ARCHITECTURE.md`)
+is landing in the working tree: any named person opens a profile card —
+`web/js/cast.js` (pure) supplies bio/wants/feeling-in-words/history, floor
+clicks (queue or table) and regulars-board rows open it, and a once-per-day
+`Say hello` replaces the uncapped click-to-wave exploit.
+
 `npm run stage:site -- --out <dir>` (`tools/stage-site.mjs`) builds a
 release-versioned static artifact outside the repo: copies `web/` runtime
 assets plus `api/schedule.json` (preferring `out/wave_schedule.json`, else the

@@ -224,7 +224,7 @@ test('Phase 1 · main.js wires pool, visits, WOM, dossier, board', () => {
   assert.match(main, /walkins\.recordVisit\(e\.p\.pid/);
   assert.match(main, /evangelistServes\+\+/);
   assert.match(main, /extraReturnees: womReturnees\(evangelistServes\)/);
-  assert.match(main, /p\.state === 'sit' && \(p\.regularName \|\| p\.pid\)/);
+  assert.match(main, /p\.regularIdx >= 0 \|\| p\.pid\) \{ openDossier\(p\); return; \}/);
   assert.match(main, /function openDossier/);
   assert.match(main, /function renderBoard/);
   assert.match(main, /\$\('regularsbtn'\)\.onclick/);

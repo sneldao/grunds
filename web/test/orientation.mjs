@@ -581,6 +581,38 @@ G.renderBrief();
   G.exc.debt = savedDebt;
 }
 
+{
+  byId('regularsbtn').click();
+  check('the regulars board opens over the floor', G.modals.top() === 'regulars', G.modals.top());
+  const rows = collect(byId('board-cast'), c => c.tagName === 'BUTTON');
+  check('cast board rows are keyboard-activatable buttons', rows.length === 8 && rows.every(r => r.tagName === 'BUTTON'), `${rows.length}`);
+  rows.find(r => /Mara/.test(r.textContent)).click();
+  check('a cast row opens the profile on top of the board', G.modals.top() === 'dossier', G.modals.top());
+  const prof = deepText(byId('dossier'));
+  check('Mara’s profile reads bio/wants/usual/feeling in words', /8:10/.test(prof) && /Wants:/.test(prof) && /Usual:/.test(prof) && /warming to you|unhappy with you|still making up their mind/.test(prof), prof.slice(0, 300));
+  check('the profile carries no raw opinion numbers', !/op [\d.]|0\.15/.test(prof), prof.slice(0, 300));
+  writeFileSync(join(LOGS, 'profile-mara.txt'), prof);
+  const op0 = G.reg.regulars.find(r => r.name === 'Mara').op;
+  const hello = byId('dossier-hello');
+  hello.click();
+  const op1 = G.reg.regulars.find(r => r.name === 'Mara').op;
+  check('Say hello warms the cast member exactly +0.06 and locks for the day', Math.abs(op1 - op0 - 0.06) < 1e-9 && hello.disabled === true && /said hello today/.test(hello.textContent), `${op0}→${op1}`);
+  hello.click();
+  check('a second hello does nothing', G.reg.regulars.find(r => r.name === 'Mara').op === op1, `${op1}`);
+  key('Escape');
+  check('Escape returns to the board', G.modals.top() === 'regulars', G.modals.top());
+  byId('board-close').click();
+  const head = G.patrons.walkins.heads[0];
+  G.openDossier({ regularIdx: -1, pid: head.pid });
+  const wprof = deepText(byId('dossier'));
+  check('a walk-in opens A NEW FACE with cohort words', /A NEW FACE/.test(wprof) && /Wants:/.test(wprof), wprof.slice(0, 300));
+  writeFileSync(join(LOGS, 'profile-walkin.txt'), wprof);
+  const hop0 = head._op;
+  byId('dossier-hello').click();
+  check('the walk-in gesture warms the head +0.06 once', Math.abs(head._op - hop0 - 0.06) < 1e-9 && byId('dossier-hello').disabled === true, `${hop0}→${head._op}`);
+  key('Escape');
+}
+
 G.reset();
 await new Promise(r => setTimeout(r, 200));
 G.testState({ openingGuidance: true });

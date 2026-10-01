@@ -522,6 +522,34 @@ build are not yet verified**, and human playtests remain outstanding. See
 `EVAL.md` for the lead-owned readiness probes and fixed measurement fixtures —
 no numerical benchmarks are authored in this pass.
 
+## Character, consequence, and pacing roadmap (adopted Oct 1)
+
+Playtest feedback (lead + user, Oct 1): characters feel like stats, much of each
+day passes with nothing to decide, and money comes too easily with no felt
+consequence. Grounded causes: only seated patrons open a dossier and it reads
+as a stat sheet; hover shows raw opinion numbers; 06:00–11:00 and after 17:00
+contain no decisions; incidents cost £18–£60 against ~£4,700/day running costs
+and thousands of weekly cups; failure exists (seed-7 queue control without
+restocking ended −£697 vs ~+£6–7k with restock + settle) but lands late as
+ledger lines, not people.
+
+1. **Meet the cast (in progress).** Any named person opens a profile card —
+   who they are, what they want, their usual, how they feel in words, the last
+   thing between you, friends — from the floor (queue or table) or the regulars
+   board. One small gesture per person per day with its real effect; the
+   uncapped wave exploit is removed.
+2. **Consequences through people.** Surface the existing opinion/footfall model
+   as people: who isn't coming today and why, empty regular seats, lost
+   regulars seen at Glasshouse, happy regulars bringing named friends, a bad
+   review thinning tomorrow's crowd, street events you can see. Scale
+   incidents to the café's real numbers.
+3. **Pacing.** Either there is a decision, or the clock moves quickly: short
+   in-day moments (a regular at the counter, a forming queue, Sam poaching,
+   Ruth needing a call) and a faster idle clock.
+4. **Economy scale.** Decide between a smaller, intimate café (tens of visible
+   customers) and costs scaled to the current crowd — only after 1–3,
+   measured before and after with fixed seeds and policies, never eyeballed.
+
 ## Depth rebuild roadmap (adopted Sept 28)
 
 *Historical plan — the per-phase [SHIPPED Sept 28] tags below mark the subset
