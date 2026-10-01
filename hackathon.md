@@ -12,11 +12,11 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T02:57:43Z
+- **Last updated:** 2026-10-01T03:11:34Z
 
 ## Log
 
-### 2026-10-01 - working tree - consequences through people (roadmap step 2)
+### 2026-10-01 - fb787d3 - consequences through people (roadmap step 2)
 
 - **Named walkouts** (`regulars.js` `noteWalkout` + `main.js` balk/defect handlers): a cast regular who balks or defects now records `{day, outcome, stayed:false}` on `r.events` and takes the same opinion deltas walk-ins already had (−0.08 balked / −0.12 defected, clamped), once per regular per day (`_lastWalkoutDay`); `patrons.js` `unsee` on defect is unchanged.
 - **Attendance state machine** (`web/js/consequences.js` new, pure): `planAttendance(roster, {day})` runs at dawn (day ≥ 2, deterministic): op < −0.2 → `away` one day → `returning` (a second chance regardless of op) → `lost` the next unhappy dawn, `lost` is sticky for the campaign. `absentReason` comes from the real last event (`balked`/`defected`/generic). `markSeen` filters `away`/`lost` so they never spawn as themselves; once per day a `lost` regular tags the first rival-bound spawn of their cohort (`p.regularName`/`hasHat`/`pname`/`faceSeed`/`lostGlimpse`, display only — no seen, no opinion, no events). `absence`/`absentReason`/`justLost`/`_defectShown` reset on campaign reset.
@@ -25,7 +25,9 @@
 - **Profiles/board**: `ABSENCE_WORD` maps away/returning/lost to words in `profileView` and board rows; `Say hello` disables to `Not in today.` for away/lost (returning stays greetable — the recovery path).
 - **Incidents scale to the till** (`incidentCost(base, share, till) = max(base, round(share·till/5)·5)`): plumber 0.05, agency cover 0.06 (both Ruth variants), card dongle 0.03, inspector 0.04, solicitor settle 0.06 + contest 0.14 (replaces fixed £140, same 50% logic via `solicitorCharge`), supplier COD 0.04, re-roast 0.02. Cost computed once in `showIncident` and used verbatim in line/effect/yes copy and `accept()`; `perkCostMul` still applies; decline effects and the +£18 supplier fee unchanged.
 - **Coverage**: new pure `consequences.mjs` (14 checks — state machine, reasons, incident floors/rounding); `lifecycle-accounting.mjs` gained a Step-2 fixture driving Mara away → returning → lost across days 2–5 with brief lines, markSeen skip, a real once-per-day walkout on the receipt, incident copy == charged amount, and a forced rival-bound spawn asserting the lost glimpse touches nothing. Full non-balance gate: 68 suites pass in `/tmp/grunds-test-mirror8` (logs `/tmp/grunds-step2-logs/gate/`); `tsc --noEmit`, `git diff --check`, `secret_scan` clean. Captures: `/tmp/grunds-step2-logs/brief-people-{away,returning,lost}.txt`, `receipt-lessons-walkout.txt`.
-- **Limitations**: no commits, deploys, or browser evidence this pass; the lost-glimpse cohort match is display-only (no toast yet), and incident scaling uses the till at the moment the card opens.
+- **Measured** (lead probe, seeds 7/42/101/202/555, restock + settle, decline vs accept incidents; before = `df82b4f`): incidents now £155–£300 (was £18–£60); accepting every incident costs ~£651 of five-day net worth on average and moved one run from "held" to "scarped"; named regulars recorded 11 walkouts (was 0). No regular stayed away in those runs — the unhappy ones crossed the threshold only on day 5.
+- **Deploy**: `fb787d3` pushed to `origin/main`; release-versioned artifact (`?v=fb787d3`, 70 files + `release.json`, schedule from the existing `dist/api/schedule.json`) published to the existing **dev** deployment `striped-anaconda-746` (deployment ID `43b691f1-4f6c-4868-8bd9-4c5be87cab4c`) after a 68-suite gate on the committed tree. HTTP checks: index loads `main.js?v=fb787d3`; main/consequences/regulars/patrons/cast/curriculum, schedule, and `release.json` match the artifact. Backend and production untouched.
+- **Limitations**: no browser evidence; the lost-glimpse cohort match is display-only (no toast yet); incident scaling uses the till at the moment the card opens; absence pacing still to be tuned.
 
 ### 2026-10-01 - df82b4f - cast profiles (roadmap step 1)
 

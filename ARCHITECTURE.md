@@ -533,12 +533,12 @@ and thousands of weekly cups; failure exists (seed-7 queue control without
 restocking ended −£697 vs ~+£6–7k with restock + settle) but lands late as
 ledger lines, not people.
 
-1. **Meet the cast (in progress).** Any named person opens a profile card —
+1. **Meet the cast (shipped `df82b4f`).** Any named person opens a profile card —
    who they are, what they want, their usual, how they feel in words, the last
    thing between you, friends — from the floor (queue or table) or the regulars
    board. One small gesture per person per day with its real effect; the
    uncapped wave exploit is removed.
-2. **Consequences through people (in progress).** Surface the existing
+2. **Consequences through people (shipped `fb787d3`; absence pacing being tuned; empty seats and visible street events not yet built).** Surface the existing
    opinion/footfall model as people: who isn't coming today and why, empty
    regular seats, lost regulars seen at Glasshouse, happy regulars bringing
    named friends, a bad review thinning tomorrow's crowd, street events you
