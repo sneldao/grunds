@@ -169,15 +169,13 @@ for (let d = 2; d <= CAMPAIGN.days; d++) {
   if (!G.continueFromReview()) fails.push(`day ${d}: continueFromReview rejected`);
   if (G.phase !== 'planning' || G.stats().day !== d) fails.push(`day ${d}: continue should land in planning, got ${G.phase}/${G.stats().day}`);
   if (d === 2) {
-    // disclosure unlocks: street work arrives with its reason, contracts
-    // render flat, and the live day-1 tab puts settle on the board.
     // (the shim's textContent='' doesn't clear children — wipe before render
     // so the assertions read this render only)
     for (const id of ['brief-actions', 'brief-demand']) { const e = registry.get(id); if (e) e.children.length = 0; }
     G.renderBrief();
     const dem = registry.get('brief-demand');
     if (dem.style.display === 'none') fails.push('day-2 brief hid the street-work row');
-    if (!dem.children.some(c => c.id === 'brief-demand-intro')) fails.push('day-2 street work arrived without its reason line');
+    if (!dem.children.some(c => c.id === 'brief-demand-details')) fails.push('day-2 street work lost its compact row');
     if (registry.get('brief-actions').children.some(c => c.id === 'brief-hedge-details')) fails.push('day-2 brief still folds the contracts');
     const flat2 = registry.get('brief-actions').children.filter(c => c.tagName === 'BUTTON').map(c => c.dataset.id);
     if (!flat2.includes('settle')) fails.push('day-2 brief hid the settle move with a live tab');
@@ -229,26 +227,19 @@ G.renderBrief();
   for (const id of ['brief-actions', 'brief-demand']) { const e = registry.get(id); if (e) e.children.length = 0; }
   G.renderBrief();
   const acts = registry.get('brief-actions');
-  const fold = acts.children.find(c => c.id === 'brief-hedge-details');
   const flatIds = acts.children.filter(c => c.tagName === 'BUTTON').map(c => c.dataset.id);
-  const dTier = G.exc.event?.tier || 'calm';
-  if (dTier === 'calm' || dTier === 'good') {
-    if (!fold) fails.push('calm day-1 brief should fold the contract pills into one line');
-    else if (!fold.children.some(c => c.tagName === 'BUTTON')) fails.push('the hedge fold rendered empty');
-    if (flatIds.some(id => id && id.startsWith('contract'))) fails.push('a day-1 contract pill leaked outside the fold');
-    if (!flatIds.includes('hold')) fails.push('day-1 brief must keep hold visible');
-  } else if (fold) fails.push('a threatened opening morning should NOT fold the contracts');
+  if (!flatIds.includes('hold')) fails.push('day-1 brief must keep hold visible');
+  if (!flatIds.some(id => id && id.startsWith('contract'))) fails.push('unlocked day-1 brief should render the contract moves flat');
   if (flatIds.includes('settle')) fails.push('dead settle pill rendered with no tab to settle');
-  if (registry.get('brief-demand').style.display !== 'none') fails.push('day-1 brief showed the street-work row');
+  if (registry.get('brief-demand').style.display === 'none') fails.push('unlocked day-1 brief hid the street-work row');
   if (deepText(registry.get('brief-nut')).includes('campaign net position'))
     fails.push('day-1 quote printed a net position with no history behind it');
-  // risk reveals the tool: a warn-tier board springs the fold back open
   const savedEvent = G.exc.event;
   G.exc.event = { id: 'rumour_frost', tier: 'warn', head: 'H', line: 'l', day: 1 };
   { const e = registry.get('brief-actions'); if (e) e.children.length = 0; }
   G.renderBrief();
-  if (registry.get('brief-actions').children.some(c => c.id === 'brief-hedge-details'))
-    fails.push('a warn-tier board should spring the day-1 hedge fold open');
+  if (!registry.get('brief-actions').children.some(c => c.tagName === 'BUTTON' && c.dataset.id && c.dataset.id.startsWith('contract')))
+    fails.push('a warn-tier board lost the day-1 contract moves');
   G.exc.event = savedEvent;
 }
 

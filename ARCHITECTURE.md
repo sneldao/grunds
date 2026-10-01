@@ -403,7 +403,8 @@ moved.
   day-1 copy) and `economicsLesson(snapshot)` — one honest line chosen by real
   state: empty/low house stock first, then live debt, then a Ruth staffing
   decision, then yesterday's market tier, else a calm default. Rendered into
-  `#brief-learning` from day 2 on; urgent lessons also force `#brief-more` open.
+  `#brief-learning` from day 2 on (suppressed when a curriculum card covers
+  the same tool).
 - **Day-1 Brief**: heading "YOUR FIRST MORNING", kicker `Day 1 of 5 · before
   opening`, `#brief-intro` renders stand name via `textContent` plus
   `portraitCanvas` roles for Idris (`creatives`) and Ruth (`commuters`) at 48px.
@@ -416,9 +417,9 @@ moved.
   `stagedPrep`/`applyStagedPrep` contract underneath; headless/demo/skip
   bypass the gate and the headless-only `testState({openingGuidance})` seam
   drives it in tests.
-- **Progressive disclosure**: `#brief-risk`/`-nut`/`-lots`/`-menu`/`-actions`/
-  `-context` are children of `#brief-more` — "Explore the full plan" on day 1,
-  "More planning details" after. The day-1 footer (via `updateBriefFooter`)
+- **Progressive disclosure** (superseded by the Oct-1b curriculum — see below):
+  `#brief-risk`/`-nut`/`-lots`/`-menu`/`-actions`/`-context` lived inside a
+  `#brief-more` drawer on day 1. The day-1 footer (via `updateBriefFooter`)
   shows the chosen prep's cash at opening plus any staged advanced spend —
   contract fee, settlement, tab-funded cellar estimate — computed from the real
   `quoteDayPlan`/`resolveDecision` result; the nut reads "bills counted at
@@ -439,6 +440,42 @@ asserted only through a headless fixture that parses the real `index.html`
 markup (no layout, paint, or focus-behavior proof). Commit `f3e0d18` was
 published to the existing Convex dev site; HTTP file checks matched the upload
 artifact, which does not establish deployed gameplay or engagement.
+
+## October 1b — Morning Brief curriculum + versioned staging
+
+The `#brief-more` drawer is deleted; a flat `#brief-tools` container holds the
+slots in order (`brief-new`, `brief-lots`, `brief-menu`, `brief-demand`,
+`brief-actions`, `brief-context`, `brief-nut`, `brief-risk`). `curriculum.js`
+is pure and DOM-free: `planTools({day, introduced, houseStock, lastPour, debt,
+contract, threatToday, threatYesterday, unlockAll})` returns `{visible,
+newToday, essentialNew}`. Scheduled discovery is at most one card per day
+(coffee ≥2, menu ≥3, street ≥4, insurance ≥5 or any threat/contract); essential
+tools (empty/low coffee → `coffee`, live tab → `tab`) bypass the daily limit:
+an unintroduced needed coffee takes the day's card, while `tab` and coffee
+needs past introduction render as `New ·` notes inside their rows instead. Introductions are
+persisted to `localStorage['grunds.curriculum']` only on a successful commit
+(`applyCommittedPlan`) and all tools are marked at `campaignClose`;
+`unlockAll = headless || demoMode || !wantTutorial`, with
+`testState({ curriculum: true })` switching to an in-memory introduced set for
+tests. `economicsLesson` returns a `tool` id so the learning line can yield to
+a same-tool card. New read-only counters `pouredByLotToday` /
+`servedByDrinkToday` feed a receipt `lessons` band rendered by `fx.receipt`
+into `#r-lessons`. Day-2+ digit shortcuts `1–5` only reach rendered
+`#brief-actions` buttons because hidden tools never render.
+
+`tools/stage-site.mjs` (`npm run stage:site -- --out <dir>`) stages a
+release-versioned static artifact outside the repo: copies `web/index.html`,
+`web/js`, `web/vendor`, `web/assets` and `api/schedule.json`
+(`out/wave_schedule.json` preferred, else `dist/api/schedule.json`), rewrites
+every relative `.js` ES-module specifier and the `main.js` script tag with
+`?v=<commit>[-dirty-<8 hex>]`, fails closed on unversioned specifiers or
+missing targets, and writes `release.json` (version, source commit, schedule
+source, per-file SHA-256). It never rebuilds `dist`, uploads, or deploys.
+
+Verified by `curriculum.mjs`, `stage-site.mjs`, the rewritten
+`orientation.mjs`, the focused regression list, and a 65-suite non-balance
+gate in a fresh mirror (`tsc --noEmit` clean). Code-only verification; no
+browser evidence, nothing deployed, human playtests outstanding.
 
 ## September 30 — current gameplay pass + verification state
 

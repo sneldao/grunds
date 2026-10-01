@@ -55,25 +55,25 @@ export function economicsLesson(s = {}) {
   if (houseStock <= 0 || houseStock < lastPour) {
     const left = houseStock <= 0 ? 'is empty' : `has ${houseStock} cups left`;
     return {
-      urgent: true,
+      urgent: true, tool: 'coffee',
       text: `Your house coffee needs attention — ${house} ${left}${lastPour > 0 ? ` and yesterday poured ${lastPour}` : ''}. ` +
         'Choose the coffee you want to serve, then restock it. Supplies use Idris’s tab; a completely dry cellar costs extra.',
     };
   }
   if ((s.debt || 0) > 0) {
     return {
-      urgent: true,
+      urgent: true, tool: 'tab',
       text: `Your supplier tab is £${(s.debt).toFixed(2)}. Settling it frees credit for your next delivery; insurance locks a price, not stock.`,
     };
   }
   if (s.staffCanChoose) {
-    return { urgent: false, text: 'Ruth is tiring. Today’s staffing choice changes how much the bar can handle.' };
+      return { urgent: false, tool: 'staff', text: 'Ruth is tiring. Today’s staffing choice changes how much the bar can handle.' };
   }
   if (s.prevTier === 'warn' || s.prevTier === 'bad' || s.prevTier === 'cata') {
-    return { urgent: false, text: 'Yesterday’s market left a warning. Read Idris’s note before deciding whether to cover the price.' };
+      return { urgent: false, tool: 'market', text: 'Yesterday’s market left a warning. Read Idris’s note before deciding whether to cover the price.' };
   }
   return {
-    urgent: false,
-    text: 'You’ve seen one day on the floor. Keep the coffee fresh and the room welcoming; open the full plan whenever you want more control.',
+    urgent: false, tool: null,
+    text: 'You’ve seen one day on the floor. Keep the coffee fresh and the room welcoming; the tools below are yours whenever you want more control.',
   };
 }

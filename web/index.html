@@ -140,6 +140,8 @@
     clip-path: polygon(0 8px, 4% 0, 8% 8px, 12% 0, 16% 8px, 20% 0, 24% 8px, 28% 0, 32% 8px, 36% 0, 40% 8px, 44% 0, 48% 8px, 52% 0, 56% 8px, 60% 0, 64% 8px, 68% 0, 72% 8px, 76% 0, 80% 8px, 84% 0, 88% 8px, 92% 0, 96% 8px, 100% 0, 100% 100%, 0 100%); }
   #receipt.show .paper { transform: none; }
   #r-forecast { margin: 0 0 14px; padding: 9px 10px; background: rgba(201,162,39,.10); border-left: 3px solid var(--brass); font-size: 11px; line-height: 1.5; letter-spacing: .02em; color: #3a3226; border-radius: 3px; }
+  #r-lessons { margin: 0 0 12px; font-family: var(--serif); font-size: 12px; font-style: italic; line-height: 1.55; color: #5a4426; }
+  #r-lessons .rls { padding: 2px 0; }
   #receipt h2 { margin: 0; font-family: var(--serif); letter-spacing: .4em; text-indent: .4em; text-align: center; font-size: 22px; }
   #receipt .rsub { text-align: center; font-size: 11px; opacity: .6; margin: 4px 0 16px; }
   .rl { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed rgba(23,19,16,.18); }
@@ -318,6 +320,15 @@
   #brief-summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 20px; height: 20px; margin-bottom: 8px; }
   #brief-open { min-height: 44px; white-space: nowrap; }
   #brief-context summary { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; opacity: .75; cursor: pointer; font-weight: 600; margin: 6px 0; }
+  #brief-new { font-family: var(--serif); font-size: 13px; line-height: 1.5; color: #2a241c;
+    background: rgba(201,162,39,.07); border: 1px solid rgba(122,90,42,.35); border-left: 3px solid var(--brass);
+    border-radius: 3px; padding: 10px 12px; margin: 8px 0; }
+  #brief-new .bn-kicker { font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; opacity: .55; }
+  #brief-new .bn-title { font-size: 15px; font-weight: 600; margin: 2px 0 4px; }
+  #brief-new .bn-voice { font-style: italic; opacity: .85; margin: 0 0 4px; }
+  #brief-new .bn-why { margin: 0 0 4px; }
+  #brief-new .bn-lot { font-size: 12px; opacity: .8; margin-top: 3px; }
+  .bn-note { font-size: 11px; font-style: italic; opacity: .8; color: #5a4426; margin: 4px 0 6px; }
   #brief-nut summary, #brief-lots summary, #brief-menu summary, #brief-prep summary, #brief-actions summary {
     cursor: pointer; font-size: 12.5px; letter-spacing: .01em; text-transform: none; font-weight: 600; opacity: .9;
   }
@@ -489,6 +500,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
       <div class="modal-body">
         <div id="r-forecast" style="display:none"></div>
         <div id="r-summary"></div>
+        <div id="r-lessons" style="display:none"></div>
         <details id="r-ledger" open><summary>the ledger</summary><div id="r-lines"></div></details>
         <div id="r-stands"></div>
         <p id="r-seed" style="display:none; margin-top:10px; font-family: var(--serif); font-size: 11px; color: #7a5a2a;">
@@ -641,13 +653,12 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <div id="brief-learning" style="display:none"></div>
         <div id="brief-prep" style="display:none"></div>
         <div id="brief-staff" style="display:none"></div>
-        <div id="brief-demand" style="display:none"></div>
         <div id="brief-rival" style="display:none"></div>
-        <details id="brief-more"><summary>more planning options</summary>
-        <div id="brief-risk" style="display:none"></div>
-        <div id="brief-nut" style="display:none"></div>
+        <div id="brief-tools">
+        <div id="brief-new" style="display:none"></div>
         <div id="brief-lots" style="display:none"></div>
         <div id="brief-menu" style="display:none"></div>
+        <div id="brief-demand" style="display:none"></div>
         <div id="brief-actions"></div>
         <details id="brief-context"><summary>the wire</summary>
           <pre id="brief-letter"></pre>
@@ -665,7 +676,9 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
             <button id="letter-mail-btn" style="margin-left:8px; padding:4px 10px; font-size:10.5px; letter-spacing:.1em;">post it</button>
           </div>
         </details>
-        </details>
+        <div id="brief-nut" style="display:none"></div>
+        <div id="brief-risk" style="display:none"></div>
+        </div>
         <button id="review-last" style="display:none">yesterday’s receipt →</button>
       </div>
 

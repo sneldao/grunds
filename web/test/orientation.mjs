@@ -330,7 +330,7 @@ check('headless day-1 brief is not guided — OPEN is free', byId('brief-open').
 G.reset();
 await new Promise(r => setTimeout(r, 1700));
 check('reset returns straight to day-1 planning (title element is gone)', G.phase === 'planning' && G.stats().day === 1 && byId('open') === null, `phase=${G.phase}`);
-G.testState({ openingGuidance: true });
+G.testState({ openingGuidance: true, curriculum: true });
 G.renderBrief();
 
 check('day-1 heading is YOUR FIRST MORNING', byId('brief-heading').textContent === 'YOUR FIRST MORNING', byId('brief-heading').textContent);
@@ -343,21 +343,28 @@ check('intro: welcome + Ruth role + rival + aim + stand name + stock line',
   && /already stocked/.test(intro) && /THE CORNER CUP/.test(intro), intro.slice(0, 300));
 check('portrait rows render for Idris and Ruth', collect(byId('brief-intro'), c => c.className === 'fm-role').length === 2);
 
-const more = byId('brief-more');
-check('full-plan drawer is a real closed <details> on a calm day 1', !!more && more.tagName === 'DETAILS' && more.open === false, `tag=${more && more.tagName} open=${more && more.open}`);
-for (const id of ['brief-risk', 'brief-nut', 'brief-lots', 'brief-menu', 'brief-actions', 'brief-context']) {
+check('#brief-more is gone — the curriculum replaced the drawer', byId('brief-more') === null);
+{
+  const tools = byId('brief-tools');
+  check('#brief-tools exists in the real markup', !!tools);
+  const order = (tools.children || []).filter(c => c.nodeType === 1).map(c => c.id);
+  check('tool slots sit in curriculum order',
+    order.join(',') === 'brief-new,brief-lots,brief-menu,brief-demand,brief-actions,brief-context,brief-nut,brief-risk', order.join(','));
+}
+for (const id of ['brief-new', 'brief-lots', 'brief-menu', 'brief-demand', 'brief-actions', 'brief-context', 'brief-nut', 'brief-risk']) {
   const n = byId(id);
   check(`#${id} exists in the real markup`, !!n);
-  let a = n, inside = false;
-  while (a) { if (a === more) { inside = true; break; } a = a.parentElement; }
-  check(`#${id} is a descendant of #brief-more`, inside);
+  check(`day-1 curriculum leaves #${id} hidden`, n && n.style.display === 'none', `display=${n && n.style.display}`);
+  if (id !== 'brief-context') check(`day-1 curriculum leaves #${id} empty`, n && deepText(n).trim() === '', `text=${(n ? deepText(n) : '').slice(0, 120)}`);
 }
 
 const primary = visibleText(byId('brief'));
 check('primary surface: no viability/bonus/commitment/finance talk',
   !/viable|as a bonus|committed|riding the spot|insure|the wire|2914/i.test(primary), primary.slice(0, 500));
-check('primary surface keeps role + forecast + drawer summary',
-  /ONE PLAN FOR THE AFTERNOON/.test(primary) && /Students arrive at 14:00/.test(primary) && /Explore the full plan/.test(primary), primary.slice(0, 500));
+check('curriculum day-1 primary hides every tool row',
+  !/pouring |menu ·|supplier tab|the nut|Explore the full plan|More planning details|insure the beans|work the street/i.test(primary), primary.slice(0, 500));
+check('primary surface keeps the prep choice + forecast',
+  /ONE PLAN FOR THE AFTERNOON/.test(primary) && /Students arrive at 14:00/.test(primary), primary.slice(0, 500));
 writeFileSync(join(LOGS, 'first-morning-visible.txt'), primary);
 
 const prepBtns = () => collect(byId('brief-prep'), c => c.tagName === 'BUTTON' && c.dataset && c.dataset.prep);
@@ -371,8 +378,7 @@ key('Enter');
 check('Enter before a choice is a no-op — still planning, nothing spent', G.phase === 'planning' && G.stats().batchSpend === 0, `phase=${G.phase} spend=${G.stats().batchSpend}`);
 
 {
-  const summary = more.querySelector('summary');
-  summary.focus();
+  byId('brief-open').focus();
   key('1');
   check('digit on a focused non-prep control does not pick', !prepBtns()[0].classList.contains('picked'), 'summary focus swallowed by interactive guard');
   globalThis.document.activeElement = null;
@@ -427,13 +433,8 @@ writeFileSync(join(LOGS, 'first-morning-footer-batch.txt'), ftr());
   G.renderBrief();
 }
 
-{
-  more.open = true;
-  const deep = deepText(byId('brief'));
-  check('opened full plan shows the real closing bill', /the nut £|counted at closing/i.test(deep), deepText(byId('brief-nut')).slice(0, 200));
-  check('opened full plan exposes hedges and the wire', /riding the spot|insure/i.test(deepText(byId('brief-actions'))) || /wire/i.test(deepText(byId('brief-context'))), 'advanced contents');
-  more.open = false;
-}
+check('no hedge or contract controls render on curriculum day 1', collect(byId('brief-actions'), c => c.tagName === 'BUTTON').length === 0, deepText(byId('brief-actions')).slice(0, 200));
+check('staged credit on day 1 still discloses honestly', (() => { G.stageDayPlan({ hedge: 'contract' }); G.renderBrief(); const ok = /\+ bean cover £[\d.]+ on the tab/.test(ftr()); G.stageDayPlan({ hedge: 'hold' }); G.renderBrief(); return ok; })(), ftr());
 
 G.coach.begin(true);
 G.coach.tick();
@@ -478,6 +479,14 @@ while (G.phase === 'trading' && guard++ < 80) {
 }
 check('day 1 closes into review', G.phase === 'review', 'phase=' + G.phase);
 {
+  const receipt = G.lastDayReceipt;
+  const lessons = receipt && receipt.lessons || [];
+  check('day-1 receipt lesson prices the real running cost',
+    lessons.some(l => /Running the café today cost £[\d.,]+/.test(l) && receipt.ops && l.includes(`£${receipt.ops.total.toFixed(2)}`)),
+    JSON.stringify(lessons));
+  writeFileSync(join(LOGS, 'day1-receipt-lessons.txt'), lessons.join('\n'));
+}
+{
   G.coach.begin(true);
   const wasPaused = G.paused;
   G.coach.tick();
@@ -489,12 +498,89 @@ await new Promise(r => setTimeout(r, 10));
 G.renderBrief();
 check('day 2 restores the normal brief', byId('brief-heading').textContent === 'THE MORNING BRIEF' && !byId('brief').classList.contains('first-morning'));
 check('day 2 hides the first-morning intro', byId('brief-intro').style.display === 'none');
-check('day 2 shows a real learning line', byId('brief-learning').textContent.length > 20, byId('brief-learning').textContent);
-check('day 2 drawer label is "More planning details"', /More planning details/.test(deepText(byId('brief-more'))));
+const briefNew2 = deepText(byId('brief-new'));
+{
+  const tt = G.curriculum.toolsToday || {};
+  check('day 2 makes coffee the New today card', tt.newToday === 'coffee', JSON.stringify(tt));
+  check('day 2 introduces coffee with the Your coffee card', /New today/.test(briefNew2) && /Your coffee/.test(briefNew2) && /Three coffees are in your cellar/.test(briefNew2), briefNew2.slice(0, 300));
+  check('the coffee card names every cellar lot with its crowd', /favoured by/.test(briefNew2) && (briefNew2.match(/favoured by/g) || []).length === 3, briefNew2.slice(0, 400));
+  check('the coffee card lists no locked microlot', !/Panama Gesha/.test(briefNew2), briefNew2.slice(0, 400));
+  check('the coffee card carries the running-low need line', /house coffee is running low/.test(briefNew2), briefNew2.slice(0, 400));
+  check('the coffee card row carries the roast sweet-spot hint', /ideal roast/.test(deepText(byId('brief-lots'))), deepText(byId('brief-lots')).slice(0, 300));
+  check('the need line is not duplicated as a row note', !/New ·/.test(deepText(byId('brief-lots'))), deepText(byId('brief-lots')).slice(0, 120));
+  const det = collect(byId('brief-lots'), c => c.tagName === 'DETAILS')[0];
+  check('the coffee row is open on its intro day', !!det && det.open === true, `open=${det && det.open}`);
+}
+for (const id of ['brief-menu', 'brief-demand', 'brief-context']) {
+  check(`day 2 keeps #${id} hidden`, byId(id).style.display === 'none', `display=${byId(id).style.display}`);
+}
+check('day 2 shows the nut row', byId('brief-nut').style.display !== 'none' && /counted at closing|the nut/i.test(deepText(byId('brief-nut'))), deepText(byId('brief-nut')).slice(0, 200));
+check('day 2 shows the risk line', byId('brief-risk').style.display !== 'none' && /matcha £/.test(deepText(byId('brief-risk'))), deepText(byId('brief-risk')).slice(0, 200));
+check('day 2 no actions row without insurance or tab', byId('brief-actions').style.display === 'none', deepText(byId('brief-actions')).slice(0, 200));
+{
+  const before = G.plan && G.plan.hedge;
+  key('1'); key('2'); key('3'); key('4'); key('5');
+  check('day-2 digits reach only rendered action buttons — none staged', (G.plan ? G.plan.hedge : null) === before, JSON.stringify(G.plan && G.plan.hedge));
+}
 check('day 2 normal prep pills are back', !!collect(byId('brief-prep'), c => c.dataset && c.dataset.prep === 'hold')[0] && /hold steady/.test(deepText(byId('brief-prep'))));
 check('day 2 hint no longer claims a staged midday press is free', !/pressing 1 or 2 mid-day without it costs/.test(deepText(byId('brief-prep'))));
+check('the learning line stays quiet beside the coffee card', byId('brief-learning').style.display === 'none' || !/house coffee needs attention/.test(byId('brief-learning').textContent), byId('brief-learning').textContent);
+writeFileSync(join(LOGS, 'day2-brief-visible.txt'), visibleText(byId('brief')));
 
-try { localStorage.setItem('grunds:drawer:brief-more', '0'); } catch {}
+{
+  G.stageDayPlan({ hedge: 'hold' });
+  const r = G.commitDayPlan();
+  check('day 2 commits', r && r.ok === true, JSON.stringify(r));
+  check('the commit records coffee as introduced', (G.curriculum.introduced || []).includes('coffee'), JSON.stringify(G.curriculum.introduced));
+}
+guard = 0;
+while (G.phase === 'trading' && guard++ < 80) {
+  runFrames(60);
+  if (G.paused && !byId('brief').classList.contains('show')) G.togglePause();
+}
+check('day 2 closes into review', G.phase === 'review', 'phase=' + G.phase);
+{
+  const receipt = G.lastDayReceipt;
+  const lessons = receipt && receipt.lessons || [];
+  const poured = (G.curriculum.pouredByLotToday || {});
+  const houseLot = G.stats().houseLot;
+  check('day-2 receipt lesson quotes the real house pour',
+    !!houseLot && lessons.some(l => new RegExp(`${poured[houseLot] || 0} cups poured`).test(l)),
+    JSON.stringify({ lessons, poured, houseLot }));
+  writeFileSync(join(LOGS, 'day2-receipt-lessons.txt'), lessons.join('\n'));
+}
+G.continueFromReview();
+await new Promise(r => setTimeout(r, 10));
+G.renderBrief();
+{
+  const briefNew3 = deepText(byId('brief-new'));
+  check('day 3 introduces the menu card', /New today/.test(briefNew3) && /Your menu/.test(briefNew3), briefNew3.slice(0, 300));
+  check('day 3 keeps the coffee row as an introduced tool', byId('brief-lots').style.display !== 'none' && !/New today/.test(deepText(byId('brief-lots'))), deepText(byId('brief-lots')).slice(0, 120));
+  const debt = G.stats().debt;
+  if (debt > 0) {
+    check('day 3 shows the tab essential note with the real amount',
+      new RegExp(`New · You owe Idris £${debt.toFixed(2)}`).test(deepText(byId('brief-actions'))), deepText(byId('brief-actions')).slice(0, 300));
+    check('settle is visible while the tab is open', collect(byId('brief-actions'), c => c.tagName === 'BUTTON').some(b => /settle/i.test(b.textContent)), deepText(byId('brief-actions')).slice(0, 200));
+  } else {
+    check('day 3 actions stay hidden without debt or threat', byId('brief-actions').style.display === 'none', deepText(byId('brief-actions')).slice(0, 120));
+  }
+  writeFileSync(join(LOGS, 'day3-brief-visible.txt'), visibleText(byId('brief')));
+  const savedDebt = G.exc.debt;
+  G.exc.debt = 1200;
+  G.stageCellar({ topup: 'restock' });
+  G.renderBrief();
+  const lbl = (byId('brief-top-rest') || {}).textContent || '';
+  const lm = lbl.match(/tab covers ~(\d+) \(£([\d.]+)\)/);
+  check('capped restock discloses the tab-funded count', !!lm, lbl);
+  if (lm) {
+    const before = G.stats().houseStock;
+    const rc = G.commitDayPlan();
+    const gained = G.stats().houseStock - before;
+    check('the labelled tab count equals what applyLots buys', rc.ok === true && gained === +lm[1], `label=${lm[1]} gained=${gained}`);
+  }
+  G.exc.debt = savedDebt;
+}
+
 G.reset();
 await new Promise(r => setTimeout(r, 200));
 G.testState({ openingGuidance: true });

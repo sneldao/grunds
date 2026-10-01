@@ -523,6 +523,41 @@ at https://striped-anaconda-746.convex.site from commit `f3e0d18`. Live HTTP
 checks matched the upload artifact; deployed gameplay and human engagement
 remain unverified.
 
+## Current build (Oct 1b) — Morning Brief curriculum + versioned staging
+
+The collapsed **Explore the full plan** drawer is gone: `#brief-more` is
+deleted and a flat `#brief-tools` stack replaces it. `web/js/curriculum.js`
+(pure) decides which tools appear each morning — day 1 shows only the prep
+choice, then one tool gets a full "New today" card per day (coffee → menu →
+street → insurance, scheduled days 2–5) while need-driven essentials (empty or
+low house stock → coffee, a live tab → settle) appear immediately as one-line
+`New ·` notes inside their rows — except an empty or low house stock with
+coffee still unintroduced, which takes the day's full card instead. A live market threat pulls insurance forward
+of schedule. Once introduced a tool stays visible forever; the introduced set
+persists in `localStorage` (`grunds.curriculum`) only on successful commits,
+and campaign close marks every tool introduced so veterans see the full brief
+next run. `unlockAll = headless || demo || !wantTutorial` keeps every control
+visible for existing fixtures, and the headless-only
+`testState({ curriculum: true })` seam drives the gated path in tests.
+Receipts gained a `lessons` band (between summary and ledger) quoting real
+per-day counters: `pouredByLotToday` for the coffee payoff, `servedByDrinkToday`
+for the menu line, the actual `ops.total` for the day-1 running-cost line.
+
+`npm run stage:site -- --out <dir>` (`tools/stage-site.mjs`) builds a
+release-versioned static artifact outside the repo: copies `web/` runtime
+assets plus `api/schedule.json` (preferring `out/wave_schedule.json`, else the
+existing `dist/api/schedule.json`), stamps `?v=<commit>[-dirty-<hash>]` on every
+relative ES-module specifier and the `main.js` script tag, fails closed on any
+unversioned or missing target, and writes `release.json` with per-file
+SHA-256s. No network, no build, no deploy — it exists because the host
+cache-busts index.html but serves unversioned `/js/*.js` for 4h.
+
+Coverage: new `curriculum.mjs` (22 pure checks) and `stage-site.mjs` (16
+checks) suites, rewritten `orientation.mjs` curriculum assertions on the real
+markup, plus the focused regression list and a 65-suite non-balance gate — all
+green in a temp mirror; `tsc --noEmit` clean. Code-only verification; no
+browser evidence this pass, nothing deployed, human playtests outstanding.
+
 ## Previous build (Sept 30) — gameplay-intuitiveness pass
 
 **The goal today:** keep the café **viable for five days**. Beating Sam's cup count

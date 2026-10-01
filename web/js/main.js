@@ -32,6 +32,7 @@ import { strategyForDay } from './rival.js';
 import { canChooseStaffing, canHaveStaffCrisis } from './staffing.js';
 import { resolveDecision } from './decision.js';
 import { firstMorningCopy, economicsLesson } from './orientation.js';
+import { planTools, TOOL_IDS, toolCopy, essentialNote } from './curriculum.js';
 import { initSync } from './convexSync.js';
 import { buildMailTheater } from './mailTheater.js';
 import { calculateCampaignBadge, openShareToX, formatShareText } from './share.js';
@@ -332,6 +333,7 @@ let womPids = new Set();
 // beanSpend alone — never sackSpend — so the two halves don't sum to the whole.
 let selectedLot = 'huila', topUpCups = 0, beanSpend = 0, emergencySpend = 0, sackSpend = 0;
 let pouredOther = 0, lastPour = 0, dawnIndex = 1.0;
+let pouredByLotToday = {}, servedByDrinkToday = {};
 let emergencyToast = false, emergencyCups = 0;
 let staleNoted = new Set();
 // Phase 3 — menu + roast + milk + skill: committed prices/offered board,
@@ -352,6 +354,32 @@ let prebatched = false, repriced = false;
 // commit time and mid-day presses are free (the decision was already made).
 let stagedPrep = { batch: false, reprice: false };
 let guidedOpening = wantTutorial, firstPrepChosen = false;
+let curriculumUnlockAll = headless || demoMode || !wantTutorial;
+let curriculumMemory = null, curriculumPersist = null, toolsIntroducedToday = [];
+function introducedSet() {
+  if (curriculumMemory) return curriculumMemory;
+  if (!curriculumPersist) {
+    curriculumPersist = new Set();
+    try { for (const t of JSON.parse(localStorage.getItem('grunds.curriculum') || '[]')) if (TOOL_IDS.includes(t)) curriculumPersist.add(t); } catch {}
+  }
+  return curriculumPersist;
+}
+function persistIntroduced() {
+  if (curriculumMemory) return;
+  try { localStorage.setItem('grunds.curriculum', JSON.stringify([...curriculumPersist])); } catch {}
+}
+const WARN_TIERS = new Set(['warn', 'bad', 'cata']);
+function briefTools() {
+  const houseNow = lotState.entry(selectedLot);
+  return planTools({
+    day, introduced: introducedSet(),
+    houseStock: houseNow ? houseNow.stock : 0, lastPour,
+    debt: exchange.debt, contract: !!(exchange.contract && exchange.contract.units > 0),
+    threatToday: WARN_TIERS.has(exchange.event?.tier), threatYesterday: WARN_TIERS.has(exchange.lastTier),
+    unlockAll: curriculumUnlockAll,
+  });
+}
+let toolsToday = null;
 let prepHintOpen = false;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let waveBatchServed = 0, waveStockoutAt = 0;
@@ -692,7 +720,8 @@ function tick() {
           fx.toast(`${scorched ? SCORCH_LINE : (STALE_LINES[e.p.cohort] || 'the room tastes yesterday’s roast')}${named}`, 'warn');
         }
       }
-      if (!e.isMatcha && !e.emergency) pouredOther++;
+      if (!e.isMatcha && !e.emergency) { pouredOther++; if (e.lotId) pouredByLotToday[e.lotId] = (pouredByLotToday[e.lotId] || 0) + 1; }
+      servedByDrinkToday[e.drinkId || (e.isMatcha ? 'matcha' : 'flatwhite')] = (servedByDrinkToday[e.drinkId || (e.isMatcha ? 'matcha' : 'flatwhite')] || 0) + 1;
       // Phase 1 — a serve is a visit. Canon regulars append session history
       // (visits count days-seen in resolveDay, both sides); walk-ins
       // accumulate in the day pool; evangelist serves seed tomorrow's crowd.
@@ -1183,7 +1212,32 @@ function closeDay() {
     const line = `Wire: ${cite}`;
     forecast = forecast ? forecast + ' \n' + line : line;
   }
+  const lessons = [];
+  if (day === 1) {
+    lessons.push(`Running the café today cost ${fmt(ops.total)} — ${(ops.marketing || ops.training || ops.sampling) ? 'including ' : ''}staff, pitch rent, milk and cups, card fees and sundries — paid at closing.`);
+  }
+  const menuVisible = introducedSet().has('menu') || toolsIntroducedToday.includes('menu');
+  const menuServedLine = () => {
+    const off = DRINK_IDS.filter(id => menuOffered[id] === false);
+    return `Served: ${DRINK_IDS.map(id => `${DRINKS[id].name} ${servedByDrinkToday[id] || 0}`).join(' · ')}${off.length ? ` · off the menu: ${off.map(id => DRINKS[id].name).join(', ')}` : ''}`;
+  };
+  const menuNeedsLine = DRINK_IDS.some(id => menuOffered[id] === false) && menuVisible;
+  for (const t of toolsIntroducedToday) {
+    if (t === 'coffee') {
+      const h = lotState.entry(lotState.house);
+      const nm = LOT_CATALOG[lotState.house]?.name || lotState.house;
+      const stale = staleByLotToday[lotState.house] || 0;
+      lessons.push(`${nm}: ${pouredByLotToday[lotState.house] || 0} cups poured · ${h ? h.stock : 0} left${stale ? ` · ${stale} tasted stale` : ''}`);
+    } else if (t === 'menu') lessons.push(menuServedLine());
+    else if (t === 'street') {
+      const stagedLabels = DEMAND_ACTIONS.filter(a => dtrace.staged && dtrace.staged[a])
+        .map(a => a === 'sample' ? 'sampling' : a === 'sponsor' ? 'sponsoring' : a).join(' · ');
+      if (stagedLabels) lessons.push(`Street work: ${stagedLabels} · ~${dtrace.returnees} expected back tomorrow`);
+    } else if (t === 'tab' && settleToday > 0) lessons.push(`Tab settled: ${fmt(settleToday)}`);
+  }
+  if (menuNeedsLine && !toolsIntroducedToday.includes('menu')) lessons.push(menuServedLine());
   const receiptData = {
+    lessons,
     lines: [
       [standName, playerName],
       // Till is already net of emergency cups (billed at serve); lot sacks
@@ -1373,9 +1427,6 @@ function renderIdrisAsk() {
 
 function markBriefChoice(id) {
   briefChoice = id;
-  // keyboard reply picked a contract? spring the day-1 fold open so the
-  // selection is visible, not buried
-  try { const f = $('brief-hedge-details'); if (f && id && id.startsWith('contract')) f.open = true; } catch {}
   // rebuild brief choice row highlight
   try {
     for (const b of [...document.querySelectorAll('#brief-actions button')]) {
@@ -1519,6 +1570,13 @@ function applyCommittedPlan(res) {
   // Phase 3 — commit staged menu prices + 86 board.
   applyMenu();
   try { modals.close('brief'); } catch {}
+  {
+    const toolsNow = toolsToday || briefTools();
+    for (const t of [toolsNow.newToday, ...(toolsNow.essentialNew || [])].filter(Boolean)) {
+      if (!introducedSet().has(t)) { introducedSet().add(t); toolsIntroducedToday.push(t); }
+    }
+    persistIntroduced();
+  }
   if (day === 1 && guidedOpening && !coach) coachBegin(true);
   briefSyncError('');
   return { ok: true };
@@ -1638,10 +1696,7 @@ function renderPlanQuote() {
     const cups = Math.max(0, Math.floor(topUpCups));
     const name = LOT_CATALOG[selectedLot]?.name || selectedLot;
     if (!(unitPrice > 0)) return `cellar — ~${cups} ${name} cups, price pending the dawn board`;
-    const cap = LOT_CATALOG[selectedLot].stockCap;
-    const room = cap ? Math.min(cups, Math.max(0, cap - stQ.stock)) : cups;
-    const headroom = Math.max(0, CAMPAIGN.creditLimit - res.debt);
-    const funded = Math.min(room, Math.floor(headroom / unitPrice));
+    const funded = fundedRestock(selectedLot, cups, { debt: res.debt, contract: res.contract }).cups;
     const est = `cellar — up to ${funded} of the ${cups} ${name} cups on the tab at ~${fmt(unitPrice)} each (dawn board may move)`;
     return funded >= cups ? est : `${est} · the rest stays unbought — a dry cellar pays 1.5× spot per cup`;
   })();
@@ -1691,7 +1746,7 @@ function renderPlanQuote() {
   nutEl.appendChild(det);
   const sumEl = $('brief-summary');
   if (sumEl) {
-    sumEl.textContent = `committed ${fmt(committed)}${q.settlement ? ` · settle ${fmt(q.settlement)}` : ''}${showPos ? ` · ${pos}` : ''}`;
+    sumEl.textContent = `closing bills ${fmt(committed)}${q.settlement ? ` · settle ${fmt(q.settlement)}` : ''}${showPos ? ` · ${pos}` : ''}`;
     sumEl.title = full;
   }
   if (day === 1) updateBriefFooter();
@@ -1871,19 +1926,13 @@ function updateBriefFooter() {
     if (stQ && stQ.unlocked !== false && topUpCups > 0) {
       const res = resolveDecision(planSnapshot(), normalizePlan(planDraft));
       if (res.ok) {
-        const unitPrice = res.contract && res.contract.units > 0
-          ? res.contract.price * 1.3
-          : lotSpot(selectedLot, dawnIndex, stQ.priceMul);
-        const cap = LOT_CATALOG[selectedLot].stockCap;
-        const room = cap ? Math.min(Math.floor(topUpCups), Math.max(0, cap - stQ.stock)) : Math.floor(topUpCups);
-        const headroom = Math.max(0, CAMPAIGN.creditLimit - res.debt);
-        const funded = unitPrice > 0 ? Math.min(room, Math.floor(headroom / unitPrice)) : 0;
-        extras.push(`+ ~${funded} ${LOT_CATALOG[selectedLot]?.name || 'cellar'} cups ≈ ${fmt(funded * unitPrice)} on the tab`);
+        const fr = fundedRestock(selectedLot, topUpCups, { debt: res.debt, contract: res.contract });
+        extras.push(`+ ~${fr.cups} ${LOT_CATALOG[selectedLot]?.name || 'cellar'} cups ≈ ${fmt(fr.cost)} on the tab`);
       }
     }
     sumEl.title = `the nut ${fmt(q.fixedMinimum)} — deducted at closing, not an opening payment`;
   } else sumEl.title = '';
-  extras.push('bills and ingredients are counted at closing · details in the full plan');
+  extras.push('bills and ingredients are counted at closing');
   sumEl.textContent = lead + (extras.length ? ' · ' + extras.join(' · ') : '');
 }
 
@@ -1900,9 +1949,17 @@ function applyStagedPrep() {
 // executed at commit by applyLots (till-checked, contract-aware).
 function renderLotSection() {
   const wrap = $('brief-lots'); if (!wrap) return;
+  const TT = toolsToday || briefTools();
   const wasOpen = !!wrap.querySelector?.('details')?.open;
   clearEl(wrap);
+  if (!TT.visible.has('coffee')) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
+  if (TT.essentialNew.includes('coffee')) {
+    const note = document.createElement('div');
+    note.className = 'bn-note';
+    note.textContent = 'New · ' + essentialNote('coffee');
+    wrap.appendChild(note);
+  }
 
   const house = lotState.entry(selectedLot);
   const name = LOT_CATALOG[selectedLot]?.name || selectedLot;
@@ -1911,11 +1968,12 @@ function renderLotSection() {
   const det = document.createElement('details');
   det.id = 'brief-lot-details';
   const houseEmpty = !!house && house.stock <= 0;
+  const houseLow = !!house && lastPour > 0 && house.stock < lastPour;
   const cellarDry = LOT_IDS.every(id => (lotState.entry(id)?.stock ?? 0) <= 0);
-  if (houseEmpty || drawerOpen('brief-lot-details', wasOpen || topUpCups > 0 || stale || (lotState.pending && lotState.pending.length))) det.open = true;
+  if (houseEmpty || houseLow || TT.newToday === 'coffee' || drawerOpen('brief-lot-details', wasOpen || topUpCups > 0 || stale || (lotState.pending && lotState.pending.length))) det.open = true;
   watchDrawer(det, 'brief-lot-details');
   const sum = document.createElement('summary');
-  sum.textContent = `pouring ${name}${house ? ` · ${house.stock} left` : ''}${topUpCups > 0 ? ' · restocking' : ''}`;
+  sum.textContent = `pouring ${name}${house ? ` · ${house.stock} left` : ''}${topUpCups > 0 ? ' · restocking' : ''} · change ›`;
   det.appendChild(sum);
   if (houseEmpty) {
     const warn = document.createElement('div');
@@ -1968,8 +2026,14 @@ function renderLotSection() {
       return b;
     };
     const underContract = !!(exchange.contract && exchange.contract.units > 0);
-    row.appendChild(mkTop('brief-top-rest', qty > 0 ? `restock ${qty} cups · ${fmt(qty * price)}${underContract ? ' (contract)' : ''}` : 'cellar’s full enough — skip', qty));
-    if (qty > 0) row.appendChild(mkTop('brief-top-double', `double it · ${qty * 2} cups`, qty * 2));
+    const fundedNote = (cups) => {
+      const res = resolveDecision(planSnapshot(), normalizePlan(planDraft));
+      if (!res.ok) return '';
+      const fr = fundedRestock(selectedLot, cups, { debt: res.debt, contract: res.contract });
+      return fr.cups < cups ? ` · tab covers ~${fr.cups} (${fmt(fr.cost)})` : '';
+    };
+    row.appendChild(mkTop('brief-top-rest', qty > 0 ? `restock ${qty} cups · ${fmt(qty * price)}${underContract ? ' (contract)' : ''}${fundedNote(qty)}` : 'cellar’s full enough — skip', qty));
+    if (qty > 0) row.appendChild(mkTop('brief-top-double', `double it · ${qty * 2} cups${fundedNote(qty * 2)}`, qty * 2));
     det.appendChild(row);
   }
 
@@ -2004,6 +2068,12 @@ function renderLotSection() {
   rPlus.onclick = () => { stagedRoast = Math.min(5, stagedRoast + 1); renderLotSection(); };
   roastRow.appendChild(roastLab); roastRow.appendChild(rMinus); roastRow.appendChild(rVal); roastRow.appendChild(rPlus);
   det.appendChild(roastRow);
+  if (TT.newToday === 'coffee') {
+    const hint = document.createElement('div');
+    hint.className = 'bn-note';
+    hint.textContent = `Each coffee has a sweet spot: ideal roast ${ROAST_IDEAL[selectedLot]} for ${name}.`;
+    det.appendChild(hint);
+  }
 }
 
 // Headless-only cellar control for policy probes (break-it pass).
@@ -2031,6 +2101,17 @@ function stageCellar({ lot, topup } = {}) {
 // Execute the staged cellar at commit. Sets the house lot, buys the top-up
 // (till-checked; contract cover flows through when held), and resets the
 // staging. Called from applyCommittedPlan after applyStagedPrep.
+function fundedRestock(lotId, cups, { debt = exchange.debt, contract = exchange.contract } = {}) {
+  const st = lotState.entry(lotId);
+  if (!st || st.unlocked === false) return { cups: 0, cost: 0, unitPrice: 0, room: 0 };
+  const unitPrice = contract && contract.units > 0 ? contract.price * 1.3 : lotSpot(lotId, dawnIndex, st.priceMul);
+  const cap = LOT_CATALOG[lotId].stockCap;
+  const room = cap ? Math.min(Math.max(0, Math.floor(cups)), Math.max(0, cap - st.stock)) : Math.max(0, Math.floor(cups));
+  const headroom = Math.max(0, CAMPAIGN.creditLimit - debt);
+  const n = unitPrice > 0 ? Math.min(room, Math.floor(headroom / unitPrice)) : room;
+  return { cups: n, cost: n * unitPrice, unitPrice, room };
+}
+
 function applyLots() {
   lotState.house = selectedLot;
   const entry = lotState.entry(selectedLot);
@@ -2043,26 +2124,19 @@ function applyLots() {
   // spot per cup (till-paid, the teeth). Broke weeks bleed per cup.
   const st = lotState.entry(selectedLot);
   if (!st || st.unlocked === false) { topUpCups = 0; return; }
-  let unitPrice = lotSpot(selectedLot, dawnIndex, st.priceMul);
   let hedgedUnits = 0;
   if (exchange.contract && exchange.contract.units > 0) {
-    unitPrice = exchange.contract.price * 1.3;
     hedgedUnits = Math.min(topUpCups, exchange.contract.units);
   }
   // Pre-clamp to the microlot cap so the tab check prices what can land.
-  const cap = LOT_CATALOG[selectedLot].stockCap;
-  const room = cap ? Math.min(topUpCups, Math.max(0, cap - st.stock)) : topUpCups;
-  if (room <= 0) { topUpCups = 0; return; }
-  const full = room * unitPrice;
-  // Tab headroom clamps the sack: exchange.debt is the supplier tab, and
-  // the credit limit is Idris's patience. What the tab can't carry stays
-  // unbought — the bar pours from remaining stock, cascades, then eats the
-  // per-cup emergency charge. NOTE (reconcile): the sack accrues into
-  // exchange.debt, which the verdict nets once, so cCost must NOT also
-  // carry it (beanCostToday stays matcha-only). beanSpend is receipt-only.
-  const headroom = Math.max(0, CAMPAIGN.creditLimit - exchange.debt);
-  if (full > headroom) {
-    topUpCups = unitPrice > 0 ? Math.min(room, Math.floor(headroom / unitPrice)) : 0;
+  // NOTE (reconcile): the sack accrues into exchange.debt, which the verdict
+  // nets once, so cCost must NOT also carry it (beanCostToday stays
+  // matcha-only). beanSpend is receipt-only.
+  const fr = fundedRestock(selectedLot, topUpCups);
+  const unitPrice = fr.unitPrice;
+  if (fr.room <= 0) { topUpCups = 0; return; }
+  if (fr.cups < fr.room) {
+    topUpCups = fr.cups;
     if (topUpCups <= 0) {
       fx.toast('tab’s maxed — no sack today. The bar pours what’s left.', 'warn');
       return;
@@ -2087,8 +2161,10 @@ function applyLots() {
 // committed with OPEN (applyMenu).
 function renderMenuSection() {
   const wrap = $('brief-menu'); if (!wrap) return;
+  const TT = toolsToday || briefTools();
   const wasOpen = !!wrap.querySelector?.('details')?.open;
   clearEl(wrap);
+  if (!TT.visible.has('menu')) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
   if (!stagedMenu) stagedMenu = { prices: { ...menuPrices }, offered: { ...menuOffered } };
   stagedMenu.prices.matcha = stagedPrep.reprice ? ECON.matchaDeal : priceForDay(day);
@@ -2099,12 +2175,12 @@ function renderMenuSection() {
   const changed = wasOpen || off.length > 0 || stagedPrep.reprice || DRINK_IDS.some(id => id !== 'matcha' && stagedMenu.prices[id] !== bases[id]);
   const det = document.createElement('details');
   det.id = 'brief-menu-details';
-  if (drawerOpen('brief-menu-details', changed)) det.open = true;
+  if (TT.newToday === 'menu' || drawerOpen('brief-menu-details', changed)) det.open = true;
   watchDrawer(det, 'brief-menu-details');
   const sum = document.createElement('summary');
-  sum.textContent = off.length
+  sum.textContent = (off.length
     ? `menu · ${off.map(id => DRINKS[id].name).join(', ')} off`
-    : `menu · matcha ${fmt(stagedMenu.prices.matcha)}${repriced.length ? ` · ${repriced.length} repriced` : ''}`;
+    : `menu · matcha ${fmt(stagedMenu.prices.matcha)}${repriced.length ? ` · ${repriced.length} repriced` : ''}`) + ' · change ›';
   det.appendChild(sum);
   wrap.appendChild(det);
 
@@ -2288,6 +2364,7 @@ function showMorningBrief() {
   const L = composeLetter(snap);
   const head = $('brief-kicker');
   const firstDay = day === 1;
+  toolsToday = briefTools();
   el.classList.toggle('first-morning', firstDay);
   try {
     const tilt = marketIntel?.marketShift?.[0];
@@ -2368,9 +2445,11 @@ function showMorningBrief() {
         staffCanChoose: canChooseStaffing(day, baristaCondition),
         prevTier: exchange.lastTier,
       });
-      learning.textContent = ls.text;
-      learning.style.display = '';
-      lessonUrgent = ls.urgent;
+      const lsTool = ls.tool === 'market' ? 'insurance' : ls.tool;
+      const dupCard = !!lsTool && (toolsToday.newToday === lsTool || toolsToday.essentialNew.includes(lsTool));
+      const buried = !!toolsToday.newToday && !ls.urgent;
+      if (!ls.text || dupCard || buried) { learning.textContent = ''; learning.style.display = 'none'; lessonUrgent = false; }
+      else { learning.textContent = ls.text; learning.style.display = ''; lessonUrgent = ls.urgent; }
     }
   }
   const body = $('brief-letter');
@@ -2383,6 +2462,8 @@ function showMorningBrief() {
         && !ln.startsWith('Off the wire — '))
       .join('\n').replace(/\n{3,}/g, '\n\n');
   }
+  const ctxEl = $('brief-context');
+  if (ctxEl) ctxEl.style.display = toolsToday.visible.has('insurance') ? '' : 'none';
   // wire block: clickable source links + why-this-matters
   const wire = $('brief-wire');
   if (wire) {
@@ -2404,7 +2485,7 @@ function showMorningBrief() {
         head.style.cursor = 'pointer';
         head.title = 'tap to open the wire’s sources';
         head.onclick = () => {
-          const m = $('brief-more'); if (m) m.open = true;
+          const c = $('brief-context'); if (c) c.open = true;
           det.open = true;
           try { analytics.track('wire_opened', { day }); } catch {}
         };
@@ -2465,25 +2546,20 @@ function showMorningBrief() {
   if (demandRow) {
     const wasOpen = !!demandRow.querySelector?.('details')?.open;
     demandRow.textContent = '';
-    // Progressive disclosure: the street-work levers appear once the player
-    // has a day of demand behind them. Day 1 teaches open/price/serve; the
-    // lever arrives day 2 flat with its reason attached, and folds into a
-    // drawer from day 3 — the summary carries the awareness pips it replaces.
-    if (day < 2) { demandRow.style.display = 'none'; return; }
+    const TT = toolsToday || briefTools();
+    if (!TT.visible.has('street')) { demandRow.style.display = 'none'; return; }
     demandRow.style.display = '';
     const D = CAMPAIGN.demand;
     const stagedLabels = DEMAND_ACTIONS.filter(a => demand.staged[a])
       .map(a => a === 'sample' ? 'sampling' : a === 'sponsor' ? 'sponsoring' : a).join(' · ');
-    // host = where the pills + final-day note land: flat on day 2 (the intro
-    // keeps the lesson), inside the drawer day 3+.
     let host = demandRow;
-    if (day >= 3) {
+    if (TT.newToday !== 'street') {
       const det = document.createElement('details');
       det.id = 'brief-demand-details';
       if (drawerOpen('brief-demand-details', wasOpen || stagedLabels !== '' || day === D.sponsorDay)) det.open = true;
       watchDrawer(det, 'brief-demand-details');
       const sum = document.createElement('summary');
-      sum.textContent = `the street · awareness ${demand.pips()}${stagedLabels ? ' · ' + stagedLabels : ''}`;
+      sum.textContent = `the street · awareness ${demand.pips()}${stagedLabels ? ' · ' + stagedLabels : ''} · change ›`;
       det.appendChild(sum);
       demandRow.appendChild(det);
       host = det;
@@ -2494,7 +2570,7 @@ function showMorningBrief() {
       demandRow.appendChild(t);
       // first appearance gets its reason: yesterday's balked cups are the
       // problem these levers solve.
-      if (day === 2 && lastDayStats) {
+      if (lastDayStats) {
         const intro = document.createElement('div');
         intro.id = 'brief-demand-intro';
         intro.style.cssText = 'font-size:10.5px;opacity:.7;font-style:italic;margin:2px 0 5px';
@@ -2531,8 +2607,8 @@ function showMorningBrief() {
   // made legible: wage + pitch floor + sundries, against what's in hand.
   const nutEl = $('brief-nut');
   if (nutEl) {
-    nutEl.style.display = '';
-    renderPlanQuote();
+    nutEl.style.display = day >= 2 ? '' : 'none';
+    if (day >= 2) renderPlanQuote(); else { clearEl(nutEl); updateBriefFooter(); }
   }
   // PR-A1 — Stage your prep. Two pills, both optional: pre-batch the cups
   // (paid now, fast bar at the rush) or cut the price (cheap till, slower
@@ -2546,26 +2622,42 @@ function showMorningBrief() {
   // Phase 3 — the menu: price each drink, 86 the slow ones. Stages here,
   // commits with OPEN (applyMenu).
   renderMenuSection();
-  const more = $('brief-more');
-  const houseNow2 = lotState.entry(selectedLot);
-  const houseEmptyNow = !!(houseNow2 && houseNow2.stock <= 0);
-  const houseLow = !!(houseNow2 && lastPour > 0 && houseNow2.stock < lastPour);
-  if (more) {
-    watchDrawer(more, 'brief-more');
-    const moreSum = more.querySelector && more.querySelector('summary');
-    if (moreSum) moreSum.textContent = firstDay ? 'Explore the full plan' : 'More planning details';
-    const tierNow = exchange.event?.tier || 'calm';
-    const threatNow = tierNow === 'warn' || tierNow === 'bad' || tierNow === 'cata';
-    const urgent = houseEmptyNow || houseLow || exchange.debt > 0 || lessonUrgent
-      || canChooseStaffing(day, baristaCondition) || threatNow;
-    more.open = urgent || drawerOpen('brief-more', day >= 2);
+  const newEl = $('brief-new');
+  if (newEl) {
+    clearEl(newEl);
+    const copy = toolsToday.newToday ? toolCopy(toolsToday.newToday, {
+      threat: WARN_TIERS.has(exchange.event?.tier), day,
+      lots: Object.fromEntries(LOT_IDS.filter(id => lotState.entry(id) && lotState.entry(id).unlocked !== false).map(id => [id, LOT_CATALOG[id]])),
+    }) : null;
+    if (copy) {
+      newEl.style.display = '';
+      const kick = document.createElement('div'); kick.className = 'bn-kicker'; kick.textContent = 'New today';
+      const ttl = document.createElement('div'); ttl.className = 'bn-title'; ttl.textContent = copy.title;
+      const voice = document.createElement('p'); voice.className = 'bn-voice'; voice.textContent = copy.voice;
+      const why = document.createElement('p'); why.className = 'bn-why'; why.textContent = copy.why;
+      newEl.append(kick, ttl, voice, why);
+      if (toolsToday.newToday === 'coffee') {
+        const hs = lotState.entry(selectedLot);
+        if (hs && (hs.stock <= 0 || (lastPour > 0 && hs.stock < lastPour))) {
+          const need = document.createElement('div');
+          need.className = 'bn-note';
+          need.textContent = essentialNote('coffee');
+          newEl.appendChild(need);
+        }
+      }
+      for (const lotLine of copy.lots || []) {
+        const ll = document.createElement('div'); ll.className = 'bn-lot'; ll.textContent = lotLine;
+        newEl.appendChild(ll);
+      }
+    } else newEl.style.display = 'none';
   }
   // PR-B1 — yesterday's rivalry. Day 1 has no yesterday, so the row stays shut;
   // the one-line price compare in the risk row carries the street.
   renderRivalLine();
   const risk = $('brief-risk');
   if (risk) {
-    risk.style.display = '';
+    risk.style.display = day >= 2 ? '' : 'none';
+    if (day >= 2) {
     const mods = modifiersForDay(day);
     const lines = [];
     if (mods.commuterDelayMinutes || mods.dwellBonus)
@@ -2582,6 +2674,7 @@ function showMorningBrief() {
       risk.textContent = lines.join('\n');
       risk.style.whiteSpace = 'pre-wrap';
     }
+    } else clearEl(risk);
   }
   // Ruth — the one staffing call the week can carry. When she's fading the
   // Brief offers a choice: send her home (slow bar, saved wage, she recovers)
@@ -2666,52 +2759,40 @@ function showMorningBrief() {
   // choice row: sizing is the position — header says what this means in one line
   const actions = $('brief-actions'); if (actions) {
     actions.textContent = '';
-    // Progressive disclosure (stage 3 = the decision): a section label so the
-    // sizing row reads as the commit it is, not more paragraphs.
+    const showIns = toolsToday.visible.has('insurance');
+    const showTab = toolsToday.visible.has('tab');
+    actions.style.display = (showIns || showTab) ? '' : 'none';
+    if (showIns || showTab) {
+    if (showTab && toolsToday.essentialNew.includes('tab')) {
+      const note = document.createElement('div');
+      note.className = 'bn-note';
+      note.textContent = 'New · ' + essentialNote('tab', { debt: exchange.debt, rate: CAMPAIGN.debtInterestRate });
+      actions.appendChild(note);
+    }
     const lab = document.createElement('div');
     lab.style.fontSize = '10px'; lab.style.letterSpacing = '.18em';
     lab.style.textTransform = 'uppercase'; lab.style.opacity = '.55';
-    lab.textContent = 'beans';
+    lab.textContent = showIns ? 'beans' : 'supplier tab';
     actions.appendChild(lab);
     const hint = document.createElement('div');
     hint.id = 'brief-sel';
     hint.style.fontSize = '10.5px'; hint.style.opacity = '.6'; hint.style.marginBottom = '4px';
     hint.textContent = '';
     actions.appendChild(hint);
-    // Progressive disclosure: on a calm opening morning the contract pills
-    // fold into one line — the first lesson is open/price/serve, not hedging.
-    // Any threat (warn/bad/cata), an open position, or a live tab springs it
-    // back open: risk reveals the tool, never hides it.
-    const tier = exchange.event?.tier || 'calm';
-    const threat = tier === 'warn' || tier === 'bad' || tier === 'cata';
-    const foldContracts = day === 1 && !threat && !exchange.contract && !(exchange.debt > 0);
-    let fold = null;
-    if (foldContracts) {
-      fold = document.createElement('details');
-      fold.id = 'brief-hedge-details';
-      const fs = document.createElement('summary');
-      fs.textContent = 'insure the beans';
-      fs.style.cssText = 'font-size:11px;opacity:.75;cursor:pointer';
-      fold.appendChild(fs);
-      // a staged contract keeps the fold open so the selection stays visible
-      if (drawerOpen('brief-hedge-details', !!(planDraft && planDraft.hedge && planDraft.hedge.startsWith('contract')))) fold.open = true;
-      watchDrawer(fold, 'brief-hedge-details');
-    }
     for (const act of L.actions) {
       // a dead settle pill is noise — "nothing to settle" only appears once
       // a tab exists; until then the move doesn't.
-      if (act.id === 'settle' && act.disabled) continue;
+      if (act.id === 'settle' && (!showTab || act.disabled)) continue;
+      if (act.id.startsWith('contract') && !showIns) continue;
       const b = document.createElement('button');
       b.dataset.id = act.id;
       b.textContent = act.label + (act.id !== 'hold' && act.explain ? '   ·  ' + act.explain : '');
       b.disabled = !!act.disabled;
       b.setAttribute('aria-pressed', 'false');
       b.onclick = () => { if (applyReply(act.id)) markBriefChoice(act.id); };
-      (fold && act.id.startsWith('contract') ? fold : actions).appendChild(b);
+      actions.appendChild(b);
     }
-    // the live moves (hold/settle) land first; the optional insurance fold
-    // sits beneath them, just above OPEN
-    if (fold) actions.appendChild(fold);
+    }
   }
   briefChoice = planDraft ? planDraft.hedge : null;
   markBriefChoice(briefChoice);
@@ -2825,6 +2906,7 @@ function prepareDay(d) {
   // the daily counters reset. dawnIndex freezes the pre-roll board for top-ups.
   dawnIndex = exchange.beanIndex;
   pouredOther = 0; beanSpend = 0; emergencySpend = 0; sackSpend = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set();
+  pouredByLotToday = {}; servedByDrinkToday = {}; toolsIntroducedToday = [];
   staleByLotToday = {};   // Phase 6 — fresh stale-cup count for the autopsy
   // Phase 6 — week opinion baseline: snapshot roster ops at dawn day 1 so the
   // autopsy can name week-span coolers even without per-day deltas.
@@ -3060,6 +3142,8 @@ function campaignClose(insolvent = false) {
   if (!insolvent && (day < CAMPAIGN.days || exchange.day < CAMPAIGN.days)) return;
   closed = true;
   campaignDone = true;
+  for (const t of TOOL_IDS) introducedSet().add(t);
+  persistIntroduced();
   phase = 'finale';
   if ($('review-continue')) $('review-continue').style.display = 'none';
   if ($('review-letter')) $('review-letter').style.display = 'none';
@@ -3575,12 +3659,13 @@ function reset() {
   // Phase 2 — the cellar rewinds with the campaign (fresh starter sacks).
   lotState.reset(); selectedLot = 'huila'; topUpCups = 0; beanSpend = 0; emergencySpend = 0; sackSpend = 0;
   pouredOther = 0; lastPour = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set();
+  pouredByLotToday = {}; servedByDrinkToday = {}; toolsIntroducedToday = [];
   // Phase 3 — menu, milk, skill rewind too.
   menuPrices = basePrices(); ctx.menuPrices = menuPrices;
   menuOffered = Object.fromEntries(DRINK_IDS.map(id => [id, true]));
   patrons.menuOffered = menuOffered;
   stagedMenu = null; stagedRoast = 3;
-  try { localStorage.removeItem(DRAWER_KEY('brief-more')); } catch {}
+  toolsToday = null;
   milkDelivery = 0; lastMilky = 0; milkTipped = 0; milkToastDone = false;
   compostToday = 0; trainingTotal = 0; ruthSkill = 0;
   phase = 'onboarding';
@@ -4334,10 +4419,26 @@ function loop(now) {
     }) : null;
   },
   get paused() { return paused; },
-  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og } = {}) => {
+  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci } = {}) => {
     if (typeof c === 'number') baristaCondition = c;
     if (og !== undefined) { guidedOpening = !!og; firstPrepChosen = !(og && day === 1); }
+    if (cu !== undefined) {
+      curriculumUnlockAll = !cu;
+      if (cu && !curriculumMemory) curriculumMemory = new Set();
+    }
+    if (Array.isArray(ci)) { curriculumMemory = new Set(ci); }
+    if (ci === null) curriculumMemory = new Set();
   } } : {}),
+  get curriculum() {
+    return {
+      unlockAll: curriculumUnlockAll,
+      introduced: [...introducedSet()],
+      toolsToday,
+      toolsIntroducedToday,
+      pouredByLotToday,
+      servedByDrinkToday,
+    };
+  },
 };
 // Playtest helper — paste __grunds.analytics.summary() after Day 1 in console
 try { window.__grunds.analytics = analytics; } catch {}

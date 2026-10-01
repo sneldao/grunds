@@ -12,9 +12,17 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T01:20:14Z
+- **Last updated:** 2026-10-01T01:51:15Z
 
 ## Log
+
+### 2026-10-01 - working tree - Morning Brief curriculum + versioned staging
+
+- **Curriculum disclosure** (`web/js/curriculum.js` new + `main.js`, `index.html`): the `#brief-more` drawer is deleted; a flat `#brief-tools` stack introduces one tool at a time — coffee day 2, menu day 3, street day 4, insurance day 5 (or immediately on any market threat/contract), each as a single "New today" card with character-voiced copy plus `favoured by` lines computed from `LOT_CATALOG`. Need beats schedule: an unintroduced empty/low house takes the day's `coffee` card itself; a live `tab` surfaces as a `New ·` note inside its row regardless of the daily limit. Introductions persist to `localStorage['grunds.curriculum']` only on successful commit; campaign close marks every tool so veterans see the full brief next run. `unlockAll = headless || demo || !wantTutorial` keeps all fixtures on every control; `testState({ curriculum: true })` drives the gated path headlessly.
+- **Receipt lessons**: new read-only counters `pouredByLotToday` / `servedByDrinkToday` feed a `lessons` band between the receipt summary and ledger — day 1 quotes the real `ops.total` running cost, the coffee-intro day quotes actual cups poured and stock left for the house lot.
+- **Release-versioned staging** (`tools/stage-site.mjs` + `npm run stage:site -- --out <dir>`): copies `web/` runtime files + `api/schedule.json` (prefers `out/wave_schedule.json`, else `dist/api/schedule.json`), stamps `?v=<commit>[-dirty-<hash>]` on every relative `.js` import and the `main.js` tag, fails closed on unversioned/missing specifiers, and writes `release.json` with per-file SHA-256s. No build, network, or deploy — fixes the 4-hour unversioned-JS cache on the live host.
+- **Coverage**: new `curriculum.mjs` (22 checks) + `stage-site.mjs` (16 checks), `orientation.mjs` rewritten for the slot-based brief on real markup, modals/lifecycle disclosure assertions adapted; 65-suite non-balance gate green in `/tmp/grunds-test-mirror5` (logs `/tmp/grunds-curriculum-logs/`); `tsc --noEmit`, `git diff --check`, `secret_scan` clean.
+- **Limitations**: Node fixtures only — no browser evidence this pass, nothing deployed, human playtests remain outstanding. Day-2 coffee takes the full "Your coffee" card even though the fixture drains the day-1 sack (need + unintroduced → card, not a note).
 
 ### 2026-10-01 - f3e0d18 - first-morning orientation pass
 

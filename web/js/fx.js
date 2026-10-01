@@ -453,6 +453,18 @@ export class FX {
     if (!stats) { if (this.modals) this.modals.close('receipt'); else el.classList.remove('show'); return; }
     const sumEl = document.getElementById('r-summary');
     if (sumEl) sumEl.textContent = stats.summary || '';
+    const lessonsEl = document.getElementById('r-lessons');
+    if (lessonsEl) {
+      lessonsEl.textContent = '';
+      const lessons = stats.lessons || [];
+      for (const ln of lessons) {
+        const d = document.createElement('div');
+        d.className = 'rls';
+        d.textContent = ln;
+        lessonsEl.appendChild(d);
+      }
+      lessonsEl.style.display = lessons.length ? '' : 'none';
+    }
     // stagger: till prints line-by-line, not instant spreadsheet
     const linesEl = document.getElementById('r-lines');
     linesEl.innerHTML = '';
