@@ -31,6 +31,7 @@ import { applyExpectation, priceForDay, modifiersForDay, wavesForDay, getMacroSh
 import { strategyForDay } from './rival.js';
 import { canChooseStaffing, canHaveStaffCrisis } from './staffing.js';
 import { resolveDecision } from './decision.js';
+import { firstMorningCopy, economicsLesson } from './orientation.js';
 import { initSync } from './convexSync.js';
 import { buildMailTheater } from './mailTheater.js';
 import { calculateCampaignBadge, openShareToX, formatShareText } from './share.js';
@@ -182,7 +183,7 @@ function leverSnapshot() {
   return { dayMin, closed, phase, repriced, prebatched, batchUnits: ctx.batchUnits, leversTimeLocked };
 }
 function currentAction() {
-  return computeNextAction({ dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending, offerShown, eveningFast, rushFast, closed, phase, leversTimeLocked });
+  return computeNextAction({ day, guidedOpening, dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending, offerShown, eveningFast, rushFast, closed, phase, leversTimeLocked });
 }
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
@@ -195,6 +196,7 @@ const modals = createModalController({
   onEscape: (t) => {
     if (t === 'desk') desk.close();
     else if (t === 'paywall') modals.close('paywall');
+    else if (t === 'regulars' || t === 'dossier') modals.close(t);
     else if (t === 'letter') {
       modals.close('letter');
       if (phase === 'review' && lastDayReceipt) modals.open('receipt');
@@ -207,11 +209,19 @@ const modals = createModalController({
   onShortcut: (t, e) => {
     // Morning Brief answers to 1/2/3/4/5 (commit a choice) then Enter opens
     if (t === 'brief') {
-      if (e.key >= '1' && e.key <= '5') {
+      if (day === 1 && e.key >= '1' && e.key <= '3') {
+        const prep = ['batch', 'reprice', 'hold'][+e.key - 1];
+        const b = document.querySelector(`#brief-prep button[data-prep="${prep}"]`);
+        if (b && !b.disabled) {
+          b.click();
+          const nb = document.querySelector(`#brief-prep button[data-prep="${prep}"]`);
+          if (nb && nb.focus) nb.focus();
+        }
+      } else if (day !== 1 && e.key >= '1' && e.key <= '5') {
         const b = [...document.querySelectorAll('#brief-actions button')][+e.key - 1];
         if (b && !b.disabled) b.click();
       } else if (e.key === 'Enter') {
-        const o = $('brief-open'); if (o) o.click();
+        const o = $('brief-open'); if (o && !o.disabled) o.click();
       }
     } else if (t === 'offer') {
       // a regular's ask answers to y/n while it's open
@@ -221,8 +231,9 @@ const modals = createModalController({
       if (e.key === 'Enter') { const n = $('tnext'); if (n) n.click(); }
     }
   },
+  allowNumericShortcut: (t, target, key) => t === 'brief' && day === 1 && /^[1-3]$/.test(key) && !!(target && target.dataset && target.dataset.prep),
   onActiveChange: (t) => {
-    if (t === 'desk' || t === 'paywall') {
+    if (t === 'desk' || t === 'paywall' || t === 'regulars' || t === 'dossier') {
       if (phase === 'trading' && !paused && !deskHeldPause) {
         deskHeldPause = true;
         paused = true; if ($('pause')) $('pause').textContent = 'resume';
@@ -340,6 +351,7 @@ let prebatched = false, repriced = false;
 // pre-batch / reprice before commit; if staged, the lever auto-fires at
 // commit time and mid-day presses are free (the decision was already made).
 let stagedPrep = { batch: false, reprice: false };
+let guidedOpening = wantTutorial, firstPrepChosen = false;
 let prepHintOpen = false;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let waveBatchServed = 0, waveStockoutAt = 0;
@@ -1028,6 +1040,7 @@ function closeDay() {
   if (closed || phase !== 'trading') return;
   closed = true;
   phase = 'review';
+  coachTick();
   audio.closing();
   if ($('again')) $('again').style.display = 'none';   // mid-campaign: the letter drives the next day, not this button
   if ($('shareWeek')) $('shareWeek').style.display = 'none';
@@ -1208,6 +1221,7 @@ function closeDay() {
     verdict,
     forecast,
     summary: `net today ${fmt(netToday)} · ${served + servedRetail} served · ${balked} walked · ${
+      (() => { const h = lotState.entry(selectedLot); return h && h.stock <= 0 ? 'Tomorrow: choose/restock house coffee; supplier tab funds supplies · ' : ''; })()}${
       prebatched ? 'tomorrow: prep again — top up when cups hit 8'
       : repriced ? 'tomorrow: a pre-batch serves faster than the deal'
       : 'tomorrow: prep before 14:00 — or cut the price for patience'}`,
@@ -1505,6 +1519,7 @@ function applyCommittedPlan(res) {
   // Phase 3 — commit staged menu prices + 86 board.
   applyMenu();
   try { modals.close('brief'); } catch {}
+  if (day === 1 && guidedOpening && !coach) coachBegin(true);
   briefSyncError('');
   return { ok: true };
 }
@@ -1634,6 +1649,7 @@ function renderPlanQuote() {
   const pos = `campaign net position ${netPos < 0 ? '−' : ''}${fmt(Math.abs(netPos))}`;
   const committed = q.fixedMinimum + q.contractFee + q.interest;
   const bits = [
+    'This is deducted at closing, not an opening payment. Ingredients and card fees vary with orders.',
     `the nut ${fmt(q.fixedMinimum)} — the daily bill before a cup pours · wage ${fmt(q.wage)} · pitch floor ${fmt(q.ops.pitch)} · sundries ${fmt(CAMPAIGN.sundries)}${q.training ? ` · training ${fmt(q.training)}` : ''}${q.sampling ? ` · samples ${fmt(q.sampling)}` : ''}${q.marketing ? ` · street ${fmt(q.marketing)}` : ''}`,
     `each cup — labour + supplies ${fmt(q.perCup)} · pitch takes ${(q.pitchPct * 100).toFixed(0)}% above the floor · cards ${(q.cardFeePct * 100).toFixed(1)}%`,
     exchange.contract
@@ -1667,7 +1683,7 @@ function renderPlanQuote() {
   if (drawerOpen('brief-nut-details', wasOpen || q.contractFee > 0 || q.interest > 0 || q.settlement || q.training || q.sampling || q.marketing)) det.open = true;
   watchDrawer(det, 'brief-nut-details');
   const sum = document.createElement('summary');
-  sum.textContent = `the day costs ${fmt(q.fixedMinimum)}`;
+  sum.textContent = `bills counted at closing · ${fmt(q.fixedMinimum)} before per-cup costs`;
   const body = document.createElement('div');
   body.style.whiteSpace = 'pre-wrap';
   body.textContent = full;
@@ -1678,6 +1694,7 @@ function renderPlanQuote() {
     sumEl.textContent = `committed ${fmt(committed)}${q.settlement ? ` · settle ${fmt(q.settlement)}` : ''}${showPos ? ` · ${pos}` : ''}`;
     sumEl.title = full;
   }
+  if (day === 1) updateBriefFooter();
 }
 
 // PR-A1 — Brief-staged prep (radio picker). The Morning Brief lets the
@@ -1693,6 +1710,7 @@ function renderPrepSection() {
   const wrap = $('brief-prep'); if (!wrap) return;
   clearEl(wrap);
   wrap.style.display = '';
+  if (day === 1) { renderFirstDayChoices(wrap); return; }
 
   const lab = document.createElement('div');
   lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
@@ -1706,7 +1724,7 @@ function renderPrepSection() {
 
   const hint = document.createElement('div');
   hint.style.cssText = 'font-size:10.5px;opacity:.6;margin-bottom:6px;font-style:italic';
-  hint.textContent = 'staging a move is free — pressing 1 or 2 mid-day without it costs £4.20 + gossip';
+  hint.textContent = 'change your plan freely before opening · after noon the first switch costs £4.20 (a late batch adds £40 stock); a routine batch top-up is £40 with no opinion hit';
   hint.style.display = prepHintOpen ? '' : 'none';
   qbtn.onclick = () => { prepHintOpen = !prepHintOpen; hint.style.display = prepHintOpen ? '' : 'none'; };
   wrap.appendChild(hint);
@@ -1732,7 +1750,7 @@ function renderPrepSection() {
     b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     else if (def.key === 'hold') { b.style.opacity = '0.7'; }
-    b.title = 'pressing 1 or 2 later, without staging, costs £4.20 and gossip';
+    b.title = 'change your plan freely before opening · after noon the first switch costs £4.20 (a late batch adds £40 stock)';
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
     b.onclick = () => {
       // Radio behaviour — clicking sets stagedPrep atomically.
@@ -1766,6 +1784,107 @@ function renderPrepSection() {
     desc: 'slower service, more patience, lower income · no prep today',
   }));
   wrap.appendChild(pillRow);
+}
+
+function renderFirstDayChoices(wrap) {
+  const FM = firstMorningCopy();
+  const title = document.createElement('div');
+  title.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55';
+  title.textContent = FM.planTitle;
+  const fc = document.createElement('div');
+  fc.id = 'brief-prep-forecast';
+  fc.style.cssText = 'font-family:var(--serif);font-size:14px;font-style:italic;margin:4px 0 8px';
+  fc.textContent = FM.forecast;
+  wrap.append(title, fc);
+  const pick = (key) => {
+    if (key === 'hold') { stagedPrep.batch = false; stagedPrep.reprice = false; }
+    else if (key === 'batch') { stagedPrep.batch = true; stagedPrep.reprice = false; }
+    else if (key === 'reprice') { stagedPrep.batch = false; stagedPrep.reprice = true; }
+    firstPrepChosen = true;
+    const ob = $('brief-open'); if (ob) ob.disabled = false;
+    const hadFocus = typeof document !== 'undefined' && document.activeElement && document.activeElement.dataset && document.activeElement.dataset.prep === key;
+    renderPrepSection();
+    renderMenuSection();
+    renderPlanQuote();
+    updateBriefFooter();
+    if (hadFocus) {
+      const nb = document.querySelector(`#brief-prep button[data-prep="${key}"]`);
+      if (nb && nb.focus) nb.focus();
+    }
+  };
+  for (const def of FM.choices) {
+    const b = document.createElement('button');
+    b.id = def.id;
+    b.dataset.prep = def.key;
+    b.className = 'prep-choice';
+    const sel = (!guidedOpening || firstPrepChosen) &&
+      (def.key === 'hold' ? !stagedPrep.batch && !stagedPrep.reprice
+        : def.key === 'batch' ? stagedPrep.batch : stagedPrep.reprice);
+    if (sel) b.classList.add('picked');
+    b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+    const lab = document.createElement('div');
+    lab.className = 'pc-label';
+    const nm = document.createElement('span');
+    nm.textContent = def.label;
+    const tag = document.createElement('span');
+    tag.className = 'pc-tag';
+    tag.textContent = def.tag;
+    lab.append(nm, tag);
+    const cost = document.createElement('div');
+    cost.className = 'pc-cost';
+    cost.style.cssText = 'font-family:var(--mono);font-size:11px;margin-top:2px';
+    cost.textContent = def.cost;
+    const desc = document.createElement('div');
+    desc.className = 'pc-desc';
+    desc.textContent = def.desc;
+    b.append(lab, cost, desc);
+    b.onclick = () => pick(def.key);
+    wrap.appendChild(b);
+  }
+  const note = document.createElement('details');
+  note.className = 'prep-note';
+  const nsum = document.createElement('summary');
+  nsum.textContent = 'what if I change my mind?';
+  const nbody = document.createElement('div');
+  nbody.textContent = FM.lateNote;
+  note.append(nsum, nbody);
+  wrap.appendChild(note);
+}
+
+function updateBriefFooter() {
+  const sumEl = $('brief-summary'); if (!sumEl || day !== 1) return;
+  const FM = firstMorningCopy();
+  let lead;
+  if (guidedOpening && !firstPrepChosen) lead = FM.choosePrompt;
+  else if (stagedPrep.batch) lead = `plan — starter batch, −${fmt(ECON.batchCost)} at opening`;
+  else if (stagedPrep.reprice) lead = `plan — matcha deal at ${fmt(ECON.matchaDeal)}, no prep spend`;
+  else lead = 'plan — no prep spend at opening';
+  const extras = [];
+  if (planDraft) {
+    const q = quoteDayPlan({
+      day, hedge: planDraft.hedge, staffing: planDraft.staffing, marketing: planDraft.marketing,
+      debt: exchange.debt, extraFee: contractFeeExtra, perkCostMul, modifiers: modifiersForDay(day),
+    });
+    if (q.contractFee) extras.push(`+ bean cover ${fmt(q.contractFee)} on the tab`);
+    if (q.settlement) extras.push(`+ settle the tab ${fmt(q.settlement)}`);
+    const stQ = lotState.entry(selectedLot);
+    if (stQ && stQ.unlocked !== false && topUpCups > 0) {
+      const res = resolveDecision(planSnapshot(), normalizePlan(planDraft));
+      if (res.ok) {
+        const unitPrice = res.contract && res.contract.units > 0
+          ? res.contract.price * 1.3
+          : lotSpot(selectedLot, dawnIndex, stQ.priceMul);
+        const cap = LOT_CATALOG[selectedLot].stockCap;
+        const room = cap ? Math.min(Math.floor(topUpCups), Math.max(0, cap - stQ.stock)) : Math.floor(topUpCups);
+        const headroom = Math.max(0, CAMPAIGN.creditLimit - res.debt);
+        const funded = unitPrice > 0 ? Math.min(room, Math.floor(headroom / unitPrice)) : 0;
+        extras.push(`+ ~${funded} ${LOT_CATALOG[selectedLot]?.name || 'cellar'} cups ≈ ${fmt(funded * unitPrice)} on the tab`);
+      }
+    }
+    sumEl.title = `the nut ${fmt(q.fixedMinimum)} — deducted at closing, not an opening payment`;
+  } else sumEl.title = '';
+  extras.push('bills and ingredients are counted at closing · details in the full plan');
+  sumEl.textContent = lead + (extras.length ? ' · ' + extras.join(' · ') : '');
 }
 
 // Apply the staged prep at commit. Called from applyCommittedPlan. Radio
@@ -2168,18 +2287,92 @@ function showMorningBrief() {
   // first place the wire's strongest tilt is explained — not just hinted.
   const L = composeLetter(snap);
   const head = $('brief-kicker');
+  const firstDay = day === 1;
+  el.classList.toggle('first-morning', firstDay);
   try {
     const tilt = marketIntel?.marketShift?.[0];
     // highlight the bean tape when a tilt is active
     const tape = $('tape');
     if (tape && tilt) tape.style.color = (EVENTS[tilt.eventId]?.tier === 'good' ? '#9ad89a' : '#e07a7a');
-    if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`;
+    if (head) head.textContent = firstDay ? 'Day 1 of 5 · before opening' : `Day ${day}/${CAMPAIGN.days} · plan before opening`;
+    const heading = $('brief-heading');
+    if (heading) heading.textContent = firstDay ? firstMorningCopy().heading : 'THE MORNING BRIEF';
     const obj = $('brief-objective');
     if (obj) {
-      obj.textContent = 'Keep your café viable for five days. Beat Sam as a bonus; win regulars over.';
-      obj.style.display = '';
+      if (firstDay) { obj.textContent = ''; obj.style.display = 'none'; }
+      else {
+        obj.textContent = 'Keep the café going for five days. The rival across the road counts cups too; regulars remember who made them welcome.';
+        obj.style.display = '';
+      }
     }
   } catch { if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`; }
+  const intro = $('brief-intro');
+  if (intro) {
+    if (firstDay) {
+      const FM = firstMorningCopy();
+      intro.style.display = '';
+      intro.textContent = '';
+      const stand = document.createElement('div');
+      stand.className = 'fm-stand';
+      stand.textContent = standName;
+      const welcome = document.createElement('p');
+      welcome.textContent = FM.welcome;
+      const rival = document.createElement('p');
+      rival.textContent = FM.rival;
+      const aim = document.createElement('p');
+      aim.style.fontStyle = 'italic';
+      aim.textContent = FM.aim;
+      const mkRole = (seed, cohort, name, line) => {
+        const row = document.createElement('div');
+        row.className = 'fm-role';
+        try { row.appendChild(portraitCanvas(seed, cohort, 48)); } catch {}
+        const txt = document.createElement('div');
+        const nm = document.createElement('div');
+        nm.className = 'fm-name';
+        nm.textContent = name;
+        const ln = document.createElement('div');
+        ln.className = 'fm-line';
+        ln.textContent = line;
+        txt.append(nm, ln);
+        row.appendChild(txt);
+        return row;
+      };
+      intro.append(stand,
+        mkRole('idris', 'creatives', 'Idris · your roaster', FM.idrisQuote),
+        welcome,
+        mkRole('ruth', 'commuters', 'Ruth · on the bar', FM.ruthRole),
+        rival, aim);
+      const houseNow = lotState.entry(selectedLot);
+      if (houseNow && houseNow.stock > 0) {
+        const st = document.createElement('p');
+        st.style.cssText = 'opacity:.75;font-size:12.5px';
+        st.textContent = FM.stocked;
+        intro.appendChild(st);
+      }
+    } else {
+      intro.textContent = '';
+      intro.style.display = 'none';
+    }
+  }
+  const learning = $('brief-learning');
+  let lessonUrgent = false;
+  if (learning) {
+    if (firstDay) { learning.textContent = ''; learning.style.display = 'none'; }
+    else {
+      const houseNow = lotState.entry(selectedLot);
+      const ls = economicsLesson({
+        houseStock: houseNow ? houseNow.stock : 0,
+        houseName: LOT_CATALOG[selectedLot]?.name || selectedLot,
+        lastPour,
+        debt: exchange.debt,
+        staffCanChoose: canChooseStaffing(day, baristaCondition),
+        prevTier: exchange.lastTier,
+      });
+      learning.textContent = ls.text;
+      learning.style.display = '';
+      lessonUrgent = ls.urgent;
+    }
+  }
   const body = $('brief-letter');
   if (body) {
     // Progressive disclosure (stage 1 = the news only): the sizing explainer
@@ -2211,6 +2404,7 @@ function showMorningBrief() {
         head.style.cursor = 'pointer';
         head.title = 'tap to open the wire’s sources';
         head.onclick = () => {
+          const m = $('brief-more'); if (m) m.open = true;
           det.open = true;
           try { analytics.track('wire_opened', { day }); } catch {}
         };
@@ -2353,8 +2547,19 @@ function showMorningBrief() {
   // commits with OPEN (applyMenu).
   renderMenuSection();
   const more = $('brief-more');
-  const houseEmptyNow = !!(lotState.entry(selectedLot) && lotState.entry(selectedLot).stock <= 0);
-  if (more) { watchDrawer(more, 'brief-more'); more.open = houseEmptyNow || drawerOpen('brief-more', day >= 2); }
+  const houseNow2 = lotState.entry(selectedLot);
+  const houseEmptyNow = !!(houseNow2 && houseNow2.stock <= 0);
+  const houseLow = !!(houseNow2 && lastPour > 0 && houseNow2.stock < lastPour);
+  if (more) {
+    watchDrawer(more, 'brief-more');
+    const moreSum = more.querySelector && more.querySelector('summary');
+    if (moreSum) moreSum.textContent = firstDay ? 'Explore the full plan' : 'More planning details';
+    const tierNow = exchange.event?.tier || 'calm';
+    const threatNow = tierNow === 'warn' || tierNow === 'bad' || tierNow === 'cata';
+    const urgent = houseEmptyNow || houseLow || exchange.debt > 0 || lessonUrgent
+      || canChooseStaffing(day, baristaCondition) || threatNow;
+    more.open = urgent || drawerOpen('brief-more', day >= 2);
+  }
   // PR-B1 — yesterday's rivalry. Day 1 has no yesterday, so the row stays shut;
   // the one-line price compare in the risk row carries the street.
   renderRivalLine();
@@ -2511,7 +2716,10 @@ function showMorningBrief() {
   briefChoice = planDraft ? planDraft.hedge : null;
   markBriefChoice(briefChoice);
   const open = $('brief-open');
-  if (open) open.textContent = 'OPEN FOR DAY →';
+  if (open) {
+    open.textContent = firstDay ? 'OPEN THE CAFÉ →' : 'OPEN FOR DAY →';
+    open.disabled = firstDay && guidedOpening && !firstPrepChosen;
+  }
   const rl = $('review-last');
   if (rl) rl.style.display = lastDayReceipt ? '' : 'none';
   const desklink = $('brief-desklink');
@@ -2566,6 +2774,7 @@ function showMorningBrief() {
 
 function dismissBriefAndStartDay() {
   const el = $('brief'); if (!el) return;
+  if (day === 1 && guidedOpening && !firstPrepChosen) return;
   const r = commitDayPlan();
   Promise.resolve(r).then(res => {
     if (!res || !res.ok) return;
@@ -2661,6 +2870,7 @@ function prepareDay(d) {
   waveBatchServed = 0; waveStockoutAt = 0;
   coach = null; coachHold = false; coachHide();
   stagedPrep = { batch: false, reprice: false };
+  firstPrepChosen = !(d === 1 && guidedOpening);
   baristaCrisis = false;
   if (d === 1) { forecastShown = false; nudgedQueue = nudgedBalk = nudgedPrice = false; }
   if (baristaRested) { baristaRested = false; fx.toast('Ruth’s back — rested. The bar hums.', 'good'); }
@@ -3001,7 +3211,7 @@ function updateHUD() {
     const hb = qq > 10 ? ' hot heartbeat' : qq <= 5 ? ' ok purr' : '';
     $('queuefill').className = qHeat + hb;
   }
-  if ($('qlabel')) $('qlabel').textContent = `${qq} in line — ` + (qq > 5 ? 'they’ll walk' : 'holding');
+  if ($('qlabel')) $('qlabel').textContent = `${qq} in line — ` + (qq > 5 ? 'they may leave' : 'holding');
   try { world.setPlantHealth(qq); audio.purr(qq <= 5 && patrons.count > 2); } catch {}
   // the tape: the bean board as a visible object — yesterday's close →
   // today, the event that moved it, click-through to the wire
@@ -3344,6 +3554,7 @@ function reset() {
   // full campaign restart: the market and the regulars rewind to their start state
   const wasFinale = campaignDone;   // restarting from the verdict gets a send-off
   runGen++;
+  guidedOpening = wantTutorial; firstPrepChosen = false;
   exchange.rng = seeded(seedNow());
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
@@ -3749,7 +3960,7 @@ fetch('./api/schedule.json').then(r => r.json()).then(s => {
   // still sees a floor — they just don't see it half-loaded.
   Promise.resolve(world.ready).then(() => {
     $('open').disabled = false;
-    $('open').textContent = COPY.open + ' — a week on the floor';
+    $('open').textContent = COPY.open;
   });
 }).catch(() => {
   $('open').textContent = 'schedule missing — run: python3 -m grunds spatial';
@@ -3859,7 +4070,7 @@ function openTutorial() {
   audio.start();
   openDay(1);
   rig.crane();
-  fx.card('DAY 1', 'keep the line under 5 — 1 buys cups or 2 cuts the price');
+  fx.card('DAY 1', 'Ruth has the bar — watch the room settle');
   coachBegin();
 }
 function coachShow(html, actions) {
@@ -3899,22 +4110,44 @@ function coachSkip() {
 function coachBegin(force = false) {
   if ((headless || !wantTutorial) && !force) return;
   if (day !== 1) return;
-  coach = { skipped: false, wave: false, observed: false, lowStock: false };
-  coachShow(
-    `<b>First day on the floor.</b> The goal line under the clock names your next move — students land at <b>14:00</b>.`,
-    [['got it', coachHide]]
-  );
+  coach = { skipped: false, wave: false, observed: false, lowStock: false, intro: false, craftObserved: false };
   try { analytics.track('coach_start', { day }); } catch {}
 }
+function coachIntro() {
+  coach.intro = true;
+  coachShow(
+    `<b>Ruth has the bar.</b> Watch the first orders, look around the café, and notice who comes back. Your afternoon plan is already set.`,
+    [
+      ['Watch Ruth work', () => { try { rig.focus(world.focus.counter, 18, 4); } catch {} coachHide(); }],
+      ['Meet the regulars', () => { try { renderBoard(); } catch {} }],
+      ['got it', coachHide],
+    ]
+  );
+}
 function coachTick() {
-  if (!coach || coach.skipped) return;
-  if (day !== 1 || closed || phase !== 'trading' || dayMin >= 960) {
+  if (!coach) return;
+  if (day !== 1 || closed || dayMin >= 960) {
     const held = coachHold;
     coach = null; coachHold = false; coachHide();
     if (held && !modals.top() && phase === 'trading' && !closed) { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
     return;
   }
-  if (modals.top()) return;
+  if (coach.skipped || phase !== 'trading' || modals.top()) return;
+  if (!coach.intro) { coachIntro(); return; }
+  if (!coach.craftObserved && dayMin < 660 && served >= 5) {
+    coach.craftObserved = true;
+    const head = (walkins.heads || []).find(h => (h.events || []).some(e => e.day === day && e.outcome === 'served'));
+    const ev = head ? (head.events || []).find(e => e.day === day && e.outcome === 'served') : null;
+    const named = head ? ` ${head.name} stopped in for a ${(ev && ev.drink) || head.drink || 'coffee'}.` : '';
+    coachShow(
+      `<b>Ruth has served ${served} drinks automatically.</b>${named} Watch the counter, then the tables — the room tells you how the morning is going.`,
+      [
+        ['watch the counter', () => { try { rig.focus(world.focus.counter, 18, 4); } catch {} coachHide(); }],
+        ['got it', coachHide],
+      ]
+    );
+    return;
+  }
   if (!coach.wave && dayMin >= 840) {
     coach.wave = true;
     coachPause();
@@ -3972,7 +4205,7 @@ function dismissTutorialAndStart(fromSkip = false) {
   audio.start();
   openDay(1);
   rig.crane();
-  fx.card('DAY 1', 'keep the line under 5 — 1 buys cups or 2 cuts the price');
+  fx.card('DAY 1', 'Ruth has the bar — watch the room settle');
   // The Brief owns day 1 too: once the crane settles, Brief pauses at 06:00.
   // (openDay() already queued showMorningBrief; this just unblocks the re-arm.)
   scheduleRun(() => {
@@ -4101,7 +4334,10 @@ function loop(now) {
     }) : null;
   },
   get paused() { return paused; },
-  ...(headless ? { testState: ({ baristaCondition: c } = {}) => { if (typeof c === 'number') baristaCondition = c; } } : {}),
+  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og } = {}) => {
+    if (typeof c === 'number') baristaCondition = c;
+    if (og !== undefined) { guidedOpening = !!og; firstPrepChosen = !(og && day === 1); }
+  } } : {}),
 };
 // Playtest helper — paste __grunds.analytics.summary() after Day 1 in console
 try { window.__grunds.analytics = analytics; } catch {}

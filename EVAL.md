@@ -2,7 +2,15 @@
 
 How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
 
-## Current verification — September 30, 2026
+## Current verification — October 1, 2026: first-morning orientation
+
+- The first-morning pass introduces place, people, automatic service, and one afternoon preparation choice before the financial planning details. Guided first-day opening requires an explicit prep/deal/wait choice; the core commit API and economic constants are unchanged.
+- An initial 65-suite non-balance Node gate passed in a temporary mirror using the existing schedule snapshot. After review fixes, the affected orientation, coaching, modal, lifecycle/accounting, prep, and guidance suites passed again; TypeScript checking passed during the pass. The last narrow cleanup was covered by orientation, coach, modals, and lifecycle/accounting reruns, without repeating the full gate.
+- `orientation.mjs` parses the actual `web/index.html` markup into a simplified headless fixture and checks primary versus folded content, explicit choice gating, numeric shortcut routing, replacement-button focus, opening charges, and the transition to Day 2. Its captured text is not a browser screenshot, layout measurement, or proof of native focus behavior.
+- Closing bills stay available in the full plan, not as a large number on the initial primary surface. Opening preparation cash, selected insurance fees, settlement, and estimated credit-funded stock remain disclosed before commit.
+- No browser automation was run for this pass. Visual composition, physical-device behavior, emotional connection, and whether new players find the first day intuitive remain human-playtest questions. These changes are local and have not been committed or deployed.
+
+## Previous verification — September 30, 2026
 
 - The 64-suite non-balance Node gate passed using a temporary source mirror and the existing `dist/api/schedule.json` snapshot, without restoring the deleted `out/` files. After the final layout edits, `coach`, `lever-state`, `next-action`, `game-feel`, and `lifecycle-accounting` passed again against refreshed source; `npm run typecheck` passed.
 - Runtime regression cases cover reservation before 14:00, actual drink identifiers and milk use, routine top-ups without opinion penalties, late-switch charges, coaching pause ownership, and five-day lifecycle/accounting with explicit stock procurement and supplier settlement.
@@ -17,7 +25,7 @@ How we check gameplay correctness and readiness. Automated regression checks, sc
 | Loop completeness | spawn → choose → buy → lever → visible payoff, no dead ends | all stages present |
 | Read legibility | player can state *why* the lever worked before seeing the result | demoable |
 | Wave fidelity | cohort wave shapes match `transform.py` hour-of-day profile | ±10% |
-| Calm open | The pitch licence leads directly to a paused 06:00 Morning Brief, not a text-only tutorial clickthrough. Optional Day-1 coaching pauses at 14:00 before the first wave serve and at the first low-stock moment; skip and Space preserve pause ownership. | `coach.mjs` + fresh-player observation |
+| Calm open | The pitch licence leads to a paused first-morning introduction: café, Idris, Ruth's automatic service, and one afternoon plan. Guided first-day opening requires an explicit choice; optional craft guidance begins after opening without another forced pause. The existing 14:00 and low-stock coaching pauses retain user-pause ownership. | `orientation.mjs`, `coach.mjs` + fresh-player observation |
 | Goal legibility | `leverState()` supplies availability and costs to buttons, handlers, and guidance. Reserved stock is distinct from live stock; the discount route never recommends locked prep; late switches disclose their cost and opinion effect. | `lever-state.mjs`, `next-action.mjs` |
 | Lever feedback | Morning prep reserves 40 cups until 14:00. Routine replenishment costs £40 without an opinion penalty; the first unstaged post-noon batch costs £44.20. Feedback reports real stock rather than inventing a queue reduction. | Runtime stock, charge, and opinion assertions |
 | Wave payoff | The 17:00 debrief reports served/walked counts, actual batch cups and stockout timing or the discount's abandonment-probability rule, then a route-specific tomorrow option. Receipts lead with net and counts above the detailed ledger. | Reconciled counts + player explanation |

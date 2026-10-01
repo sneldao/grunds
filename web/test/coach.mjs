@@ -102,13 +102,15 @@ check('headless boot: no coach state', G.coach.state() === null);
 check('headless boot: coach card stays hidden', registry.get('coach').hidden === true);
 
 G.coach.begin(true);
-check('begin shows the card', registry.get('coach').hidden === false, 'card hidden');
-check('card is a paper block, not a modal', !registry.get('coach').classList.contains('modal'), 'must not open a modal');
-check('start card offers skip guidance', coachButtons().some(b => b.textContent === 'skip guidance'), JSON.stringify(coachButtons().map(b => b.textContent)));
+check('begin under the Brief prepares state without showing a card', G.coach.state() !== null && registry.get('coach').hidden === true, `state=${JSON.stringify(G.coach.state())} hidden=${registry.get('coach').hidden}`);
 check('start card does not pause the floor', G.paused === true, 'planning pause holds anyway');
 
 const committed = G.commitDayPlan();
 check('commit accepted', committed && committed.ok === true, JSON.stringify(committed));
+runFrames(1);
+check('intro card reveals once the brief closes', registry.get('coach').hidden === false && /Ruth has the bar/.test(coachText()), coachText().slice(0, 120));
+check('intro card offers skip guidance', coachButtons().some(b => b.textContent === 'skip guidance'), JSON.stringify(coachButtons().map(b => b.textContent)));
+check('intro card is a paper block, not a modal', !registry.get('coach').classList.contains('modal'), 'must not open a modal');
 G.doPrebatch();
 check('morning batch bought, £40 only', G.stats().batchUnits === ECON.batchUnits && Math.abs(G.stats().batchSpend - ECON.batchCost) < 1e-9,
   `units=${G.stats().batchUnits} spend=${G.stats().batchSpend}`);
@@ -188,8 +190,7 @@ runFrames(2);
 check('reopened run is back in planning', G.phase === 'planning', 'phase=' + G.phase);
 G.renderBrief();
 const prepWrap = registry.get('brief-prep');
-const pillRow = (prepWrap.children || []).find(c => (c.children || []).some(b => b.dataset && b.dataset.prep));
-const repricePill = pillRow && pillRow.children.find(b => b.dataset.prep === 'reprice');
+const repricePill = (prepWrap.children || []).find(b => b.dataset && b.dataset.prep === 'reprice');
 check('reprice pill exists on the new brief', !!repricePill, 'brief-prep pill missing');
 if (repricePill) repricePill.click();
 const committed2 = G.commitDayPlan();

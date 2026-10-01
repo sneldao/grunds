@@ -197,6 +197,7 @@ python3 -m grunds spatial     # launch the Three.js floor at localhost:8787
 
 node web/test/smoke.mjs              # headless day sim — scramble levers + the queue
 node web/test/coach.mjs              # day-1 inline coach: pause ownership, wave/low-stock gates
+node web/test/orientation.mjs        # first morning: context-first brief, guided opening, deferred economics
 node web/test/lever-state.mjs        # lever legality: reservation, late-switch fee, runtime orders
 node web/test/campaign.mjs           # 5-day campaign — the Gamble hedge + debt clock
 node web/test/campaign-tight.mjs      # per-regular opinion + cup-bounded contract expiry
@@ -252,7 +253,13 @@ Morning Brief answers to `1`/`2`/`3`/`4`/`5` → `Enter`. Hidden delight: type `
 
 Onboarding: new players sign the **pitch licence** (name + stand + role + a one-perk
 background — activate the Sign button; Escape never signs or advances), then land on
-the paused floor inside the **Morning Brief**. Day 1 offers an **optional inline
+the paused floor inside the **Morning Brief** — on the first morning it opens as
+**"YOUR FIRST MORNING"**: the stand, Idris and Ruth (small portraits), the rival
+across the road, and the afternoon's aim, then **one plan for the afternoon**
+(batch / deal / wait — the first real choice; `1`/`2`/`3` pick it, `Enter` opens
+only once a plan is chosen under the guided opening). The full plan — cellar,
+menu, hedges, the wire, the closing bill — sits one tap away under **"Explore
+the full plan"**. Day 1 offers an **optional inline
 coach** — a non-modal paper card beside the floor that pauses the sim at 14:00 before
 the first reserved cup serves, again at the first low-stock moment, and steps aside
 for the debrief; skipping it or pausing yourself hands control back without it ever
@@ -483,7 +490,38 @@ The Convex phase shipped as working backend + hosting, not a plan:
 
 See `hackathon.md` for the build log.
 
-## Current build (Sept 30) — gameplay-intuitiveness pass
+## Current build (Oct 1) — first-morning orientation pass
+
+A context-first rewrite of the first Morning Brief. Day 1 now opens on people
+and place — the stand's name, Idris's word ("a good café starts with people"),
+Ruth's automatic bar, Sam across the road — and asks for exactly one meaningful
+choice: how to meet the 14:00 matcha rush (**starter batch** recommended /
+**matcha deal** / **wait and see**, each with cost and trade-off in one line).
+`1`/`2`/`3` select, the choice is free to change until open, and `Enter`/`OPEN
+THE CAFÉ` only commit once a real choice exists (guided opening;
+`?skipTutorial`/`?demo`/headless keep the ungated path — the commit API itself
+is unchanged). Economics arrive when they're real: the nut, cellar, menu, hedge
+row, and wire live inside a collapsed **Explore the full plan** drawer on day 1,
+the day-1 footer names only the plan's opening cash plus any staged
+advanced spend (contract fee / settlement / tab-funded cellar estimate, all
+from `quoteDayPlan`/`resolveDecision`) while bills stay "counted at closing"
+with the amount inside the folded full plan, and from day 2 a one-line
+`economicsLesson()` surfaces the actual top concern (empty house → tab →
+staffing → yesterday's market) and force-opens the drawer when it's urgent —
+stored closed preferences can't hide a dry cellar. The coach's first card now
+settles the player in ("Ruth has the bar…") only after the Brief closes, and a
+once-only craft note quotes the real served count before 11:00. Goal strip and
+queue bar got honest wording (`they may leave`), and an empty house at close
+prints the restock lesson on the receipt.
+
+Coverage: `web/test/orientation.mjs` plus the focused suites (coach,
+brief-staged-prep, next-action, modals, lifecycle-accounting, identity,
+menu-pricing, time-locked-levers, showfloor-autoplay) — all pass in a temp
+mirror; full non-balance suite gate also green (65 suites), `tsc --noEmit`
+clean. Node fixtures only — **no browser evidence this pass, nothing
+deployed**; human playtests still outstanding.
+
+## Previous build (Sept 30) — gameplay-intuitiveness pass
 
 **The goal today:** keep the café **viable for five days**. Beating Sam's cup count
 is a bonus, and regulars are their own reward — the title, brief, and verdict all

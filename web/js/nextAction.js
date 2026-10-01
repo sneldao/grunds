@@ -65,6 +65,13 @@ export function computeNextAction(s = {}) {
   // 16:00: levers lock and the evening call takes the floor
   if (dayMin >= 960) return { id: 'status', text: 'the rush is over — one call, then the day ends', target: 'street' };
 
+  if (s.day === 1 && s.guidedOpening && !s.offerShown && dayMin < 660 && queue <= 5) {
+    const planTxt = s.prebatched ? 'your 14:00 stock is reserved'
+      : s.repriced ? 'the afternoon deal is on the board'
+      : 'you can still step in if the room needs it';
+    return { id: 'hold', target: 'street', text: `Ruth is serving — take a look around the café; ${planTxt}` };
+  }
+
   if (s.repriced) {
     return { id: 'status', text: `the deal holds — <b>${fmtMoney(ECON.matchaDeal)}</b> buys patience, not faster service; prep locked today` + (queue > 5 ? ` · ${queue} waiting; lower walk-out risk` : ''), target: 'street' };
   }

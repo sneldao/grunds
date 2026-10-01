@@ -2,7 +2,7 @@ const OWNED = ['brief', 'offer', 'letter', 'licence', 'paywall', 'desk', 'receip
 const FOCUSABLE = 'a[href],button,input,textarea,select,summary,[tabindex],[contenteditable="true"],[contenteditable=""]';
 const INTERACTIVE = 'button,a,input,textarea,select,summary,[contenteditable="true"],[contenteditable=""]';
 
-export function createModalController({ document: doc = globalThis.document, onEscape = () => {}, onShortcut = () => {}, onActiveChange = () => {} } = {}) {
+export function createModalController({ document: doc = globalThis.document, onEscape = () => {}, onShortcut = () => {}, onActiveChange = () => {}, allowNumericShortcut = () => false } = {}) {
   const stack = [];
   const savedFocus = new Map();
   const savedInert = new Map();
@@ -205,7 +205,8 @@ export function createModalController({ document: doc = globalThis.document, onE
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return true;
     if (isEditable(target)) return true;
     const interactive = target && target !== doc.body && closestOf(target, INTERACTIVE);
-    if (interactive && (key === 'Enter' || key === ' ' || /^[0-9]$/.test(key))) return true;
+    if (interactive && (key === 'Enter' || key === ' ')) return true;
+    if (interactive && /^[0-9]$/.test(key) && !allowNumericShortcut(t, target, key)) return true;
     try { onShortcut(t, ev); } catch {}
     return true;
   }

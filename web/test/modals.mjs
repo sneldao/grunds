@@ -52,6 +52,7 @@ function makeDoc() {
       removeAttribute(k) { delete e.attrs[k]; },
       appendChild(c) { c._parent = e; e.children.push(c); return c; },
       append(...cs) { for (const c of cs) e.appendChild(c); },
+      prepend(c) { c._parent = e; e.children.unshift(c); },
       remove() { e.isConnected = false; const p = e._parent; if (p) { const i = p.children.indexOf(e); if (i >= 0) p.children.splice(i, 1); } },
       focus() { doc.activeElement = e; },
       addEventListener() {}, removeEventListener() {},   // main.js wires upsell buttons via addEventListener at import
@@ -335,6 +336,11 @@ console.log('STRUCTURE six modals share panel/header/body/footer; CSS scroll+foo
 
   await import('../js/main.js');
   await new Promise(r => setTimeout(r, 40));
+  {
+    const ch = getEl('chapter');
+    const ck = doc.createElement('div'); ck.classList.add('ck'); ch.appendChild(ck);
+    const cs = doc.createElement('div'); cs.classList.add('cs'); ch.appendChild(cs);
+  }
   const G = globalThis.__grunds;
   globalThis.document.getElementById('open').click();
   await new Promise(r => setTimeout(r, 10));
@@ -371,6 +377,19 @@ console.log('STRUCTURE six modals share panel/header/body/footer; CSS scroll+foo
   for (const h of keyHandlers) h({ key: 'r', target: null, preventDefault() {} });
   check(G.phase === 'planning' && G.stats().debt === debtBefore, 'game keys cannot fire under the brief');
   check(G.modals.top() === 'brief', 'controller top is the brief');
+  {
+    const r = G.commitDayPlan();
+    check(r && r.ok === true, 'day-1 commit closes the brief into trading');
+    G.modals.open('regulars');
+    check(G.paused === true && G.modals.top() === 'regulars', 'choosing to read the regulars board pauses trading');
+    for (const h of keyHandlers) h({ key: 'Escape', target: null, preventDefault() {} });
+    check(G.modals.top() === null && G.paused === false, 'Escape closes the board and hands the clock back');
+    G.togglePause();
+    G.modals.open('dossier');
+    for (const h of keyHandlers) h({ key: 'Escape', target: null, preventDefault() {} });
+    check(G.modals.top() === null && G.paused === true, 'Escape closes the dossier without stealing a user pause');
+    G.togglePause();
+  }
 }
 
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }

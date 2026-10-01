@@ -392,6 +392,53 @@ Every decision logs to `out/audit.jsonl`:
 {"ts": "...", "type": "gossip", "from": "patron_17", "to": "patron_23", "opinion": "-0.6"}
 ```
 
+## October 1 — first-morning orientation (context-first Brief)
+
+The first Morning Brief was a business form; this pass makes it an
+orientation. Architecture is unchanged — same `#brief` modal, same pause/inert
+contract, same commit pipeline; nothing about economics, constants, or scoring
+moved.
+
+- **`orientation.js`** (pure, no deps) exports `firstMorningCopy()` (the settled
+  day-1 copy) and `economicsLesson(snapshot)` — one honest line chosen by real
+  state: empty/low house stock first, then live debt, then a Ruth staffing
+  decision, then yesterday's market tier, else a calm default. Rendered into
+  `#brief-learning` from day 2 on; urgent lessons also force `#brief-more` open.
+- **Day-1 Brief**: heading "YOUR FIRST MORNING", kicker `Day 1 of 5 · before
+  opening`, `#brief-intro` renders stand name via `textContent` plus
+  `portraitCanvas` roles for Idris (`creatives`) and Ruth (`commuters`) at 48px.
+  `.first-morning` right-aligns a 460px paper over a lightly-blurred café;
+  ≤640px it centres full-width.
+- **Guided opening** (`guidedOpening = wantTutorial`, `firstPrepChosen`): day-1
+  prep renders three full-width choices (batch → deal → wait) with no
+  pre-selection; `OPEN THE CAFÉ` and `Enter` are inert until a real pick, and
+  keys `1`/`2`/`3` target the choices — never the folded hedge row. Same
+  `stagedPrep`/`applyStagedPrep` contract underneath; headless/demo/skip
+  bypass the gate and the headless-only `testState({openingGuidance})` seam
+  drives it in tests.
+- **Progressive disclosure**: `#brief-risk`/`-nut`/`-lots`/`-menu`/`-actions`/
+  `-context` are children of `#brief-more` — "Explore the full plan" on day 1,
+  "More planning details" after. The day-1 footer (via `updateBriefFooter`)
+  shows the chosen prep's cash at opening plus any staged advanced spend —
+  contract fee, settlement, tab-funded cellar estimate — computed from the real
+  `quoteDayPlan`/`resolveDecision` result; the nut reads "bills counted at
+  closing".
+- **Coach order**: `coachBegin` only prepares state; the first card ("Ruth has
+  the bar…") reveals on the first trading tick after the Brief closes, and a
+  once-only craft card quotes the actual served count and a real named walk-in
+  when five cups have poured before 11:00. Wave/low-stock pauses unchanged.
+- **Goal copy**: `computeNextAction` gets `day` + `guidedOpening` and returns a
+  settling beat on calm day-1 mornings; the queue bar says "they may leave",
+  and an empty house at close prepends the restock lesson to the receipt
+  summary.
+
+Verified by `orientation.mjs` + the focused suites and a full 65-suite
+non-balance gate in a fresh mirror (`tsc --noEmit` clean). No browser evidence
+was gathered this pass — by instruction — so the first-morning surface is
+asserted only through a headless fixture that parses the real `index.html`
+markup (no layout, paint, or focus-behavior proof); nothing was committed or
+deployed.
+
 ## September 30 — current gameplay pass + verification state
 
 A gameplay-intuitiveness pass landed on top of the depth rebuild. Architecture

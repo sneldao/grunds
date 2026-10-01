@@ -78,7 +78,7 @@ export const CHAPTERS = [
 export const COPY = {
   title: 'GRUNDS', subtitle: 'THE DISTRICT',
   tagline: 'You can’t control demand. You can only be ready for it —\nfaster than the café across the street.',
-  open: 'OPEN THE DISTRICT',
+  open: 'STEP INSIDE',
   controls: 'drag to look · scroll to zoom · 1 pre-batch · 2 reprice · M sound · R reset',
   notebookTitle: 'ROASTER’S NOTEBOOK',
   notebook: `Students arrive at 14:00.\nA matcha takes 4 minutes made to order, and 1 minute if you bought the batch.\nPress 1 to buy ${ECON.batchUnits} cups of matcha for £${ECON.batchCost} — leftovers spoil. Press 2 to sell at £${ECON.matchaDeal.toFixed(2)} instead of the board price.\nPick one. They walk to Glasshouse once the line passes 5.`,
