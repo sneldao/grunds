@@ -544,7 +544,7 @@ per-day counters: `pouredByLotToday` for the coffee payoff, `servedByDrinkToday`
 for the menu line, the actual `ops.total` for the day-1 running-cost line.
 
 Step 1 of the character/consequence/pacing roadmap (see `ARCHITECTURE.md`)
-is landing in the working tree: any named person opens a profile card —
+landed in `df82b4f`: any named person opens a profile card —
 `web/js/cast.js` (pure) supplies bio/wants/feeling-in-words/history, floor
 clicks (queue or table) and regulars-board rows open it, and a once-per-day
 `Say hello` replaces the uncapped click-to-wave exploit.
@@ -562,7 +562,11 @@ Coverage: new `curriculum.mjs` (22 pure checks) and `stage-site.mjs` (16
 checks) suites, rewritten `orientation.mjs` curriculum assertions on the real
 markup, plus the focused regression list and a 65-suite non-balance gate — all
 green in a temp mirror; `tsc --noEmit` clean. Code-only verification; no
-browser evidence this pass, nothing deployed, human playtests outstanding.
+browser evidence this pass. `c2e4684` + `df82b4f` are published to the dev
+site https://striped-anaconda-746.convex.site as the first release-versioned
+artifact (`?v=df82b4f`, 67-suite gate green on the committed tree); live HTTP
+checks matched the artifact, while deployed gameplay and human engagement
+remain unverified.
 
 ## Previous build (Sept 30) — gameplay-intuitiveness pass
 

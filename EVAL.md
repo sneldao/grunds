@@ -6,7 +6,8 @@ How we check gameplay correctness and readiness. Automated regression checks, sc
 
 - Any named patron, queuing or seated, and every regulars-board row opens a profile: bio, wants, usual (most frequent actual order, else their canon drink), feeling in words, the last thing that happened, friends, and recent history. The hover card no longer shows raw opinion numbers.
 - The previous uncapped click-to-wave opinion gain is removed. "Say hello" applies the same +0.06 opinion once per person per day; identity-less patrons get a greeting bubble with no effect.
-- `cast.mjs`, `dossier.mjs`, `patron-arcs.mjs`, and `orientation.mjs` (real `index.html` markup) passed with TypeScript checking clean; the full suite was not rerun for this step. No browser automation was run, and whether profiles make the cast memorable is a playtest question. These changes are local and uncommitted.
+- `cast.mjs`, `dossier.mjs`, `patron-arcs.mjs`, and `orientation.mjs` (real `index.html` markup) passed, and the full 67-suite non-balance gate passed on committed `df82b4f` with TypeScript checking clean. No browser automation was run, and whether profiles make the cast memorable is a playtest question.
+- `df82b4f` (with the curriculum commit `c2e4684`) is published to the existing Convex dev site as the first release-versioned artifact. HTTP-only checks confirmed the page requests `main.js?v=df82b4f` and that served files match the artifact; deployed gameplay remains unverified.
 
 ## Previous verification — October 1, 2026: progressive Brief curriculum
 
@@ -14,7 +15,7 @@ How we check gameplay correctness and readiness. Automated regression checks, sc
 - `curriculum.mjs` covers the unlock schedule and need overrides. `orientation.mjs`, using the actual `index.html` markup, checks that Day 1 hides cellar, menu, insurance, Wire, and bill details; that a drained Day 1 still produces the Day-2 coffee card with only cellar-available coffees; that Day 3 introduces the menu; and that restock labels show what the supplier tab will actually fund. Receipt lessons report measured values only: Day-1 running costs and, on introduction days, cups poured or drinks served.
 - A 65-suite non-balance Node gate passed before the final review fixes; the affected curriculum, orientation, cellar, Wire, lifecycle/accounting, prep, modal, and staging suites passed again afterward, with TypeScript checking clean. Economic constants and scoring are unchanged.
 - `npm run stage:site` builds an upload directory whose JavaScript module URLs carry the release version, so a browser cannot combine a new page with modules cached from an earlier release. `stage-site.mjs` checks that every relative module import is versioned and resolves.
-- No browser automation was run. Whether players notice, understand, and enjoy each introduction—and whether one per day is the right pace—remains a human-playtest question. These changes are local and have not been committed or deployed.
+- No browser automation was run. Whether players notice, understand, and enjoy each introduction—and whether one per day is the right pace—remains a human-playtest question. Committed as `c2e4684` and published with `df82b4f`.
 
 ## Previous verification — October 1, 2026: first-morning orientation
 
