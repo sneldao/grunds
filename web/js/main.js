@@ -45,6 +45,7 @@ import { billing } from './billing.js';
 import { initDesk, wireHint } from './desk.js';
 import { createModalController } from './modals.js';
 import { buildAutopsy, turningPoint } from './autopsy.js';
+import { buildVitals, renderVitals } from './vitals.js';
 
 const urlParams = new URLSearchParams(location.search);
 const _liteFlag = urlParams.has('lite');
@@ -3533,6 +3534,46 @@ function updateHUD() {
     }
   }
   if (!closed) updateTicker();
+  updateVitals();
+}
+
+// ---- running the stand (right-hand vitals) ----------------------------------------
+// Read-only view over state the sim already owns. Staffing reads the live flags
+// while trading and the staged plan at dawn, so the panel previews the choice.
+function vitalsSnapshot() {
+  const trading = phase === 'trading';
+  const staffing = trading ? (baristaHomeToday ? 'home' : apprenticeHiredToday ? 'apprentice' : 'work')
+    : (planDraft ? planDraft.staffing : 'work');
+  const house = lotState.house;
+  const he = lotState.entry(house);
+  const cellarStock = LOT_IDS.reduce((n, id) => {
+    const e = lotState.entry(id);
+    return n + (e && e.unlocked !== false ? e.stock : 0);
+  }, 0);
+  const ops = operatingCosts({
+    till, served: served + servedRetail, staffing,
+    marketing: marketingSpend, training: trainingSpend, sampling: sampleSpend,
+    perkCostMul, modifiers: dayMods,
+  });
+  return {
+    phase, day, dayMin, staffing, staffCondition: baristaCondition, crisis: baristaCrisis,
+    houseLot: house, houseStock: he ? he.stock : 0, houseAge: lotState.age(house, day), housePriceMul: he ? he.priceMul : 1,
+    cellarStock, emergency: emergencyCups > 0,
+    milkDelivery, milkStock: ctx.milkStock, milkOut: ctx.milkOut,
+    batchUnits: ctx.batchUnits, prebatched,
+    beanIndex: exchange.beanIndex, matchaBean: exchange.costPerCup,
+    flatwhitePrice: menuPrice('flatwhite', menuPrices), matchaPrice: salePrice(exchange, repriced),
+    perkCostMul, ops, till, cogs, debt: exchange.debt,
+  };
+}
+function updateVitals() {
+  const panel = $('vitals');
+  if (!panel) return;
+  const show = phase === 'trading' || phase === 'planning' || phase === 'review';
+  panel.hidden = !show;
+  document.body?.classList.toggle('vitals-on', show);
+  if (!show) return;
+  renderVitals($('vitals-list'), buildVitals(vitalsSnapshot()));
 }
 
 // ---- levers ----------------------------------------------------------------------
@@ -4741,6 +4782,7 @@ function loop(now) {
     milkDelivery, milkStock: ctx.milkStock, milky: ctx.milky, milkOut: ctx.milkOut,
     waveBatchServed, waveStockoutAt, batchReservedUntil: ctx.batchReservedUntil,
     awareness: demand ? demand.awareness : 0, ops: lastOps, demand, repriced, prebatched }),
+  vitals: () => buildVitals(vitalsSnapshot()),
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
   vitality, director, district, kitBeat, mailT,
