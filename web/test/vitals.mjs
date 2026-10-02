@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildVitals, renderVitals, cupCost } from '../js/vitals.js';
 import { CAMPAIGN } from '../js/config.js';
 
-const ops = { staff: 1700, supplies: 50, pitch: 1150, fees: 10, sundries: CAMPAIGN.sundries, marketing: 0, training: 0, sampling: 0, total: 2974 };
+const ops = { staff: 1700, supplies: 50, pitch: 1150, fees: 10, sundries: CAMPAIGN.sundries, power: 32, wifi: 6, marketing: 0, training: 0, sampling: 0, total: 2978 };
 const base = {
   phase: 'trading', day: 2, dayMin: 700, staffing: 'work', staffCondition: 0.86,
   houseLot: 'huila', houseStock: 1200, houseAge: 1, cellarStock: 2400,
@@ -51,7 +51,21 @@ ok('the nut only alarms in the evening, and surfaces utilities', () => {
   assert.equal(byId({ ...base, till: 300 }).nut.tone, 'ok');
   assert.equal(byId({ ...base, till: 300, dayMin: 1030 }).nut.tone, 'bad');
   assert.match(byId({ ...base, till: 4000 }).nut.value, /covered ✓/);
-  assert.match(byId(base).nut.note, /utilities £64/);
+  assert.match(byId(base).nut.note, new RegExp(`bills £${32 + 6 + CAMPAIGN.sundries}`));
+});
+
+ok('utilities read calm until the wifi drops — then the row carries the tether', () => {
+  const calm = byId(base).utilities;
+  assert.equal(calm.tone, 'ok'); assert.match(calm.value, /power £32 · wifi £6/); assert.ok(!calm.action);
+  const down = byId({ ...base, wifi: 'down', wifiBack: 735 }).utilities;
+  assert.equal(down.tone, 'bad');
+  assert.equal(down.action.act, 'tether');
+  assert.match(down.action.label, new RegExp(`£${CAMPAIGN.utilities.outage.tetherCost}`));
+  assert.match(down.note, /12:15/);
+  assert.match(byId({ ...base, wifi: 'down', wifiBack: 735, perkCostMul: 0.9 }).utilities.action.label, /£41/, 'the accountant perk trims the tether');
+  const teth = byId({ ...base, wifi: 'tethered', wifiBack: 735 }).utilities;
+  assert.equal(teth.tone, 'warn'); assert.ok(!teth.action);
+  assert.match(byId({ ...base, wifi: 'restored' }).utilities.note, /restored/);
 });
 
 ok('the tab appears with debt and reddens near the limit', () => {

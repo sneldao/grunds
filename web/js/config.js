@@ -130,7 +130,26 @@ export const CAMPAIGN = {
   pitchMin: 1150,         // base pitch rent — owed even when nobody comes
   pitchPct: 0.12,         // turnover top-up once sales clear the breakpoint
   cardFeePct: 0.026,      // card processing on every sale
-  sundries: 64,           // utilities, insurance, cleaning, waste collection
+  sundries: 30,           // insurance, cleaning, waste collection
+  // Utilities — split out of sundries so the stand can see what it burns.
+  // Power is a standing charge plus every shot pulled (~£32 on a ~3,000-cup
+  // day); wifi is flat but it carries the card reader, so it can go down.
+  // At typical volume the three lines land near the old £64 sundries.
+  utilities: {
+    powerStanding: 14,    // £/day meter + fridges + lights, before a cup pours
+    powerPerCup: 0.006,   // grinder, boiler, steam wand per drink
+    wifi: 6,              // £/day broadband — the card reader rides on it
+    outage: {
+      chance: 0.3,        // per trading day, days 2+, seeded per (seed, day)
+      startMin: 570,      // earliest drop 09:30
+      startSpan: 180,     // ... latest 12:30
+      durMin: 75,         // shortest outage
+      durSpan: 60,        // ... longest 135 min
+      cardLoss: 0.3,      // share of sales that die at the till while down
+      tetherCost: 45,     // phone-hotspot data + the reader's lag fee, cash
+      tetherStaffMul: 0.92, // a hotspot reader is laggy — the bar runs a touch slower
+    },
+  },
   // Gentrification drift — the README's "pressure clock": costs creep, regular
   // expectations rise faster, willingness-to-pay rises (so the lever choice
   // matters: hold the price and lose regulars, or raise and lose the chain

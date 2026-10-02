@@ -92,7 +92,28 @@ function nutRow(s) {
   const tone = s.phase !== 'trading' ? 'dim' : covered >= 1 || !late ? 'ok' : covered < 0.8 ? 'bad' : 'warn';
   return { id: 'nut', icon: '🏠', label: 'The nut', value: covered >= 1 ? `${money(nut)} · covered ✓` : `${money(nut)} · ${Math.round(covered * 100)}% covered`,
     meter: covered, tone,
-    note: `staff ${money(ops.staff)} · rent ${money(ops.pitch)} · supplies ${money(ops.supplies)} · utilities ${money(ops.sundries)}` };
+    note: `staff ${money(ops.staff)} · rent ${money(ops.pitch)} · supplies ${money(ops.supplies)} · bills ${money((ops.power || 0) + (ops.wifi || 0) + ops.sundries)}` };
+}
+
+const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+// Power + wifi. The wifi carries the card reader, so a drop is the one row
+// with a button: tether a phone, or watch card sales die at the till.
+function utilitiesRow(s) {
+  const ops = s.ops;
+  if (!ops) return null;
+  const o = CAMPAIGN.utilities.outage;
+  if (s.wifi === 'down') {
+    const cost = o.tetherCost * (s.perkCostMul ?? 1);
+    return { id: 'utilities', icon: '📶', label: 'Wifi', value: 'down', meter: null, tone: 'bad',
+      note: `card reader offline — ~${Math.round(o.cardLoss * 100)}% of sales failing · ISP says ${hhmm(s.wifiBack)}`,
+      action: { act: 'tether', label: `tether a phone · ${money(cost)}` } };
+  }
+  if (s.wifi === 'tethered') {
+    return { id: 'utilities', icon: '📶', label: 'Wifi', value: 'on the hotspot', meter: null, tone: 'warn',
+      note: `cards work · the reader lags the bar · line back ${hhmm(s.wifiBack)}` };
+  }
+  return { id: 'utilities', icon: '⚡', label: 'Utilities', value: `power ${money(ops.power || 0)} · wifi ${money(ops.wifi || 0)}`,
+    meter: null, tone: 'ok', note: s.wifi === 'restored' ? 'wifi restored — the reader’s back' : 'power climbs with every shot pulled' };
 }
 
 function tabRow(s) {
@@ -106,7 +127,7 @@ function tabRow(s) {
 
 // s: a flat snapshot assembled by main.js (see vitalsSnapshot()).
 export function buildVitals(s) {
-  return [staffRow(s), beanRow(s), milkRow(s), batchRow(s), costRow(s), nutRow(s), tabRow(s)].filter(Boolean);
+  return [staffRow(s), beanRow(s), milkRow(s), batchRow(s), costRow(s), utilitiesRow(s), nutRow(s), tabRow(s)].filter(Boolean);
 }
 
 // Keyed renderer: one <li> per row id, rewritten only when its text changes.
@@ -116,9 +137,9 @@ function makeRow(id) {
   const el = (tag, cls) => { const n = document.createElement(tag); n.className = cls; return n; };
   const li = document.createElement('li');
   li.dataset.v = id;
-  const parts = { vi: el('span', 'vi'), vl: el('span', 'vl'), vv: el('span', 'vv'), vm: el('div', 'vm'), bar: document.createElement('i'), vn: el('div', 'vn') };
+  const parts = { vi: el('span', 'vi'), vl: el('span', 'vl'), vv: el('span', 'vv'), vm: el('div', 'vm'), bar: document.createElement('i'), vn: el('div', 'vn'), va: el('button', 'va') };
   parts.vm.appendChild(parts.bar);
-  for (const k of ['vi', 'vl', 'vv', 'vm', 'vn']) li.appendChild(parts[k]);
+  for (const k of ['vi', 'vl', 'vv', 'vm', 'vn', 'va']) li.appendChild(parts[k]);
   return { li, parts, sig: '' };
 }
 export function renderVitals(listEl, rows) {
@@ -129,7 +150,7 @@ export function renderVitals(listEl, rows) {
     seen.add(r.id);
     let row = cache.get(r.id);
     if (!row) { row = makeRow(r.id); cache.set(r.id, row); listEl.appendChild(row.li); }
-    const sig = [r.value, r.tone, r.note, r.meter == null ? '' : Math.round(r.meter * 100)].join('|');
+    const sig = [r.value, r.tone, r.note, r.meter == null ? '' : Math.round(r.meter * 100), r.action ? r.action.act + r.action.label : ''].join('|');
     if (row.sig === sig) continue;
     row.sig = sig;
     const p = row.parts;
@@ -140,6 +161,9 @@ export function renderVitals(listEl, rows) {
     p.vn.textContent = r.note || '';
     p.vm.hidden = r.meter == null;
     if (r.meter != null) p.bar.style.width = Math.round(r.meter * 100) + '%';
+    p.va.hidden = !r.action;
+    p.va.dataset.act = r.action ? r.action.act : '';
+    p.va.textContent = r.action ? r.action.label : '';
   }
   for (const [id, row] of cache) if (!seen.has(id)) { row.li.remove(); cache.delete(id); }
 }

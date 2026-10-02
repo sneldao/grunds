@@ -1,5 +1,6 @@
 import { CAMPAIGN, ECON } from './config.js';
 import { priceForDay } from './gentrification.js';
+import { utilityCosts } from './utilities.js';
 export function salePrice(exchange, repriced = false) {
   return repriced ? ECON.matchaDeal : exchange.matchaPrice ?? priceForDay(Math.max(1, exchange.day));
 }
@@ -11,6 +12,7 @@ export function operatingCosts({ till = 0, served = 0, staffing = 'work', market
     pitch: Math.max(CAMPAIGN.pitchMin + (modifiers.pitchMinDelta || 0), Math.max(0, till) * (CAMPAIGN.pitchPct + (modifiers.pitchPctDelta || 0))),
     fees: Math.max(0, till) * CAMPAIGN.cardFeePct * perkCostMul,
     sundries: CAMPAIGN.sundries,
+    ...utilityCosts(served),
     marketing,
     training,
     sampling,
@@ -40,7 +42,7 @@ export function quoteDayPlan({ day, hedge = 'hold', staffing = 'work', marketing
   const marketingCost = marketing.sponsor ? CAMPAIGN.demand.sponsorCost : 0;
   const ops = operatingCosts({ staffing, training, sampling, marketing: marketingCost, perkCostMul, modifiers });
   return { ops, fixedMinimum: ops.total, wage: ops.staff, training, sampling, marketing: marketingCost,
-    perCup: CAMPAIGN.staffPerCup + CAMPAIGN.suppliesPerCup + (modifiers.suppliesDelta || 0) + (staffing === 'apprentice' ? CAMPAIGN.staff.apprenticeWasteExtra : 0),
+    perCup: CAMPAIGN.staffPerCup + CAMPAIGN.suppliesPerCup + CAMPAIGN.utilities.powerPerCup + (modifiers.suppliesDelta || 0) + (staffing === 'apprentice' ? CAMPAIGN.staff.apprenticeWasteExtra : 0),
     pitchPct: CAMPAIGN.pitchPct + (modifiers.pitchPctDelta || 0), cardFeePct: CAMPAIGN.cardFeePct * perkCostMul,
     contractFee: hedgeTerms(hedge, extraFee)?.fee || 0,
     interest: day > 1 && hedge !== 'settle' ? debtInterestFor(debt) : 0,

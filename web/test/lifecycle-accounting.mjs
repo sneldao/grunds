@@ -294,9 +294,10 @@ if (!near(opsApp.supplies - opsWork.supplies, 10 * CAMPAIGN.staff.apprenticeWast
 if (!near(opsWork.training + opsWork.sampling, 0)) fails.push('default ops should carry no training/sampling');
 const opsTrain = operatingCosts({ served: 0, staffing: 'apprentice', training: 12, sampling: 8 });
 if (!near(opsTrain.training, 12) || !near(opsTrain.sampling, 8)) fails.push('training/sampling ops params not itemized');
-if (!near(opsTrain.total, opsTrain.staff + opsTrain.supplies + opsTrain.pitch + opsTrain.fees + opsTrain.sundries + opsTrain.marketing + opsTrain.training + opsTrain.sampling)) fails.push('ops total does not sum its line items');
+if (!near(opsTrain.total, opsTrain.staff + opsTrain.supplies + opsTrain.pitch + opsTrain.fees + opsTrain.sundries + opsTrain.power + opsTrain.wifi + opsTrain.marketing + opsTrain.training + opsTrain.sampling)) fails.push('ops total does not sum its line items');
 const nut = operatingCosts({ served: 0 });
-if (!near(nut.total, CAMPAIGN.staffDayRate + CAMPAIGN.pitchMin + CAMPAIGN.sundries)) fails.push(`the nut should be ${CAMPAIGN.staffDayRate + CAMPAIGN.pitchMin + CAMPAIGN.sundries}, got ${nut.total}`);
+const nutBills = CAMPAIGN.sundries + CAMPAIGN.utilities.powerStanding + CAMPAIGN.utilities.wifi;   // no cups → power is the standing charge
+if (!near(nut.total, CAMPAIGN.staffDayRate + CAMPAIGN.pitchMin + nutBills)) fails.push(`the nut should be ${CAMPAIGN.staffDayRate + CAMPAIGN.pitchMin + nutBills}, got ${nut.total}`);
 const ht = hedgeTerms('contract_light', 18);
 if (!ht || !near(ht.fee, hedgeTerms('contract_light').fee + 18) || ht.units !== CAMPAIGN.contractUnits / 2) fails.push('hedgeTerms light+extraFee wrong');
 if (hedgeTerms('hold')) fails.push('hedgeTerms should return null for non-contracts');

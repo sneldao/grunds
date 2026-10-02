@@ -46,6 +46,7 @@ import { initDesk, wireHint } from './desk.js';
 import { createModalController } from './modals.js';
 import { buildAutopsy, turningPoint } from './autopsy.js';
 import { buildVitals, renderVitals } from './vitals.js';
+import { planOutage, outageStatus, wifiCardLoss } from './utilities.js';
 
 const urlParams = new URLSearchParams(location.search);
 const _liteFlag = urlParams.has('lite');
@@ -417,6 +418,10 @@ let softDay = false, softWeekDone = false, coachedOpening = false, softTest = nu
 const SOFT_MUL = 0.005, SOFT_CAST = new Set(['Mara', 'Pip', 'Olu']), SOFT_EARLY = new Set(['Mara', 'Olu']);
 const wantsSoftDay = () => wantTutorial && !TOOL_IDS.every(t => introducedSet().has(t));
 let incidentShown = false, activeBeat = null, cashOnly = 0, cashOnlyToast = false, contractFeeExtra = 0, solicitorAt = 0;
+// Utilities — the day's seeded wifi outage ({ start, end, tethered, announced,
+// restored }) or null. Planned at dawn; while it's down the card reader fails
+// a share of sales until the player tethers (Running the Stand panel).
+let wifiOutage = null;
 // Morning Brief — the Drug Wars turn: paused at 06:00, read then commit
 let briefChoice = null;
 let lastDayStats = null;   // yesterday's counters — the Brief's letter reads them at dawn
@@ -701,7 +706,9 @@ function tick() {
     if (e.type === 'served') {
       preparedCups++;
       // cash-only day: a share of sales die at the till — no card, no sale
-      if (cashOnly && Math.random() < cashOnly) {
+      // the dead-reader incident and a wifi drop share one cash-only path
+      const cardLoss = Math.max(cashOnly, wifiCardLoss(wifiOutage, dayMin));
+      if (cardLoss && Math.random() < cardLoss) {
         cogs += e.lotId ? 0 : e.beanCost ?? 0;   // Phase 2 cash-basis (see below)
         if (e.hedged) { hedgedCups++; realizedHedgeSavings += e.spotCost - e.beanCost; }
         balked++; balks++;
@@ -920,6 +927,7 @@ function beats() {
   // (the offer modal doubles as the incident card — same pause path)
   if (day >= 2 && !incidentShown && dayMin >= 895 && dayMin < 1015 &&
       !$('offer').classList.contains('show')) { incidentShown = true; showIncident(); }
+  wifiBeats();
   // Phase 4 — the truce: day 3, pre-wave, Sam comes over himself. Split
   // Saturday (guaranteed mediocrity: no bleeding, no feast) or play on.
   if (day === 3 && !truceShown && dayMin >= 600 && dayMin < 1000 &&
@@ -1255,7 +1263,7 @@ function closeDay() {
   }
   const lessons = [];
   if (day === 1 && !softDay) {
-    lessons.push(`Running the café today cost ${fmt(ops.total)} — ${(ops.marketing || ops.training || ops.sampling) ? 'including ' : ''}staff, pitch rent, milk and cups, card fees and sundries — paid at closing.`);
+    lessons.push(`Running the café today cost ${fmt(ops.total)} — ${(ops.marketing || ops.training || ops.sampling) ? 'including ' : ''}staff, pitch rent, milk and cups, card fees, power, wifi and insurance — paid at closing.`);
   }
   const menuVisible = introducedSet().has('menu') || toolsIntroducedToday.includes('menu');
   const menuServedLine = () => {
@@ -1317,7 +1325,10 @@ function closeDay() {
       ...(hedgedCups > 0 ? [['hedge benefit (before fees)', fmt(realizedHedgeSavings)],
                             ...(feeToday > 0 ? [['hedge net of the fee', fmt(realizedHedgeSavings - feeToday)]] : [])] : []),
       ['staff', fmt(ops.staff)], ['milk + cups' + (dayMods.suppliesDelta ? ' (incl. oat surcharge)' : ''), fmt(ops.supplies)],
-      ['pitch rent' + (dayMods.pitchMinDelta ? ' (incl. reval)' : ''), fmt(ops.pitch)], ['card fees', fmt(ops.fees)], ['sundries', fmt(ops.sundries)],
+      ['pitch rent' + (dayMods.pitchMinDelta ? ' (incl. reval)' : ''), fmt(ops.pitch)], ['card fees', fmt(ops.fees)],
+      ['electricity', fmt(ops.power)], ['wifi', fmt(ops.wifi)],
+      ...(wifiOutage && wifiOutage.tethered ? [['phone hotspot (outage)', `−${fmt(wifiOutage.tetherCost)} from the till`]] : []),
+      ['insurance & cleaning', fmt(ops.sundries)],
       ...(ops.training > 0 ? [['apprentice training', fmt(ops.training)]] : []),
       ...(ops.sampling > 0 ? [['sample hour', fmt(ops.sampling)]] : []),
       ...(ops.marketing > 0 ? [['street work', fmt(ops.marketing)]] : []),
@@ -1772,8 +1783,8 @@ function renderPlanQuote() {
   const committed = q.fixedMinimum + q.contractFee + q.interest;
   const bits = [
     'This is deducted at closing, not an opening payment. Ingredients and card fees vary with orders.',
-    `the nut ${fmt(q.fixedMinimum)} — the daily bill before a cup pours · wage ${fmt(q.wage)} · pitch floor ${fmt(q.ops.pitch)} · sundries ${fmt(CAMPAIGN.sundries)}${q.training ? ` · training ${fmt(q.training)}` : ''}${q.sampling ? ` · samples ${fmt(q.sampling)}` : ''}${q.marketing ? ` · street ${fmt(q.marketing)}` : ''}`,
-    `each cup — labour + supplies ${fmt(q.perCup)} · pitch takes ${(q.pitchPct * 100).toFixed(0)}% above the floor · cards ${(q.cardFeePct * 100).toFixed(1)}%`,
+    `the nut ${fmt(q.fixedMinimum)} — the daily bill before a cup pours · wage ${fmt(q.wage)} · pitch floor ${fmt(q.ops.pitch)} · bills ${fmt(q.ops.sundries + q.ops.power + q.ops.wifi)}${q.training ? ` · training ${fmt(q.training)}` : ''}${q.sampling ? ` · samples ${fmt(q.sampling)}` : ''}${q.marketing ? ` · street ${fmt(q.marketing)}` : ''}`,
+    `each cup — labour + supplies + power ${fmt(q.perCup)} · pitch takes ${(q.pitchPct * 100).toFixed(0)}% above the floor · cards ${(q.cardFeePct * 100).toFixed(1)}%`,
     exchange.contract
       ? `beans — contracted at ${exchange.contract.price.toFixed(2)} (${exchange.contract.units} cups left)`
       : `beans — board ${exchange.beanIndex.toFixed(2)} spot${q.contractFee ? ` · insure for ${fmt(q.contractFee)} on the tab` : ''}`,
@@ -3078,6 +3089,7 @@ function prepareDay(d) {
   patrons.markSeenOnly = softDay ? SOFT_CAST : null;
   if (softDay && d === 1) softRng = seeded(seedNow() + 101);
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; solicitorAt = 0;
+  wifiOutage = softDay ? null : planOutage(seedNow(), d);
   briefChoice = null;
   world.setMatchaPrice(priceForDay(d).toFixed(2), false);
   updateTicker();
@@ -3537,6 +3549,39 @@ function updateHUD() {
   updateVitals();
 }
 
+// ---- utilities: the wifi drop -------------------------------------------------------
+// Non-modal on purpose: the floor already pauses for the offer, incident and
+// evening call. The drop is announced once, lives on the vitals panel (with
+// the tether button), and costs whatever the player lets slip at the till.
+function wifiBeats() {
+  const st = outageStatus(wifiOutage, dayMin);
+  if (st === 'down' && !wifiOutage.announced) {
+    wifiOutage.announced = true;
+    fx.toast(`wifi’s down — the card reader can’t connect. Tether a phone (${fmt(CAMPAIGN.utilities.outage.tetherCost)}) on the panel, or lose card sales`, 'bad');
+    try { analytics.track('wifi_outage', { day, start: wifiOutage.start, end: wifiOutage.end }); } catch {}
+  }
+  if (st === 'restored' && !wifiOutage.restored) {
+    wifiOutage.restored = true;
+    if (wifiOutage.tethered) patrons.staffMul /= CAMPAIGN.utilities.outage.tetherStaffMul;
+    if (wifiOutage.announced) fx.toast('wifi’s back — the reader’s taking cards again', 'good');
+  }
+}
+function tetherWifi() {
+  if (phase !== 'trading' || outageStatus(wifiOutage, dayMin) !== 'down') return false;
+  const o = CAMPAIGN.utilities.outage;
+  const cost = o.tetherCost * perkCostMul;
+  wifiOutage.tethered = true;
+  wifiOutage.tetherCost = cost;
+  till -= cost;
+  patrons.staffMul *= o.tetherStaffMul;
+  markIntent();
+  fx.toast(`on Ruth’s phone hotspot (−${fmt(cost)}) — cards work, the reader lags`, 'good');
+  try { audio.clink(); } catch {}
+  try { analytics.track('wifi_tether', { day, at: dayMin }); } catch {}
+  lastHudText = 0;
+  return true;
+}
+
 // ---- running the stand (right-hand vitals) ----------------------------------------
 // Read-only view over state the sim already owns. Staffing reads the live flags
 // while trading and the staged plan at dawn, so the panel previews the choice.
@@ -3564,8 +3609,14 @@ function vitalsSnapshot() {
     beanIndex: exchange.beanIndex, matchaBean: exchange.costPerCup,
     flatwhitePrice: menuPrice('flatwhite', menuPrices), matchaPrice: salePrice(exchange, repriced),
     perkCostMul, ops, till, cogs, debt: exchange.debt,
+    wifi: outageStatus(wifiOutage, dayMin), wifiBack: wifiOutage ? wifiOutage.end : 0,
   };
 }
+// The panel's own buttons (the tether) — one delegated listener.
+$('vitals')?.addEventListener?.('click', e => {
+  const act = e.target?.closest?.('[data-act]')?.dataset.act;
+  if (act === 'tether') { tetherWifi(); updateVitals(); }
+});
 function updateVitals() {
   const panel = $('vitals');
   if (!panel) return;
@@ -3821,6 +3872,7 @@ function reset(coreOnly = false) {
   rushFast = false;
   party = null; batchWaste = 0; batchSpend = 0;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; solicitorCharge = 140; cOps = 0;
+  wifiOutage = null;
   rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day
   briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;
   greetedToday.clear();
@@ -4783,6 +4835,8 @@ function loop(now) {
     waveBatchServed, waveStockoutAt, batchReservedUntil: ctx.batchReservedUntil,
     awareness: demand ? demand.awareness : 0, ops: lastOps, demand, repriced, prebatched }),
   vitals: () => buildVitals(vitalsSnapshot()),
+  tetherWifi,
+  get wifiOutage() { return wifiOutage ? { ...wifiOutage, status: outageStatus(wifiOutage, dayMin) } : null; },
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
   vitality, director, district, kitBeat, mailT,

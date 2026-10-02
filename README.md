@@ -198,6 +198,7 @@ python3 -m grunds spatial     # launch the Three.js floor at localhost:8787
 node web/test/smoke.mjs              # headless day sim — scramble levers + the queue
 node web/test/coach.mjs              # day-1 inline coach: pause ownership, wave/low-stock gates
 node web/test/vitals.mjs             # "Running the Stand" panel: Ruth, beans, milk, cost basis, the nut, the tab
+node web/test/utilities.mjs          # power + wifi on the cost sheet; seeded wifi drop vs the tether
 node web/test/orientation.mjs        # first morning: context-first brief, guided opening, deferred economics
 node web/test/lever-state.mjs        # lever legality: reservation, late-switch fee, runtime orders
 node web/test/campaign.mjs           # 5-day campaign — the Gamble hedge + debt clock
