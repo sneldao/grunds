@@ -135,7 +135,7 @@ export class PatronSystem {
       torso, skin: new THREE.Color(SKIN[(Math.random() * SKIN.length) | 0]),
       legs: new THREE.Color(LEGS[(Math.random() * LEGS.length) | 0]),
       flash: 0, colorDirty: true, queueRef: null, slotI: -1, walking: true,
-      scale: 0.92 + Math.random() * 0.16,
+      scale: 0.84 + Math.random() * 0.32,
       regularName: null, regularIdx: -1, greeted: false,
       regularFriends: null,   // Set<string> of friend names, populated if named
       // Phase 1 — identity: roster regulars fill canon fields below;
@@ -151,6 +151,25 @@ export class PatronSystem {
       // down a 0.9s serve/balk reaction blended in update().
       op: 0, reactT: 0, reactKind: null,
     };
+    // Within the cohort, not across it: shirt value wobbles around the
+    // cohort color (hue stays), height is spread wider above, and a cohort
+    // that already lists a second prop sometimes carries that one. The hat
+    // roll above is the other per-person choice. Value and the spare prop
+    // reuse the phase and lane rolls spawn already took.
+    {
+      const hsl = { h: 0, s: 0, l: 0 };
+      p.torso.getHSL(hsl);
+      const roll = (p.phase / 6.28) % 1;
+      hsl.l = THREE.MathUtils.clamp(hsl.l + (roll - 0.5) * 0.16, 0.18, 0.62);
+      p.torso.setHSL(hsl.h, hsl.s, hsl.l);
+    }
+    if (p.ritualProps.length > 1) {
+      const roll = p.jz / 0.2 + 0.5;
+      if (roll >= 0.66) {
+        const alt = p.ritualProps[1];
+        p.ritualProps = [alt, p.ritualProps[0], ...p.ritualProps.slice(2)];
+      }
+    }
     let toRival = false;
     // Phase 4 — ceasefire Saturday: nobody crosses, neither way.
     if (zone === 'counter' && !this.truceCeasefire && this.rivalQ.length < 42) {

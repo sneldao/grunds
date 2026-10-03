@@ -99,6 +99,7 @@ director.add('vitalityGlow', (ctx) => {
   for (const bm of world.bulbMats) bm.emissiveIntensity *= warm;
   for (const lm of world.lampMats) lm.emissiveIntensity *= street;
   for (const sm of world.lampGlows) sm.opacity *= street;
+  for (const ll of world.lampLights) ll.intensity *= street;
   for (const wm of world.winMats) wm.emissiveIntensity *= street;
   world.signMat.emissiveIntensity *= street;
 });
