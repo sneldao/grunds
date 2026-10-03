@@ -52,5 +52,10 @@ test('Phase 5 · camera grammar names every shot', () => {
     assert.ok(SHOTS[k], `SHOTS must define ${k}`);
     assert.ok(Number.isFinite(SHOTS[k].r), `${k} carries a distance`);
   }
+  assert.equal(SHOTS.debrief.r, 11);
+  assert.equal(SHOTS.debrief.secs, 3.5);
   assert.ok(world.includes("shot(") || main.includes("rig.shot"), 'shots fire through the grammar');
+  const camera = readFileSync(resolve(root, 'web/js/camera.js'), 'utf8');
+  assert.match(camera, /const HOME = \{[^}]*r: 24/, 'idle/home radius should sit closer than 32');
+  assert.match(camera, /r: Math\.max\(18, r\)/, 'scripted focus still clamps inside the home radius');
 });
