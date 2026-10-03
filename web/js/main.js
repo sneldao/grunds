@@ -72,6 +72,9 @@ const sky = buildSky(scene);                          // shader sky dome owns th
 world.useSky = true; scene.background = null;
 const postfx = buildPostFX(renderer, scene, camera, { lite: lite || headless });
 const rig = new CameraRig(camera, renderer.domElement);
+// Chalkboard press: the existing shake helper, a short nudge. The board
+// scale lives in world.flashChalk; this only kicks the camera.
+world._chalkNudge = () => rig.shake(0.5);
 const audio = new AudioEngine();
 
 // ---- the connected campaign: the Gamble + the Regulars -----------------------
@@ -3659,6 +3662,7 @@ function doPrebatch(opts = {}) {
   audio.clink();
   world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced);
   world.flashChalk('batch');
+  try { fx.chalkDust(-5.5, 2.75, -7.95); audio.chalkScreech(); } catch {}
   rivalReact('prebatch');   // PR-B2 — Sam clocks the prep
   try { audio.clink(); } catch {}
   batchPulseUntil = performance.now() + 650;
