@@ -165,5 +165,25 @@ ok(/id="skiprush"/.test(index) && /function skipToRush/.test(main) && /skipping 
 ok(/id="floorstats"/.test(index), 'walked and poured cannot be hidden apart from the till');
 console.log('COPY    ECON owns £40/£4.20; receipt shows batch spend; waveRead is honest; evening hints residual demand');
 
+// 17) A lost 17:00 wave is felt. Win juice, verdict copy, and the evening
+// paper stay put. The unused debrief-card banner stays unused.
+const juice = main.match(/const win = read\.waveServed >= 30 && read\.ratio <= 0\.15;[\s\S]*?\} catch \{\}/);
+const block = juice ? juice[0] : '';
+ok(!!block, '17:00 wave juice block missing');
+ok(/if \(win\) audio\.waveFanfare\(read\.waveServed\); else audio\.waveRain\(read\.waveBalked\);/.test(block), 'win/loss audio split changed');
+ok(/if \(win && speed <= 300\) rig\.focus\(world\.focus\.counter, 11, 3\.5\);/.test(block), 'win camera beat changed');
+ok(/if \(win\) \{ fx\.coinRain/.test(block) && /if \(win\) fx\.victoryBurst\(read\.waveServed\)/.test(block), 'win coins or burst changed');
+ok(/if \(win\) world\.setPlantHealth\(Math\.max\(0, patrons\.queueLength - 2\)\);/.test(block), 'win plant nudge changed');
+ok(/navigator\.vibrate\(win \? \[20, 30, 50\] : \[40, 50, 80\]\)/.test(block), 'loss haptic is not [40, 50, 80]');
+ok(/else \{[\s\S]*?rig\.shake\(0\.55\)/.test(block), 'loss shake is not 0.55');
+ok(/else \{[\s\S]*?if \(speed <= 300\) rig\.focus\(world\.focus\.counter, 11, 3\.5\)/.test(block), 'loss does not hold the counter at a readable speed');
+ok(/else \{[\s\S]*?world\.setPlantHealth\(12\)/.test(block), 'loss does not wilt the plant to 12');
+ok(/queueMicrotask\(\(\) => \{ try \{ world\.setPlantHealth\(12\)/.test(block), 'loss wilt does not survive the same-tick HUD paint');
+ok(/rig\.shake\(0\.3\)/.test(main), '14:00 wave-start shake is no longer 0.3');
+ok(/No cups bought — the wave ate you\./.test(main), 'flop verdict copy changed');
+ok(!/fx\.debriefCard\(/.test(main), 'unused debriefCard banner was revived');
+ok(/queue <= 10 \? 0\.55 : 0\.18/.test(world), 'plant brown band is no longer queue > 10');
+console.log('FLOP    loss shakes 0.55, holds the counter, wilts to 12, buzzes [40, 50, 80]');
+
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
 console.log('\nPASS — game feel: bounded bubbles, clamped to screen, signed numbers, pause, letter keys, quiet badge');
