@@ -35,6 +35,10 @@ export class PatronSystem {
     this.random = random;
     this.apprenticeActive = false;
     this.staffMul = 1;   // <1 short-staffed — the bar spends fewer prep-points a tick
+    this.capacityMult = 1; // shock capacity, separate from staffMul / Ruth's condition
+    this.shockStaff = 0;   // extra hands from a merged shock; not a condition write
+    this.reach = 1;        // marketing reach — weights who crosses, and the wave that spawned them
+    this.cupQuality = 1;   // house-lot cup, 1 fresh; pulls the rival split
     this.balkMul = 1;    // >1 impatient floor — they walk sooner
     this._d = new THREE.Object3D();
     this._c = new THREE.Color();
@@ -159,6 +163,7 @@ export class PatronSystem {
       const pr = rivalChoiceProbability({
         strategy: this.rivalStrategy, cohort, ourPrice, op,
         ourQueue: this.queueLength, rivalQueue: this.rivalQ.length,
+        reach: this.reach ?? 1, cupQuality: this.cupQuality ?? 1,
       });
       if (this.random() < pr) toRival = true;
     }
@@ -260,7 +265,9 @@ export class PatronSystem {
     // Phase 3: points follow the drink (espresso fast, filter slow, matcha
     // slowest unless batched). Milky orders need milk stock (ctx.milkStock);
     // a dry bar loses the order to a balk, flagged once via ctx.milkOut.
-    let points = (ECON.barPoints + (this.skillPts || 0)) * (this.staffMul || 1), servedN = 0;
+    const staffed = (ECON.barPoints + (this.skillPts || 0)) * (this.staffMul || 1);
+    let points = (staffed + (this.shockStaff || 0)) * (this.capacityMult ?? 1);
+    let servedN = 0;
     for (let i = 0; i < this.counterQ.length && points > 0 && servedN < ECON.servePerTick;) {
       const p = this.counterQ[i];
       if (p.state !== 'inQueue') { i++; continue; }
@@ -290,9 +297,9 @@ export class PatronSystem {
       else cup = this.exchange ? this.exchange.purchaseCup(p.wantsMatcha ? 'matcha' : 'other') : { beanCost: 0, spotCost: 0, hedged: false };
       // Phase 3 — the ticket: matcha at the board price, everything else at
       // its menu price (staged in the Brief, committed at OPEN).
-      const ticket = dk === 'matcha'
+      const ticket = (dk === 'matcha'
         ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull)
-        : (ctx.menuPrices?.[dk] ?? ECON.other);
+        : (ctx.menuPrices?.[dk] ?? ECON.other)) * (ctx.priceMult || 1);
       ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: ticket, fromBatch, ...cup });
       // Phase 5 — the serve lands on camera: a 0.9s mood reaction.
       p.reactKind = 'serve'; p.reactT = 0.9;
@@ -353,9 +360,9 @@ export class PatronSystem {
         if (DRINKS[rdk]?.milk && ctx.milkStock != null) { ctx.milkStock--; ctx.milky = (ctx.milky || 0) + 1; }
         const regMatcha = rdk === 'matcha';
         const cup = this.exchange ? this.exchange.purchaseCup(regMatcha ? 'matcha' : 'other') : { beanCost: 0, spotCost: 0, hedged: false };
-        const regPrice = regMatcha
+        const regPrice = (regMatcha
           ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull)
-          : (ctx.menuPrices?.[rdk] ?? ECON.other);
+          : (ctx.menuPrices?.[rdk] ?? ECON.other)) * (ctx.priceMult || 1);
         ev.push({ type: 'served', p, isMatcha: regMatcha, price: regPrice, viaRegister: true, ...cup });
         if (Math.random() < 0.12) this._afterServe(p); else this._leave(p);
       } else i++;
@@ -734,7 +741,8 @@ export class PatronSystem {
   reset() {
     for (let i = this.patrons.length - 1; i >= 0; i--) this._despawn(this.patrons[i]);
     this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.rivalClock = 0; this.rivalCredit = 0; this.rivalChoices = 0;
-    this.staffMul = 1; this.balkMul = 1; this.dwellMul = 1;
+    this.staffMul = 1; this.capacityMult = 1; this.shockStaff = 0; this.reach = 1; this.cupQuality = 1;
+    this.balkMul = 1; this.dwellMul = 1;
     this.companionsToday = [];
   }
 }

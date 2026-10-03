@@ -14,12 +14,59 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 export const DEMAND_ACTIONS = ['sample', 'sponsor'];
 
+// Sticky satisfaction. 62 is the same neutral the return rate already uses.
+// Yesterday keeps 0.55, today writes 0.45. Milk-outs and long lines are
+// different weights on the way to that target.
+export const SAT_KEEP = 0.55;
+export const SAT_TODAY = 0.45;
+const ELASTIC_SLOPE = 0.6;
+const ELASTIC_LO = 0.6;
+const ELASTIC_HI = 1.25;
+
+// Neighborhood price where the street is neither scared off nor pulled in:
+// our opening board and the rival's balanced price, averaged.
+export function streetAnchor() {
+  return (CAMPAIGN.drift.priceFloor + CAMPAIGN.rivalStrategies.DEFAULT.price) / 2;
+}
+
+// Shared price level grows or shrinks the pool. A gap is not required —
+// both cafes expensive is a smaller street.
+export function priceElasticity(ourPrice, rivalPrice, anchor = streetAnchor()) {
+  const base = anchor > 0 ? anchor : 1;
+  const avg = ((Number(ourPrice) || base) + (Number(rivalPrice) || base)) / 2;
+  return clamp(1 - (avg / base - 1) * ELASTIC_SLOPE, ELASTIC_LO, ELASTIC_HI);
+}
+
+// Marketing reach. Sample and sponsor multiply. 1 when the dawn bought neither.
+export function marketingReach(staged = {}) {
+  const d = CAMPAIGN.demand;
+  let reach = 1;
+  if (staged.sample) reach *= d.sampleReach;
+  if (staged.sponsor) reach *= d.sponsorReach;
+  return reach;
+}
+
+export function satisfactionTarget({ priceLevel = 1, cupQuality = 1, queueAway = 0, milkAway = 0 } = {}) {
+  const quality = clamp(cupQuality, 0, 1.5) * 100;
+  return 64
+    + (quality - 60) * 0.5
+    - (priceLevel - 1) * 50
+    - Math.max(0, queueAway) * 40
+    - Math.max(0, milkAway) * 70;
+}
+
+export function blendSatisfaction(previous, target) {
+  const prev = Number.isFinite(previous) ? previous : 62;
+  return clamp(prev * SAT_KEEP + target * SAT_TODAY, 0, 100);
+}
+
 export class Demand {
   constructor() {
     this.reset();
   }
   reset() {
     this.awareness = CAMPAIGN.demand.start;
+    this.satisfaction = 62;
     this.staged = { sample: false, sponsor: false };
     this.todayReturnees = 0;
     this.lastReturnRate = 0;
@@ -50,14 +97,31 @@ export class Demand {
     return true;
   }
   // Close-of-day: decay awareness (catastrophes scare extra), land the
-  // staged dawn actions on *tomorrow's* awareness, and count returnees from
-  // today's served × loyalty. Phase 1: extraReturnees adds evangelist
-  // word-of-mouth (each evangelist serve brings +2 back). Returns the trace
-  // for the receipt/analytics.
-  resolveDay({ served, reputation, eventTier, extraReturnees = 0 }) {
+  // staged dawn actions on *tomorrow's* awareness, and count returnees.
+  // When the walkout mix is passed, satisfaction blends yesterday with today
+  // and tomorrow's return rate reads that stock. Otherwise the rate still
+  // reads reputation (62 neutral). Phase 1: extraReturnees adds evangelist
+  // word-of-mouth (each evangelist serve brings +2 back).
+  resolveDay({ served, reputation, eventTier, extraReturnees = 0, priceLevel, cupQuality: quality, queueBalks, milkBalks, attracted }) {
     const d = CAMPAIGN.demand;
     const before = this.awareness;
-    const rate = Demand.returnRateFor(reputation);
+    const satOn = priceLevel != null || quality != null || queueBalks != null || milkBalks != null || attracted != null;
+    let satTrace = null;
+    if (satOn) {
+      const attr = Math.max(0, attracted ?? ((served || 0) + (queueBalks || 0) + (milkBalks || 0)));
+      const queueAway = attr > 0 ? Math.max(0, queueBalks || 0) / attr : 0;
+      const milkAway = attr > 0 ? Math.max(0, milkBalks || 0) / attr : 0;
+      const target = satisfactionTarget({
+        priceLevel: priceLevel ?? 1,
+        cupQuality: quality ?? 1,
+        queueAway,
+        milkAway,
+      });
+      const prev = this.satisfaction;
+      this.satisfaction = blendSatisfaction(prev, target);
+      satTrace = { before: prev, after: this.satisfaction, target, attracted: attr, queueAway, milkAway };
+    }
+    const rate = Demand.returnRateFor(satTrace ? this.satisfaction : reputation);
     this.lastReturnRate = rate;
     this.todayReturnees = Math.max(0, Math.round(served * rate)) + Math.max(0, Math.floor(extraReturnees));
     let decay = d.decay;
@@ -68,7 +132,7 @@ export class Demand {
     this.awareness = clamp(before - decay + gain, 0, 1);
     const staged = { ...this.staged };
     this.staged = { sample: false, sponsor: false };
-    return { before, after: this.awareness, decay, gain, staged, returnees: this.todayReturnees, returnRate: rate };
+    return { before, after: this.awareness, decay, gain, staged, returnees: this.todayReturnees, returnRate: rate, satisfaction: this.satisfaction, sat: satTrace };
   }
   // Awareness pips for the HUD tape: ●●●○○.
   pips() {

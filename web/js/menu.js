@@ -44,6 +44,18 @@ export function menuPrice(id, prices) {
   return prices?.[id] ?? DRINKS[id]?.base ?? 0;
 }
 
+// Mean of charged price / base. 1 is the posted menu. Matcha may be the
+// live board (or a deal); the other drinks read the menu.
+export function ticketLevel(prices, matchaPrice) {
+  let sum = 0;
+  for (const id of DRINK_IDS) {
+    const base = DRINKS[id].base;
+    const price = id === 'matcha' ? (matchaPrice ?? base) : (prices?.[id] ?? base);
+    sum += base > 0 ? price / base : 1;
+  }
+  return sum / DRINK_IDS.length;
+}
+
 // rollDrink(cohort, offered, rng) — weighted pick among offered drinks.
 // offered is {id: bool}; matcha is always offered (the Brief forbids 86ing
 // it), but the roller honors the set regardless — no special cases.

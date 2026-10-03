@@ -26,9 +26,10 @@ import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD } from './consequences.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
 import { portraitCanvas } from './portrait.js';
-import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
-import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate } from './menu.js';
-import { Demand, DEMAND_ACTIONS } from './demand.js';
+import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
+import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel } from './menu.js';
+import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity } from './demand.js';
+import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu } from './shocks.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay, modifiersForDay, wavesForDay, getMacroShockForDay, calculateNonLinearDrift, MACRO_SHOCKS } from './gentrification.js';
 import { strategyForDay } from './rival.js';
@@ -352,7 +353,8 @@ let staleNoted = new Set();
 let menuPrices = basePrices();
 let menuOffered = Object.fromEntries(DRINK_IDS.map(id => [id, true]));
 let stagedMenu = null, stagedRoast = 3;
-let milkDelivery = 0, lastMilky = 0, milkTipped = 0, milkToastDone = false;
+let milkDelivery = 0, lastMilky = 0, milkTipped = 0, milkToastDone = false, milkBalked = 0;
+let shockCounter = null, stagedCounterable = null, shockDemandMul = 1, shockPulledFlat = false;
 let compostToday = 0;
 let trainingTotal = 0, ruthSkill = 0;
 // first-timers = walk-ins the Regulars graph doesn't know (regularIdx < 0).
@@ -620,7 +622,7 @@ function showWavePowered(ttlMs = 7000) {
   el.textContent = '';
   el.classList.remove('show');
 }
-const ctx = { prebatched: false, repriced: false, batchUnits: 0, batchReservedUntil: 0, milkStock: 0, milky: 0, milkOut: false, menuPrices };
+const ctx = { prebatched: false, repriced: false, batchUnits: 0, batchReservedUntil: 0, milkStock: 0, milky: 0, milkOut: false, menuPrices, priceMult: 1 };
 const WALK_MUL = { 60: 1, 300: 3, 1200: 6 };
 // settle window: day 1, first 12 sim-min feel uncrowded even after the sim starts
 const CALM_UNTIL_MIN = DAY_START + 12;
@@ -652,12 +654,20 @@ function tick() {
       if (x.dataset.s === '1200') x.disabled = phase === 'trading' && dayMin >= 840 && dayMin < 1020;
     });
   }
-  // spawn the wave — day-1 mornings are half-demand so newcomers can read the floor
+  // spawn the wave — day-1 mornings are half-demand so newcomers can read the floor.
+  // Reach enlarges the street and, on the patron, weights the rival split.
+  // Price elasticity grows or shrinks the pool from the level of both cafes.
+  const ourStreetPrice = salePrice(exchange, repriced) * (ctx.priceMult || 1);
+  const rivalStreetPrice = (CAMPAIGN.rivalStrategies[rivalStrategy] || CAMPAIGN.rivalStrategies.DEFAULT).price;
+  const elasticity = priceElasticity(ourStreetPrice, rivalStreetPrice);
+  const reach = marketingReach(demand.staged) * (shockDemandMul || 1);
+  patrons.reach = reach;
+  patrons.cupQuality = currentCupQuality();
   while (waveIdx < dayWaves.length && dayWaves[waveIdx].t < dayMin) {
     const w = dayWaves[waveIdx++];
     const morningCalm = (day === 1 && w.t < 600) ? 0.52 : 1;
     const settleThin = (day === 1 && dayMin < CALM_UNTIL_MIN) ? 0.5 : 1;
-    const mul = (exchange.event?.demand || 1) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1) * (samTruce && day === 5 ? 0.92 : 1);
+    const mul = (exchange.event?.demand || 1) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1) * (samTruce && day === 5 ? 0.92 : 1) * elasticity * reach;
     // loyalty made visible: yesterday's served × return rate reappear,
     // spread evenly so the wave keeps its shape and just runs deeper
     const returnBonus = demand.todayReturnees > 0 && dayWaves.length
@@ -788,6 +798,7 @@ function tick() {
       audio.clink();
     } else if (e.type === 'balked') {
       balked++; balks++;
+      if (e.milkOut) milkBalked++;
       // Phase 1 — a walk-out sours a walk-in (roster balks already flow
       // through resolveDay's served/balked counters).
       if (e.p && e.p.pid && e.p.regularIdx < 0) walkins.recordVisit(e.p.pid, { day, outcome: 'balked' });
@@ -1146,7 +1157,15 @@ function closeDay() {
   lastPour = pouredOther;
   // Phase 4 — advice ignored: the rumour warned, the player rode naked.
   if (exchange.event?.id === 'rumour_frost' && !exchange.contract) ignoredAdvice++;
-  const dtrace = demand.resolveDay({ served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier, extraReturnees: womReturnees(evangelistServes) });
+  const dtrace = demand.resolveDay({
+    served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier,
+    extraReturnees: womReturnees(evangelistServes),
+    priceLevel: ticketLevel(menuPrices, salePrice(exchange, repriced) * (ctx.priceMult || 1)),
+    cupQuality: currentCupQuality(),
+    queueBalks: Math.max(0, balked - milkBalked),
+    milkBalks: milkBalked,
+    attracted: servedN + balked,
+  });
   vitality.recompute();   // the evening settles on the block's true mood
   try { analytics.track('demand_resolved', { day, ...dtrace }); } catch {}
   // gentrification pressure first: cohort expectations drift by `day * delta`.
@@ -1646,6 +1665,7 @@ function applyCommittedPlan(res) {
   applyLots();
   // Phase 3 — commit staged menu prices + 86 board.
   applyMenu();
+  applyDawnShock();
   try { modals.close('brief'); } catch {}
   {
     const toolsNow = toolsToday || briefTools();
@@ -2317,6 +2337,60 @@ function applyMenu() {
   ctx.menuPrices = menuPrices;
   patrons.menuOffered = menuOffered;
   stagedMenu = null;
+}
+
+function currentCupQuality() {
+  const id = lotState.house;
+  const e = lotState.entry(id);
+  if (!e) return 1;
+  return cupQuality(lotState.age(id, day), roastQuality(id, e.roast ?? 3), !!e.scorched);
+}
+
+// One counter merges with the day's baseline before anyone reads the milk.
+// Capacity, extra hands, and price/reach multipliers land on their own knobs.
+// Ruth's condition is only echoed so a shock cannot overwrite it.
+function applyDawnShock() {
+  const staged = stagedCounterable;
+  const id = staged?.id || (day === COUNTERABLE.dairy_crunch.day ? 'dairy_crunch' : null);
+  let counter = staged ? staged.counter : shockCounter;
+  if (!counter && id === 'dairy_crunch' && counterForMenu(menuOffered)) counter = 'shrink';
+  stagedCounterable = null;
+  shockCounter = null;
+  const effect = id ? resolveShock(id, counter) : {};
+  const knobs = shockKnobs(effect, baristaCondition);
+  if (id) ctx.milkStock = applyInventory(ctx.milkStock, effect);
+  if (knobs.shrinkMilky && menuOffered.flatwhite !== false) {
+    menuOffered.flatwhite = false;
+    shockPulledFlat = true;
+    patrons.menuOffered = menuOffered;
+    try {
+      world.setMenu?.({
+        prices: { ...menuPrices, matcha: Number(salePrice(exchange, false)) },
+        offered: { ...menuOffered },
+        matchaStruck: !!repriced,
+      });
+    } catch {}
+  }
+  patrons.capacityMult = knobs.capacityMult;
+  patrons.shockStaff = knobs.shockStaff;
+  ctx.priceMult = knobs.priceMult;
+  shockDemandMul = knobs.demandMult;
+  if (knobs.cost) till -= knobs.cost;
+  if (knobs.rep) regulars.adjustOpinions(repToOpinion(knobs.rep));
+}
+
+function stageShockCounter(id) {
+  if (id != null && id !== 'replace' && id !== 'shrink') return false;
+  shockCounter = id || null;
+  return true;
+}
+
+function stageCounterable(id, counter = null) {
+  const hit = COUNTERABLE[id];
+  if (!hit) return false;
+  if (counter != null && !hit.counters[counter]) return false;
+  stagedCounterable = { id, counter };
+  return true;
 }
 
 // PR-B2 — Sam's reactive answer to a player move. Toast + nudge.
@@ -2998,6 +3072,12 @@ function prepareDay(d) {
   if (d !== exchange.day + 1 || d < 1 || d > CAMPAIGN.days) return false;
   phase = 'planning';
   day = d;
+  if (shockPulledFlat) { menuOffered.flatwhite = true; shockPulledFlat = false; patrons.menuOffered = menuOffered; }
+  shockCounter = null;
+  stagedCounterable = null;
+  shockDemandMul = 1;
+  ctx.priceMult = 1;
+  milkBalked = 0;
   // default: hold (free) — the Brief never forces a debt, but it forces a choice
   planDraft = { day: d, hedge: 'hold', staffing: 'work', marketing: {} };
   if (d === 1) kitPendingAtOpen = !district.grown;   // the kit is an event only if it grows during play
@@ -3894,7 +3974,8 @@ function reset(coreOnly = false) {
   patrons.menuOffered = menuOffered;
   stagedMenu = null; stagedRoast = 3;
   toolsToday = null;
-  milkDelivery = 0; lastMilky = 0; milkTipped = 0; milkToastDone = false;
+  milkDelivery = 0; lastMilky = 0; milkTipped = 0; milkToastDone = false; milkBalked = 0;
+  shockCounter = null; stagedCounterable = null; shockDemandMul = 1; shockPulledFlat = false; ctx.priceMult = 1;
   compostToday = 0; trainingTotal = 0; ruthSkill = 0;
   phase = 'onboarding';
   coach = null; coachHold = false; coachHide(); tutorialActive = false;
@@ -4831,7 +4912,8 @@ function loop(now) {
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, cRev, cCost, cOps, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null, rushFast, eveningFast,
     staffCondition: baristaCondition, staffing: planDraft ? planDraft.staffing : 'work', rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
     trainingSpend, sampleSpend, feeToday, interestToday, settleToday, marketingSpend,
-    milkDelivery, milkStock: ctx.milkStock, milky: ctx.milky, milkOut: ctx.milkOut,
+    milkDelivery, milkStock: ctx.milkStock, milky: ctx.milky, milkOut: ctx.milkOut, milkBalked,
+    satisfaction: demand ? demand.satisfaction : 62,
     waveBatchServed, waveStockoutAt, batchReservedUntil: ctx.batchReservedUntil,
     awareness: demand ? demand.awareness : 0, ops: lastOps, demand, repriced, prebatched }),
   vitals: () => buildVitals(vitalsSnapshot()),
@@ -4842,6 +4924,7 @@ function loop(now) {
   vitality, director, district, kitBeat, mailT,
   openDay, applyReply, reset, togglePause, resolveEvening, skipToRush,
   prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
+  stageShockCounter, stageCounterable,
   doPrebatch, doReprice,
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
   moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key), enqueue: (t, k, d = {}) => momentEnqueue(t, k, d) },
