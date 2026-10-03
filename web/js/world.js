@@ -37,7 +37,7 @@ function plane(parent, w, h, material, x, y, z, o = {}) {
 // squash (x and y stay locked) and not a new clip system.
 const CHALK_HIT_MS = 320;
 export function chalkPopScale(u) {
-  const POP = 0.62;
+  const POP = 1.05;
   if (u <= 0) return 1 + POP;
   if (u >= 1) return 1;
   let amp;
@@ -231,19 +231,22 @@ export function buildWorld(scene, renderer, lite) {
     // desaturate briefly so the flash reads as chalk, not just glow
     if (!W._chalkT0) W._chalkRough = W.menuMat.roughness;
     W.menuMat.roughness = 0.45;
-    W._chalkT0 = performance.now();
+    // Armed, not started. The first painted frame begins the clock so a
+    // hitch between the click and the next draw cannot skip the strike.
+    W._chalkT0 = -1;
     if (W._chalkPlane) W._chalkPlane.scale.setScalar(chalkPopScale(0));
     try { W._chalkNudge?.(); } catch {}
     if (W._chalkReset) clearTimeout(W._chalkReset);
     // The frame loop settles the board. This only catches a stalled loop.
     W._chalkReset = setTimeout(() => {
-      if (!W._chalkT0 || performance.now() - W._chalkT0 < CHALK_HIT_MS) return;
+      if (!W._chalkT0) return;
+      if (W._chalkT0 > 0 && performance.now() - W._chalkT0 < CHALK_HIT_MS) return;
       W._chalkT0 = 0;
       if (W._chalkPlane) W._chalkPlane.scale.setScalar(1);
       if (!W.menuMat) return;
       W.menuMat.emissiveIntensity = 0;
       if (W._chalkRough != null) W.menuMat.roughness = W._chalkRough;
-    }, CHALK_HIT_MS + 40);
+    }, CHALK_HIT_MS + 80);
   };
   W._chalkPlane = plane(cafe, 3.6, 2.7, W.menuMat, -5.5, 2.75, -7.95);
   for (const sy of [1.9, 2.5]) {
@@ -882,6 +885,7 @@ export function buildWorld(scene, renderer, lite) {
     // chalkboard strike — same clock as the till. Peaks on the press,
     // wobbles home, and is back at rest inside CHALK_HIT_MS.
     if (W._chalkT0 && W.menuMat) {
+      if (W._chalkT0 < 0) W._chalkT0 = now;
       const u = (now - W._chalkT0) / CHALK_HIT_MS;
       if (u >= 1) {
         W._chalkT0 = 0;

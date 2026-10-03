@@ -74,7 +74,7 @@ const postfx = buildPostFX(renderer, scene, camera, { lite: lite || headless });
 const rig = new CameraRig(camera, renderer.domElement);
 // Chalkboard press: the existing shake helper, a short nudge. The board
 // scale lives in world.flashChalk; this only kicks the camera.
-world._chalkNudge = () => rig.shake(0.5);
+world._chalkNudge = () => rig.shake(0.85);
 const audio = new AudioEngine();
 
 // ---- the connected campaign: the Gamble + the Regulars -----------------------

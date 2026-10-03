@@ -16,7 +16,7 @@ if (!fn) throw new Error('chalkPopScale missing');
 const chalkPopScale = new Function('u', fn[1]);
 
 test('chalk pop is a hard uniform wobble that rests', () => {
-  assert.ok(chalkPopScale(0) >= 1.5, 'strike is still the old 1.02 twitch');
+  assert.ok(chalkPopScale(0) >= 2, 'strike is still too small to read from the idle camera');
   assert.equal(chalkPopScale(0), chalkPopScale(0.2), 'strike should hold long enough to read');
   assert.ok(chalkPopScale(0.7) < 1, 'wobble dips back through rest');
   assert.ok(chalkPopScale(0.7) > 0.9, 'dip is a wobble, not a collapse');
@@ -27,6 +27,8 @@ test('chalk pop is a hard uniform wobble that rests', () => {
 test('flashChalk drives that wobble and does not linger', () => {
   assert.equal((worldSrc.match(/setScalar\(1\.02\)/g) || []).length, 0);
   assert.match(worldSrc, /CHALK_HIT_MS = 320/);
+  assert.match(worldSrc, /W\._chalkT0 = -1/);
+  assert.match(worldSrc, /if \(W\._chalkT0 < 0\) W\._chalkT0 = now/);
   assert.match(worldSrc, /chalkPopScale\(u\)/);
   assert.match(worldSrc, /W\._chalkPlane\.scale\.setScalar\(1\)/);
   const hit = worldSrc.slice(worldSrc.indexOf('W.flashChalk'), worldSrc.indexOf('W._chalkPlane = plane'));
@@ -34,7 +36,7 @@ test('flashChalk drives that wobble and does not linger', () => {
 });
 
 test('press uses the existing shake, dust, and screech', () => {
-  assert.match(mainSrc, /world\._chalkNudge = \(\) => rig\.shake\(0\.5\)/);
+  assert.match(mainSrc, /world\._chalkNudge = \(\) => rig\.shake\(0\.85\)/);
   assert.match(worldSrc, /W\._chalkNudge\?\.\(\)/);
   for (const kind of ['batch', 'reprice']) {
     const i = mainSrc.indexOf(`world.flashChalk('${kind}')`);
