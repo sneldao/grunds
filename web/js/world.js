@@ -200,11 +200,6 @@ export function buildWorld(scene, renderer, lite) {
     const prevRough = W.menuMat.roughness;
     W.menuMat.roughness = 0.45;
     setTimeout(() => { W.menuMat.emissiveIntensity = 0; W.menuMat.roughness = prevRough; }, 650);
-    // tiny board wobble via scale pulse
-    if (W._chalkPlane) {
-      W._chalkPlane.scale.setScalar(1.02);
-      setTimeout(() => W._chalkPlane.scale.setScalar(1), 120);
-    }
   };
   W._chalkPlane = plane(cafe, 3.6, 2.7, W.menuMat, -5.5, 2.75, -7.95);
   for (const sy of [1.9, 2.5]) {

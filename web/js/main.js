@@ -17,6 +17,7 @@ import { buildKitBeat } from './kitArrival.js';
 import { PatronSystem } from './patrons.js';
 import { FX } from './fx.js';
 import { CameraRig } from './camera.js';
+import { createImpact } from './impact.js';
 import { AudioEngine } from './audio.js';
 import { Exchange, seeded } from './exchange.js';
 import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } from './economy.js';
@@ -72,6 +73,7 @@ const sky = buildSky(scene);                          // shader sky dome owns th
 world.useSky = true; scene.background = null;
 const postfx = buildPostFX(renderer, scene, camera, { lite: lite || headless });
 const rig = new CameraRig(camera, renderer.domElement);
+const impact = createImpact({ reduced: reducedMotion, holdClock: !headless });
 const audio = new AudioEngine();
 
 // ---- the connected campaign: the Gamble + the Regulars -----------------------
@@ -786,6 +788,7 @@ function tick() {
       if (e.p && e.p.partyMember && party && !party.declined) party.served++;
       if (dayMin >= 840 && dayMin <= 1020) { waveServed++; if (e.fromBatch) waveBatchServed++; }
       audio.clink();
+      if (e.p) feel({ patron: e.p, part: 'cup' });
     } else if (e.type === 'balked') {
       balked++; balks++;
       // Phase 1 — a walk-out sours a walk-in (roster balks already flow
@@ -799,6 +802,7 @@ function tick() {
       if (e.p && e.p.partyMember && party && !party.declined) party.walked++;
       if (dayMin >= 840 && dayMin <= 1020) { waveBalked++; if (prebatched) prebatchHelped = false; }
       audio.balk();
+      if (e.p) feel({ patron: e.p, part: 'torso' });
       fx.huff(e.p.pos.x, 1.5, e.p.pos.z);
       try { if (navigator.vibrate) navigator.vibrate(35); } catch {}
       // analytics: every balk is a teaching moment — day-1 balks are the signal
@@ -986,6 +990,7 @@ function beats() {
     if (waveN > 0 && !headless) {
       const win = read.waveServed >= 30 && read.ratio <= 0.15;
       try {
+        feel({ object: win ? world.tillDrawer : world._chalkPlane, always: true });
         if (win) audio.waveFanfare(read.waveServed); else audio.waveRain(read.waveBalked);
         if (win && speed <= 300) rig.focus(world.focus.counter, 11, 3.5);
         if (win) { fx.coinRain(LAYOUT.register.x, 1.5, -5.2, Math.min(22, 10 + Math.round(read.waveServed / 10))); }
@@ -3659,6 +3664,7 @@ function doPrebatch(opts = {}) {
   audio.clink();
   world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced);
   world.flashChalk('batch');
+  feel({ object: world._chalkPlane, always: true });
   rivalReact('prebatch');   // PR-B2 — Sam clocks the prep
   try { audio.clink(); } catch {}
   batchPulseUntil = performance.now() + 650;
@@ -3698,6 +3704,7 @@ function doReprice(opts = {}) {
   repriced = true; ctx.repriced = true; patrons.repriced = true;
   world.setMatchaPrice(ECON.matchaDeal.toFixed(2), true);
   world.flashChalk('reprice');
+  feel({ object: world._chalkPlane, always: true });
   try { fx.chalkDust(-5.5, 2.75, -7.95); audio.chalkScreech(); } catch {}
   fx.notebook(false);
   fx.toast(`matcha is ${fmt(ECON.matchaDeal)} for the rest of today — prep is locked` + (opts.asPlanned ? ' · as planned in the brief' : ''), 'good');
@@ -4743,11 +4750,28 @@ function momentScan() {
 
 // ---- loop ---------------------------------------------------------------------------
 let acc = 0, last = performance.now();
+let frameNow = 0;
 let _slowFrames = 0, _liteSwitched = false;
+// 1× serves and balks hold the clock. Chalkboard presses and the wave
+// verdict always do — one beat, not every service minute. 5×/20× and the
+// evening/rush fast-forwards still squash the cup; they do not hitch.
+// Reduced motion is inside impact.
+function feel(opts = {}) {
+  const clock = !!opts.always || (speed <= 60 && !eveningFast && !rushFast);
+  impact.strike(frameNow / 1000, {
+    object: opts.object || null,
+    patron: opts.patron || null,
+    part: opts.part || null,
+    stop: clock,
+    fov: clock,
+  });
+}
 function loop(now) {
   // re-arm first so a nested RAF inside the frame (loader fade) never steals the slot
   requestAnimationFrame(loop);
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  frameNow = now;
+  const nowSec = now / 1000;
   // dynamic lite fallback: 3 slow frames (>32ms) → kill shadows/bloom
   if (!headless && !_liteSwitched && !lite && dt > 0.032) {
     _slowFrames++;
@@ -4770,20 +4794,20 @@ function loop(now) {
   const movePerTick = quietNow || (headless && moveTickTest);
   let ticked = 0;
   if (started && !closed && !paused && !tutorialActive && schedule && phase === 'trading') {
-    acc += dt * 1000;
+    acc += dt * 1000 * impact.dtScale(nowSec);
     const msPerMin = 300 / (effSpeed / 60);
-    while (acc > msPerMin && phase === 'trading' && !paused && !closed) {
+    while (acc > msPerMin && phase === 'trading' && !paused && !closed && impact.dtScale(nowSec) > 0) {
       acc -= msPerMin;
       if (movePerTick) patrons.update(300 / (speed / 60) / 1000, WALK_MUL[speed] || 2, now);
       tick(); ticked++;
     }
     // After the evening call the rest of the day resolves in a short burst
     // instead of another stretch of watching.
-    if (eveningFast) {
+    if (eveningFast && impact.dtScale(nowSec) > 0) {
       let burst = 10;
       while (burst-- && phase === 'trading' && !paused && !closed) tick();
     }
-    if (rushFast) {
+    if (rushFast && impact.dtScale(nowSec) > 0) {
       let burst = 12;
       while (burst-- && phase === 'trading' && !paused && !closed && dayMin < 840) tick();
       if (dayMin >= 840) rushFast = false;
@@ -4797,12 +4821,15 @@ function loop(now) {
   mailT.update(dt, now);
   try { world.manageCutaway?.(camera.position, document.body.classList.contains('photo') ? 'photo' : rig.mode); } catch {}
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
-  if (!(movePerTick && ticked)) patrons.update(dt, WALK_MUL[speed] || 2, now);
+  if (impact.dtScale(nowSec) === 0) patrons.update(0, WALK_MUL[speed] || 2, now);
+  else if (!(movePerTick && ticked)) patrons.update(dt, WALK_MUL[speed] || 2, now);
   world.updateRival(dt, now);
   try { world.updateCat(dt, patrons.queueLength); world._updateDelight(now, dt); } catch {}
   fx.steamFrom(dt);
   fx.update(dt, camera, now);
+  impact.update(nowSec);
   rig.update(dt, now);
+  rig.setFovOffset(impact.fovDelta(nowSec));
   // idle guidance: after 4.5s of no intent, point at the nextAction target
   if (halo) {
     let show = false;
@@ -4839,7 +4866,7 @@ function loop(now) {
   get wifiOutage() { return wifiOutage ? { ...wifiOutage, status: outageStatus(wifiOutage, dayMin) } : null; },
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
   exc: exchange, reg: regulars, sync, world, rig, analytics,
-  vitality, director, district, kitBeat, mailT,
+  vitality, director, district, kitBeat, mailT, impact,
   openDay, applyReply, reset, togglePause, resolveEvening, skipToRush,
   prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
   doPrebatch, doReprice,
