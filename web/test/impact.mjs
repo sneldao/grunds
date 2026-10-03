@@ -25,25 +25,24 @@ function mesh(x = 1, y = 1, z = 1) {
   };
 }
 
-test('squash preserves volume, then returns to identity', () => {
+test('squash preserves volume, peaks on the hit, then returns to identity', () => {
   const rest = squashAxes(-0.01);
   assert.deepEqual(rest, { x: 1, y: 1, z: 1 });
   assert.equal(squashAxes(SQUASH_SEC), rest);
-  const mid = squashAxes(SQUASH_SEC * 0.28);
-  assert.ok(mid.y < 1, 'vertical axis squashes');
-  assert.ok(mid.x > 1 && mid.z > 1, 'the other axes widen');
-  assert.ok(Math.abs(mid.x * mid.y * mid.z - 1) < 1e-9, 'x * y * z stays 1');
-  const early = squashAxes(SQUASH_SEC * 0.05);
-  assert.ok(early.y < 1 && early.y > mid.y, 'squash eases in');
+  const hit = squashAxes(0);
+  const later = squashAxes(SQUASH_SEC * 0.5);
+  assert.ok(hit.y < later.y && later.y < 1, 'full squash on impact, then recover');
+  assert.ok(hit.x > 1 && hit.z > 1, 'the other axes widen');
+  assert.ok(Math.abs(hit.x * hit.y * hit.z - 1) < 1e-9, 'x * y * z stays 1');
 });
 
-test('FOV kick leaves home and is back when hitstop ends', () => {
-  assert.equal(fovKick(0), 0);
+test('FOV kick is immediate and home when hitstop ends', () => {
+  assert.equal(fovKick(-0.01), 0);
   assert.equal(fovKick(FOV_SEC), 0);
   assert.equal(FOV_SEC, HITSTOP_SEC);
-  const peak = fovKick(FOV_SEC / 2);
-  assert.ok(peak < -1, 'the punch narrows fov');
-  assert.ok(Math.abs(fovKick(FOV_SEC * 0.25) - peak / Math.SQRT2) < 1e-9);
+  const peak = fovKick(0);
+  assert.ok(peak < -1, 'the punch narrows fov on the hit frame');
+  assert.ok(fovKick(FOV_SEC / 2) < 0 && fovKick(FOV_SEC / 2) > peak);
 });
 
 test('a hit holds gameplay for a few frames, then the clock and the view return', () => {

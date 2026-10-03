@@ -20,35 +20,28 @@ export const FOV_SEC = HITSTOP_SEC;
 
 const ID = Object.freeze({ x: 1, y: 1, z: 1 });
 
-// True at the rest pose: before the hit, and once the envelope is over.
-function resting(t, dur) {
-  return !(t > 1e-4) || t >= dur - 1e-4;
-}
-// Finished only. t = 0 is the start of a hit, not a reason to drop it.
+// Finished only. t = 0 is the impact, not a reason to drop the hit.
 // The slop absorbs binary time (10 + 0.2 - 10 < 0.2).
 function over(t, dur) {
   return t >= dur - 1e-4;
 }
 
-// t seconds since the hit. Identity at the ends; vertical squash in
-// between, widened on X/Z so x*y*z stays 1.
+// t seconds since the hit. Full squash on the impact frame, then a cosine
+// recover to identity. X/Z widen so x*y*z stays 1.
 export function squashAxes(t, dur = SQUASH_SEC, minY = SQUASH_MIN_Y) {
-  if (resting(t, dur)) return ID;
-  const u = t / dur;
-  const attack = 0.28;
-  const k = u < attack
-    ? Math.sin((u / attack) * Math.PI / 2)
-    : Math.cos(((u - attack) / (1 - attack)) * Math.PI / 2);
+  if (!(t >= 0) || over(t, dur)) return ID;
+  const k = Math.cos((t / dur) * Math.PI / 2);
   const y = 1 + (minY - 1) * k;
   const xz = 1 / Math.sqrt(y);
   return { x: xz, y, z: xz };
 }
 
-// Degrees added to the base FOV. Starts at 0, kicks in, and is 0 again
-// when the hitstop window ends.
+// Degrees added to the base FOV. Full kick on the impact frame, home
+// again when the hitstop window ends.
 export function fovKick(t, dur = FOV_SEC, mag = FOV_KICK) {
-  if (resting(t, dur)) return 0;
-  return -mag * Math.sin((t / dur) * Math.PI);
+  if (!(t >= 0) || over(t, dur)) return 0;
+  const k = Math.cos((t / dur) * Math.PI / 2);
+  return k === 0 ? 0 : -mag * k;
 }
 
 // Per-patron object squash (the served cup, or the balker's torso).
