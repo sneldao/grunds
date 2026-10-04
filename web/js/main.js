@@ -50,6 +50,7 @@ import { createModalController } from './modals.js';
 import { buildAutopsy, turningPoint } from './autopsy.js';
 import { buildVitals, renderVitals } from './vitals.js';
 import { planOutage, outageStatus, wifiCardLoss } from './utilities.js';
+import { MorningLoan, loanAmount, caseRevenue, quoteClose, CASE_COST } from './stockLoan.js';
 
 const urlParams = new URLSearchParams(location.search);
 const _liteFlag = urlParams.has('lite');
@@ -357,6 +358,11 @@ let womPids = new Set();
 // (dawn sacks on Idris's credit). The Idris Gesha hold is cash too but rides
 // beanSpend alone — never sackSpend — so the two halves don't sum to the whole.
 let selectedLot = 'huila', topUpCups = 0, beanSpend = 0, emergencySpend = 0, sackSpend = 0;
+// Morning stock loan — a lump beside the tab, not a replacement for it.
+const loan = new MorningLoan();
+let stagedLoan = 0, stagedCases = 0, caseUnits = 0, caseRevenueToday = 0;
+let loanLotCover = 0, loanSponsorCover = 0, loanCashCap = null, closeTillOverride = null;
+let loanClaim = null, menuHeld = null, salesTillForOps = null;
 let pouredOther = 0, lastPour = 0, dawnIndex = 1.0;
 let pouredByLotToday = {}, servedByDrinkToday = {};
 let companionsYesterday = [];
@@ -1187,6 +1193,34 @@ function resolveEvening(choice) {
   eveningFast = true;
 }
 
+// Case revenue lands, then the lender is paid from the till, then pitch
+// is quoted on what remains. The tab is not drawn ahead of the loan.
+function settleStockLoanAtClose() {
+  if (closeTillOverride != null) {
+    till = closeTillOverride;
+    closeTillOverride = null;
+  }
+  if (caseUnits > 0 && !loan.seized) {
+    caseRevenueToday = caseRevenue(caseUnits * CASE_COST);
+    till += caseRevenueToday;
+    caseUnits = 0;
+  } else caseRevenueToday = 0;
+  const realTill = Math.max(0, till);
+  const offer = loanCashCap == null ? realTill : Math.min(realTill, Math.max(0, loanCashCap));
+  loanCashCap = null;
+  loanClaim = quoteClose({
+    till: realTill,
+    cash: offer,
+    balance: loan.balance,
+    pitchMin: CAMPAIGN.pitchMin + (dayMods.pitchMinDelta || 0),
+    pitchPct: CAMPAIGN.pitchPct + (dayMods.pitchPctDelta || 0),
+  });
+  loan.settle(offer, { weekEnd: day >= CAMPAIGN.days });
+  // A skipped morning (nothing paid) must leave the till bit-for-bit.
+  if (loanClaim.loanPaid > 0) till = loanClaim.tillAfterLoan;
+  salesTillForOps = realTill;
+}
+
 function closeDay() {
   if (closed || phase !== 'trading') return;
   closed = true;
@@ -1203,6 +1237,9 @@ function closeDay() {
   pastryWaste = Math.max(0, ctx.pastryStock | 0);
   pastryWasteCost = Math.round(pastryWaste * PASTRY.cogs * 100) / 100;
   if (pastryWasteCost) till -= pastryWasteCost;
+  // The case sells through into the till, then the lender is paid, and only
+  // then is the day's revenue booked. Pitch (below) sees the till after that.
+  settleStockLoanAtClose();
   cRev += till; cBalked += balked; cServed += served + servedRetail; cDef += defections;
   cRivalServed += rivalServed; cRivalChoices += patrons.rivalChoices;   // PR-B1 — accumulate rival week tally
   lastDayStats = { sold: served + servedRetail, balked, defections, rivalServed, rivalChoices: patrons.rivalChoices };   // the Brief reads these at dawn — PR-B1 adds rival data
@@ -1303,13 +1340,19 @@ function closeDay() {
     fx.toast(`Ruth’s levelling up — +${ruthSkill} bar point${ruthSkill > 1 ? 's' : ''}, and she cups the sour shots`, 'good');
   }
   const ops = operatingCosts({
-    till, served: servedN,
+    till: salesTillForOps == null ? till : salesTillForOps, served: servedN,
     staffing: robotShift ? 'robot' : ruthWasHome ? 'home' : hiredApprentice ? 'apprentice' : 'work',
     marketing: marketingSpend,   // the sponsor invoice arrives with the milk bill
     training: trainingSpend, sampling: sampleSpend,
     maintenance: maintenanceBill,
     perkCostMul, modifiers: dayMods,
   });
+  // Loan repayment left the till first, so the pitch floor (and the turnover
+  // top-up) are worked out on what remains. Card fees stay on the sales.
+  if (loanClaim && loanClaim.loanPaid > 0) {
+    ops.total += loanClaim.pitch - ops.pitch;
+    ops.pitch = loanClaim.pitch;
+  }
   lastOps = ops;
   marketingSpend = 0;
   cOps += ops.total;
@@ -1444,6 +1487,9 @@ function closeDay() {
       ['staff', fmt(ops.staff)],
       ...(ops.maintenance > 0 ? [['call-out', fmt(ops.maintenance)]] : []),
       ['milk + cups' + (dayMods.suppliesDelta ? ' (incl. oat surcharge)' : ''), fmt(ops.supplies)],
+      ...(loanClaim && loanClaim.due > 0
+        ? [[loanClaim.loanUnpaid > 0 ? 'loan unpaid' : 'loan due', fmt(loanClaim.loanUnpaid > 0 ? loanClaim.loanUnpaid : loanClaim.due)]]
+        : []),
       ['pitch rent' + (dayMods.pitchMinDelta ? ' (incl. reval)' : ''), fmt(ops.pitch)], ['card fees', fmt(ops.fees)],
       ['electricity', fmt(ops.power)], ['wifi', fmt(ops.wifi)],
       ...(wifiOutage && wifiOutage.tethered ? [['phone hotspot (outage)', `−${fmt(wifiOutage.tetherCost)} from the till`]] : []),
@@ -1756,8 +1802,9 @@ function applyCommittedPlan(res) {
   baristaStaged = false;
   // Street work lands here too — staged at dawn, paid today, felt tomorrow.
   // Sampling burns cups out of today's COGS; sponsoring invoices the ops sheet.
+  fundMorningLoan(res.plan);
   if (res.plan.marketing.sample) { sampleSpend += CAMPAIGN.demand.sampleCost; fx.toast(`Sampling today — ${fmt(CAMPAIGN.demand.sampleCost)} in cups for the street`, ''); }
-  if (res.plan.marketing.sponsor) { marketingSpend += CAMPAIGN.demand.sponsorCost; fx.toast(`Stall sponsored — ${fmt(CAMPAIGN.demand.sponsorCost)} on the sheet, the street hears`, 'good'); }
+  if (res.plan.marketing.sponsor) { marketingSpend += Math.max(0, CAMPAIGN.demand.sponsorCost - loanSponsorCover); fx.toast(`Stall sponsored — ${fmt(CAMPAIGN.demand.sponsorCost)} on the sheet, the street hears`, 'good'); }
   if (baristaHomeToday) fx.toast('Ruth’s off — you’re solo on the bar today', 'warn');
   else if (apprenticeHiredToday) {
     trainingSpend += (CAMPAIGN.staff?.apprenticeTrainingFee || 12);
@@ -1778,6 +1825,7 @@ function applyCommittedPlan(res) {
   applyMenu();
   applyDawnShock();
   try { modals.close('brief'); } catch {}
+  applySeizureBoard();
   {
     const toolsNow = toolsToday || briefTools();
     for (const t of [toolsNow.newToday, ...(toolsNow.essentialNew || [])].filter(Boolean)) {
@@ -1974,7 +2022,7 @@ function renderPrepSection() {
   const wrap = $('brief-prep'); if (!wrap) return;
   clearEl(wrap);
   wrap.style.display = '';
-  if (day === 1) { renderFirstDayChoices(wrap); renderPastryCut(wrap); renderShockCounter(wrap); return; }
+  if (day === 1) { renderFirstDayChoices(wrap); renderPastryCut(wrap); renderShockCounter(wrap); appendLoanLine(wrap); return; }
 
   const lab = document.createElement('div');
   lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
@@ -2050,6 +2098,88 @@ function renderPrepSection() {
   wrap.appendChild(pillRow);
   renderPastryCut(wrap);
   renderShockCounter(wrap);
+  appendLoanLine(wrap);
+}
+
+// One line in the prep block: borrow a step, or skip. Not a new panel.
+function appendLoanLine(wrap) {
+  if (!wrap || softDay) return;
+  const line = document.createElement('div');
+  line.id = 'brief-loan';
+  line.textContent = stagedLoan > 0 ? `borrow £${stagedLoan} or skip` : 'borrow or skip';
+  line.style.cssText = 'font-size:11px;margin-top:6px;cursor:pointer';
+  line.onclick = () => {
+    if (phase !== 'planning') return;
+    const steps = [0, 400, 800, 1200, 1600];
+    const i = Math.max(0, steps.indexOf(stagedLoan));
+    stagedLoan = steps[(i + 1) % steps.length];
+    renderPrepSection();
+  };
+  wrap.appendChild(line);
+}
+
+function stageLoan(amount) {
+  if (phase !== 'planning') return false;
+  const n = loanAmount(amount);
+  if (n == null) return false;
+  stagedLoan = n;
+  return true;
+}
+
+function stageCase(n) {
+  if (phase !== 'planning' || loan.seized) return false;
+  const cases = Math.floor(n);
+  if (!Number.isFinite(cases) || cases < 0) return false;
+  const cost = cases * CASE_COST;
+  if (cost > 1600) return false;
+  stagedCases = cases;
+  return true;
+}
+
+function fundMorningLoan(plan) {
+  if (stagedLoan > 0) loan.borrow(stagedLoan);
+  else loan.skip();
+  caseUnits = 0;
+  if (stagedCases > 0) {
+    const got = loan.spend('case', stagedCases * CASE_COST);
+    caseUnits = Math.floor((got.spent || 0) / CASE_COST);
+  }
+  loanLotCover = 0;
+  if (topUpCups > 0) {
+    const fr = fundedRestock(selectedLot, topUpCups);
+    loanLotCover = loan.spend('lot', fr.cost).spent || 0;
+  }
+  loanSponsorCover = 0;
+  if (plan && plan.marketing && plan.marketing.sponsor) {
+    loanSponsorCover = loan.spend('sponsor', CAMPAIGN.demand.sponsorCost).spent || 0;
+  }
+  loan.open();
+  stagedLoan = 0;
+  stagedCases = 0;
+}
+
+// While the supplier is holding the next delivery: no milk van, no case,
+// and the board is beans and water until the lump is cleared.
+function applySeizureBoard() {
+  if (!loan.seized) {
+    if (menuHeld) {
+      Object.assign(menuOffered, menuHeld);
+      menuHeld = null;
+      patrons.menuOffered = menuOffered;
+      if (stagedMenu) stagedMenu.offered = { ...menuOffered };
+    }
+    return;
+  }
+  if (!menuHeld) menuHeld = { ...menuOffered };
+  for (const id of DRINK_IDS) menuOffered[id] = DRINKS[id].milk === false;
+  patrons.menuOffered = menuOffered;
+  if (stagedMenu) {
+    for (const id of DRINK_IDS) stagedMenu.offered[id] = menuOffered[id];
+  }
+  milkDelivery = 0;
+  ctx.milkStock = 0;
+  pastryOnOrder = 0;
+  ctx.pastryStock = null;
 }
 
 function renderFirstDayChoices(wrap) {
@@ -2400,7 +2530,12 @@ function applyLots() {
   // remaining stock, cascades, then the bone-dry emergency sack at 1.5×
   // spot per cup (till-paid, the teeth). Broke weeks bleed per cup.
   const st = lotState.entry(selectedLot);
-  if (!st || st.unlocked === false) { topUpCups = 0; return; }
+  if (!st || st.unlocked === false) {
+    topUpCups = 0;
+    if (loanLotCover > 0) loan.refund(loanLotCover);
+    loanLotCover = 0;
+    return;
+  }
   let hedgedUnits = 0;
   if (exchange.contract && exchange.contract.units > 0) {
     hedgedUnits = Math.min(topUpCups, exchange.contract.units);
@@ -2411,24 +2546,38 @@ function applyLots() {
   // matcha-only). beanSpend is receipt-only.
   const fr = fundedRestock(selectedLot, topUpCups);
   const unitPrice = fr.unitPrice;
-  if (fr.room <= 0) { topUpCups = 0; return; }
+  if (fr.room <= 0) {
+    topUpCups = 0;
+    if (loanLotCover > 0) loan.refund(loanLotCover);
+    loanLotCover = 0;
+    return;
+  }
   if (fr.cups < fr.room) {
     topUpCups = fr.cups;
     if (topUpCups <= 0) {
+      if (loanLotCover > 0) loan.refund(loanLotCover);
+      loanLotCover = 0;
       fx.toast('tab’s maxed — no sack today. The bar pours what’s left.', 'warn');
       return;
     }
     fx.toast(`tab’s tight — Idris carries ${topUpCups} cups, no more`, 'warn');
   }
   const { cost, cups } = lotState.buy(selectedLot, topUpCups, unitPrice, day, { hedgedUnits });
-  exchange.debt += cost;
-  beanSpend += cost; sackSpend += cost;
+  const cover = Math.min(loanLotCover, cost);
+  if (loanLotCover - cover > 0.001) loan.refund(loanLotCover - cover);
+  const onTab = cost - cover;
+  loanLotCover = 0;
+  exchange.debt += onTab;
+  beanSpend += cost; sackSpend += onTab;
   // Consume only the cover actually poured into the sack.
   if (hedgedUnits > 0 && exchange.contract) {
     exchange.contract.units -= Math.min(cups, hedgedUnits);
     if (exchange.contract.units <= 0) exchange.contract = null;
   }
-  fx.toast(`stocked ${cups} ${LOT_CATALOG[selectedLot].name} · ${fmt(cost)} on the tab${hedgedUnits > 0 ? ' (contract cover)' : ''}`, 'good');
+  const funded = cover > 0
+    ? (onTab > 0 ? `${fmt(cover)} from the morning loan, ${fmt(onTab)} on the tab` : `${fmt(cost)} from the morning loan`)
+    : `${fmt(cost)} on the tab`;
+  fx.toast(`stocked ${cups} ${LOT_CATALOG[selectedLot].name} · ${funded}${hedgedUnits > 0 ? ' (contract cover)' : ''}`, 'good');
   topUpCups = 0;
 }
 
@@ -3378,6 +3527,9 @@ function prepareDay(d) {
   marketingSpend = 0; trainingSpend = 0; sampleSpend = 0; lastOps = null;
   feeToday = 0; interestToday = 0; settleToday = 0;
   maintenanceBill = 0; tipsForgoneToday = 0;
+  loan.beginMorning();
+  stagedLoan = 0; stagedCases = 0; caseRevenueToday = 0;
+  loanLotCover = 0; loanSponsorCover = 0; salesTillForOps = null;
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   demand.staged.sample = false; demand.staged.sponsor = false;
   dayMods = modifiersForDay(d);
@@ -3407,6 +3559,7 @@ function prepareDay(d) {
   pastrySpend = 0;
   pastryWaste = 0;
   pastryWasteCost = 0;
+  applySeizureBoard();
   patrons.skillPts = ruthSkill;
   patrons.menuOffered = menuOffered;
   patrons.menuPrices = menuPrices;
@@ -4257,6 +4410,9 @@ function reset(coreOnly = false) {
   samGrudge = { cuts: 0, preps: 0, snubs: 0 }; samTruce = false; truceShown = false;
   // Phase 2 — the cellar rewinds with the campaign (fresh starter sacks).
   lotState.reset(); selectedLot = 'huila'; topUpCups = 0; beanSpend = 0; emergencySpend = 0; sackSpend = 0;
+  loan.reset(); stagedLoan = 0; stagedCases = 0; caseUnits = 0; caseRevenueToday = 0;
+  loanLotCover = 0; loanSponsorCover = 0; loanCashCap = null; closeTillOverride = null;
+  loanClaim = null; menuHeld = null; salesTillForOps = null;
   pouredOther = 0; lastPour = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set();
   pouredByLotToday = {}; servedByDrinkToday = {}; toolsIntroducedToday = [];
   // Phase 3 — menu, milk, skill rewind too.
@@ -5231,6 +5387,9 @@ function loop(now) {
   stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count, phase, hedgedCups, hedgeSavings: realizedHedgeSavings, batchUnits: ctx.batchUnits, batchSpend, batchWaste,
     turnaways, rivalTurnaways: patrons.turnaways || 0,
     emergencyCups, beanSpend, emergencySpend, sackSpend, houseLot: lotState.house, houseStock: lotState.entry(lotState.house)?.stock ?? 0,
+    caseRevenue: caseRevenueToday, caseUnits,
+    loan: { balance: loan.balance, missedCloses: loan.missedCloses, seized: loan.seized, returned: loan.returnedToday, due: loan.dueToday, paid: loan.paidToday, unpaid: loan.unpaidToday, purse: loan.purse },
+    board: loan.seized ? 'beans and water' : 'menu',
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, cRev, cCost, cOps, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null, rushFast, eveningFast,
     staffCondition: baristaCondition, staffing: onRobotHire() ? 'robot' : (planDraft ? planDraft.staffing : 'work'), rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
     weekHire, hireLocked, quietCarry, apprentice: apprenticeHiredToday, maintenance: maintenanceBill, tipsForgone: tipsForgoneToday, staffMul: patrons.staffMul, tipMul: regulars.tipMul,
@@ -5289,7 +5448,7 @@ function loop(now) {
   },
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
   moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key), enqueue: (t, k, d = {}) => momentEnqueue(t, k, d) },
-  stageCellar,
+  stageCellar, stageLoan, stageCase,
   patrons, barStaff, modals, openDossier, showIncident, showLicence,
   renderBrief() { if (phase === 'planning') { if (softDay) showSoftIntro(0); else showMorningBrief(); } },
   get phase() { return phase; },
@@ -5310,7 +5469,7 @@ function loop(now) {
     }) : null;
   },
   get paused() { return paused; },
-  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci, pace: pc, moments: mo, moveTick: mt, softOpening: so, tutorial: tu, quietCarry: qc } = {}) => {
+  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci, pace: pc, moments: mo, moveTick: mt, softOpening: so, tutorial: tu, quietCarry: qc, loanCash: lc, closeTill: ct } = {}) => {
     if (typeof c === 'number') baristaCondition = c;
     if (typeof qc === 'number') quietCarry = qc;
     if (tu !== undefined) wantTutorial = !!tu;
@@ -5325,6 +5484,8 @@ function loop(now) {
     }
     if (Array.isArray(ci)) { curriculumMemory = new Set(ci); }
     if (ci === null) curriculumMemory = new Set();
+    if (lc !== undefined) loanCashCap = lc === null ? null : lc;
+    if (ct !== undefined) closeTillOverride = ct === null ? null : ct;
   } } : {}),
   get curriculum() {
     return {
