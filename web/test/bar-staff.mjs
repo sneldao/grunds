@@ -39,6 +39,7 @@ test('the stand is behind the counter, not in the queue', () => {
   const stand = barStand();
   const backEdge = C.z - C.d / 2;
   assert.ok(stand.z < backEdge, `z ${stand.z} should be behind the bar at ${backEdge}`);
+  assert.ok(stand.y >= 0.7, 'lifted so the shoulders clear the bar');
   assert.ok(stand.z > -7.7, 'still in front of the back wall');
   assert.ok(Math.abs(stand.x - C.x) < C.w / 2, 'along the bar, not off to the side');
   assert.ok(stand.z < -4, 'not in the customer queue');
@@ -47,6 +48,7 @@ test('the stand is behind the counter, not in the queue', () => {
 test('work shows Ruth, apprentice swaps the figure, home clears the spot', () => {
   const staff = buildBarStaff({ add() {} });
   assert.equal(staff.mode, 'work');
+  assert.equal(staff.root.position.y, barStand().y);
   assert.equal(staff.root.visible, true);
   assert.equal(staff.parts.hat.visible, true);
   assert.equal('#' + staff.parts.torso.material.color.getHexString(), avatarSpec('ruth', 'commuters').clothing);

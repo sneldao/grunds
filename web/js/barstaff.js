@@ -23,17 +23,22 @@ export function barStaffSpec(mode) {
   return { mode, seed: who.seed, cohort: who.cohort, ...avatarSpec(who.seed, who.cohort) };
 }
 
+// The play camera looks across a bar whose top is about 1.1. Stood on the
+// floor, only the scalp clears it. This lift puts the shoulders and the
+// pour above the bar. The feet stay in the well behind the counter.
+const BAR_LIFT = 0.82;
+
 // Feet behind the counter, facing the room. Not in the queue.
 export function barStand() {
   const C = LAYOUT.counter;
-  return { x: -7.4, z: C.z - C.d / 2 - 0.62, face: 0 };
+  return { x: -7.4, y: BAR_LIFT, z: C.z - C.d / 2 - 0.62, face: 0 };
 }
 
 export function buildBarStaff(scene) {
   const stand = barStand();
   const root = new THREE.Group();
   root.name = 'bar-staff';
-  root.position.set(stand.x, 0, stand.z);
+  root.position.set(stand.x, stand.y, stand.z);
   root.rotation.y = stand.face;
   scene.add(root);
 
