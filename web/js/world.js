@@ -705,6 +705,57 @@ export function buildWorld(scene, renderer, lite) {
     fruit(PAL.cream, 0.15, 0.98, fz - 0.18, 0.1);
   })();
 
+  // ---- past the far curb: a park apron and a tree line -----------------------
+  // The city slab ends just behind the shops. A matcha lawn runs from that
+  // edge out into the fog so the ground does not stop as a hard cut, and a
+  // low planted ridge closes the empty horizon. Same greens as the awning
+  // and the matcha token — no new hues.
+  const park = new THREE.Group(); scene.add(park);
+  const grassTex = (() => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+    const pg = c.getContext('2d');
+    pg.fillStyle = '#86a860'; pg.fillRect(0, 0, 256, 256);
+    pg.fillStyle = '#2f4f43';
+    for (let i = 0; i < 640; i++) pg.fillRect((i * 47) % 256, (i * 89) % 256, 2 + (i % 3), 2 + (i % 2));
+    pg.fillStyle = 'rgba(246,239,224,.22)';
+    for (let i = 0; i < 180; i++) pg.fillRect((i * 113) % 256, (i * 61) % 256, 1, 2);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(22, 18); t.anisotropy = 8;
+    return t;
+  })();
+  const grassMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.97, metalness: 0 });
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(96, 90), grassMat);
+  lawn.rotation.x = -Math.PI / 2; lawn.position.set(0, 0.04, 63.95); lawn.receiveShadow = true; park.add(lawn);
+  const moundMat = mat(PAL.matcha, { rough: 0.96 });
+  const shrubMat = mat(PAL.awning, { rough: 0.95 });
+  function mound(x, z, sx, sy, sz) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), moundMat);
+    m.scale.set(sx, sy, sz); m.position.set(x, sy * 0.28, z);
+    m.receiveShadow = true; park.add(m);
+  }
+  [-28, -20, -12, -4, 4, 12, 20, 28].forEach((x, i) => mound(x, 23.2 + (i % 2) * 0.7, 5.4, 0.52 + (i % 3) * 0.08, 2.6));
+  function parkTree(x, z, h, lean) {
+    cyl(park, 0.07, 0.11, h * 0.5, PAL.walnut, x, h * 0.25, z);
+    const crown = new THREE.Mesh(new THREE.SphereGeometry(h * 0.36, 9, 7), shrubMat);
+    crown.position.set(x, h * 0.58, z); crown.castShadow = true; park.add(crown);
+    const puff = new THREE.Mesh(new THREE.SphereGeometry(h * 0.24, 8, 6), moundMat);
+    puff.position.set(x + 0.28 * lean, h * 0.86, z - 0.1); puff.castShadow = true; park.add(puff);
+  }
+  for (const [x, z, h, lean] of [
+    [-27, 28.4, 4.4, -1], [-22, 31.2, 5.6, 1], [-17.2, 27.5, 3.9, -1],
+    [-12.4, 30.8, 6.1, 1], [-7.2, 27.9, 4.6, -1], [-2.2, 31.5, 5.5, 1],
+    [2.8, 27.7, 4.2, -1], [7.6, 31.0, 5.9, 1], [12.4, 28.1, 4.5, -1],
+    [17.2, 31.3, 6.0, 1], [22.2, 28.3, 4.3, -1], [27, 30.6, 5.3, 1],
+  ]) parkTree(x, z, h, lean);
+  for (const [x, z, r] of [
+    [-24.5, 25.1, 0.85], [-15, 24.3, 0.7], [-9.5, 25.5, 0.95], [-4.6, 24.5, 0.65],
+    [0.4, 25.3, 0.8], [5.2, 24.4, 0.72], [10, 25.4, 0.9], [15.4, 24.5, 0.75],
+    [20.5, 25.2, 0.85], [25.5, 24.3, 0.62],
+  ]) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), shrubMat);
+    s.position.set(x, r * 0.72, z); s.castShadow = true; park.add(s);
+  }
+
 
   // ---- the commodity ticker: the floorplan is the chart, Extended ------------
   // curb + bollards along the pavement edge — micro detail that sells scale
