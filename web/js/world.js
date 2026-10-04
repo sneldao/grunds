@@ -51,7 +51,11 @@ export function buildWorld(scene, renderer, lite) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   scene.background = new THREE.Color(0x26304d);
-  scene.fog = new THREE.Fog(0x1f2740, 32, 92);
+  // Steam off a cup, not a grey void. Pale cream at open, paper through the
+  // day, honey brass by close. The near distance stays clear so the shops
+  // and the tree line read; the lawn behind them falls off inside the haze,
+  // and the park's far edge is gone before the sky.
+  scene.fog = new THREE.Fog(PAL.cream, 36, 68);
 
   // ---- lights -------------------------------------------------------------
   const hemi = new THREE.HemisphereLight(0xc8d8ea, 0x4a3f32, 0.42); scene.add(hemi);
@@ -916,15 +920,15 @@ export function buildWorld(scene, renderer, lite) {
   // ---- time-of-day director ---------------------------------------------------
   // t = minutes since midnight. Light tells the story of the day.
   const K = [
-    { t: 360,  elev: 5,  azim: 15,  sun: 0x8fa3c8, sunI: 0.22, hemiI: 0.28, sky: 0x26304d, fog: 0x1f2740, pend: 1.0,  street: 1 },
-    { t: 410,  elev: 10, azim: 22,  sun: 0xffc27d, sunI: 1.05, hemiI: 0.42, sky: 0xd9a06b, fog: 0xc08e6a, pend: 0.85, street: 0.5 },
-    { t: 500,  elev: 26, azim: 45,  sun: 0xffe9c4, sunI: 1.25, hemiI: 0.55, sky: 0xbcd3e0, fog: 0xb6c4cf, pend: 0.4,  street: 0 },
-    { t: 720,  elev: 55, azim: 90,  sun: 0xfff4e0, sunI: 1.35, hemiI: 0.65, sky: 0xcfe2ea, fog: 0xc3d2da, pend: 0.25, street: 0 },
-    { t: 960,  elev: 40, azim: 125, sun: 0xffedc8, sunI: 1.2,  hemiI: 0.6,  sky: 0xcfdde4, fog: 0xc6cfd4, pend: 0.3,  street: 0 },
-    { t: 1080, elev: 16, azim: 155, sun: 0xffb45e, sunI: 1.0,  hemiI: 0.5,  sky: 0xe0b07a, fog: 0xd09e72, pend: 0.55, street: 0.25 },
-    { t: 1150, elev: 5,  azim: 168, sun: 0xff8a52, sunI: 0.45, hemiI: 0.38, sky: 0x7a6a8a, fog: 0x5e5470, pend: 0.95, street: 0.85 },
-    { t: 1210, elev: 1,  azim: 175, sun: 0x8a9cc8, sunI: 0.15, hemiI: 0.3,  sky: 0x2e3a5c, fog: 0x232c48, pend: 1.1,  street: 1 },
-    { t: 1260, elev: -5, azim: 180, sun: 0x7788bb, sunI: 0.08, hemiI: 0.26, sky: 0x1c2440, fog: 0x161d33, pend: 1.15, street: 1 },
+    { t: 360,  elev: 5,  azim: 15,  sun: 0x8fa3c8, sunI: 0.22, hemiI: 0.28, sky: 0x26304d, fog: PAL.cream, pend: 1.0,  street: 1 },
+    { t: 410,  elev: 10, azim: 22,  sun: 0xffc27d, sunI: 1.05, hemiI: 0.42, sky: 0xd9a06b, fog: PAL.cream, pend: 0.85, street: 0.5 },
+    { t: 500,  elev: 26, azim: 45,  sun: 0xffe9c4, sunI: 1.25, hemiI: 0.55, sky: 0xbcd3e0, fog: PAL.paper, pend: 0.4,  street: 0 },
+    { t: 720,  elev: 55, azim: 90,  sun: 0xfff4e0, sunI: 1.35, hemiI: 0.65, sky: 0xcfe2ea, fog: PAL.paper, pend: 0.25, street: 0 },
+    { t: 960,  elev: 40, azim: 125, sun: 0xffedc8, sunI: 1.2,  hemiI: 0.6,  sky: 0xcfdde4, fog: PAL.paper, pend: 0.3,  street: 0 },
+    { t: 1080, elev: 16, azim: 155, sun: 0xffb45e, sunI: 1.0,  hemiI: 0.5,  sky: 0xe0b07a, fog: PAL.brass, pend: 0.55, street: 0.25 },
+    { t: 1150, elev: 5,  azim: 168, sun: 0xff8a52, sunI: 0.45, hemiI: 0.38, sky: 0x7a6a8a, fog: PAL.brass, pend: 0.95, street: 0.85 },
+    { t: 1210, elev: 1,  azim: 175, sun: 0x8a9cc8, sunI: 0.15, hemiI: 0.3,  sky: 0x2e3a5c, fog: PAL.brass, pend: 1.1,  street: 1 },
+    { t: 1260, elev: -5, azim: 180, sun: 0x7788bb, sunI: 0.08, hemiI: 0.26, sky: 0x1c2440, fog: PAL.brass, pend: 1.15, street: 1 },
   ].map(k => ({ ...k, sunC: new THREE.Color(k.sun), skyC: new THREE.Color(k.sky), fogC: new THREE.Color(k.fog) }));
 
   // delight updaters called from main loop (till slide with shadow stretch)
