@@ -579,86 +579,131 @@ export function buildWorld(scene, renderer, lite) {
     W.cTarpMatR.opacity = on ? 1.0 : 0.0;
   };
 
-  // ---- the district: a street of facades + a far skyline ---------------------
-  // Lit windows are emissive-map quads that glow at night (time-of-day drives them).
+  // ---- the far side: a short row of named shopfronts --------------------------
+  // Replaces the repeated facade blocks and the blank skyline cubes. Four
+  // shops, each a different silhouette, signs facing the road. Same plaster,
+  // walnut, brass, and canvas-sign language as the café. GLASSHOUSE stays
+  // where it is, in the gap. Window glass still joins W.winMats so dusk
+  // lights them with the rest of the street.
   W.winMats = [];
-  function facade(col, wcol) {
-    const c = document.createElement('canvas'); c.width = 512; c.height = 512;
-    const g = c.getContext('2d');
-    // brick base — two-tone bricks + mortar
-    g.fillStyle = col; g.fillRect(0, 0, 512, 512);
-    const mortar = 'rgba(32,28,26,.55)';
-    const brickH = 24, brickW = 64, rows = 20, cols = 8;
-    for (let r = 0; r < rows; r++) {
-      const off = (r % 2) * (brickW / 2);
-      const y = r * (brickH + 2);
-      for (let ci = 0; ci < cols; ci++) {
-        const x = ci * brickW - off;
-        const shade = ((ci * 37 + r * 53) % 20) - 10;
-        const rr = parseInt(col.slice(1, 3), 16) + shade, gg = parseInt(col.slice(3, 5), 16) + shade, bb = parseInt(col.slice(5, 7), 16) + shade;
-        g.fillStyle = `rgb(${rr},${gg},${bb})`; g.fillRect(x + 1, y + 1, brickW - 3, brickH - 2);
-        // brick highlight top edge + shadow bottom
-        g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(x + 1, y + 1, brickW - 3, 2);
-        g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(x + 1, y + brickH - 2, brickW - 3, 2);
-      }
-      g.fillStyle = mortar; g.fillRect(0, y + brickH - 2, 512, 2);
-    }
-    // micro grain over brick
-    g.fillStyle = 'rgba(0,0,0,.04)'; for (let i = 0; i < 900; i++) g.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
-    // windows cut into the brick — with white frame + sill shadow
-    const c2 = document.createElement('canvas'); c2.width = 512; c2.height = 512;
-    const g2 = c2.getContext('2d'); g2.fillStyle = '#000'; g2.fillRect(0, 0, 512, 512);
-    const wCols = 6, wRows = 9, wx0 = 30, wy0 = 28, ww = 52, wh = 36, xg = 68, yg = 52;
-    for (let r = 0; r < wRows; r++) for (let ci = 0; ci < wCols; ci++) {
-      const x = wx0 + ci * xg, y = wy0 + r * yg;
-      const lit = Math.random() < 0.46;
-      // window recess shadow
-      g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(x + 2, y + 2, ww + 2, wh + 2);
-      // white frame
-      g.fillStyle = '#e8e0d0'; g.fillRect(x, y, ww, wh);
-      // glass inset
-      g.fillStyle = lit ? wcol : 'rgba(22,26,34,.92)'; g.fillRect(x + 3, y + 3, ww - 6, wh - 6);
-      // glass specular streak
-      if (lit) { g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(x + 5, y + 5, ww - 24, 4); }
-      // sill shadow under window
-      g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(x - 1, y + wh, ww + 2, 4);
-      // emissive map — only lit glass glows
-      if (lit) { g2.fillStyle = wcol; g2.fillRect(x + 3, y + 3, ww - 6, wh - 6); }
-    }
-    // cornice shadow at top
-    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, 0, 512, 10);
-    const tF = new THREE.CanvasTexture(c); tF.colorSpace = THREE.SRGBColorSpace; tF.wrapS = tF.wrapT = THREE.RepeatWrapping;
-    const tE = new THREE.CanvasTexture(c2); tE.colorSpace = THREE.SRGBColorSpace; tE.wrapS = tE.wrapT = THREE.RepeatWrapping; tE.repeat.copy(tF.repeat);
-    const m = new THREE.MeshStandardMaterial({ map: tF, emissive: 0xffd089, emissiveMap: tE, emissiveIntensity: 0, roughness: 0.88, metalness: 0.01 });
-    W.winMats.push(m); return m;
+  const winMat = new THREE.MeshStandardMaterial({ color: 0xffe7b0, emissive: 0xffd089, emissiveIntensity: 0, roughness: 0.28, metalness: 0.05 });
+  W.winMats.push(winMat);
+  const far = new THREE.Group(); scene.add(far);
+  // Front faces sit on the far pavement (world z = frontZ). Local -z points
+  // at the road, same as the rival's sign.
+  function shopGroup(x, depth, frontZ) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, frontZ + depth / 2);
+    far.add(g);
+    return g;
   }
-  const blocks = [
-    { x: -10, z: 19, w: 7, h: 9, d: 6, col: '#54514a', wc: '#ffe7b0' },
-    { x: 11, z: 19.5, w: 8, h: 11, d: 6, col: '#4a4e54', wc: '#ffd089' },
-    { x: -16, z: 20, w: 6, h: 7, d: 5, col: '#5a4a3a', wc: '#fff0c0' },
-    { x: 17, z: 20.5, w: 6, h: 8, d: 5, col: '#494d50', wc: '#ffe0a0' },
-  ];
-  for (const b of blocks) {
-    const m = facade(b.col, b.wc); const rep = 1;
-    m.map.repeat.set(1, 1); m.emissiveMap.repeat.set(1, 1);
-    box(scene, b.w, b.h, b.d, 0xffffff, b.x, b.h / 2, b.z, { mat: m, cast: true, rough: 0.88 });
-    // cornice cap
-    box(scene, b.w + 0.3, 0.42, b.d + 0.3, 0x2a2824, b.x, b.h + 0.06, b.z, { cast: false });
-    // ground-floor shopfront band — darker, with a thin brass line
-    box(scene, b.w + 0.02, 1.4, b.d + 0.06, 0x3a352e, b.x, 0.7, b.z, { cast: false });
-    box(scene, b.w + 0.04, 0.04, b.d + 0.08, 0xc9a227, b.x, 1.42, b.z, { cast: false });
+  function shopSignFace(parent, text, w, h, x, y, z, fg, bg, font) {
+    const tex = shopSign(text, fg, bg, font);
+    const sm = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffc98a, emissiveMap: tex, emissiveIntensity: 0.32, roughness: 0.78 });
+    plane(parent, w, h, sm, x, y, z, { ry: Math.PI });
+    box(parent, w + 0.08, h + 0.08, 0.07, PAL.walnutDark, x, y, z + 0.045, { cast: false });
   }
-  for (let i = 0; i < 9; i++) {        // far skyline — more depth, some windows on
-    const x = -26 + i * 6 + (i % 3) * 1.2, h = 13 + ((i * 37) % 13), z = -25 - (i % 3) * 2.5;
-    const dcol = i % 2 ? 0x3a3d44 : 0x4a4a52;
-    const sm = mat(dcol, { rough: 0.92, metal: 0.02 });
-    box(scene, 4.2, h, 4.2, 0xffffff, x, h / 2, z, { mat: sm, cast: false, rough: 0.92 });
-    // tiny skyline windows
-    if (i % 2 === 0) {
-      const wm = new THREE.MeshStandardMaterial({ color: 0xffe7b0, emissive: 0xffd089, emissiveIntensity: 0.35, transparent: true, opacity: 0.92 });
-      const q = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.9), wm); q.position.set(x, h * 0.55, z + 2.12); q.rotation.y = 0; scene.add(q);
-    }
+  function pane(parent, w, h, x, y, z) {
+    box(parent, w + 0.1, h + 0.1, 0.06, PAL.cream, x, y, z + 0.02, { cast: false });
+    plane(parent, w, h, winMat, x, y, z - 0.01, { ry: Math.PI });
+    box(parent, w + 0.16, 0.06, 0.08, PAL.walnut, x, y - h / 2 - 0.04, z + 0.01, { cast: false });
   }
+  function stripedAwning(parent, w, len, x, y, z, stripeA, stripeB) {
+    const am = new THREE.MeshStandardMaterial({ map: awning(stripeA, stripeB), roughness: 0.88, metalness: 0.01, side: THREE.DoubleSide });
+    plane(parent, w, len, am, x, y, z, { rx: -Math.PI / 2 + 0.34 });
+  }
+
+  // THE QUILL — tall and narrow, stepped ink parapet, a bay window.
+  (function quill() {
+    const w = 3.05, h = 3.85, d = 2.2;
+    const g = shopGroup(-14.2, d, 16.55);
+    const fz = -d / 2;
+    box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
+    box(g, w + 0.06, 0.85, d + 0.04, PAL.ink, 0, 0.42, 0);
+    box(g, w + 0.16, 0.18, d + 0.12, PAL.ink, 0, h + 0.06, 0, { cast: false });
+    box(g, w * 0.68, 0.28, d * 0.62, PAL.ink, 0, h + 0.28, 0);
+    box(g, w * 0.36, 0.34, d * 0.36, PAL.brass, 0, h + 0.56, 0, { metal: 0.5, rough: 0.38 });
+    cyl(g, 0.025, 0.008, 0.62, PAL.brass, 0, h + 1.02, 0, { metal: 0.55, rough: 0.35 });
+    box(g, 1.15, 1.35, 0.28, PAL.cream, 0, 0.85, fz - 0.1);
+    pane(g, 0.72, 0.85, 0, 0.95, fz - 0.24);
+    pane(g, 0.62, 1.15, -0.62, 2.55, fz);
+    pane(g, 0.62, 1.15, 0.62, 2.55, fz);
+    box(g, 0.62, 1.55, 0.08, PAL.walnut, 0, 0.78, fz - 0.28);
+    shopSignFace(g, 'THE QUILL', 2.55, 0.58, 0, 3.42, fz - 0.06, '#f6efe0', '#171310', '600 68px Georgia, serif');
+  })();
+
+  // HEARTH & RYE — street-facing gable, chimney, cream-and-walnut awning.
+  (function hearth() {
+    const w = 4.6, h = 3.15, d = 2.35;
+    const g = shopGroup(-8.5, d, 16.55);
+    const fz = -d / 2;
+    box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
+    box(g, w + 0.06, 0.7, d + 0.04, PAL.walnut, 0, 0.35, 0);
+    box(g, w + 0.08, 0.05, d + 0.06, PAL.brass, 0, 0.72, 0, { metal: 0.5, rough: 0.4, cast: false });
+    const roofShape = new THREE.Shape();
+    roofShape.moveTo(-w / 2 - 0.18, 0);
+    roofShape.lineTo(0, 1.08);
+    roofShape.lineTo(w / 2 + 0.18, 0);
+    roofShape.closePath();
+    const roofLen = d + 0.4;
+    const roofGeo = new THREE.ExtrudeGeometry(roofShape, { depth: roofLen, bevelEnabled: false });
+    roofGeo.translate(0, 0, -roofLen / 2);
+    const roof = new THREE.Mesh(roofGeo, mat(PAL.walnutDark, { rough: 0.86 }));
+    roof.position.set(0, h, 0); roof.castShadow = true; roof.receiveShadow = true; g.add(roof);
+    box(g, 0.42, 1.05, 0.42, PAL.walnut, 1.25, h + 0.72, 0.28);
+    box(g, 0.54, 0.1, 0.54, PAL.ink, 1.25, h + 1.26, 0.28, { cast: false });
+    stripedAwning(g, w + 0.15, 1.45, 0, 2.05, fz - 0.15, '#4a3423', '#efe6d3');
+    pane(g, 0.82, 0.78, -1.4, 1.22, fz);
+    pane(g, 0.82, 0.78, 1.4, 1.22, fz);
+    box(g, 0.78, 1.6, 0.08, PAL.walnutDark, 0, 0.8, fz - 0.02);
+    cyl(g, 0.02, 0.02, 0.32, PAL.brass, 0.24, 0.85, fz - 0.1, { metal: 0.6, rough: 0.35, cast: false });
+    shopSignFace(g, 'HEARTH & RYE', 3.55, 0.6, 0, 2.62, fz - 0.06, '#f6efe0', '#4a3423', '600 50px Georgia, serif');
+  })();
+
+  // BELL & BRASS — square cream front, round clock, brass cupola.
+  (function bell() {
+    const w = 3.2, h = 3.05, d = 2.2;
+    const g = shopGroup(8.8, d, 16.55);
+    const fz = -d / 2;
+    box(g, w, h, d, PAL.cream, 0, h / 2, 0);
+    box(g, w + 0.05, 0.55, d + 0.03, PAL.walnut, 0, 0.28, 0);
+    box(g, w + 0.14, 0.12, d + 0.1, PAL.brass, 0, h + 0.02, 0, { metal: 0.55, rough: 0.35, cast: false });
+    cyl(g, 0.4, 0.4, 0.1, PAL.brass, 0, 2.62, fz + 0.02, { rx: Math.PI / 2, metal: 0.6, rough: 0.35 });
+    cyl(g, 0.31, 0.31, 0.08, PAL.cream, 0, 2.62, fz - 0.04, { rx: Math.PI / 2, cast: false });
+    box(g, 0.03, 0.22, 0.02, PAL.ink, 0.015, 2.68, fz - 0.1, { cast: false });
+    box(g, 0.16, 0.028, 0.02, PAL.ink, 0.06, 2.6, fz - 0.1, { cast: false });
+    const cup = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.5, 10), mat(PAL.brass, { metal: 0.5, rough: 0.4 }));
+    cup.position.set(0, h + 0.62, 0.15); cup.castShadow = true; g.add(cup);
+    cyl(g, 0.2, 0.32, 0.36, PAL.walnutDark, 0, h + 0.2, 0.15);
+    pane(g, 0.62, 0.72, -0.9, 1.15, fz);
+    pane(g, 0.62, 0.72, 0.9, 1.15, fz);
+    box(g, 0.64, 1.45, 0.08, PAL.walnut, 0, 0.72, fz - 0.02);
+    shopSignFace(g, 'BELL & BRASS', 2.85, 0.5, 0, 1.82, fz - 0.06, '#f6efe0', '#1d2a24', '600 48px Georgia, serif');
+  })();
+
+  // MARROW LANE — low and wide, deep matcha awning, crates on the pavement.
+  (function marrow() {
+    const w = 3.7, h = 2.45, d = 2.3;
+    const g = shopGroup(12.75, d, 16.55);
+    const fz = -d / 2;
+    box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
+    box(g, w + 0.08, 0.16, d + 0.06, PAL.matcha, 0, h + 0.05, 0, { cast: false });
+    box(g, w + 0.04, 0.42, d + 0.02, PAL.walnut, 0, 0.21, 0);
+    stripedAwning(g, w + 0.25, 1.7, 0, 1.85, fz - 0.22, '#86a860', '#f6efe0');
+    shopSignFace(g, 'MARROW LANE', 3.15, 0.5, 0, 2.22, fz - 0.06, '#171310', '#efe6d3', '600 52px Georgia, serif');
+    pane(g, 1.15, 0.62, 0.85, 1.15, fz);
+    box(g, 1.7, 0.85, 0.32, PAL.walnut, -0.7, 0.48, fz - 0.12);
+    box(g, 0.4, 0.34, 0.4, PAL.walnutDark, -1.45, 0.17, fz - 0.55);
+    box(g, 0.36, 0.3, 0.36, PAL.walnut, -1.05, 0.15, fz - 0.62);
+    const fruit = (color, x, y, z, r) => {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), mat(color, { rough: 0.72 }));
+      s.position.set(x, y, z); s.castShadow = true; g.add(s);
+    };
+    fruit(PAL.matcha, -1.45, 0.46, fz - 0.55, 0.11);
+    fruit(PAL.neg, -1.22, 0.44, fz - 0.68, 0.09);
+    fruit(PAL.brass, -1.05, 0.42, fz - 0.5, 0.1);
+    fruit(PAL.cream, 0.15, 0.98, fz - 0.18, 0.1);
+  })();
 
 
   // ---- the commodity ticker: the floorplan is the chart, Extended ------------
