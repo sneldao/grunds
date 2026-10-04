@@ -18,7 +18,7 @@ test('Phase 5 · poses.js is pure (no DOM, graphics lib, or randomness)', () => 
 
 test('Phase 5 · pose clips export the full vocabulary', () => {
   for (const k of ['GAIT', 'gaitFor', 'moodFor', 'walkPose', 'sitPose', 'sipPose',
-    'celebratePose', 'grumblePose', 'serveReactPose', 'propSway', 'samplePose']) {
+    'celebratePose', 'grumblePose', 'serveReactPose', 'barPose', 'propSway', 'samplePose']) {
     assert.ok(poses[k] !== undefined, `poses must export ${k}`);
   }
 });

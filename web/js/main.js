@@ -15,6 +15,7 @@ import { leverState } from './nextAction.js';
 import { buildHalo, shouldHalo } from './halo.js';
 import { buildKitBeat } from './kitArrival.js';
 import { PatronSystem } from './patrons.js';
+import { buildBarStaff } from './barstaff.js';
 import { FX } from './fx.js';
 import { CameraRig } from './camera.js';
 import { createImpact } from './impact.js';
@@ -203,6 +204,11 @@ function currentAction() {
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
 fx.patrons = patrons;
+const barStaff = buildBarStaff(scene);
+function syncBarStaff(mode) {
+  const m = mode ?? (baristaHomeToday ? 'home' : apprenticeHiredToday ? 'apprentice' : (planDraft && planDraft.staffing) || 'work');
+  barStaff.setMode(m);
+}
 const analytics = createAnalytics();
 // expose playtest script on boot — QA can copy/paste from console
 try { console.log(analytics.playtestScript()); } catch {}
@@ -1672,6 +1678,7 @@ function stageDayPlan(patch = {}) {
   planDraft.hedge = cand.hedge;
   planDraft.staffing = cand.staffing;
   planDraft.marketing = cand.marketing;
+  syncBarStaff(cand.staffing);
   demand.staged.sample = !!cand.marketing.sample;
   demand.staged.sponsor = !!cand.marketing.sponsor;
   renderPlanQuote();
@@ -3334,6 +3341,7 @@ function prepareDay(d) {
     if (weekHire === HIRE_ROBOT) { if (planDraft) planDraft.staffing = 'work'; }
     else fx.toast('Ruth’s day off — as promised. The bar is yours alone.', '');
   }
+  syncBarStaff(planDraft && planDraft.staffing);
   if (ruthRestDay > 0 && d === ruthRestDay + 1 && !ruthReturned) {
     ruthReturned = true;
     const cand = walkins.heads.find(h => h.visits === 0) || walkins.heads[0];
@@ -3464,6 +3472,7 @@ function startTradingDay(d) {
     patrons.balkMul = CAMPAIGN.staff.robotBalkMul;
   } else if (baristaHomeToday) patrons.staffMul = 0.7;
   else if (apprenticeHiredToday) patrons.staffMul = (CAMPAIGN.staff?.apprenticeStaffMul || 1.05) * perkStaffMul;
+  syncBarStaff();
   const ev = exchange.openDay(intelBias);    // drift first, then roll the market + the event
   // Phase 2 — wire → shelf: schedule this event's lot moves, land what's due.
   // The Brief (pre-roll) stages from yesterday's cellar; landed moves toast
@@ -4265,6 +4274,7 @@ function reset(coreOnly = false) {
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
   apprenticeHiredToday = false; rivalStrategy = 'DEFAULT'; rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];
   weekHire = 'ruth'; hireLocked = false; maintenanceBill = 0; tipsForgoneToday = 0;
+  syncBarStaff('work');
   try { modals.closeAll(); } catch {}
   deskHeldPause = false;
   mailPending = false;
@@ -5185,6 +5195,7 @@ function loop(now) {
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
   if (impact.dtScale(nowSec) === 0) patrons.update(0, WALK_MUL[speed] || 2, now, reducedMotion);
   else if (!(movePerTick && ticked)) patrons.update(dt, WALK_MUL[speed] || 2, now, reducedMotion);
+  barStaff.update(dt, reducedMotion);
   world.updateRival(dt, now);
   try { world.updateCat(dt, patrons.queueLength); world._updateDelight(now, dt); } catch {}
   fx.steamFrom(dt);
@@ -5277,7 +5288,7 @@ function loop(now) {
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
   moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key), enqueue: (t, k, d = {}) => momentEnqueue(t, k, d) },
   stageCellar,
-  patrons, modals, openDossier, showIncident, showLicence,
+  patrons, barStaff, modals, openDossier, showIncident, showLicence,
   renderBrief() { if (phase === 'planning') { if (softDay) showSoftIntro(0); else showMorningBrief(); } },
   get phase() { return phase; },
   get party() { return party; },
