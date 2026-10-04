@@ -1,7 +1,10 @@
 // Cinematic camera — title orbit, crane-in, drag-orbit, beat push-ins, handheld breath.
 import * as THREE from '../vendor/three.module.js';
 
-const HOME = { target: new THREE.Vector3(0, 0.8, 4), theta: 0.12, phi: 0.70, r: 32 };
+// Idle/home framing. 24 is close enough that a person at the bar and the
+// chalkboard read, and the far curb of the road still sits in frame.
+// Scripted shots clamp at 18, so a debrief still pushes in from here.
+const HOME = { target: new THREE.Vector3(0, 0.8, 4), theta: 0.12, phi: 0.70, r: 24 };
 
 // ---- written camera grammar — named shots, not magic numbers --------------
 // Phase 5: every cinematic beat names its shot. verdict (the till),

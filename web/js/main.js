@@ -1026,8 +1026,19 @@ function beats() {
         if (win && speed <= 300) rig.focus(world.focus.counter, 11, 3.5);
         if (win) { fx.coinRain(LAYOUT.register.x, 1.5, -5.2, Math.min(22, 10 + Math.round(read.waveServed / 10))); }
         if (win) fx.victoryBurst(read.waveServed);
-        if (navigator.vibrate) navigator.vibrate(win ? [20, 30, 50] : 35);
+        if (navigator.vibrate) navigator.vibrate(win ? [20, 30, 50] : [40, 50, 80]);
         if (win) world.setPlantHealth(Math.max(0, patrons.queueLength - 2));
+        else {
+          // Harder than the 14:00 wave-start shake (0.3). The counter hold
+          // matches the win crane, and only at a readable speed. 12 sits in
+          // the plant's brown band (queue > 10). This tick's HUD then paints
+          // the plant from the live line, and the evening paper pauses
+          // before another paint, so the wilt lands after that one.
+          rig.shake(0.55);
+          if (speed <= 300) rig.focus(world.focus.counter, 11, 3.5);
+          world.setPlantHealth(12);
+          queueMicrotask(() => { try { world.setPlantHealth(12); } catch {} });
+        }
       } catch {}
     }
     try { analytics.track('wave_debrief_shown', { day, dayMin, waveBalked, waveServed, waveRatio: read.ratio, lever: read.lever, verdict: read.sub }); } catch {}
