@@ -3656,6 +3656,8 @@ function refreshStands() {
 
 let lastHudText = 0;
 function updateHUD() {
+  const inPlay = phase === 'trading' && !closed;
+  document.body?.classList.toggle('in-play', inPlay);
   // Cheap per-tick state: progress bar + lever availability + queue bar +
   // batch countdown stay live so inputs never feel stale, even at 20×.
   $('progress').style.width = ((dayMin - DAY_START) / (DAY_END - DAY_START) * 100) + '%';
@@ -3700,6 +3702,8 @@ function updateHUD() {
         ` · <span class="dim" title="street awareness — work it at dawn">street ${demand.pips()}</span>` +
         (marketIntel ? ' <span class="dim">· wire ↗</span>' : '');
     } else $('tape').style.display = 'none';
+    // Inline display beats body.in-play #tape, so clear it while the day is open.
+    if (inPlay) $('tape').style.display = '';
   }
   // batch countdown: big number when batched, — otherwise
   if ($('batchcount')) {
