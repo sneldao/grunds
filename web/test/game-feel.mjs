@@ -185,5 +185,16 @@ ok(!/fx\.debriefCard\(/.test(main), 'unused debriefCard banner was revived');
 ok(/queue <= 10 \? 0\.55 : 0\.18/.test(world), 'plant brown band is no longer queue > 10');
 console.log('FLOP    loss shakes 0.55, holds the counter, wilts to 12, buzzes [40, 50, 80]');
 
+const inPlayHide = (index.match(/body\.in-play #paceflag[\s\S]*?\{ display: none; \}/) || [''])[0];
+for (const id of ['paceflag', 'daytag', 'goal', 'syncbadge', 'district', 'floorstats', 'tape'])
+  ok(new RegExp(`#${id}\\b`).test(inPlayHide), `${id} should stay folded while trading`);
+for (const id of ['status', 'pressure'])
+  ok(!new RegExp(`#${id}\\b`).test(inPlayHide), `${id} must stay reachable while trading`);
+ok(!/regularsbtn/.test(inPlayHide), 'the regulars/wire action row must stay reachable while trading');
+for (const id of ['status', 'pressure', 'regularsbtn', 'wirebtn'])
+  ok(index.includes(`id="${id}"`), `index.html keeps #${id}`);
+ok(/body\.in-play #hud \{ background: none/.test(index), 'the plate removal itself changed');
+console.log('HUD     status/pressure/regulars-wire stay reachable; quiet chrome still folds');
+
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
 console.log('\nPASS — game feel: bounded bubbles, clamped to screen, signed numbers, pause, letter keys, quiet badge');

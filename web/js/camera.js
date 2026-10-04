@@ -27,6 +27,8 @@ export class CameraRig {
     this.home = { ...HOME, target: HOME.target.clone() };
     this.beat = null;          // {point, r, until, saved}
     this.shakeT = 0; this.shakeMag = 0;
+    this._baseFov = camera.fov;
+    this._fovOff = 0;
     this.lastUser = 0;
     this.craneT = 0;
     this._drag = null;
@@ -67,7 +69,18 @@ export class CameraRig {
     const anchor = world.focus[s.anchor] || world.focus.counter;
     if (anchor) this.queueFocus(anchor, s.r, s.secs, ttl, s.theta);
   }
-  shake(mag = 0.35) { this.shakeT = 1; this.shakeMag = mag; }
+  shake(mag = 0.35) {
+    if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    this.shakeT = 1; this.shakeMag = mag;
+  }
+  // Short FOV kick. delta is degrees added to the rig's base fov; 0 restores.
+  setFovOffset(delta) {
+    const d = Number.isFinite(delta) ? delta : 0;
+    if (Math.abs(d - this._fovOff) < 1e-4) return;
+    this._fovOff = d;
+    this.cam.fov = this._baseFov + d;
+    if (this.cam.updateProjectionMatrix) this.cam.updateProjectionMatrix();
+  }
   resetView() {
     this.beat = null;
     this.home = { ...HOME, target: HOME.target.clone() };

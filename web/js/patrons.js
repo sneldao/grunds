@@ -7,6 +7,7 @@ import { rivalChoiceProbability, rivalWalkbackChance, FULL_ROOM_PULL } from './r
 import { memoryLine, shouldBringCompanion } from './identity.js';
 import { DRINKS, rollDrink, balkLimit, balkChanceFor, preferredOnBoard, PASTRY, eightySixedShare, menuPrice } from './menu.js';
 import { gaitFor, moodFor, samplePose, propSway } from './poses.js';
+import { axesFor } from './impact.js';
 
 const MAXP = ECON.maxPatrons;
 const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];
@@ -893,10 +894,14 @@ export class PatronSystem {
       const headRy = pose.headRy;
       const fx = Math.sin(p.face), fz = Math.cos(p.face);   // forward
       const rx = Math.cos(p.face), rz = -Math.sin(p.face);  // right
+      const nowSec = (typeof now === 'number' ? now : 0) / 1000;
+      const torsoAx = axesFor(p, 'torso', nowSec);
 
       d.rotation.set(0, p.face, 0);
-      d.position.set(p.pos.x, torsoY, p.pos.z); d.scale.setScalar(s);
+      d.position.set(p.pos.x, torsoY, p.pos.z);
+      d.scale.set(s * torsoAx.x, s * torsoAx.y, s * torsoAx.z);
       d.rotation.x = lean; d.updateMatrix(); P.torso.setMatrixAt(p.idx, d.matrix);
+      d.scale.setScalar(s);
 
       d.rotation.set(0, p.face + headRy, 0);
       d.position.set(p.pos.x, headY, p.pos.z); d.updateMatrix(); P.head.setMatrixAt(p.idx, d.matrix);
@@ -921,8 +926,9 @@ export class PatronSystem {
       P.hat.setMatrixAt(p.idx, d.matrix);
 
       if (p.hasCup) {
+        const cupAx = axesFor(p, 'cup', nowSec);
         d.position.set(p.pos.x + fx * 0.24 * s + rx * 0.14 * s, torsoY + 0.1, p.pos.z + fz * 0.24 * s + rz * 0.14 * s);
-        d.scale.setScalar(s); d.updateMatrix(); P.cup.setMatrixAt(p.idx, d.matrix);
+        d.scale.set(s * cupAx.x, s * cupAx.y, s * cupAx.z); d.updateMatrix(); P.cup.setMatrixAt(p.idx, d.matrix);
       } else {
         d.position.set(0, -10, 0); d.scale.setScalar(0.001); d.updateMatrix(); P.cup.setMatrixAt(p.idx, d.matrix);
       }

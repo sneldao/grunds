@@ -234,7 +234,6 @@ export function buildWorld(scene, renderer, lite) {
     // Armed, not started. The first painted frame begins the clock so a
     // hitch between the click and the next draw cannot skip the strike.
     W._chalkT0 = -1;
-    if (W._chalkPlane) W._chalkPlane.scale.setScalar(chalkPopScale(0));
     try { W._chalkNudge?.(); } catch {}
     if (W._chalkReset) clearTimeout(W._chalkReset);
     // The frame loop settles the board. This only catches a stalled loop.
@@ -242,7 +241,6 @@ export function buildWorld(scene, renderer, lite) {
       if (!W._chalkT0) return;
       if (W._chalkT0 > 0 && performance.now() - W._chalkT0 < CHALK_HIT_MS) return;
       W._chalkT0 = 0;
-      if (W._chalkPlane) W._chalkPlane.scale.setScalar(1);
       if (!W.menuMat) return;
       W.menuMat.emissiveIntensity = 0;
       if (W._chalkRough != null) W.menuMat.roughness = W._chalkRough;
@@ -889,11 +887,9 @@ export function buildWorld(scene, renderer, lite) {
       const u = (now - W._chalkT0) / CHALK_HIT_MS;
       if (u >= 1) {
         W._chalkT0 = 0;
-        if (W._chalkPlane) W._chalkPlane.scale.setScalar(1);
         W.menuMat.emissiveIntensity = 0;
         if (W._chalkRough != null) W.menuMat.roughness = W._chalkRough;
       } else {
-        if (W._chalkPlane) W._chalkPlane.scale.setScalar(chalkPopScale(u));
         W.menuMat.emissiveIntensity = u < 0.72 ? 0.55 : 0.55 * (1 - (u - 0.72) / 0.28);
       }
     }
