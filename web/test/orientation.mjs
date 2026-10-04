@@ -359,6 +359,13 @@ check('#brief-more is gone — the curriculum replaced the drawer', byId('brief-
 for (const id of ['brief-new', 'brief-lots', 'brief-menu', 'brief-demand', 'brief-actions', 'brief-context', 'brief-nut', 'brief-risk']) {
   const n = byId(id);
   check(`#${id} exists in the real markup`, !!n);
+  if (id === 'brief-menu') {
+    const text = n ? deepText(n) : '';
+    check('day 1 menu is present but quiet — no New today card',
+      n && n.style.display !== 'none' && /menu ·/.test(text) && !/New today/.test(text),
+      `display=${n && n.style.display} text=${text.slice(0, 160)}`);
+    continue;
+  }
   check(`day-1 curriculum leaves #${id} hidden`, n && n.style.display === 'none', `display=${n && n.style.display}`);
   if (id !== 'brief-context') check(`day-1 curriculum leaves #${id} empty`, n && deepText(n).trim() === '', `text=${(n ? deepText(n) : '').slice(0, 120)}`);
 }
@@ -366,8 +373,10 @@ for (const id of ['brief-new', 'brief-lots', 'brief-menu', 'brief-demand', 'brie
 const primary = visibleText(byId('brief'));
 check('primary surface: no viability/bonus/commitment/finance talk',
   !/viable|as a bonus|committed|riding the spot|insure|the wire|2914/i.test(primary), primary.slice(0, 500));
-check('curriculum day-1 primary hides every tool row',
-  !/pouring |menu ·|supplier tab|the nut|Explore the full plan|More planning details|insure the beans|work the street/i.test(primary), primary.slice(0, 500));
+check('day 1 primary keeps the quiet menu row and no teaching card',
+  /menu ·/.test(primary) && !/New today/.test(primary), primary.slice(0, 800));
+check('curriculum day-1 primary hides every other tool row',
+  !/pouring |supplier tab|the nut|Explore the full plan|More planning details|insure the beans|work the street/i.test(primary), primary.slice(0, 500));
 check('primary surface keeps the prep choice + forecast',
   /ONE PLAN FOR THE AFTERNOON/.test(primary) && /Students arrive at 14:00/.test(primary), primary.slice(0, 500));
 writeFileSync(join(LOGS, 'first-morning-visible.txt'), primary);
