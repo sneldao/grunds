@@ -629,7 +629,7 @@ export function buildWorld(scene, renderer, lite) {
     pane(g, 0.62, 1.15, -0.62, 2.55, fz);
     pane(g, 0.62, 1.15, 0.62, 2.55, fz);
     box(g, 0.62, 1.55, 0.08, PAL.walnut, 0, 0.78, fz - 0.28);
-    shopSignFace(g, 'THE QUILL', 2.55, 0.58, 0, 3.42, fz - 0.06, '#f6efe0', '#171310', '600 68px Georgia, serif');
+    shopSignFace(g, 'THE QUILL', 2.7, 0.7, 0, 3.35, fz - 0.08, '#f6efe0', '#171310', '600 72px Georgia, serif');
   })();
 
   // HEARTH & RYE — street-facing gable, chimney, cream-and-walnut awning.
@@ -652,12 +652,12 @@ export function buildWorld(scene, renderer, lite) {
     roof.position.set(0, h, 0); roof.castShadow = true; roof.receiveShadow = true; g.add(roof);
     box(g, 0.42, 1.05, 0.42, PAL.walnut, 1.25, h + 0.72, 0.28);
     box(g, 0.54, 0.1, 0.54, PAL.ink, 1.25, h + 1.26, 0.28, { cast: false });
-    stripedAwning(g, w + 0.15, 1.45, 0, 2.05, fz - 0.15, '#4a3423', '#efe6d3');
-    pane(g, 0.82, 0.78, -1.4, 1.22, fz);
-    pane(g, 0.82, 0.78, 1.4, 1.22, fz);
-    box(g, 0.78, 1.6, 0.08, PAL.walnutDark, 0, 0.8, fz - 0.02);
-    cyl(g, 0.02, 0.02, 0.32, PAL.brass, 0.24, 0.85, fz - 0.1, { metal: 0.6, rough: 0.35, cast: false });
-    shopSignFace(g, 'HEARTH & RYE', 3.55, 0.6, 0, 2.62, fz - 0.06, '#f6efe0', '#4a3423', '600 50px Georgia, serif');
+    stripedAwning(g, w + 0.15, 1.35, 0, 1.72, fz - 0.12, '#4a3423', '#efe6d3');
+    pane(g, 0.82, 0.72, -1.4, 1.15, fz);
+    pane(g, 0.82, 0.72, 1.4, 1.15, fz);
+    box(g, 0.78, 1.55, 0.08, PAL.walnutDark, 0, 0.78, fz - 0.02);
+    cyl(g, 0.02, 0.02, 0.32, PAL.brass, 0.24, 0.82, fz - 0.1, { metal: 0.6, rough: 0.35, cast: false });
+    shopSignFace(g, 'HEARTH & RYE', 3.7, 0.72, 0, 2.42, fz - 0.08, '#f6efe0', '#4a3423', '600 58px Georgia, serif');
   })();
 
   // BELL & BRASS — square cream front, round clock, brass cupola.
@@ -678,19 +678,19 @@ export function buildWorld(scene, renderer, lite) {
     pane(g, 0.62, 0.72, -0.9, 1.15, fz);
     pane(g, 0.62, 0.72, 0.9, 1.15, fz);
     box(g, 0.64, 1.45, 0.08, PAL.walnut, 0, 0.72, fz - 0.02);
-    shopSignFace(g, 'BELL & BRASS', 2.85, 0.5, 0, 1.82, fz - 0.06, '#f6efe0', '#1d2a24', '600 48px Georgia, serif');
+    shopSignFace(g, 'BELL & BRASS', 2.9, 0.62, 0, 1.78, fz - 0.08, '#f6efe0', '#1d2a24', '600 52px Georgia, serif');
   })();
 
   // MARROW LANE — low and wide, deep matcha awning, crates on the pavement.
   (function marrow() {
-    const w = 3.7, h = 2.45, d = 2.3;
+    const w = 3.7, h = 2.7, d = 2.3;
     const g = shopGroup(12.75, d, 16.55);
     const fz = -d / 2;
     box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
     box(g, w + 0.08, 0.16, d + 0.06, PAL.matcha, 0, h + 0.05, 0, { cast: false });
     box(g, w + 0.04, 0.42, d + 0.02, PAL.walnut, 0, 0.21, 0);
-    stripedAwning(g, w + 0.25, 1.7, 0, 1.85, fz - 0.22, '#86a860', '#f6efe0');
-    shopSignFace(g, 'MARROW LANE', 3.15, 0.5, 0, 2.22, fz - 0.06, '#171310', '#efe6d3', '600 52px Georgia, serif');
+    stripedAwning(g, w + 0.25, 1.55, 0, 1.7, fz - 0.18, '#86a860', '#f6efe0');
+    shopSignFace(g, 'MARROW LANE', 3.25, 0.66, 0, 2.28, fz - 0.08, '#171310', '#efe6d3', '600 56px Georgia, serif');
     pane(g, 1.15, 0.62, 0.85, 1.15, fz);
     box(g, 1.7, 0.85, 0.32, PAL.walnut, -0.7, 0.48, fz - 0.12);
     box(g, 0.4, 0.34, 0.4, PAL.walnutDark, -1.45, 0.17, fz - 0.55);
