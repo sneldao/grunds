@@ -175,6 +175,69 @@ export function buildWorld(scene, renderer, lite) {
   W.tillScreen = plane(bar, 0.4, 0.26, new THREE.MeshStandardMaterial({ color: 0x111418, emissive: 0x86a860, emissiveIntensity: 0.7 }), LAYOUT.register.x, 1.5, -5.32, { rx: -0.25 });
   cyl(bar, 0.07, 0.07, 0.12, 0xf0ead8, LAYOUT.register.x + 0.45, 1.16, -5.45, { cast: false }); // receipt roll
 
+  // ---- counter still-life ---------------------------------------------------
+  // Left stretch of the bar, on the wood customers actually see. A kettle,
+  // three cups that don't match, and the ring one of them wore into the top.
+  // Kept as a few meshes — not a cup system.
+  const lip = 1.106;
+  const kettleWisps = [];
+  const wispHome = new THREE.Vector3(0.05, 0.24, 0.14);
+  {
+    const stain = new THREE.Mesh(
+      new THREE.RingGeometry(0.072, 0.128, 28),
+      new THREE.MeshStandardMaterial({
+        color: PAL.walnutDark, roughness: 1, metalness: 0,
+        transparent: true, opacity: 0.58, depthWrite: false,
+        polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+      }),
+    );
+    stain.rotation.x = -Math.PI / 2;
+    stain.position.set(-7.62, lip + 0.004, -4.74);
+    stain.scale.set(1.2, 0.78, 1);
+    stain.castShadow = false; stain.receiveShadow = false;
+    bar.add(stain);
+
+    const kettle = new THREE.Group();
+    kettle.position.set(-8.15, lip, -4.88);
+    bar.add(kettle);
+    cyl(kettle, 0.09, 0.1, 0.15, PAL.brass, 0, 0.075, 0, { metal: 0.7, rough: 0.38, seg: 10 });
+    cyl(kettle, 0.072, 0.088, 0.028, PAL.brass, 0, 0.158, 0, { metal: 0.7, rough: 0.38, seg: 10, cast: false });
+    cyl(kettle, 0.064, 0.07, 0.018, PAL.cream, 0, 0.18, 0, { rough: 0.42, seg: 10, cast: false });
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), mat(PAL.brass, { metal: 0.75, rough: 0.32 }));
+    knob.position.set(0, 0.198, 0); kettle.add(knob);
+    cyl(kettle, 0.016, 0.024, 0.1, PAL.brass, 0.02, 0.15, 0.06, { metal: 0.7, rough: 0.38, seg: 7, rx: 1.05, cast: false });
+    const kHandle = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.01, 5, 8, Math.PI), mat(0x2a2c34, { metal: 0.4, rough: 0.42 }));
+    kHandle.position.set(-0.1, 0.09, 0); kHandle.rotation.z = Math.PI; kettle.add(kHandle);
+    const steamTex = softSprite();
+    for (let i = 0; i < 4; i++) {
+      const sm = new THREE.SpriteMaterial({ map: steamTex, color: 0xf6efe0, transparent: true, opacity: 0.4, depthWrite: false });
+      const s = new THREE.Sprite(sm);
+      s.position.copy(wispHome); s.position.y += i * 0.08;
+      s.scale.setScalar(0.12);
+      kettle.add(s); kettleWisps.push(s);
+    }
+
+    // handled mug — paper body, brass lip
+    const mug = new THREE.Group(); mug.position.set(-7.12, lip, -4.86); bar.add(mug);
+    cyl(mug, 0.05, 0.042, 0.112, PAL.paper, 0, 0.056, 0, { rough: 0.48, seg: 10 });
+    const mugLip = new THREE.Mesh(new THREE.TorusGeometry(0.048, 0.007, 5, 12), mat(PAL.brass, { metal: 0.62, rough: 0.36 }));
+    mugLip.rotation.x = Math.PI / 2; mugLip.position.y = 0.11; mug.add(mugLip);
+    const mugHandle = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.008, 5, 8, Math.PI), mat(PAL.paper, { rough: 0.5 }));
+    mugHandle.position.set(0.068, 0.055, 0); mugHandle.rotation.z = Math.PI; mug.add(mugHandle);
+    cyl(mug, 0.038, 0.038, 0.008, PAL.walnut, 0, 0.1, 0, { rough: 0.35, cast: false, seg: 8 });
+
+    // short wide cup — cream, matcha in it, no handle
+    const wide = new THREE.Group(); wide.position.set(-6.68, lip, -4.72); wide.rotation.y = 0.5; bar.add(wide);
+    cyl(wide, 0.064, 0.052, 0.068, PAL.cream, 0, 0.034, 0, { rough: 0.42, seg: 10 });
+    cyl(wide, 0.05, 0.05, 0.008, PAL.matcha, 0, 0.064, 0, { rough: 0.28, cast: false, seg: 8 });
+
+    // small espresso on a saucer, leaned, no brass
+    cyl(bar, 0.058, 0.058, 0.012, PAL.cream, -6.28, lip + 0.006, -4.92, { rough: 0.5, seg: 10, cast: false });
+    const tiny = new THREE.Group(); tiny.position.set(-6.26, lip + 0.014, -4.9); tiny.rotation.z = -0.16; tiny.rotation.x = 0.05; bar.add(tiny);
+    cyl(tiny, 0.03, 0.024, 0.072, PAL.paper, 0, 0.036, 0, { rough: 0.5, seg: 8 });
+    cyl(tiny, 0.022, 0.022, 0.006, PAL.walnut, 0, 0.068, 0, { rough: 0.4, cast: false, seg: 8 });
+  }
+
 
   // ---- menu board + back bar ----------------------------------------------
   const board = menuBoard();
@@ -207,6 +270,25 @@ export function buildWorld(scene, renderer, lite) {
     }
   };
   W._chalkPlane = plane(cafe, 3.6, 2.7, W.menuMat, -5.5, 2.75, -7.95);
+  // The menu board hangs on the back wall in view of this counter, so a
+  // little chalk has settled on the ledge under its left edge. Static —
+  // the press puff stays in flashChalk / fx.chalkDust.
+  {
+    const dustCol = mat(PAL.cream, { rough: 1 });
+    for (const [x, y, z, r] of [
+      [-7.12, 0.912, -7.95, 0.014], [-6.9, 0.908, -8.02, 0.01],
+      [-6.68, 0.916, -7.9, 0.016], [-6.46, 0.91, -8.06, 0.011],
+      [-6.24, 0.914, -7.96, 0.013], [-6.82, 0.906, -7.86, 0.009],
+      [-7.02, 0.918, -8.08, 0.012],
+    ]) {
+      const d = new THREE.Mesh(new THREE.SphereGeometry(r, 5, 4), dustCol);
+      d.position.set(x, y + r, z); d.castShadow = false; d.receiveShadow = false; cafe.add(d);
+    }
+    for (const [x, z, r] of [[-7.28, -6.02, 0.011], [-7.02, -5.92, 0.008]]) {
+      const d = new THREE.Mesh(new THREE.SphereGeometry(r, 5, 4), dustCol);
+      d.position.set(x, lip + r, z); d.castShadow = false; d.receiveShadow = false; bar.add(d);
+    }
+  }
   for (const sy of [1.9, 2.5]) {
     box(cafe, 7, 0.07, 0.5, PAL.walnut, -1.2, sy, -7.85, { cast: false });
     for (let i = 0; i < 7; i++) {
@@ -840,6 +922,19 @@ export function buildWorld(scene, renderer, lite) {
   scene.add(W._tillShadow);
   W._updateDelight = (now, dt) => {
     const d = typeof dt === 'number' && isFinite(dt) ? dt : 0.016;
+    // a little steam off the kettle — sine, never a constant rise
+    for (let i = 0; i < kettleWisps.length; i++) {
+      const s = kettleWisps[i];
+      const phase = ((now * 0.00032) + i * 0.34) % 1;
+      s.position.set(
+        wispHome.x + Math.sin(now * 0.0014 + i * 1.7) * 0.02 * phase,
+        wispHome.y + phase * 0.36,
+        wispHome.z + Math.cos(now * 0.0011 + i) * 0.016 * phase,
+      );
+      s.material.opacity = 0.32 + (1 - phase) * (1 - phase) * 0.48;
+      const sc = 0.16 + phase * 0.2;
+      s.scale.set(sc, sc * 1.4, 1);
+    }
     // motes drift + fade toward target (driven by godRay/weather)
     if (W.moteMat) {
       W.moteMat.opacity += (W._moteTarget - W.moteMat.opacity) * Math.min(1, d * 1.2);
