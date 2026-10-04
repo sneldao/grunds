@@ -100,12 +100,13 @@ vitality.recompute();
 director.add('vitalityGlow', (ctx) => {
   const v = ctx.vitality;
   const warm = 0.75 + 0.5 * v;    // café pendants + bulbs
-  const street = 0.6 + 0.8 * v;   // street lamps, glows, windows, sign
+  const street = 0.6 + 0.8 * v;   // street lamps, glows, pools, windows, sign
   for (const p of world.lights.pendants) p.intensity *= warm;
   for (const bm of world.bulbMats) bm.emissiveIntensity *= warm;
   for (const lm of world.lampMats) lm.emissiveIntensity *= street;
   for (const sm of world.lampGlows) sm.opacity *= street;
   for (const ll of world.lampLights) ll.intensity *= street;
+  for (const pm of world.lampPoolMats) pm.opacity *= street;
   for (const wm of world.winMats) wm.emissiveIntensity *= street;
   world.signMat.emissiveIntensity *= street;
 });

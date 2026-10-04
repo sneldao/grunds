@@ -116,6 +116,68 @@ export function buildWorld(scene, renderer, lite) {
   plane(g, 44, LAYOUT.roadZ1 - LAYOUT.roadZ0, roadMat, 0, 0.015, (LAYOUT.roadZ0 + LAYOUT.roadZ1) / 2, { rx: -Math.PI / 2 });
   for (let i = 0; i < 5; i++) box(g, 0.62, 0.03, 3.4, 0xd8d2c0, LAYOUT.crossX - 1 + i * 0.60, 0.03, 11.7, { cast: false, op: 0.88 }); // zebra crossing — slightly wider + decal-friendly
 
+  // ---- pavement wear --------------------------------------------------------
+  // The near pavement (z 6–9.6) and the road. A few damp patches catch the
+  // sun that's already in the scene; a grate sits in the gutter; one paper
+  // cup lies by the bench. The far pavement stays bare.
+  const wetMat = new THREE.MeshPhysicalMaterial({
+    color: PAL.ink, roughness: 0.06, metalness: 0.04,
+    clearcoat: 1, clearcoatRoughness: 0.04,
+    specularIntensity: 1, specularColor: new THREE.Color(PAL.cream),
+    transparent: true, opacity: 0.55, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  });
+  const puddle = (rx, rz, wobble) => {
+    const shape = new THREE.Shape();
+    const steps = 8;
+    for (let i = 0; i < steps; i++) {
+      const a = (i / steps) * Math.PI * 2;
+      const j = 0.84 + ((i * 5 + wobble) % 4) * 0.055;
+      const x = Math.cos(a) * rx * j;
+      const y = Math.sin(a) * rz * (1.06 - ((i * 3 + wobble) % 3) * 0.045);
+      if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
+    }
+    shape.closePath();
+    return new THREE.ShapeGeometry(shape);
+  };
+  // left lamp, right lamp, and one longer slick on the asphalt clear of the zebra
+  const wetSpots = [
+    { x: -8.2, z: 8.2, rx: 0.9, rz: 0.46, wobble: 2, y: 0.032 },
+    { x: 7.45, z: 8.7, rx: 0.72, rz: 0.38, wobble: 5, y: 0.032 },
+    { x: 3.4, z: 10.35, rx: 1.15, rz: 0.42, wobble: 1, y: 0.026 },
+  ];
+  for (const s of wetSpots) {
+    const m = new THREE.Mesh(puddle(s.rx, s.rz, s.wobble), wetMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(s.x, s.y, s.z);
+    m.receiveShadow = false; m.castShadow = false; m.renderOrder = 2;
+    g.add(m);
+  }
+  // gutter grate — same iron as the lamp posts, two brass bolts
+  const drainX = 2.15, drainZ = 9.42;
+  box(g, 0.82, 0.018, 0.42, PAL.ink, drainX, 0.032, drainZ, { cast: false, rough: 0.95 });
+  for (let i = 0; i < 5; i++) box(g, 0.72, 0.022, 0.03, 0x22262a, drainX, 0.048, drainZ - 0.14 + i * 0.07, { metal: 0.5, rough: 0.42 });
+  box(g, 0.04, 0.028, 0.42, 0x22262a, drainX - 0.39, 0.046, drainZ, { metal: 0.5, rough: 0.42 });
+  box(g, 0.04, 0.028, 0.42, 0x22262a, drainX + 0.39, 0.046, drainZ, { metal: 0.5, rough: 0.42 });
+  cyl(g, 0.02, 0.02, 0.014, PAL.brass, drainX - 0.28, 0.064, drainZ + 0.16, { metal: 0.7, rough: 0.32, seg: 6, cast: false });
+  cyl(g, 0.02, 0.02, 0.014, PAL.brass, drainX + 0.28, 0.064, drainZ + 0.16, { metal: 0.7, rough: 0.32, seg: 6, cast: false });
+  // one dropped cup, cream paper with a walnut sleeve, lying just past the bench
+  const cup = new THREE.Group();
+  const paperMat = mat(PAL.paper, { rough: 0.58 });
+  const cupBody = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.04, 0.12, 8), paperMat);
+  cupBody.castShadow = true; cupBody.receiveShadow = true;
+  const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.048, 0.034, 8), mat(PAL.walnut, { rough: 0.72 }));
+  sleeve.position.y = -0.01; sleeve.castShadow = true;
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.007, 4, 8), paperMat);
+  lip.rotation.x = Math.PI / 2; lip.position.y = 0.06;
+  const inside = new THREE.Mesh(new THREE.CircleGeometry(0.044, 8), mat(PAL.walnutDark, { rough: 0.4 }));
+  inside.rotation.x = -Math.PI / 2; inside.position.y = 0.061;
+  cup.add(cupBody, sleeve, lip, inside);
+  cup.rotation.set(0, 0.4, Math.PI / 2);
+  cup.scale.setScalar(1.75);
+  cup.position.set(6.45, 0.135, 8.25);
+  g.add(cup);
+
   // ---- café shell ---------------------------------------------------------
   const cafe = new THREE.Group(); scene.add(cafe);
   const backWall = box(cafe, 24, 4.4, 0.4, PAL.plaster, 0, 2.2, -8.2, { cast: false });            // back wall
@@ -309,8 +371,25 @@ export function buildWorld(scene, renderer, lite) {
 
 
   // ---- street furniture -----------------------------------------------------
-  W.lampMats = []; W.lampGlows = []; W.lampLights = [];
+  W.lampMats = []; W.lampGlows = []; W.lampLights = []; W.lampPoolMats = [];
   const glowTex = softSprite();
+  // one shared pool — both lamps follow the same street curve
+  const poolMat = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const gg = c.getContext('2d');
+    const grd = gg.createRadialGradient(64, 64, 4, 64, 64, 62);
+    grd.addColorStop(0, 'rgba(255,242,216,0.95)');
+    grd.addColorStop(0.32, 'rgba(255,217,160,0.45)');
+    grd.addColorStop(0.68, 'rgba(255,196,120,0.12)');
+    grd.addColorStop(1, 'rgba(255,196,120,0)');
+    gg.fillStyle = grd; gg.fillRect(0, 0, 128, 128);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    return new THREE.MeshBasicMaterial({
+      map: t, color: 0xffd9a0, transparent: true, opacity: 0, depthWrite: false,
+      blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+    });
+  })();
+  W.lampPoolMats.push(poolMat);
   for (const lx of [-9, 7]) {
     cyl(scene, 0.06, 0.08, 3.6, 0x22262a, lx, 1.8, 9.2, { metal: 0.5 });
     cyl(scene, 0.05, 0.05, 1, 0x22262a, lx, 3.55, 8.9, { rx: Math.PI / 2, cast: false });
@@ -328,6 +407,11 @@ export function buildWorld(scene, renderer, lite) {
     ll.position.copy(lamp.position);
     scene.add(ll);
     W.lampLights.push(ll);
+    // small pool on the pavement under the head — same warm as the globe
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(1.15, 20), poolMat);
+    pool.rotation.x = -Math.PI / 2; pool.scale.set(1, 0.72, 1);
+    pool.position.set(lx, 0.042, 8.4); pool.renderOrder = 3; pool.castShadow = false; pool.receiveShadow = false;
+    scene.add(pool);
   }
   for (const tx of [-14.5, 13.5]) {  // street trees
     cyl(scene, 0.09, 0.13, 1.6, 0x4a3423, tx, 0.8, 7.8);
@@ -964,6 +1048,8 @@ export function buildWorld(scene, renderer, lite) {
     for (const lm of W.lampMats) lm.emissiveIntensity = street * 2.4;
     for (const sm of W.lampGlows) sm.opacity = street * 0.5;
     for (const ll of W.lampLights) ll.intensity = street * 12;
+    // pools track the lamps: full at open and close, gone when street is 0 (midday)
+    for (const pm of W.lampPoolMats) pm.opacity = street * 0.62;
     W.signMat.emissiveIntensity = 0.25 + street * 0.9;
     W.rivalSignMat.emissiveIntensity = 0.2 + street * 1.1 + Math.min(0.6, W._rivalHeat * 0.05);
     // Their glass follows the streetlights: pale reflective panes by day,

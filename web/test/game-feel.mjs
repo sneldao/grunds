@@ -196,5 +196,13 @@ for (const id of ['status', 'pressure', 'regularsbtn', 'wirebtn'])
 ok(/body\.in-play #hud \{ background: none/.test(index), 'the plate removal itself changed');
 console.log('HUD     status/pressure/regulars-wire stay reachable; quiet chrome still folds');
 
+for (const name of ['lampLights', 'lampPoolMats'])
+  ok(new RegExp(`W\\.${name} = \\[\\]`).test(world), `world.js drops W.${name} init`);
+ok(/for \(const ll of W\.lampLights\) ll\.intensity = street \* 12;/.test(world), 'lamps lost the real-light street loop');
+ok(/for \(const pm of W\.lampPoolMats\) pm\.opacity = street \* 0\.62;/.test(world), 'lamps lost the pool street loop');
+ok(/for \(const ll of world\.lampLights\) ll\.intensity \*= street;/.test(main), 'vitalityGlow lost the lamp-light multiplier');
+ok(/for \(const pm of world\.lampPoolMats\) pm\.opacity \*= street;/.test(main), 'vitalityGlow must dim pavement pools with the street');
+console.log('LAMPS   real lights and pavement pools both ride the street curve');
+
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
 console.log('\nPASS — game feel: bounded bubbles, clamped to screen, signed numbers, pause, letter keys, quiet badge');
