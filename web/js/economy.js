@@ -32,7 +32,7 @@ export function debtInterestFor(debt) {
 export function campaignVerdict(net, rep) {
   if (net > 8000 && rep >= 70) return 'star';
   if (net > 5500 && rep >= 60) return 'good';
-  if (net > 4500) return 'held';
+  if (net > 4500 && rep >= 50) return 'held';
   if (net > 0) return 'scarped';
   return 'lost';
 }

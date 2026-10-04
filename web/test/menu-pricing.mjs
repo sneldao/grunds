@@ -20,6 +20,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
 const main = readFileSync(resolve(root, 'web/js/main.js'), 'utf8');
 const patrons = readFileSync(resolve(root, 'web/js/patrons.js'), 'utf8');
+const rival = readFileSync(resolve(root, 'web/js/rival.js'), 'utf8');
 const html = readFileSync(resolve(root, 'web/index.html'), 'utf8');
 
 // (1) Catalog: four drinks, sane margins, slowest = matcha
@@ -77,15 +78,16 @@ test('Phase 3 · clampPrice holds the band', () => {
 
 // (5) Spawn orders by cohort, wantsMatcha stays consistent
 test('Phase 3 · spawn rolls cohort drinks; wantsMatcha follows the drink', () => {
-  assert.match(patrons, /rollDrink\(cohort, offered, this\.random\)/);
-  assert.match(patrons, /rollDrink\(cohort, this\.menuOffered, this\.random\)|rollDrink\(cohort, offered, this\.random\)/);
+  assert.match(patrons, /rollDrink\(cohort, this\.menuOffered, this\.random/);
+  assert.match(patrons, /rollDrink\(cohort, this\.menuOffered, this\.random, this\._orderPrices\(\)\)/);
   assert.match(patrons, /drink, wantsMatcha: drink === 'matcha'/);
   assert.match(patrons, /menuOffered = null/);
 });
 
 // (5b) Board cause-and-effect: price deltas divert, 86s turn away
 test('Phase 3 · board prices divert demand; 86s turn away with a reason', () => {
-  assert.match(patrons, /priceDivert\(/);
+  assert.match(rival, /priceDivert\(boardDelta/);
+  assert.match(patrons, /boardDelta/);
   assert.match(patrons, /eightySixedShare\(/);
   assert.match(patrons, /boardWalk/);
   assert.match(patrons, /turnaway/);
@@ -254,8 +256,10 @@ test('Phase 3 · loseable day 1: gouge or gut the menu and the day bleeds', asyn
   }
   assert.deepEqual(replayHeads, fairHeads, 'seeded replay drifted on walk-in identities');
 
-  assert.ok(gouge.served < fair.served, `gouge served ${gouge.served} !< fair ${fair.served}`);
+  assert.ok(gouge.served - gouge.rivalChoices < fair.served - fair.rivalChoices,
+    `gouge kept ${gouge.served - gouge.rivalChoices} !< fair ${fair.served - fair.rivalChoices}`);
   assert.ok(gouge.rivalChoices > fair.rivalChoices, `gouge rivalChoices ${gouge.rivalChoices} !> fair ${fair.rivalChoices}`);
+  assert.ok(gouge.balked > fair.balked, `gouge balked ${gouge.balked} !> fair ${fair.balked}`);
 
   assert.ok(gutted.turnaways > 0, 'gutted board produced no board turnaways');
   assert.ok(gutted.served < fair.served, `gutted served ${gutted.served} !< fair ${fair.served}`);

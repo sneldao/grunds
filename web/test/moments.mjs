@@ -183,8 +183,8 @@ if (G.phase !== 'trading') fails.push(`expected trading, got ${G.phase}`);
 // The line card is the long-queue decision point — once pending or visible it
 // keeps the clock at base rate.
 {
-  G.moment.unblock('line');
   runTo(725);
+  G.moment.unblock('line');
   G.patrons.staffMul = 0.02;
   let tries = 0;
   while (G.phase === 'trading' && !G.moment.pending().some(m => m.type === 'line') && G.moment.active() !== 'line' && G.stats().dayMin < 838 && tries++ < 900) runFrames(1);
@@ -266,7 +266,7 @@ if (G.reg.regulars[0].absence !== 'returning') fails.push(`Mara should be return
       const rr = rm && G.reg.regulars.find(x => x.name === rm[1]);
       const lastWalk = rr && [...(rr.events || [])].reverse().find(e => e.outcome === 'balked' || e.outcome === 'defected');
       const whyOk = rm && (rm[2] === 'a rough patch' ? !lastWalk
-        : rm[2] === 'walking out yesterday' ? lastWalk && lastWalk.outcome === 'balked'
+        : rm[2] === 'walking out yesterday' ? lastWalk && (lastWalk.outcome === 'balked' || lastWalk.outcome === 'defected')
         : lastWalk && lastWalk.outcome === 'defected');
       if (!rm || !rr || rr.absence !== 'returning' || !whyOk)
         fails.push(`returning moment copy wrong: "${momentBody()}"`);

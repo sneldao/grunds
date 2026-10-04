@@ -359,6 +359,13 @@ check('#brief-more is gone — the curriculum replaced the drawer', byId('brief-
 for (const id of ['brief-new', 'brief-lots', 'brief-menu', 'brief-demand', 'brief-actions', 'brief-context', 'brief-nut', 'brief-risk']) {
   const n = byId(id);
   check(`#${id} exists in the real markup`, !!n);
+  if (id === 'brief-menu') {
+    const text = n ? deepText(n) : '';
+    check('day 1 menu is present but quiet — no New today card',
+      n && n.style.display !== 'none' && /menu ·/.test(text) && !/New today/.test(text),
+      `display=${n && n.style.display} text=${text.slice(0, 160)}`);
+    continue;
+  }
   check(`day-1 curriculum leaves #${id} hidden`, n && n.style.display === 'none', `display=${n && n.style.display}`);
   if (id !== 'brief-context') check(`day-1 curriculum leaves #${id} empty`, n && deepText(n).trim() === '', `text=${(n ? deepText(n) : '').slice(0, 120)}`);
 }
@@ -366,8 +373,10 @@ for (const id of ['brief-new', 'brief-lots', 'brief-menu', 'brief-demand', 'brie
 const primary = visibleText(byId('brief'));
 check('primary surface: no viability/bonus/commitment/finance talk',
   !/viable|as a bonus|committed|riding the spot|insure|the wire|2914/i.test(primary), primary.slice(0, 500));
-check('curriculum day-1 primary hides every tool row',
-  !/pouring |menu ·|supplier tab|the nut|Explore the full plan|More planning details|insure the beans|work the street/i.test(primary), primary.slice(0, 500));
+check('day 1 primary keeps the quiet menu row and no teaching card',
+  /menu ·/.test(primary) && !/New today/.test(primary), primary.slice(0, 800));
+check('curriculum day-1 primary hides every other tool row',
+  !/pouring |supplier tab|the nut|Explore the full plan|More planning details|insure the beans|work the street/i.test(primary), primary.slice(0, 500));
 check('primary surface keeps the prep choice + forecast',
   /ONE PLAN FOR THE AFTERNOON/.test(primary) && /Students arrive at 14:00/.test(primary), primary.slice(0, 500));
 writeFileSync(join(LOGS, 'first-morning-visible.txt'), primary);
@@ -455,6 +464,13 @@ check('a planning-phase tick preserves the prepared coach', !!G.coach.state() &&
 runFrames(2);
 check('coach stays hidden while the Brief owns the stage', byId('coach').hidden === true, `hidden=${byId('coach').hidden} text=${deepText(byId('coach')).slice(0, 80)}`);
 
+{
+  const skip = byId('brief-pastry-none');
+  check('day 1 can skip tomorrow’s case inside prep', !!skip && skip.parentElement && skip.parentElement.parentElement === byId('brief-prep'), skip && skip.id);
+  skip.click();
+  check('the skip stages the full cut for tomorrow', G.stats().pastryCut === 1, String(G.stats().pastryCut));
+}
+
 globalThis.document.activeElement = null;
 key('Enter');
 await new Promise(r => setTimeout(r, 10));
@@ -539,6 +555,29 @@ check('day 2 no actions row without insurance or tab', byId('brief-actions').sty
   check('day-2 digits reach only rendered action buttons — none staged', (G.plan ? G.plan.hedge : null) === before, JSON.stringify(G.plan && G.plan.hedge));
 }
 check('day 2 normal prep pills are back', !!collect(byId('brief-prep'), c => c.dataset && c.dataset.prep === 'hold')[0] && /hold steady/.test(deepText(byId('brief-prep'))));
+{
+  const prep = byId('brief-prep');
+  const half = byId('brief-pastry-half');
+  check('day 2 asks to shrink tomorrow�s croissant case inside prep', !!half && half.parentElement && half.parentElement.parentElement === prep, half && half.parentElement && half.parentElement.id);
+  half.click();
+  check('baking half stages the existing cut', G.stats().pastryCut === 0.5, String(G.stats().pastryCut));
+  byId('brief-pastry-full').click();
+  check('the full case clears that cut', G.stats().pastryCut === 0, String(G.stats().pastryCut));
+}
+{
+  const row = byId('brief-shock');
+  check('day 2 surfaces the machine shock inside the prep block', !!row && row.parentElement === byId('brief-prep') && /repair/.test(deepText(row)), row ? deepText(row).slice(0, 200) : 'missing');
+  const till0 = G.stats().till;
+  const leave = byId('brief-shock-leave'), fix = byId('brief-shock-repair');
+  check('the shock row is leave-as-is plus the data counters with their costs', !!leave && !!fix && /leave it as it is/.test(leave.textContent) && /52/.test(deepText(row)), deepText(row).slice(0, 200));
+  check('a wrong-day shock cannot be staged', G.stageCounterable('dairy_crunch', 'replace') === false && G.stageCounterable('health_inspector', 'tidy') === false);
+  check('an unknown counter cannot be staged', G.stageCounterable('machine_breaks', 'wish') === false);
+  fix.click();
+  const fix2 = byId('brief-shock-repair');
+  check('staging the repair survives the rerender', !!fix2 && fix2.getAttribute('aria-pressed') === 'true', fix2 && fix2.getAttribute('aria-pressed'));
+  check('staging is planning-only — the till is untouched', G.stats().till === till0, `till=${G.stats().till}`);
+  globalThis.__d2till0 = till0;
+}
 check('day 2 hint no longer claims a staged midday press is free', !/pressing 1 or 2 mid-day without it costs/.test(deepText(byId('brief-prep'))));
 check('the learning line stays quiet beside the coffee card', byId('brief-learning').style.display === 'none' || !/house coffee needs attention/.test(byId('brief-learning').textContent), byId('brief-learning').textContent);
 writeFileSync(join(LOGS, 'day2-brief-visible.txt'), visibleText(byId('brief')));
@@ -548,6 +587,9 @@ writeFileSync(join(LOGS, 'day2-brief-visible.txt'), visibleText(byId('brief')));
   const r = G.commitDayPlan();
   check('day 2 commits', r && r.ok === true, JSON.stringify(r));
   check('the commit records coffee as introduced', (G.curriculum.introduced || []).includes('coffee'), JSON.stringify(G.curriculum.introduced));
+  check('the staged repair merges into the dawn once', Math.abs(G.patrons.capacityMult - 0.9 * 1.08) < 1e-9, `cap=${G.patrons.capacityMult}`);
+  check('the repair bills exactly once at commit', Math.abs(G.stats().till - (globalThis.__d2till0 - 52)) < 1e-9, `till=${G.stats().till} from ${globalThis.__d2till0}`);
+  check('trading-phase staging is refused', G.stageCounterable('machine_breaks', 'repair') === false && G.stageCounterable('machine_breaks', null) === false);
 }
 guard = 0;
 while (G.phase === 'trading' && guard++ < 80) {
@@ -555,6 +597,7 @@ while (G.phase === 'trading' && guard++ < 80) {
   if (G.paused && !byId('brief').classList.contains('show')) G.togglePause();
 }
 check('day 2 closes into review', G.phase === 'review', 'phase=' + G.phase);
+check('the skipped case opened empty — retail walked instead of selling', G.stats().pastryStock === 0 && G.stats().servedRetail === 0, `stock=${G.stats().pastryStock} retail=${G.stats().servedRetail}`);
 {
   const receipt = G.lastDayReceipt;
   const lessons = receipt && receipt.lessons || [];
@@ -628,6 +671,67 @@ G.renderBrief();
   byId('dossier-hello').click();
   check('the walk-in gesture warms the head +0.06 once', Math.abs(head._op - hop0 - 0.06) < 1e-9 && byId('dossier-hello').disabled === true, `${hop0}→${head._op}`);
   key('Escape');
+}
+
+if (G.phase === 'planning') {
+  G.stageDayPlan({ hedge: 'hold' });
+  const r = G.commitDayPlan();
+  check('day 3 commits for the shock run', r && r.ok === true, JSON.stringify(r));
+}
+guard = 0;
+while (G.phase === 'trading' && guard++ < 80) {
+  runFrames(60);
+  if (G.paused && !byId('brief').classList.contains('show')) G.togglePause();
+}
+check('day 3 closes into review', G.phase === 'review', 'phase=' + G.phase);
+G.continueFromReview();
+await new Promise(r => setTimeout(r, 10));
+G.renderBrief();
+check('day 4 opens planning', G.phase === 'planning' && G.stats().day === 4, `${G.phase} d${G.stats().day}`);
+{
+  const row = byId('brief-shock');
+  check('day 4 surfaces the dairy shock inside the prep block', !!row && row.parentElement === byId('brief-prep') && /replace/.test(deepText(row)) && /shrink/.test(deepText(row)), row ? deepText(row).slice(0, 200) : 'missing');
+  const till0 = G.stats().till, milk0 = G.stats().milkStock;
+  check('the dairy debug seam refuses a bad counter', G.stageShockCounter('bogus') === false);
+  check('the dairy debug seam stages through the calendar gate', G.stageShockCounter('shrink') === true);
+  const rep4 = byId('brief-shock-replace');
+  rep4.click();
+  check('day 4 replace stays staged after the rerender', byId('brief-shock-replace').getAttribute('aria-pressed') === 'true', byId('brief-shock-replace').getAttribute('aria-pressed'));
+  check('day 4 staging is planning-only - till and milk untouched', G.stats().till === till0 && G.stats().milkStock === milk0, `till=${G.stats().till} milk=${G.stats().milkStock}`);
+  G.stageDayPlan({ hedge: 'hold' });
+  const r4 = G.commitDayPlan();
+  check('day 4 commits', r4 && r4.ok === true, JSON.stringify(r4));
+  check('the dairy fill lands once at commit - -48 cups, -GBP36',
+    Math.abs(G.stats().milkStock - Math.max(0, milk0 - 48)) < 1e-9 && Math.abs(G.stats().till - (till0 - 36)) < 1e-9,
+    `milk=${G.stats().milkStock} from ${milk0}, till=${G.stats().till} from ${till0}`);
+  check('both seams refuse trading-phase staging', G.stageCounterable('dairy_crunch', 'replace') === false && G.stageShockCounter('replace') === false);
+}
+guard = 0;
+while (G.phase === 'trading' && guard++ < 80) {
+  runFrames(60);
+  if (G.paused && !byId('brief').classList.contains('show')) G.togglePause();
+}
+check('day 4 closes into review', G.phase === 'review', 'phase=' + G.phase);
+G.continueFromReview();
+await new Promise(r => setTimeout(r, 10));
+G.renderBrief();
+check('day 5 opens planning', G.phase === 'planning' && G.stats().day === 5, `${G.phase} d${G.stats().day}`);
+{
+  const row = byId('brief-shock');
+  check('day 5 surfaces the inspector inside the prep block', !!row && row.parentElement === byId('brief-prep') && /tidy/.test(deepText(row)) && /clean/.test(deepText(row)), row ? deepText(row).slice(0, 200) : 'missing');
+  const till0 = G.stats().till, rep0 = G.reg.reputation;
+  check('the dairy seam is gated to its own day', G.stageShockCounter('replace') === false);
+  const clean5 = byId('brief-shock-clean');
+  clean5.click();
+  check('day 5 clean stays staged after the rerender', byId('brief-shock-clean').getAttribute('aria-pressed') === 'true', byId('brief-shock-clean').getAttribute('aria-pressed'));
+  check('day 5 staging is planning-only - till and rep untouched', G.stats().till === till0 && G.reg.reputation === rep0, `till=${G.stats().till} rep=${G.reg.reputation}`);
+  G.stageDayPlan({ hedge: 'hold' });
+  const r5 = G.commitDayPlan();
+  check('day 5 commits', r5 && r5.ok === true, JSON.stringify(r5));
+  check('the deep clean lands once at commit - net -1 rep, -GBP30',
+    G.reg.reputation === rep0 - 1 && Math.abs(G.stats().till - (till0 - 30)) < 1e-9,
+    `rep=${G.reg.reputation} from ${rep0}, till=${G.stats().till} from ${till0}`);
+  check('both seams refuse trading-phase staging on day 5', G.stageCounterable('health_inspector', 'tidy') === false && G.stageShockCounter('tidy') === false);
 }
 
 G.reset();

@@ -198,12 +198,14 @@ export const CAMPAIGN = {
     cataExtra: 0.04,      // catastrophes scare the street extra
     returnBase: 0.12,     // return rate at reputation 62
     returnPerRep: 0.004,  // +0.4% per reputation point above 62
-    returnMax: 0.35,      // even legends don't get everyone back
+    returnMax: 0.48,      // a strong week can bring back more than 35%
     chalkGain: 0.03,      // chalk the board: free, once a day
     sampleGain: 0.12,     // sample hour: costs cups, buys the street
     sampleCost: 40.0,     // £ of cups given away
+    sampleReach: 1.15,    // same day: a bigger wave, and a heavier pull on the split
     sponsorGain: 0.20,    // sponsor the market stall: real money, real crowd
     sponsorCost: 160.0,   // £ from the till at commit
+    sponsorReach: 1.25,   // same day, and it multiplies with a sample if both are on
     sponsorDay: 3,        // the stall only takes sponsors once you're known
   },
   // Cohort expectation pressure — applied at end of day, scales with the
