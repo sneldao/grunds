@@ -107,6 +107,7 @@ director.add('vitalityGlow', (ctx) => {
   for (const sm of world.lampGlows) sm.opacity *= street;
   for (const ll of world.lampLights) ll.intensity *= street;
   for (const pm of world.lampPoolMats) pm.opacity *= street;
+  for (const wl of world.windowLights) wl.intensity *= street;
   for (const wm of world.winMats) wm.emissiveIntensity *= street;
   world.signMat.emissiveIntensity *= street;
 });
@@ -5042,7 +5043,7 @@ function loop(now) {
     _slowFrames++;
     if (_slowFrames >= 3) {
       _liteSwitched = true;
-      try { renderer.shadowMap.enabled = false; postfx.dispose(); } catch {}
+      try { renderer.shadowMap.enabled = false; postfx.dispose(); world.setLite(true); } catch {}
     }
   }
   // shadow budget: at peak queue shadows are noise — save the fill rate
