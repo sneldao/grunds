@@ -58,18 +58,34 @@ export function ticketLevel(prices, matchaPrice) {
   return sum / DRINK_IDS.length;
 }
 
-// rollDrink(cohort, offered, rng) — weighted pick among offered drinks.
-// offered is {id: bool}; matcha is always offered (the Brief forbids 86ing
-// it), but the roller honors the set regardless — no special cases.
-export function rollDrink(cohort, offered = null, rng = Math.random) {
+// How far a ±£1 move pulls a cohort off a drink. 0 at the posted base,
+// so a menu that hasn't moved reproduces the old weights exactly.
+const PRICE_PULL = 0.55;
+
+export function orderWeight(id, weight, prices) {
+  const w = weight ?? 0;
+  if (w <= 0 || !prices) return w;
+  const base = DRINKS[id]?.base ?? 0;
+  if (!(base > 0)) return w;
+  const price = prices[id] ?? base;
+  const tilt = ((price - base) / PRICE_BAND) * PRICE_PULL;
+  return w * Math.min(1.8, Math.max(0.2, 1 - tilt));
+}
+
+// rollDrink(cohort, offered, rng, prices) — weighted pick among offered
+// drinks. offered is {id: bool}; an 86 drops the drink before the weights
+// run. prices, when passed, shift those weights inside the ±£1 band.
+// Matcha is always offered (the Brief forbids 86ing it).
+export function rollDrink(cohort, offered = null, rng = Math.random, prices = null) {
   const weights = COHORT_ORDERS[cohort] || COHORT_ORDERS.commuters;
   const open = DRINK_IDS.filter(id => id === 'matcha' || (offered ? offered[id] !== false : true));
   const pool = open.filter(id => (weights[id] ?? 0) > 0);
   const from = pool.length ? pool : open;
-  const total = from.reduce((s, id) => s + (weights[id] ?? 1), 0);
+  const wOf = (id) => orderWeight(id, weights[id] ?? 1, prices);
+  const total = from.reduce((s, id) => s + wOf(id), 0);
   let r = rng() * total;
   for (const id of from) {
-    r -= weights[id] ?? 1;
+    r -= wOf(id);
     if (r <= 0) return id;
   }
   return from[from.length - 1];
@@ -113,17 +129,30 @@ export function preferredOnBoard(name, offered = null) {
 // half never gets a body — the room holds 260 and the register is four a
 // minute — so the case matches who can reach the till. Leftovers compost.
 export const PASTRY = ATTACH_ITEMS.croissant;
-export function pastryPar(dayWaves, spawnScale = 1, spawnMul = 1, lastRetail = 0) {
-  if (lastRetail > 0) return Math.max(4, Math.round(lastRetail * 1.1));
-  let q = 0;
-  for (const w of dayWaves || []) {
-    for (const s of w.spawns || []) {
-      if (s && s.z && s.z !== 'counter') q += s.q || 0;
+export function pastryPar(dayWaves, spawnScale = 1, spawnMul = 1, lastRetail = 0, cut = 0) {
+  let n;
+  if (lastRetail > 0) n = Math.max(4, Math.round(lastRetail * 1.1));
+  else {
+    let q = 0;
+    for (const w of dayWaves || []) {
+      for (const s of w.spawns || []) {
+        if (s && s.z && s.z !== 'counter') q += s.q || 0;
+      }
     }
+    const scale = Number.isFinite(spawnScale) ? spawnScale : 1;
+    const mul = Number.isFinite(spawnMul) ? spawnMul : 1;
+    n = Math.max(4, Math.round(q * scale * mul * 0.5));
   }
-  const scale = Number.isFinite(spawnScale) ? spawnScale : 1;
-  const mul = Number.isFinite(spawnMul) ? spawnMul : 1;
-  return Math.max(4, Math.round(q * scale * mul * 0.5));
+  const share = Math.min(1, Math.max(0, Number(cut) || 0));
+  if (share > 0) n = Math.max(0, Math.round(n * (1 - share)));
+  return n;
+}
+
+// A starred week sends a fuller van on the next day 1. One shot.
+export function starredDelivery(qty, carry) {
+  const q = qty || 0;
+  if (!carry) return q;
+  return Math.min(4000, Math.round((q * 1.2) / 10) * 10);
 }
 
 // Milk delivery: yesterday's milky pour +10%, rounded to 10s, clamped.

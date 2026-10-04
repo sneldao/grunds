@@ -27,31 +27,46 @@ export function mergeEffects(a = {}, b = {}) {
   return out;
 }
 
-// Three hits, not a scenario deck. dairy_crunch shares its calendar day with
-// the supplies surcharge. The other two are the same merge, staged by hand.
+// Three hits, not a scenario deck. Each one has a calendar day, the way the
+// oat-milk surcharge does. A counter buys back most of the hit and leaves
+// a remainder: the cheap milk fill does not refill every missing cup, a
+// repair does not return the bar to full, a deep clean does not turn a
+// citation into a bonus.
 export const COUNTERABLE = {
   dairy_crunch: {
     day: MACRO_SHOCKS.dairy_crunch.day,
     baseline: { inventory: -80 },
     counters: {
-      replace: { cost: 36, inventory: 80 },
+      replace: { cost: 36, inventory: 64 },
       shrink: { inventory: 40, shrinkMilky: true },
     },
   },
   machine_breaks: {
-    baseline: { capacityMult: 0.55 },
+    day: 2,
+    // A calendar day, not a staged collapse. 0.55 for the whole dawn
+    // sinks a competent week; 0.90 still slows the bar, and the repair
+    // buys back most of that without returning it to 1.
+    baseline: { capacityMult: 0.90 },
     counters: {
-      repair: { cost: 52, capacityMult: 1.82 },
+      repair: { cost: 52, capacityMult: 1.08 },
     },
   },
   health_inspector: {
+    day: 5,
     baseline: { rep: -6 },
     counters: {
       tidy: { cost: 8, rep: 4 },
-      clean: { cost: 30, rep: 9 },
+      clean: { cost: 30, rep: 5 },
     },
   },
 };
+
+export function shockOnDay(day) {
+  for (const [id, hit] of Object.entries(COUNTERABLE)) {
+    if (hit.day === day) return id;
+  }
+  return null;
+}
 
 export function counterForMenu(offered) {
   if (offered && offered.flatwhite === false) return 'shrink';

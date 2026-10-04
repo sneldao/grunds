@@ -240,7 +240,7 @@ console.log('RIVAL     walk-back vs speed verified');
   const main = read('web/js/main.js');
   const vitals = read('web/js/vitals.js');
   const html = read('web/index.html');
-  ok(patrons.includes('rollDrink(cohort, this.menuOffered, this.random)'), 'orders still roll first');
+  ok(patrons.includes('rollDrink(cohort, this.menuOffered, this.random'), 'orders still roll first');
   ok(patrons.includes('preferredDrink: null'), 'the patron literal still starts without a usual');
   ok(!patrons.includes('wantsMatcha && !hasBatch'), 'the walk-out is no longer matcha-only');
   ok(patrons.includes('balkLimit(') && patrons.includes('balkChanceFor('), 'the walk-out reads prep');

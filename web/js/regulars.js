@@ -7,11 +7,21 @@
 // friends first (a "word of mouth" hop); reputation pulls toward the mean of
 // a regular's friends (5%/day). Diameter is 2 for the current roster, so any
 // sour or sweet day reaches the whole network within three hops.
-import { REGULAR_ROSTER, CAMPAIGN } from './config.js';
+import { REGULAR_ROSTER } from './config.js';
 import { stageFor, CANON_DRINKS, MAX_EVENTS } from './identity.js';
+import { Demand } from './demand.js';
+import { WALKOUT_OP } from './consequences.js';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const CONTAGION = 0.05;   // opinion pull toward each friend's mean (per day)
+
+// 0 at an empty day, 0.5 at 30 cups, 1 at 60. Past 60 the bonus keeps
+// growing, and each extra cup adds less than the one before it.
+export function busyHappy(served) {
+  const s = Math.max(0, Number(served) || 0);
+  if (s <= 60) return s / 60;
+  return 1 + 0.5 * (1 - 60 / s);
+}
 
 export class Regulars {
   constructor() {
@@ -89,7 +99,7 @@ export class Regulars {
   // of their friends' opinions). Brought to the next dawn via the letter's
   // tone and the reputation meter.
   resolveDay({ served, balked, defections, priced }) {
-    const happy = clamp(served / 60, 0, 1);
+    const happy = busyHappy(served);
     for (const r of this.regulars) {
       if (!r.seen) continue;
       // Phase 1 — a seen day is a visit (mirrors server resolveDay exactly:
@@ -149,8 +159,7 @@ export class Regulars {
   // Loyalty as a return rate: yesterday's served × this reappear across
   // today's waves (see Demand.resolveDay). 62 → returnBase, capped at returnMax.
   get returnRate() {
-    const d = CAMPAIGN.demand;
-    return clamp(d.returnBase + (this.reputation - 62) * d.returnPerRep, 0, d.returnMax);
+    return Demand.returnRateFor(this.reputation);
   }
 
   // Mark a regular as present today (called when a patron of this cohort
@@ -159,10 +168,10 @@ export class Regulars {
   // A chance to be a real, named regular (not just cohort colour) per cohort.
   // Phase 1: also returns visits/stage/drink so the floor greets returning
   // faces by history, not just by name.
-  markSeen(cohort, only = null) {
+  markSeen(cohort, only = null, chosen = null) {
     const cands = this.regulars.filter(r => !r.seen && !r._spawned && r.coh === cohort && r.absence !== 'away' && r.absence !== 'lost' && (!only || only.has(r.name)));
     if (!cands.length) return { found: false };
-    const r = cands[(Math.random() * cands.length) | 0];
+    const r = chosen && cands.includes(chosen) ? chosen : cands[(Math.random() * cands.length) | 0];
     r.seen = true; r._spawned = true;
     return { found: true, idx: r.i, name: r.name, coh: r.coh, visits: r.visits, stage: r.stage, drink: r.drink };
   }
@@ -184,11 +193,29 @@ export class Regulars {
   noteWalkout(idx, { day, outcome } = {}) {
     const r = this.regulars[idx];
     if (!r) return null;
-    if (day != null && r._lastWalkoutDay === day) return false;
-    if (day != null) r._lastWalkoutDay = day;
+    const delta = outcome === 'defected' ? WALKOUT_OP.defected : WALKOUT_OP.balked;
+    // A second balk the same day does not count twice. A walk-out who then
+    // crosses keeps the defect grudge: the opinion moves from the balk to
+    // the crossing, and the event follows.
+    if (day != null && r._lastWalkoutDay === day) {
+      if (outcome === 'defected' && r._lastWalkout !== 'defected') {
+        const already = r._lastWalkout === 'balked' ? WALKOUT_OP.balked : 0;
+        r.op = clamp(r.op + (WALKOUT_OP.defected - already), -1, 1);
+        r._lastWalkout = 'defected';
+        const last = r.events[r.events.length - 1];
+        if (last && last.day === day && last.outcome === 'balked') last.outcome = 'defected';
+        else {
+          r.events.push({ day, drink: r.drink, outcome, stayed: false });
+          if (r.events.length > MAX_EVENTS) r.events.splice(0, r.events.length - MAX_EVENTS);
+        }
+        return r;
+      }
+      return false;
+    }
+    if (day != null) { r._lastWalkoutDay = day; r._lastWalkout = outcome; }
     r.events.push({ day, drink: r.drink, outcome, stayed: false });
     if (r.events.length > MAX_EVENTS) r.events.splice(0, r.events.length - MAX_EVENTS);
-    r.op = clamp(r.op + (outcome === 'defected' ? -0.12 : -0.08), -1, 1);
+    r.op = clamp(r.op + delta, -1, 1);
     return r;
   }
 

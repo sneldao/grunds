@@ -3,7 +3,7 @@
 //   2. spawnMul rails: 0 awareness → spawnMin, full → spawnMax.
 //   3. Coasting decays awareness 0.055/close; catastrophes scare an extra 0.04.
 //   4. Each dawn action lands its configured gain on tomorrow's awareness.
-//   5. Return rate: 62 → 0.12, higher reputation returns more, capped at 0.35.
+//   5. Return rate: 62 → 0.12, higher reputation returns more, capped at returnMax.
 //   6. resolveDay counts returnees = served × rate; staged flags clear.
 //   7. Sponsor can't stage before sponsorDay; double-staging is rejected.
 //   8. Regulars.returnRate mirrors Demand.returnRateFor (one number, two doors).

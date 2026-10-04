@@ -191,7 +191,7 @@ export const CAMPAIGN = {
     cataExtra: 0.04,      // catastrophes scare the street extra
     returnBase: 0.12,     // return rate at reputation 62
     returnPerRep: 0.004,  // +0.4% per reputation point above 62
-    returnMax: 0.35,      // even legends don't get everyone back
+    returnMax: 0.48,      // a strong week can bring back more than 35%
     chalkGain: 0.03,      // chalk the board: free, once a day
     sampleGain: 0.12,     // sample hour: costs cups, buys the street
     sampleCost: 40.0,     // £ of cups given away

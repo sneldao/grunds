@@ -20,6 +20,8 @@ export class PatronSystem {
     this.regulars = regulars;     // for named-patron flagging
     this.walkins = walkins;       // Phase 1 — day-pool of generated walk-in heads
     this.menuOffered = null;      // Phase 3 — {drink: bool} 86 board (null = everything offered)
+    this.menuPrices = null;       // live menu; matcha is overwritten by the board
+    this.priceMult = 1;           // shock price multiplier, separate from the menu
     this.skillPts = 0;            // Phase 3 — Ruth's skill bonus bar-points, set at dawn
     this.truceCeasefire = false;  // Phase 4 — Saturday ceasefire: no rival-bound spawns
     this.exchange = exchange;     // for contract unit consumption
@@ -111,6 +113,85 @@ export class PatronSystem {
   get count() { return MAXP - this.free.length; }
   get queueLength() { return this.counterQ.filter(p => p.state === 'inQueue').length; }
 
+  _orderPrices() {
+    const prices = { ...(this.menuPrices || {}) };
+    for (const id of Object.keys(DRINKS)) if (prices[id] == null) prices[id] = DRINKS[id].base;
+    if (this.exchange) prices.matcha = salePrice(this.exchange, this.repriced);
+    return prices;
+  }
+
+  _priceOf(id) {
+    const prices = this._orderPrices();
+    const ticket = prices[id] ?? DRINKS[id]?.base ?? ECON.other;
+    const mult = this.priceMult ?? 1;
+    return ticket * mult;
+  }
+
+  // The regular markSeen would pick, without marking them. The street
+  // price needs their usual before we know whether they cross.
+  _pendingRegular(cohort) {
+    const reg = this.regulars;
+    if (!reg || !Array.isArray(reg.regulars)) return null;
+    const only = this.markSeenOnly || null;
+    const cands = reg.regulars.filter(r => r && !r.seen && !r._spawned && r.coh === cohort && r.absence !== 'away' && r.absence !== 'lost' && (!only || only.has(r.name)));
+    if (!cands.length) return null;
+    return cands[(Math.random() * cands.length) | 0];
+  }
+
+  _attachRegular(p, r) {
+    if (!r || !r.found) return;
+    p.regularName = r.name; p.regularIdx = r.idx; p.hasHat = true;
+    p.pid = `roster-${r.name}`; p.pname = r.name; p.faceSeed = r.name;
+    p.preferredDrink = r.drink; p.stage = r.stage; p.visits = r.visits;
+    const roster = this.regulars && Array.isArray(this.regulars.regulars) ? this.regulars.regulars : null;
+    const reg = roster ? roster[r.idx] : null;
+    p.regularFriends = new Set(reg?.friends ?? []);
+    let set = this.regularsByIdx.get(r.idx);
+    if (!set) { set = new Set(); this.regularsByIdx.set(r.idx, set); }
+    set.add(p);
+  }
+
+  _roomFull() {
+    const seats = this.world && this.world.seats;
+    return Array.isArray(seats) && seats.length > 0 && seats.every(s => s && s.taken);
+  }
+
+  _highDwell(p) {
+    return (p.ritualDwell || 1) * (this.dwellMul || 1) > 1;
+  }
+
+  // The room is judged when they would join the queue, not when they spawn.
+  // High-dwell cohorts add the camp pull to the same rival roll.
+  _campDivert(p) {
+    if (this.truceCeasefire || !this._roomFull() || !this._highDwell(p)) return false;
+    if (this.rivalQ.length >= 42) return false;
+    const op = this.regulars ? (this.regulars.reputation - 50) / 50 : 0;
+    const pr = rivalChoiceProbability({
+      strategy: this.rivalStrategy, cohort: p.cohort, ourPrice: this._priceOf(p.drink), op,
+      ourQueue: this.queueLength, rivalQueue: this.rivalQ.length,
+      reach: this.reach ?? 1, cupQuality: this.cupQuality ?? 1,
+      campPull: FULL_ROOM_PULL,
+    });
+    return this.random() < pr;
+  }
+
+  _leaveForRival(p, quick) {
+    const i = this.counterQ.indexOf(p);
+    if (i >= 0) this.counterQ.splice(i, 1);
+    p.rivalOrigin = 'camp';
+    p.queueRef = 'rival';
+    this.rivalChoices++;
+    this.rivalQ.push(p);
+    p.goal = this._slotPos(rivalSlot, this.rivalQ.length - 1, p);
+    if (quick) {
+      p.state = 'inRivalQ';
+      p.pos.set(p.goal.x + (Math.random() - 0.5), 0, p.goal.z + 0.6 + Math.random() * 0.4);
+    } else {
+      p.state = 'defecting';
+      p.path = [V3(LAYOUT.crossX, 0, LAYOUT.pavementZ), V3(LAYOUT.crossX, 0, 14.6)];
+    }
+  }
+
   spawn(cohort, zone, quick = false, viaCompanion = false) {
     if (!this.free.length) return null;
     const idx = this.free.pop();
@@ -127,7 +208,7 @@ export class PatronSystem {
     const ritualSpeed = (typeof cohortDef.walkSpeed === 'number') ? cohortDef.walkSpeed : 2.1;
     // Phase 3 — the order: weighted by cohort, honoring the 86 board.
     // wantsMatcha stays as the legacy flag so batch/balk/price paths read on.
-    const drink = rollDrink(cohort, this.menuOffered, this.random);
+    const drink = rollDrink(cohort, this.menuOffered, this.random, this._orderPrices());
     const p = {
       idx, active: true, cohort, zone,
       drink, wantsMatcha: drink === 'matcha',
@@ -155,42 +236,39 @@ export class PatronSystem {
       // down a 0.9s serve/balk reaction blended in update().
       op: 0, reactT: 0, reactKind: null,
     };
+    // The drink they actually wanted: a roster usual when one is waiting,
+    // otherwise the price-weighted roll. An 86'd usual is not a street
+    // price — they turn away instead of crossing on a cup we won't pour.
+    const pending = zone === 'counter' ? this._pendingRegular(cohort) : null;
+    let wanted = drink;
+    let usualEightySixed = false;
+    if (pending) {
+      const standing = preferredOnBoard(pending.drink, this.menuOffered);
+      if (standing.drink) wanted = standing.drink;
+      else if (standing.turnedAway) usualEightySixed = true;
+    }
     let toRival = false;
     // Phase 4 — ceasefire Saturday: nobody crosses, neither way.
-    if (zone === 'counter' && !this.truceCeasefire && this.rivalQ.length < 42) {
-      const ourPrice = this.exchange ? salePrice(this.exchange, this.repriced) : ECON.matchaFull;
+    // The room is not judged here. Camp pull happens when they join.
+    if (!usualEightySixed && zone === 'counter' && !this.truceCeasefire && this.rivalQ.length < 42) {
+      const ourPrice = this._priceOf(wanted);
       const op = this.regulars ? (this.regulars.reputation - 50) / 50 : 0;
-      // A full room (seats exist and every one is taken) adds to the same
-      // roll for cohorts who came to sit. An empty seat list is a headless
-      // world, not a full cafe.
-      const seats = this.world && this.world.seats;
-      const roomFull = Array.isArray(seats) && seats.length > 0 && seats.every(s => s && s.taken);
-      const campPull = roomFull && ritualDwell * (this.dwellMul || 1) > 1 ? FULL_ROOM_PULL : 0;
       const pr = rivalChoiceProbability({
         strategy: this.rivalStrategy, cohort, ourPrice, op,
         ourQueue: this.queueLength, rivalQueue: this.rivalQ.length,
         reach: this.reach ?? 1, cupQuality: this.cupQuality ?? 1,
-        campPull,
       });
       if (this.random() < pr) toRival = true;
     }
     // Is this spawn a named Regular? If so, mark seen, tag the patron, and
     // emit a one-line greeting when they actually join the queue.
+    // pending was picked with the same roll markSeen used to spend, so the
+    // person the street priced is the person who gets marked.
     if (!toRival && this.regulars && zone === 'counter') {
-      const r = this.regulars.markSeen(cohort, this.markSeenOnly || null);
-      if (r.found) {
-        p.regularName = r.name; p.regularIdx = r.idx; p.hasHat = true;
-        // Phase 1 — canon identity: roster history rides on the patron.
-        p.pid = `roster-${r.name}`; p.pname = r.name; p.faceSeed = r.name;
-        p.preferredDrink = r.drink; p.stage = r.stage; p.visits = r.visits;
-        // copy the friend list onto the patron so the gossip router can route
-        // by name (without re-walking the Regulars graph on every bubble)
-        const reg = this.regulars.regulars[r.idx];
-        p.regularFriends = new Set(reg?.friends ?? []);
-        let set = this.regularsByIdx.get(r.idx);
-        if (!set) { set = new Set(); this.regularsByIdx.set(r.idx, set); }
-        set.add(p);
-      }
+      const r = pending
+        ? this.regulars.markSeen(cohort, this.markSeenOnly || null, pending)
+        : this.regulars.markSeen(cohort, this.markSeenOnly || null);
+      this._attachRegular(p, r);
     }
     // Phase 1 — walk-in identity: draw a generated head from the day pool so
     // strangers accumulate visits and can graduate. Roster spawns skip this.
@@ -244,12 +322,18 @@ export class PatronSystem {
     } else if (zone === 'counter' && p.boardTurnaway) {
       this.turnaways.push(p);
     } else if (zone === 'counter') {
-      p.queueRef = 'counter'; this.counterQ.push(p);
-      p.goal = this._slotPos(counterSlot, this.counterQ.length - 1, p);
-      if (quick) {  // at speed the crowd is just there — step out of it, keep arrival = spawn rate
-        p.state = 'toQueue';
-        p.pos.set(p.goal.x + (Math.random() - 0.5), 0, p.goal.z + 1.4 + Math.random());
-      } else { p.state = 'walkingIn'; p.path = [door]; }
+      // Quick spawn joins now, so the room is judged now. A slow walk
+      // judges it at the door (_onArrive), when the seats are the seats
+      // they would actually take.
+      if (quick && this._campDivert(p)) this._leaveForRival(p, true);
+      else {
+        p.queueRef = 'counter'; this.counterQ.push(p);
+        p.goal = this._slotPos(counterSlot, this.counterQ.length - 1, p);
+        if (quick) {  // at speed the crowd is just there — step out of it, keep arrival = spawn rate
+          p.state = 'toQueue';
+          p.pos.set(p.goal.x + (Math.random() - 0.5), 0, p.goal.z + 1.4 + Math.random());
+        } else { p.state = 'walkingIn'; p.path = [door]; }
+      }
     } else {
       p.state = 'toBrowse';
       const shelf = V3(LAYOUT.retail.x + 1.3 + Math.random(), 0, LAYOUT.retail.z + (Math.random() - 0.5) * 4.4);
@@ -506,7 +590,10 @@ export class PatronSystem {
 
   _onArrive(p) {
     switch (p.state) {
-      case 'walkingIn': p.state = 'toQueue'; break;   // through the door — now drift to your slot
+      case 'walkingIn':
+        if (this._campDivert(p)) this._leaveForRival(p, false);
+        else p.state = 'toQueue';
+        break;
       case 'toBrowse': p.state = 'browse'; p.dwell = 2 + (Math.random() * 4 | 0); break;
       case 'toSeat': p.state = 'sit'; p.dwell = Math.round((8 + (Math.random() * 14 | 0)) * this.dwellMul); p.face = p.seat.face; p.sipAt = Math.max(1, p.dwell - 4); break;
       case 'defecting': p.state = 'inRivalQ'; break;

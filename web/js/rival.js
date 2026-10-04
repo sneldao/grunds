@@ -17,7 +17,9 @@ export function strategyForDay(day, tier) {
 // Added to the rival-choice roll when the room has no free seat and the
 // cohort came to stay (creatives, elders, or anyone the transit dwell
 // bonus pushes over a sit of 1). Low-dwell cohorts do not get it.
-export const FULL_ROOM_PULL = 0.22;
+// Enough to send a high-dwell cohort across even when the cup they wanted
+// is cheaper than the rival's board. A low-dwell cohort does not get it.
+export const FULL_ROOM_PULL = 0.30;
 
 export function rivalChoiceProbability({ strategy = 'DEFAULT', cohort, ourPrice, op = 0, ourQueue = 0, rivalQueue = 0, reach = 1, rivalReach = 1, cupQuality = 1, campPull = 0 }) {
   const s = CAMPAIGN.rivalStrategies[strategy] || CAMPAIGN.rivalStrategies.DEFAULT;

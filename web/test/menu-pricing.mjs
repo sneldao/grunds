@@ -75,7 +75,7 @@ test('Phase 3 · clampPrice holds the band', () => {
 
 // (5) Spawn orders by cohort, wantsMatcha stays consistent
 test('Phase 3 · spawn rolls cohort drinks; wantsMatcha follows the drink', () => {
-  assert.match(patrons, /rollDrink\(cohort, this\.menuOffered, this\.random\)/);
+  assert.match(patrons, /rollDrink\(cohort, this\.menuOffered, this\.random/);
   assert.match(patrons, /drink, wantsMatcha: drink === 'matcha'/);
   assert.match(patrons, /menuOffered = null/);
 });

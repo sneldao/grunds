@@ -81,7 +81,11 @@ export class Demand {
   // for the live-stock version). 62 → returnBase; ±1 rep moves returnPerRep.
   static returnRateFor(reputation) {
     const d = CAMPAIGN.demand;
-    return clamp(d.returnBase + (reputation - 62) * d.returnPerRep, 0, d.returnMax);
+    const linear = d.returnBase + (reputation - 62) * d.returnPerRep;
+    // Below 92 the old slope stands. A strong stock earns a step the old
+    // 35% cap would have cut off; returnMax is the new ceiling.
+    const extra = reputation > 92 ? (reputation - 92) * 0.02 : 0;
+    return clamp(linear + extra, 0, d.returnMax);
   }
   // Dawn staging — one tap per action per day (chalk is free, sample costs
   // cups at commit, sponsor costs till at commit and unlocks sponsorDay+).

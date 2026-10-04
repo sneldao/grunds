@@ -27,13 +27,13 @@ import { planAttendance, incidentCost, ABSENCE_WORD } from './consequences.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
-import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY } from './menu.js';
+import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, starredDelivery } from './menu.js';
 import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity } from './demand.js';
-import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu } from './shocks.js';
+import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu, shockOnDay } from './shocks.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay, modifiersForDay, wavesForDay, getMacroShockForDay, calculateNonLinearDrift, MACRO_SHOCKS } from './gentrification.js';
 import { strategyForDay } from './rival.js';
-import { canChooseStaffing, canHaveStaffCrisis } from './staffing.js';
+import { canChooseStaffing, canHaveStaffCrisis, earnedRestDay } from './staffing.js';
 import { resolveDecision } from './decision.js';
 import { firstMorningCopy, economicsLesson } from './orientation.js';
 import { planTools, TOOL_IDS, toolCopy, essentialNote } from './curriculum.js';
@@ -437,7 +437,9 @@ let baristaCondition = 1.0, baristaHomeToday = false, baristaRested = false, bar
 // Phase 4 — Ruth's arc: hinted condition → asked cause → promised rest → a
 // friend walks in. noticed/asked/restDay/returned persist across days (the
 // arc is the week); all reset on campaign restart.
-let ruthNoticed = false, ruthAsked = false, ruthRestDay = 0, ruthReturned = false;
+let ruthNoticed = false, ruthAsked = false, ruthRestDay = 0, ruthReturned = false, ruthRestOffer = 0;
+let starCarry = false; // a starred week; reset does not clear it — day 1 of the next week spends it
+let pastryCut = 0;     // staged share of tomorrow's case to skip, 0..1
 const RUTH_CAUSES = {
   rush: 'It’s the lunch rush, every day — the line never ends and I’m the whole bar.',
   opens: 'Four 5ams in a row. The opens are killing me — I don’t sleep, I just close my eyes at the counter.',
@@ -1186,11 +1188,15 @@ function closeDay() {
     }
   }
   regulars.resolveDay({ served: servedN, balked, defections, priced: repriced });
+  const offer = earnedRestDay(day, { reputation: regulars.reputation, served: servedN, balked, campaignDays: CAMPAIGN.days });
+  if (offer) ruthRestOffer = offer;
   batchWaste = Math.max(0, ctx.batchUnits | 0);
   const wasteCost = batchWaste * (ECON.batchCupCost || 1);
-  // The dawn pastry composts the same way: count what's left. The case was
-  // already paid, so close does not bill it again and the receipt grows no row.
+  // The dawn pastry composts the same way as leftover matcha: the whole case
+  // was paid when the doors opened, so the unsold units are already out of
+  // the till. Close counts them and does not bill them again.
   pastryWaste = Math.max(0, ctx.pastryStock | 0);
+  const pastryWasteCost = Math.round(pastryWaste * PASTRY.cogs * 100) / 100;
   lastRetail = servedRetail;
   ctx.pastryStock = 0;
   // Phase 6 — autopsy record: one cause row per day (stale cups by lot,
@@ -1206,7 +1212,7 @@ function closeDay() {
     }
     campaignDays.push({
       day, staleCupsByLot: { ...staleByLotToday },
-      batchWaste, pastryWaste, compost: compostToday, balked, defections, netToday: null, opDrops,
+      batchWaste, pastryWaste, compost: compostToday, pastryWasteCost, balked, defections, netToday: null, opDrops,
       emergencyCups, emergencySpend, interest: interestToday, event: exchange.event?.id || null, covered: hedgedCups > 0 || !!exchange.contract,
     });
     weekOpStart = new Map(regulars.regulars.map((r) => [r.name, r.op]));
@@ -1571,7 +1577,7 @@ function stageDayPlan(patch = {}) {
   }
   if (patch.staffing !== undefined) {
     if (!STAFFING_CHOICES.includes(patch.staffing)) return false;
-    if (patch.staffing !== 'work' && !canChooseStaffing(day, baristaCondition)) return false;
+    if (patch.staffing !== 'work' && !canChooseStaffing(day, baristaCondition) && ruthRestOffer !== day) return false;
     cand.staffing = patch.staffing;
   }
   if (patch.marketing !== undefined) {
@@ -1604,7 +1610,7 @@ function planSnapshot() {
     debt: exchange.debt,
     contract: exchange.contract ? { price: exchange.contract.price, units: exchange.contract.units, fee: exchange.contract.fee } : null,
     extraFee: contractFeeExtra,
-    staffCondition: baristaCondition,
+    staffCondition: ruthRestOffer === day ? Math.min(baristaCondition, 0.54) : baristaCondition,
   };
 }
 
@@ -2345,6 +2351,7 @@ function applyMenu() {
   Object.assign(menuOffered, stagedMenu.offered);
   ctx.menuPrices = menuPrices;
   patrons.menuOffered = menuOffered;
+  patrons.menuPrices = menuPrices;
   stagedMenu = null;
 }
 
@@ -2360,7 +2367,7 @@ function currentCupQuality() {
 // Ruth's condition is only echoed so a shock cannot overwrite it.
 function applyDawnShock() {
   const staged = stagedCounterable;
-  const id = staged?.id || (day === COUNTERABLE.dairy_crunch.day ? 'dairy_crunch' : null);
+  const id = staged?.id || shockOnDay(day);
   let counter = staged ? staged.counter : shockCounter;
   if (!counter && id === 'dairy_crunch' && counterForMenu(menuOffered)) counter = 'shrink';
   stagedCounterable = null;
@@ -2382,6 +2389,7 @@ function applyDawnShock() {
   }
   patrons.capacityMult = knobs.capacityMult;
   patrons.shockStaff = knobs.shockStaff;
+  patrons.priceMult = knobs.priceMult;
   ctx.priceMult = knobs.priceMult;
   shockDemandMul = knobs.demandMult;
   if (knobs.cost) till -= knobs.cost;
@@ -2399,6 +2407,13 @@ function stageCounterable(id, counter = null) {
   if (!hit) return false;
   if (counter != null && !hit.counters[counter]) return false;
   stagedCounterable = { id, counter };
+  return true;
+}
+
+function stagePastryCut(share) {
+  const n = Number(share);
+  if (!Number.isFinite(n) || n < 0 || n > 1) return false;
+  pastryCut = n;
   return true;
 }
 
@@ -2858,11 +2873,14 @@ function showMorningBrief() {
   if (staffRow) {
     staffRow.textContent = '';
     baristaStaged = false;
-    if (canChooseStaffing(day, baristaCondition)) {
+    const earnedRest = ruthRestOffer === day;
+    if (canChooseStaffing(day, baristaCondition) || earnedRest) {
       staffRow.style.display = '';
       const t = document.createElement('div');
       t.style.cssText = 'font-size:10.5px;opacity:.78;margin-bottom:5px;font-style:italic';
-      t.textContent = baristaCondition < 0.25
+      t.textContent = earnedRest && !(baristaCondition < 0.55)
+        ? 'The week earned Ruth a rest — send her home this morning, or keep her on.'
+        : baristaCondition < 0.25
         ? 'Ruth hasn’t had a day off all week — she’s dead on her feet.'
         : 'Ruth’s dragging this morning — too many shifts back to back.';
       const home = document.createElement('button'); home.id = 'brief-staff-home';
@@ -3154,15 +3172,21 @@ function prepareDay(d) {
   milkDelivery = d <= 1
     ? waveMilkEstimate(dayWaves, ECON.spawnScale, demand.spawnMul())
     : deliveryQty(lastMilky);
+  if (d === 1 && starCarry) {
+    milkDelivery = starredDelivery(milkDelivery, true);
+    starCarry = false;
+  }
   ctx.milkStock = milkDelivery; ctx.milky = 0; ctx.milkOut = false; milkToastDone = false;
   // One pastry case for today's retail wave. Paid when the doors open, so
   // the planning till stays the player's. Soft opening uses the practice rate.
-  pastryOnOrder = pastryPar(dayWaves, ECON.spawnScale, softDay ? SOFT_MUL : demand.spawnMul(), lastRetail);
+  pastryOnOrder = pastryPar(dayWaves, ECON.spawnScale, softDay ? SOFT_MUL : demand.spawnMul(), lastRetail, pastryCut);
+  pastryCut = 0;
   ctx.pastryStock = null;
   pastrySpend = 0;
   pastryWaste = 0;
   patrons.skillPts = ruthSkill;
   patrons.menuOffered = menuOffered;
+  patrons.menuPrices = menuPrices;
   ctx.menuPrices = menuPrices;
   stagedRoast = lotState.entry(selectedLot)?.roast ?? 3;
   patrons.dwellMul = 1 + (dayMods.dwellBonus || 0);
@@ -3387,7 +3411,9 @@ function campaignClose(insolvent = false) {
   audio.closing();
   const net = cRev - cCost - cOps - settledPaid - exchange.debt;   // the week, after the whole cost sheet
   const rep = regulars.reputation;
-  const v = VERDICTS[campaignVerdict(net, rep)];
+  const verdictId = campaignVerdict(net, rep);
+  starCarry = verdictId === 'star';
+  const v = VERDICTS[verdictId];
   // PR-B3 — the weekly winner is who served more cups this week
   const yourWeekTotal = cServed;
   const samWeekTotal = (cRivalServed || 0) + (cRivalChoices || 0);
@@ -3980,6 +4006,7 @@ function reset(coreOnly = false) {
   realizedHedgeSavings = 0; hedgedCups = 0;
   // Phase 4 — Ruth's arc rewinds with the campaign.
   ruthNoticed = false; ruthAsked = false; ruthRestDay = 0; ruthReturned = false;
+  ruthRestOffer = 0; pastryCut = 0;
   // Phase 4 — Idris's ledger rewinds too.
   contractsTaken = 0; settledCount = 0; ignoredAdvice = 0; idrisHeldSack = false;
   lastHedge = 'hold';
@@ -3993,6 +4020,8 @@ function reset(coreOnly = false) {
   menuPrices = basePrices(); ctx.menuPrices = menuPrices;
   menuOffered = Object.fromEntries(DRINK_IDS.map(id => [id, true]));
   patrons.menuOffered = menuOffered;
+  patrons.menuPrices = menuPrices;
+  patrons.priceMult = 1;
   stagedMenu = null; stagedRoast = 3;
   toolsToday = null;
   milkDelivery = 0; lastMilky = 0; milkTipped = 0; milkToastDone = false; milkBalked = 0;
@@ -4946,7 +4975,7 @@ function loop(now) {
   vitality, director, district, kitBeat, mailT,
   openDay, applyReply, reset, togglePause, resolveEvening, skipToRush,
   prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
-  stageShockCounter, stageCounterable,
+  stageShockCounter, stageCounterable, stagePastryCut,
   doPrebatch, doReprice,
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
   moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key), enqueue: (t, k, d = {}) => momentEnqueue(t, k, d) },

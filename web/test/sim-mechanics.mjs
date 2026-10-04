@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { CAMPAIGN, ECON } from '../js/config.js';
 import { Demand, marketingReach, priceElasticity, satisfactionTarget, blendSatisfaction, SAT_KEEP, SAT_TODAY } from '../js/demand.js';
-import { mergeEffects, resolveShock, applyInventory, shockKnobs, repToOpinion, COUNTERABLE, counterForMenu } from '../js/shocks.js';
+import { mergeEffects, resolveShock, applyInventory, shockKnobs, repToOpinion, COUNTERABLE, counterForMenu, shockOnDay } from '../js/shocks.js';
 import { MACRO_SHOCKS } from '../js/gentrification.js';
 import { rivalChoiceProbability, strategyForDay } from '../js/rival.js';
 import { ticketLevel, rollDrink } from '../js/menu.js';
@@ -38,6 +38,10 @@ const exchange = { matchaPrice: 4.80, day: 1, purchaseCup: () => ({ beanCost: 0,
 // ----------------------------------------------------------------
 {
   ok(COUNTERABLE.dairy_crunch.day === MACRO_SHOCKS.dairy_crunch.day, 'dairy hit shares the crunch calendar day');
+  ok(shockOnDay(1) == null, 'day 1 stays clear of the counterable calendar');
+  ok(shockOnDay(COUNTERABLE.machine_breaks.day) === 'machine_breaks', 'the broken machine has a dawn');
+  ok(shockOnDay(COUNTERABLE.health_inspector.day) === 'health_inspector', 'the inspector has a dawn');
+  ok(COUNTERABLE.machine_breaks.day !== COUNTERABLE.dairy_crunch.day && COUNTERABLE.health_inspector.day !== COUNTERABLE.dairy_crunch.day, 'the three dawns do not share a day');
 
   const stacked = mergeEffects(
     { inventory: -140, rep: -6, staff: -1, cost: 10 },
@@ -62,7 +66,9 @@ const exchange = { matchaPrice: 4.80, day: 1, purchaseCup: () => ({ beanCost: 0,
   const shrunk = resolveShock('dairy_crunch', 'shrink');
   const delivered = 50;
   ok(applyInventory(delivered, bare) === 0, `shortage cuts the van to empty, got ${applyInventory(delivered, bare)}`);
-  ok(applyInventory(delivered, bought) === delivered, 'paying replaces the cut before the bar reads it');
+  const filled = applyInventory(delivered, bought);
+  ok(filled < delivered && filled > applyInventory(delivered, shrunk), `the cheap fill leaves a smaller hole than shrinking, got ${filled}`);
+  ok(bought.inventory < 0 && bought.inventory > bare.inventory, 'replace buys back most of the missing cups, not every cup');
   ok(applyInventory(delivered, shrunk) === 10, `shrinking the milky menu gives partial headroom, got ${applyInventory(delivered, shrunk)}`);
   ok(bought.cost === 36 && shrunk.shrinkMilky === true && bare.shrinkMilky == null, 'replace costs, shrink pulls the milky menu');
   ok(counterForMenu({ flatwhite: false }) === 'shrink', 'an 86’d flat white is the shrink counter');
@@ -70,8 +76,9 @@ const exchange = { matchaPrice: 4.80, day: 1, purchaseCup: () => ({ beanCost: 0,
 
   const repaired = resolveShock('machine_breaks', 'repair');
   const broken = resolveShock('machine_breaks', null);
-  ok(close(broken.capacityMult, 0.55), 'a broken machine cuts capacity');
-  ok(close(repaired.capacityMult, 0.55 * 1.82), 'a repair multiplies capacity back');
+  ok(close(broken.capacityMult, 0.90), 'a broken machine cuts capacity');
+  ok(close(repaired.capacityMult, 0.90 * 1.08), 'a repair multiplies capacity most of the way back');
+  ok(repaired.capacityMult < 1 && repaired.capacityMult > broken.capacityMult, 'a repair does not restore the whole bar');
   const knobs = shockKnobs(repaired, 0.42);
   ok(close(knobs.capacityMult, repaired.capacityMult) && knobs.staffCondition === 0.42, 'capacity is not Ruth’s condition');
   ok(knobs.shockStaff === 0, 'a repair does not invent staff');
@@ -79,7 +86,8 @@ const exchange = { matchaPrice: 4.80, day: 1, purchaseCup: () => ({ beanCost: 0,
   const cited = resolveShock('health_inspector', null);
   const tidied = resolveShock('health_inspector', 'tidy');
   const cleaned = resolveShock('health_inspector', 'clean');
-  ok(cited.rep === -6 && tidied.rep === -2 && cleaned.rep === 3, `rep adds: bare ${cited.rep} tidy ${tidied.rep} clean ${cleaned.rep}`);
+  ok(cited.rep === -6 && tidied.rep === -2 && cleaned.rep === -1, `rep adds: bare ${cited.rep} tidy ${tidied.rep} clean ${cleaned.rep}`);
+  ok(cleaned.rep < 0 && cleaned.rep > tidied.rep, 'a deep clean buys back more than a tidy, and not the whole citation');
   const room = new Regulars();
   const repBefore = room.reputation;
   room.adjustOpinions(repToOpinion(cited.rep));
@@ -104,7 +112,7 @@ const exchange = { matchaPrice: 4.80, day: 1, purchaseCup: () => ({ beanCost: 0,
   const dryEv = dry.tick(700, dryCtx);
   const wetEv = wet.tick(700, wetCtx);
   ok(dryEv.some(e => e.type === 'balked' && e.milkOut) && dryCtx.milkStock === 0, 'the uncountered cut is what the patron reads');
-  ok(wetEv.some(e => e.type === 'served') && wetCtx.milkStock === delivered - 1, 'the replace counter is in the stock before the pour');
+  ok(wetEv.some(e => e.type === 'served') && wetCtx.milkStock === filled - 1, 'the replace counter is in the stock before the pour, hole and all');
 
   let pulled = 0, rolls = 0;
   const offered = { espresso: true, flatwhite: !shrunk.shrinkMilky, filter: true, matcha: true };
@@ -179,6 +187,9 @@ const exchange = { matchaPrice: 4.80, day: 1, purchaseCup: () => ({ beanCost: 0,
 
   const cross = (reach, quality, random) => {
     const sys = new PatronSystem(scene, world, null, exchange, null, { random });
+    // Low rng rolls these commuters an espresso. Price it at the old matcha
+    // ticket so the reach split is the one this block is measuring.
+    sys.menuPrices = { espresso: 4.80, flatwhite: 3.60, filter: 3.00, matcha: 4.80 };
     sys.reach = reach; sys.cupQuality = quality; sys.rivalStrategy = 'DEFAULT';
     let rivals = 0;
     for (let i = 0; i < 8; i++) {
@@ -254,6 +265,7 @@ const exchange = { matchaPrice: 4.80, day: 1, purchaseCup: () => ({ beanCost: 0,
   ok(main.includes('milkBalks: milkBalked'), 'close passes milk balks apart from the queue');
   ok(main.includes('applyDawnShock()'), 'the merged hit runs at commit');
   const shockFn = main.slice(main.indexOf('function applyDawnShock'), main.indexOf('function stageShockCounter'));
+  ok(shockFn.includes('shockOnDay(day)'), 'machine and inspector ride the same dawn call as the oat milk');
   ok(shockFn.includes('ctx.milkStock = applyInventory'), 'milk is rewritten from the merge');
   ok(shockFn.includes('patrons.capacityMult = knobs.capacityMult'), 'capacity lands on its own knob');
   ok(!/baristaCondition\s*=/.test(shockFn), 'the shock does not write Ruth’s condition');
