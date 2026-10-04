@@ -28,16 +28,16 @@ export function mergeEffects(a = {}, b = {}) {
 }
 
 // Three hits, not a scenario deck. Each one has a calendar day, the way the
-// oat-milk surcharge does. A counter buys back most of the hit and leaves
-// a remainder: the cheap milk fill does not refill every missing cup, a
-// repair does not return the bar to full, a deep clean does not turn a
-// citation into a bonus.
+// oat-milk surcharge does. A counter buys back part of the hit and leaves
+// a remainder: the £36 milk fill puts back fewer than half the missing
+// cups, a repair does not return the bar to full, a deep clean does not
+// turn a citation into a bonus.
 export const COUNTERABLE = {
   dairy_crunch: {
     day: MACRO_SHOCKS.dairy_crunch.day,
     baseline: { inventory: -80 },
     counters: {
-      replace: { cost: 36, inventory: 64 },
+      replace: { cost: 36, inventory: 32 },
       shrink: { inventory: 40, shrinkMilky: true },
     },
   },

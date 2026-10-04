@@ -539,6 +539,15 @@ check('day 2 no actions row without insurance or tab', byId('brief-actions').sty
   check('day-2 digits reach only rendered action buttons â€” none staged', (G.plan ? G.plan.hedge : null) === before, JSON.stringify(G.plan && G.plan.hedge));
 }
 check('day 2 normal prep pills are back', !!collect(byId('brief-prep'), c => c.dataset && c.dataset.prep === 'hold')[0] && /hold steady/.test(deepText(byId('brief-prep'))));
+{
+  const prep = byId('brief-prep');
+  const half = byId('brief-pastry-half');
+  check('day 2 asks to shrink tomorrow’s croissant case inside prep', !!half && half.parentElement && half.parentElement.parentElement === prep, half && half.parentElement && half.parentElement.id);
+  half.click();
+  check('baking half stages the existing cut', G.stats().pastryCut === 0.5, String(G.stats().pastryCut));
+  byId('brief-pastry-full').click();
+  check('the full case clears that cut', G.stats().pastryCut === 0, String(G.stats().pastryCut));
+}
 check('day 2 hint no longer claims a staged midday press is free', !/pressing 1 or 2 mid-day without it costs/.test(deepText(byId('brief-prep'))));
 check('the learning line stays quiet beside the coffee card', byId('brief-learning').style.display === 'none' || !/house coffee needs attention/.test(byId('brief-learning').textContent), byId('brief-learning').textContent);
 writeFileSync(join(LOGS, 'day2-brief-visible.txt'), visibleText(byId('brief')));

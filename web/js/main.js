@@ -417,7 +417,8 @@ let party = null;   // { name, cohort, left, served, walked, declined? } | null
 let batchWaste = 0; // prepaid cups still on the bar at close
 let batchSpend = 0; // cash spent on cups up front — the receipt shows it beside revenue
 let pastryWaste = 0; // dawn case still in the cabinet at close
-let pastrySpend = 0; // cash paid for that case when the day opens
+let pastryWasteCost = 0; // close charge: unsold × PASTRY.cogs. Not prepaid at dawn.
+let pastrySpend = 0; // wholesale of croissants that left the case at the register
 let pastryOnOrder = 0;
 let lastRetail = 0; // yesterday's register, sizes tomorrow's case
 let softDay = false, softWeekDone = false, coachedOpening = false, softTest = null, softRng = null;
@@ -721,6 +722,13 @@ function tick() {
   for (const e of events) {
     if (e.type === 'served') {
       preparedCups++;
+      // A croissant that left the case pays its wholesale now. The unsold
+      // remainder is not in this debit — close bills that at PASTRY.cogs.
+      if (e.pastry) {
+        const unit = Math.round(PASTRY.cogs * 100) / 100;
+        till -= unit;
+        pastrySpend = Math.round((pastrySpend + unit) * 100) / 100;
+      }
       // cash-only day: a share of sales die at the till — no card, no sale
       // the dead-reader incident and a wifi drop share one cash-only path
       const cardLoss = Math.max(cashOnly, wifiCardLoss(wifiOutage, dayMin));
@@ -1138,6 +1146,14 @@ function closeDay() {
   audio.closing();
   if ($('again')) $('again').style.display = 'none';   // mid-campaign: the letter drives the next day, not this button
   if ($('shareWeek')) $('shareWeek').style.display = 'none';
+  // Unsold croissants were never in the dawn debit. The close charge is
+  // the leftover count times the croissant wholesale (PASTRY.cogs, £0.70).
+  // Sold units already paid that same wholesale at the register, so this
+  // bill is only the case that did not sell. Booked before takings so the
+  // day's result carries the loss once.
+  pastryWaste = Math.max(0, ctx.pastryStock | 0);
+  pastryWasteCost = Math.round(pastryWaste * PASTRY.cogs * 100) / 100;
+  if (pastryWasteCost) till -= pastryWasteCost;
   cRev += till; cBalked += balked; cServed += served + servedRetail; cDef += defections;
   cRivalServed += rivalServed; cRivalChoices += patrons.rivalChoices;   // PR-B1 — accumulate rival week tally
   lastDayStats = { sold: served + servedRetail, balked, defections, rivalServed, rivalChoices: patrons.rivalChoices };   // the Brief reads these at dawn — PR-B1 adds rival data
@@ -1192,11 +1208,8 @@ function closeDay() {
   if (offer) ruthRestOffer = offer;
   batchWaste = Math.max(0, ctx.batchUnits | 0);
   const wasteCost = batchWaste * (ECON.batchCupCost || 1);
-  // The dawn pastry composts the same way as leftover matcha: the whole case
-  // was paid when the doors opened, so the unsold units are already out of
-  // the till. Close counts them and does not bill them again.
-  pastryWaste = Math.max(0, ctx.pastryStock | 0);
-  const pastryWasteCost = Math.round(pastryWaste * PASTRY.cogs * 100) / 100;
+  // pastryWasteCost was billed at the top of close, before takings. The
+  // cabinet can empty now; the charge already left the till.
   lastRetail = servedRetail;
   ctx.pastryStock = 0;
   // Phase 6 — autopsy record: one cause row per day (stale cups by lot,
@@ -1337,6 +1350,7 @@ function closeDay() {
       ['takings', fmt(till + batchSpend)],
       ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
       ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
+      ...(pastryWasteCost > 0 ? [['unsold croissants', `${pastryWaste} · ${fmt(pastryWasteCost)}`]] : []),
       ...(party && !party.declined ? [[party.name + '’s group', `${party.served} stayed · ${party.walked} walked`]] : []),
       ...(party && party.declined ? [[party.name, 'stayed away']] : []),
     ],
@@ -1353,6 +1367,7 @@ function closeDay() {
       ['revenue', fmt(till + batchSpend)], ['bean cost', fmt(beanCostToday)],
       ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
       ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
+      ...(pastryWasteCost > 0 ? [['unsold croissants', `${pastryWaste} · ${fmt(pastryWasteCost)}`]] : []),
       ...(beanSpend > 0 ? [['beans stocked', `−${fmt(beanSpend)}${sackSpend > 0 ? ` (${fmt(sackSpend)} on the tab)` : ''}`]] : []),
       ...(compostToday > 0 ? [['stale composted', `${compostToday} cups`]] : []),
       ...(milkTipped > 0 ? [['milk tipped', `${milkTipped} units`]] : []),
@@ -1878,7 +1893,7 @@ function renderPrepSection() {
   const wrap = $('brief-prep'); if (!wrap) return;
   clearEl(wrap);
   wrap.style.display = '';
-  if (day === 1) { renderFirstDayChoices(wrap); return; }
+  if (day === 1) { renderFirstDayChoices(wrap); renderPastryCut(wrap); return; }
 
   const lab = document.createElement('div');
   lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
@@ -1952,6 +1967,7 @@ function renderPrepSection() {
     desc: 'slower service, more patience, lower income · no prep today',
   }));
   wrap.appendChild(pillRow);
+  renderPastryCut(wrap);
 }
 
 function renderFirstDayChoices(wrap) {
@@ -2013,6 +2029,44 @@ function renderFirstDayChoices(wrap) {
   nbody.textContent = `${FM.diff} ${FM.lateNote}`;
   note.append(nsum, nbody);
   wrap.appendChild(note);
+}
+
+// Tomorrow's croissant case, staged on the brief the same way the morning
+// pills are: a click stores the share, the next dawn's pastryPar reads it.
+// Not its own panel — it sits in the prep block that is already the plan.
+function renderPastryCut(wrap) {
+  const row = document.createElement('div');
+  row.id = 'brief-pastry';
+  row.style.cssText = 'margin-top:8px';
+  const lab = document.createElement('div');
+  lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
+  lab.textContent = 'tomorrow’s croissant case';
+  row.appendChild(lab);
+  if (day >= CAMPAIGN.days) {
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:10px;opacity:.55;font-style:italic';
+    note.textContent = 'the week ends tonight — no case tomorrow';
+    row.appendChild(note);
+    wrap.appendChild(row);
+    return;
+  }
+  const choices = [
+    { id: 'brief-pastry-full', share: 0, label: 'bake the full case' },
+    { id: 'brief-pastry-half', share: 0.5, label: 'bake half' },
+    { id: 'brief-pastry-none', share: 1, label: 'skip tomorrow’s case' },
+  ];
+  for (const def of choices) {
+    const b = document.createElement('button');
+    b.id = def.id;
+    const sel = pastryCut === def.share;
+    b.textContent = (sel ? '✓ ' : '') + def.label;
+    b.style.cssText = 'display:block;width:100%;margin-top:4px;font-size:11px;text-align:left;padding:6px 9px';
+    b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+    if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
+    b.onclick = () => { stagePastryCut(def.share); renderPrepSection(); };
+    row.appendChild(b);
+  }
+  wrap.appendChild(row);
 }
 
 function updateBriefFooter() {
@@ -3177,13 +3231,17 @@ function prepareDay(d) {
     starCarry = false;
   }
   ctx.milkStock = milkDelivery; ctx.milky = 0; ctx.milkOut = false; milkToastDone = false;
-  // One pastry case for today's retail wave. Paid when the doors open, so
-  // the planning till stays the player's. Soft opening uses the practice rate.
+  // One pastry case for today's retail wave. The cabinet is filled here.
+  // Each croissant pays wholesale when it sells. Unsold units are billed
+  // at close, at the same wholesale, so they are not prepaid and not
+  // billed twice. Soft opening uses the practice rate. A cut staged on
+  // the previous brief shrinks this case, then clears.
   pastryOnOrder = pastryPar(dayWaves, ECON.spawnScale, softDay ? SOFT_MUL : demand.spawnMul(), lastRetail, pastryCut);
   pastryCut = 0;
   ctx.pastryStock = null;
   pastrySpend = 0;
   pastryWaste = 0;
+  pastryWasteCost = 0;
   patrons.skillPts = ruthSkill;
   patrons.menuOffered = menuOffered;
   patrons.menuPrices = menuPrices;
@@ -3309,8 +3367,6 @@ function startTradingDay(d) {
   if (estherCard) { till -= 2; fx.toast('esther’s stamp card: −£2', ''); }  // her cup's on the house
   if (pastryOnOrder > 0) {
     ctx.pastryStock = pastryOnOrder;
-    pastrySpend = Math.round(pastryOnOrder * PASTRY.cogs * 100) / 100;
-    till -= pastrySpend;
     pastryOnOrder = 0;
   }
   world.setMail(false);
@@ -3997,7 +4053,7 @@ function reset(coreOnly = false) {
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   rushFast = false;
-  party = null; batchWaste = 0; batchSpend = 0; pastryWaste = 0; pastrySpend = 0; pastryOnOrder = 0; lastRetail = 0; ctx.pastryStock = null;
+  party = null; batchWaste = 0; batchSpend = 0; pastryWaste = 0; pastryWasteCost = 0; pastrySpend = 0; pastryOnOrder = 0; lastRetail = 0; ctx.pastryStock = null;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; solicitorCharge = 140; cOps = 0;
   wifiOutage = null;
   rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day
@@ -4965,7 +5021,7 @@ function loop(now) {
     milkDelivery, milkStock: ctx.milkStock, milky: ctx.milky, milkOut: ctx.milkOut, milkBalked,
     satisfaction: demand ? demand.satisfaction : 62,
     waveBatchServed, waveStockoutAt, batchReservedUntil: ctx.batchReservedUntil,
-    pastryStock: ctx.pastryStock, pastrySpend, pastryWaste,
+    pastryStock: ctx.pastryStock, pastrySpend, pastryWaste, pastryWasteCost, pastryCut,
     awareness: demand ? demand.awareness : 0, ops: lastOps, demand, repriced, prebatched }),
   vitals: () => buildVitals(vitalsSnapshot()),
   tetherWifi,

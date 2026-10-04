@@ -97,8 +97,8 @@ console.log('PRICE     band, usual, and 86 verified');
   const bare = resolveShock('dairy_crunch', null);
   const bought = resolveShock('dairy_crunch', 'replace');
   const shrunk = resolveShock('dairy_crunch', 'shrink');
-  ok(bought.inventory < 0 && bought.inventory > bare.inventory && bought.inventory > shrunk.inventory,
-    `the cheap fill leaves a smaller hole, bought ${bought.inventory} shrink ${shrunk.inventory}`);
+  ok(bought.inventory < shrunk.inventory && bought.inventory > bare.inventory && -bought.inventory > -bare.inventory / 2,
+    `the £36 fill leaves most of the hole, bought ${bought.inventory} shrink ${shrunk.inventory}`);
 
   const broken = resolveShock('machine_breaks', null);
   const repaired = resolveShock('machine_breaks', 'repair');
@@ -123,10 +123,11 @@ console.log('SHOCKS    calendar and partial counters verified');
   ok(pastryPar(waves, 0.3, 1, 0, 0.5) === 6, `a staged half cut halves the case, got ${pastryPar(waves, 0.3, 1, 0, 0.5)}`);
   ok(pastryPar(waves, 0.3, 1, 20, 1) === 0, 'a full cut orders nothing tomorrow');
   const waste = 4;
-  const spend = Math.round(par * PASTRY.cogs * 100) / 100;
+  const caseCost = Math.round(par * PASTRY.cogs * 100) / 100;
   const wasteCost = Math.round(waste * PASTRY.cogs * 100) / 100;
   const soldCost = Math.round((par - waste) * PASTRY.cogs * 100) / 100;
-  ok(close(spend, soldCost + wasteCost), 'unsold pastry is inside the dawn debit, the way a prepaid matcha batch is');
+  ok(wasteCost === 2.8, `the close charge is unsold croissants × £0.70, got ${wasteCost}`);
+  ok(close(caseCost, soldCost + wasteCost) && wasteCost < caseCost, 'sold wholesale and the close charge add up to the case once');
 
   const reg = new Regulars();
   reg.friendships = new Map();
@@ -232,8 +233,10 @@ console.log('UPSIDE    return cap, Ruth’s rest, starred van verified');
   ok(patrons.includes('rivalWalkbackChance'), 'walk-back still runs on the rival line');
   ok(shockFn.includes('shockOnDay(day)'), 'the day loop calls whichever shock the calendar names');
   ok(main.includes('pastryPar(') && main.includes('pastryCut') && main.includes('stagePastryCut'), 'a cut reaches tomorrow’s case');
-  ok(main.includes('till -= pastrySpend') && !main.includes('till -= pastryWaste'), 'pastry hits the till once, at the dawn debit');
-  ok(main.includes('pastryWasteCost'), 'the spoiled units are counted as money already spent');
+  ok(main.includes('brief-pastry-half') && main.includes('share: 0.5') && main.includes('stagePastryCut(def.share)') && main.includes('renderPastryCut(wrap)'), 'the dawn brief stages tomorrow’s case');
+  ok(!read('web/index.html').includes('id="brief-pastry"'), 'the case cut is not a new panel');
+  ok(main.includes('till -= pastryWasteCost') && !main.includes('till -= pastrySpend'), 'close bills the unsold case, and dawn does not prepay it');
+  ok(main.includes('unsold croissants'), 'the day’s result names that close charge');
   ok(regulars.includes('busyHappy(served)'), 'the busy bonus reads the diminishing curve');
   ok(main.includes('earnedRestDay(') && main.includes('ruthRestOffer'), 'a strong day unlocks the existing rest');
   ok(main.includes('starredDelivery') && main.includes("starCarry = verdictId === 'star'"), 'a star changes the next day 1');

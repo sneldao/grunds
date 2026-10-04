@@ -67,8 +67,8 @@ const exchange = { matchaPrice: 4.80, day: 1, purchaseCup: () => ({ beanCost: 0,
   const delivered = 50;
   ok(applyInventory(delivered, bare) === 0, `shortage cuts the van to empty, got ${applyInventory(delivered, bare)}`);
   const filled = applyInventory(delivered, bought);
-  ok(filled < delivered && filled > applyInventory(delivered, shrunk), `the cheap fill leaves a smaller hole than shrinking, got ${filled}`);
-  ok(bought.inventory < 0 && bought.inventory > bare.inventory, 'replace buys back most of the missing cups, not every cup');
+  ok(filled > 0 && filled < applyInventory(delivered, shrunk), `the £36 fill leaves a deeper hole than shrinking the menu, got ${filled}`);
+  ok(bought.inventory < 0 && bought.inventory > bare.inventory && -bought.inventory > -bare.inventory / 2, 'the fill buys back fewer than half the missing cups');
   ok(applyInventory(delivered, shrunk) === 10, `shrinking the milky menu gives partial headroom, got ${applyInventory(delivered, shrunk)}`);
   ok(bought.cost === 36 && shrunk.shrinkMilky === true && bare.shrinkMilky == null, 'replace costs, shrink pulls the milky menu');
   ok(counterForMenu({ flatwhite: false }) === 'shrink', 'an 86’d flat white is the shrink counter');
