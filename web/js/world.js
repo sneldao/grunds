@@ -3,6 +3,7 @@ import * as THREE from '../vendor/three.module.js';
 import { PAL, LAYOUT, COPY } from './config.js';
 import { woodFloor, pavement, road, awning, menuBoard, softSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction } from './textures.js';
 import { GLBLoader } from './loader.js';
+import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
 
 const M = {}; // shared materials
 function mat(color, o = {}) {
@@ -82,6 +83,14 @@ function applyDistrictFogTree(root) {
     if (Array.isArray(m)) m.forEach(applyDistrictFog);
     else applyDistrictFog(m);
   });
+}
+export function windowMenuRows({ prices = {}, offered = {} } = {}) {
+  return DRINK_IDS.map((id) => ({
+    id,
+    name: DRINKS[id].name,
+    price: Number(menuPrice(id, prices)).toFixed(2),
+    offered: id === 'matcha' || offered[id] !== false,
+  }));
 }
 
 export function buildWorld(scene, renderer, lite) {
@@ -236,6 +245,87 @@ export function buildWorld(scene, renderer, lite) {
     const td = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mat(0xc9a227, { metal: 0.6, rough: 0.35, cast: false }));
     td.position.set(px, 3.52, 6.18); cafe.add(td);
   }
+  // Near-side front the player stands at (door bay x≈-5, window bay to its
+  // left). The wide canopy above is a title occluder and hides in play, so
+  // this bay stays dressed: brass-and-cream awning, a menu in the glass,
+  // steam drifting from inside out to the door. The walk-through between
+  // the pillars at -7 and -3 stays clear.
+  const doorAwning = new THREE.Group(); cafe.add(doorAwning);
+  const doorAwnTex = awning('#c9a227', '#efe6d3'); doorAwnTex.repeat.set(1.35, 1);
+  const doorAwnMat = new THREE.MeshStandardMaterial({ map: doorAwnTex, roughness: 0.88, metalness: 0.02, side: THREE.DoubleSide });
+  // canopy slopes down toward the pavement; a short valance hangs the scallops
+  // where the street can see them, clear of the window lettering below.
+  plane(doorAwning, 9.5, 1.85, doorAwnMat, -7.35, 3.34, 6.95, { rx: -Math.PI / 2 + 0.58, cast: true });
+  const skirtTex = doorAwnTex.clone(); skirtTex.repeat.set(1.35, 0.42); skirtTex.offset.set(0, 0); skirtTex.needsUpdate = true;
+  const skirtMat = new THREE.MeshStandardMaterial({ map: skirtTex, roughness: 0.88, metalness: 0.02, side: THREE.DoubleSide });
+  plane(doorAwning, 9.4, 0.48, skirtMat, -7.35, 2.92, 7.55, { cast: true });
+  box(doorAwning, 9.7, 0.16, 0.32, PAL.walnutDark, -7.35, 3.58, 6.08, { cast: false });
+  box(doorAwning, 9.5, 0.045, 0.08, PAL.brass, -7.35, 3.5, 6.24, { metal: 0.55, rough: 0.38, cast: false });
+  for (const px of [-11.4, -9.2, -7.0, -4.8, -3.1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), mat(PAL.brass, { metal: 0.62, rough: 0.32, cast: false }));
+    eye.position.set(px, 3.5, 6.26); doorAwning.add(eye);
+  }
+  W._menuState = { prices: basePrices(), offered: Object.fromEntries(DRINK_IDS.map((id) => [id, true])), matchaStruck: false };
+  const winMenuC = document.createElement('canvas'); winMenuC.width = 512; winMenuC.height = 640;
+  const winMenuG = winMenuC.getContext('2d');
+  W.windowMenuTexture = new THREE.CanvasTexture(winMenuC);
+  W.windowMenuTexture.colorSpace = THREE.SRGBColorSpace; W.windowMenuTexture.anisotropy = 8;
+  const drawWindowMenu = (rows) => {
+    const g = winMenuG;
+    g.fillStyle = '#efe6d3'; g.fillRect(0, 0, 512, 640);
+    g.fillStyle = 'rgba(74,52,35,.045)';
+    for (let i = 0; i < 800; i++) g.fillRect((i * 97) % 512, (i * 53) % 640, 1.2, 1.2);
+    g.strokeStyle = '#c9a227'; g.lineWidth = 14; g.strokeRect(18, 18, 476, 604);
+    g.strokeStyle = 'rgba(201,162,39,.7)'; g.lineWidth = 3; g.strokeRect(34, 34, 444, 572);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#171310'; g.font = '600 58px Georgia, serif'; g.fillText('GRUNDS', 256, 96);
+    g.fillStyle = '#4a3423'; g.font = 'italic 24px Georgia, serif'; g.fillText('in the window', 256, 142);
+    g.strokeStyle = '#c9a227'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(72, 172); g.lineTo(440, 172); g.stroke();
+    g.beginPath(); g.moveTo(120, 180); g.lineTo(392, 180); g.stroke();
+    W.windowMenuRows = rows;
+    let y = 240;
+    for (const r of rows) {
+      if (r.id === 'matcha') { g.fillStyle = '#86a860'; g.fillRect(48, y - 14, 8, 28); }
+      const off = !r.offered;
+      g.fillStyle = off ? 'rgba(23,19,16,.38)' : '#171310';
+      g.font = '600 34px Georgia, serif'; g.textAlign = 'left'; g.fillText(r.name, 68, y);
+      g.font = '600 28px ui-monospace, Menlo, monospace'; g.textAlign = 'right'; g.fillText(off ? '86' : r.price, 450, y);
+      if (off) {
+        g.strokeStyle = '#d0603b'; g.lineWidth = 3; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(64, y - 4); g.lineTo(452, y + 4); g.stroke();
+      }
+      g.strokeStyle = 'rgba(23,19,16,.16)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(62, y + 28); g.lineTo(450, y + 28); g.stroke();
+      y += 85;
+    }
+    g.fillStyle = '#4a3423'; g.font = '20px ui-monospace, Menlo, monospace'; g.textAlign = 'center';
+    g.fillText('today’s board', 256, 578);
+    W.windowMenuTexture.needsUpdate = true;
+  };
+  drawWindowMenu(windowMenuRows(W._menuState));
+  const winMenu = W.windowMenuTexture;
+  const winX = -9.15, winY = 1.78, winZ = 6.2, winW = 3.2, winH = 2.35;
+  box(cafe, winW + 0.18, 0.12, 0.16, PAL.walnutDark, winX, winY + winH / 2, winZ, { cast: false });
+  box(cafe, winW + 0.22, 0.14, 0.2, PAL.walnutDark, winX, winY - winH / 2, winZ);
+  box(cafe, 0.11, winH, 0.16, PAL.walnutDark, winX - winW / 2, winY, winZ, { cast: false });
+  box(cafe, 0.11, winH, 0.16, PAL.walnutDark, winX + winW / 2, winY, winZ, { cast: false });
+  box(cafe, winW, 0.04, 0.05, PAL.brass, winX, winY + winH / 2 - 0.1, winZ + 0.04, { metal: 0.55, rough: 0.36, cast: false });
+  const frontGlass = new THREE.MeshStandardMaterial({ color: PAL.glass, roughness: 0.06, metalness: 0.12, transparent: true, opacity: 0.2, depthWrite: false });
+  plane(cafe, winW - 0.08, winH - 0.16, frontGlass, winX, winY, winZ + 0.05, { cast: false, recv: false });
+  const streak = new THREE.MeshBasicMaterial({ color: 0xf6efe0, transparent: true, opacity: 0.22, depthWrite: false });
+  plane(cafe, 0.16, winH * 0.72, streak, winX - 0.72, winY + 0.08, winZ + 0.07, { rz: 0.06, cast: false, recv: false });
+  const winMenuMat = new THREE.MeshStandardMaterial({ map: winMenu, roughness: 0.86, emissive: 0xf6efe0, emissiveMap: winMenu, emissiveIntensity: 0.16 });
+  plane(cafe, 2.35, 2.05, winMenuMat, winX, winY - 0.02, winZ - 0.1, { cast: false });
+  const doorSteam = [];
+  const steamTex = softSprite();
+  for (let i = 0; i < 7; i++) {
+    const sm = new THREE.SpriteMaterial({ map: steamTex, color: 0xf6efe0, transparent: true, opacity: 0.45, depthWrite: false });
+    const sp = new THREE.Sprite(sm);
+    sp.position.set(-5.05, 1.6, 5.4); sp.scale.setScalar(0.8);
+    cafe.add(sp);
+    doorSteam.push({ sp, sm, phase: i / 7 });
+  }
   W.signMat = signMat;
   W.occluders = { backWall, leftWall, frontBeam, signFace, signBack, awning: awningPlane };
   W.manageCutaway = (camPos, mode = 'play') => {
@@ -245,6 +335,7 @@ export function buildWorld(scene, renderer, lite) {
     o.signFace.visible = !play;
     o.signBack.visible = !play;
     o.awning.visible = !play;
+    doorAwning.visible = play;
     o.backWall.visible = !(play && camPos.z < -8.2);
     o.leftWall.visible = !(play && camPos.x < -12.2);
   };
@@ -369,16 +460,29 @@ export function buildWorld(scene, renderer, lite) {
   const board = menuBoard();
   W.menuTexture = board.draw('4.80', false);
   W.menuMat = new THREE.MeshStandardMaterial({ map: W.menuTexture, roughness: 0.9, emissive: 0xffffff, emissiveIntensity: 0 });
-  W.setMatchaPrice = (p, struck) => { board.draw(p, struck); W.menuTexture.needsUpdate = true; };
+  const redrawBoards = () => {
+    const s = W._menuState;
+    try {
+      const t2 = board.drawMenu(s);
+      W.menuMat.map = t2; W.menuMat.needsUpdate = true;
+      if (W.menuTexture && W.menuTexture !== t2 && W.menuTexture.dispose) { try { W.menuTexture.dispose(); } catch {} }
+      W.menuTexture = t2;
+    } catch {
+      board.draw(s.prices.matcha ?? '4.80', s.matchaStruck);
+      W.menuTexture.needsUpdate = true;
+    }
+    drawWindowMenu(windowMenuRows(s));
+  };
+  W.setMatchaPrice = (p, struck) => {
+    W._menuState.prices.matcha = p;
+    W._menuState.matchaStruck = !!struck;
+    redrawBoards();
+  };
   // Phase 5 — live menu: the full Phase-3 board (prices + 86). setMatchaPrice
   // stays as a thin wrapper so existing call sites never break.
   W.setMenu = ({ prices = {}, offered = {}, matchaStruck = false } = {}) => {
-    try {
-      const t2 = board.drawMenu({ prices, offered, matchaStruck });
-      W.menuMat.map = t2; W.menuMat.needsUpdate = true;
-      if (W.menuTexture && W.menuTexture.dispose) { try { W.menuTexture.dispose(); } catch {} }
-      W.menuTexture = t2;
-    } catch { W.setMatchaPrice(prices.matcha ?? '4.80', matchaStruck); }
+    W._menuState = { prices: { ...prices }, offered: { ...offered }, matchaStruck };
+    redrawBoards();
   };
   W._chalkT0 = 0;
   W._chalkRough = null;
@@ -1419,6 +1523,19 @@ export function buildWorld(scene, renderer, lite) {
           if (arr[i + 1] < 0) arr[i + 1] += 6;
         }
         attr.needsUpdate = true;
+      }
+    }
+    if (doorSteam.length) {
+      const sec = now * 0.001;
+      for (const p of doorSteam) {
+        const u = (p.phase + sec * 0.07) % 1;
+        const curl = Math.sin(u * Math.PI * 2 + p.phase * 6.2) * 0.38;
+        // born inside the room, brightest as it crosses the door, then thins out
+        p.sp.position.set(-5.05 + curl, 1.35 + u * 0.85, 4.35 + u * 2.85);
+        p.sp.scale.setScalar(0.85 + u * 1.25);
+        const approach = Math.min(1, u / 0.22);
+        const leave = u < 0.8 ? 1 : Math.max(0, 1 - (u - 0.8) / 0.2);
+        p.sm.opacity = 0.16 + approach * leave * 0.7;
       }
     }
     if (W.tillDrawer) {

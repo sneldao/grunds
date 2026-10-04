@@ -78,6 +78,48 @@ test('both lamp arrays and the counter still-life survived the merges', () => {
   assert.ok(/W\._chalkT0 && W\.menuMat/.test(world), 'chalk color clock lost');
 });
 
+test('live window menu tracks setMenu and setMatchaPrice', async () => {
+  const anyProxy = () => new Proxy(function () {}, {
+    get: (t, k) => { if (k === Symbol.toPrimitive) return h => h === 'string' ? 'WebGL 2.0' : 1; if (k === 'then') return undefined; return anyProxy(); },
+    set: () => true, apply: () => anyProxy(),
+  });
+  const cs = () => ({ width: 0, height: 0, getContext: () => anyProxy(), style: {}, addEventListener() {} });
+  globalThis.__headless = true; globalThis.__noGLB = true;
+  globalThis.document = { createElement: t => t === 'canvas' ? cs() : anyProxy(), createElementNS: () => cs() };
+  const { buildWorld, windowMenuRows } = await import('../js/world.js');
+  const W = buildWorld(new THREE.Scene(), { shadowMap: {} }, false);
+  const def = W.windowMenuRows;
+  assert.deepEqual(def.map(r => r.id), ['espresso', 'flatwhite', 'filter', 'matcha']);
+  assert.deepEqual(def.map(r => r.price), ['3.20', '3.60', '3.00', '4.80']);
+  assert.ok(def.every(r => r.offered), 'default board should be fully offered');
+  assert.deepEqual(windowMenuRows(), def, 'pure export disagrees with live state');
+
+  W.setMenu({ prices: { filter: 3.5, espresso: 4 }, offered: { filter: false } });
+  let rows = W.windowMenuRows;
+  assert.equal(rows.find(r => r.id === 'filter').price, '3.50');
+  assert.equal(rows.find(r => r.id === 'filter').offered, false, '86 row should be unavailable');
+  assert.equal(rows.find(r => r.id === 'espresso').price, '4.00');
+  assert.equal(rows.find(r => r.id === 'matcha').price, '4.80');
+  assert.ok(rows.find(r => r.id === 'matcha').offered, 'matcha must stay active');
+
+  W.setMatchaPrice('3.90', true);
+  rows = W.windowMenuRows;
+  assert.equal(rows.find(r => r.id === 'matcha').price, '3.90', 'matcha reprice lost');
+  assert.equal(rows.find(r => r.id === 'filter').price, '3.50', 'setMatchaPrice reset the filter price');
+  assert.equal(rows.find(r => r.id === 'filter').offered, false, 'setMatchaPrice reset the 86 board');
+  assert.equal(rows.find(r => r.id === 'espresso').price, '4.00', 'setMatchaPrice reset the espresso price');
+  assert.ok(W.windowMenuTexture && W.windowMenuTexture.isTexture, 'window texture not exposed');
+});
+
+test('window menu source: real drinks, today’s board, redrawable texture', () => {
+  assert.ok(!/cappuccino/.test(world), 'fake cappuccino row still in the window menu');
+  assert.ok(!/oat\s*·\s*soy/.test(world), 'unsupported milk-surcharge footer still present');
+  assert.ok(/today’s board/.test(world), 'window footer missing');
+  assert.ok(/export function windowMenuRows\(/.test(world), 'windowMenuRows not exported');
+  assert.ok(/drawWindowMenu\(windowMenuRows\(s\)\)/.test(world), 'window does not redraw with the chalk board');
+  assert.ok(/W\.windowMenuTexture\.needsUpdate = true/.test(world), 'redraw skips needsUpdate');
+});
+
 test('scene materials are fogged at build end and inside place()', () => {
   assert.ok(/applyDistrictFogTree\(scene\)/.test(world), 'no district material sweep at build end');
   assert.ok(/parent\.add\(g\); applyDistrictFogTree\(g\)/.test(world), 'loaded GLB subtree not fogged');
