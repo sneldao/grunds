@@ -78,7 +78,23 @@ export function buildWorld(scene, renderer, lite) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   scene.background = new THREE.Color(0x26304d);
-  scene.fog = new THREE.Fog(0x1f2740, 32, 92);
+  // Steam, not a painted wall. Colour still shifts with the day (cream at
+  // open, paper through the afternoon, brass by close — set on the keyframes
+  // below). The shape must not. Stock fog is a smoothstep that hits 1 at
+  // fogFar and stays 1, so every fragment past that distance is the same flat
+  // colour: a white rectangle at open, a yellow band at close, sitting in
+  // front of a sky that does not use fog. This ramp never finishes. It
+  // approaches three-quarters strength on a long scale and is still climbing
+  // at the back of the park (view depth ~120; the lawn ends near z=109), so
+  // there is no distance where the haze becomes a constant colour and grows
+  // an edge. Grass and the far trees stay in the mix and thin into it. The
+  // sky dome is built with fog off, so the sky stays the sky.
+  const HAZE_SCALE = 165;
+  scene.fog = new THREE.Fog(PAL.cream, 0.1, HAZE_SCALE);
+  THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+	float fogFactor = 0.74 * (1.0 - exp(-max(vFogDepth, 0.0) / fogFar));
+	gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);
+#endif`;
 
   // ---- lights -------------------------------------------------------------
   const hemi = new THREE.HemisphereLight(0xc8d8ea, 0x4a3f32, 0.42); scene.add(hemi);
@@ -711,85 +727,193 @@ export function buildWorld(scene, renderer, lite) {
     W.cTarpMatR.opacity = on ? 1.0 : 0.0;
   };
 
-  // ---- the district: a street of facades + a far skyline ---------------------
-  // Lit windows are emissive-map quads that glow at night (time-of-day drives them).
+  // ---- the far side: a short row of named shopfronts --------------------------
+  // Replaces the repeated facade blocks and the blank skyline cubes. Four
+  // shops, each a different silhouette, signs facing the road. Same plaster,
+  // walnut, brass, and canvas-sign language as the café. GLASSHOUSE stays
+  // where it is, in the gap. Window glass still joins W.winMats so dusk
+  // lights them with the rest of the street.
   W.winMats = [];
-  function facade(col, wcol) {
-    const c = document.createElement('canvas'); c.width = 512; c.height = 512;
-    const g = c.getContext('2d');
-    // brick base — two-tone bricks + mortar
-    g.fillStyle = col; g.fillRect(0, 0, 512, 512);
-    const mortar = 'rgba(32,28,26,.55)';
-    const brickH = 24, brickW = 64, rows = 20, cols = 8;
-    for (let r = 0; r < rows; r++) {
-      const off = (r % 2) * (brickW / 2);
-      const y = r * (brickH + 2);
-      for (let ci = 0; ci < cols; ci++) {
-        const x = ci * brickW - off;
-        const shade = ((ci * 37 + r * 53) % 20) - 10;
-        const rr = parseInt(col.slice(1, 3), 16) + shade, gg = parseInt(col.slice(3, 5), 16) + shade, bb = parseInt(col.slice(5, 7), 16) + shade;
-        g.fillStyle = `rgb(${rr},${gg},${bb})`; g.fillRect(x + 1, y + 1, brickW - 3, brickH - 2);
-        // brick highlight top edge + shadow bottom
-        g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(x + 1, y + 1, brickW - 3, 2);
-        g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(x + 1, y + brickH - 2, brickW - 3, 2);
-      }
-      g.fillStyle = mortar; g.fillRect(0, y + brickH - 2, 512, 2);
-    }
-    // micro grain over brick
-    g.fillStyle = 'rgba(0,0,0,.04)'; for (let i = 0; i < 900; i++) g.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
-    // windows cut into the brick — with white frame + sill shadow
-    const c2 = document.createElement('canvas'); c2.width = 512; c2.height = 512;
-    const g2 = c2.getContext('2d'); g2.fillStyle = '#000'; g2.fillRect(0, 0, 512, 512);
-    const wCols = 6, wRows = 9, wx0 = 30, wy0 = 28, ww = 52, wh = 36, xg = 68, yg = 52;
-    for (let r = 0; r < wRows; r++) for (let ci = 0; ci < wCols; ci++) {
-      const x = wx0 + ci * xg, y = wy0 + r * yg;
-      const lit = Math.random() < 0.46;
-      // window recess shadow
-      g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(x + 2, y + 2, ww + 2, wh + 2);
-      // white frame
-      g.fillStyle = '#e8e0d0'; g.fillRect(x, y, ww, wh);
-      // glass inset
-      g.fillStyle = lit ? wcol : 'rgba(22,26,34,.92)'; g.fillRect(x + 3, y + 3, ww - 6, wh - 6);
-      // glass specular streak
-      if (lit) { g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(x + 5, y + 5, ww - 24, 4); }
-      // sill shadow under window
-      g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(x - 1, y + wh, ww + 2, 4);
-      // emissive map — only lit glass glows
-      if (lit) { g2.fillStyle = wcol; g2.fillRect(x + 3, y + 3, ww - 6, wh - 6); }
-    }
-    // cornice shadow at top
-    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, 0, 512, 10);
-    const tF = new THREE.CanvasTexture(c); tF.colorSpace = THREE.SRGBColorSpace; tF.wrapS = tF.wrapT = THREE.RepeatWrapping;
-    const tE = new THREE.CanvasTexture(c2); tE.colorSpace = THREE.SRGBColorSpace; tE.wrapS = tE.wrapT = THREE.RepeatWrapping; tE.repeat.copy(tF.repeat);
-    const m = new THREE.MeshStandardMaterial({ map: tF, emissive: 0xffd089, emissiveMap: tE, emissiveIntensity: 0, roughness: 0.88, metalness: 0.01 });
-    W.winMats.push(m); return m;
+  const winMat = new THREE.MeshStandardMaterial({ color: 0xffe7b0, emissive: 0xffd089, emissiveIntensity: 0, roughness: 0.28, metalness: 0.05 });
+  W.winMats.push(winMat);
+  const far = new THREE.Group(); scene.add(far);
+  // Front faces sit on the far pavement (world z = frontZ). Local -z points
+  // at the road, same as the rival's sign.
+  function shopGroup(x, depth, frontZ) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, frontZ + depth / 2);
+    far.add(g);
+    return g;
   }
-  const blocks = [
-    { x: -10, z: 19, w: 7, h: 9, d: 6, col: '#54514a', wc: '#ffe7b0' },
-    { x: 11, z: 19.5, w: 8, h: 11, d: 6, col: '#4a4e54', wc: '#ffd089' },
-    { x: -16, z: 20, w: 6, h: 7, d: 5, col: '#5a4a3a', wc: '#fff0c0' },
-    { x: 17, z: 20.5, w: 6, h: 8, d: 5, col: '#494d50', wc: '#ffe0a0' },
-  ];
-  for (const b of blocks) {
-    const m = facade(b.col, b.wc); const rep = 1;
-    m.map.repeat.set(1, 1); m.emissiveMap.repeat.set(1, 1);
-    box(scene, b.w, b.h, b.d, 0xffffff, b.x, b.h / 2, b.z, { mat: m, cast: true, rough: 0.88 });
-    // cornice cap
-    box(scene, b.w + 0.3, 0.42, b.d + 0.3, 0x2a2824, b.x, b.h + 0.06, b.z, { cast: false });
-    // ground-floor shopfront band — darker, with a thin brass line
-    box(scene, b.w + 0.02, 1.4, b.d + 0.06, 0x3a352e, b.x, 0.7, b.z, { cast: false });
-    box(scene, b.w + 0.04, 0.04, b.d + 0.08, 0xc9a227, b.x, 1.42, b.z, { cast: false });
+  function shopSignFace(parent, text, w, h, x, y, z, fg, bg, font) {
+    const tex = shopSign(text, fg, bg, font);
+    const sm = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffc98a, emissiveMap: tex, emissiveIntensity: 0.32, roughness: 0.78 });
+    plane(parent, w, h, sm, x, y, z, { ry: Math.PI });
+    box(parent, w + 0.08, h + 0.08, 0.07, PAL.walnutDark, x, y, z + 0.045, { cast: false });
   }
-  for (let i = 0; i < 9; i++) {        // far skyline — more depth, some windows on
-    const x = -26 + i * 6 + (i % 3) * 1.2, h = 13 + ((i * 37) % 13), z = -25 - (i % 3) * 2.5;
-    const dcol = i % 2 ? 0x3a3d44 : 0x4a4a52;
-    const sm = mat(dcol, { rough: 0.92, metal: 0.02 });
-    box(scene, 4.2, h, 4.2, 0xffffff, x, h / 2, z, { mat: sm, cast: false, rough: 0.92 });
-    // tiny skyline windows
-    if (i % 2 === 0) {
-      const wm = new THREE.MeshStandardMaterial({ color: 0xffe7b0, emissive: 0xffd089, emissiveIntensity: 0.35, transparent: true, opacity: 0.92 });
-      const q = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.9), wm); q.position.set(x, h * 0.55, z + 2.12); q.rotation.y = 0; scene.add(q);
-    }
+  function pane(parent, w, h, x, y, z) {
+    box(parent, w + 0.1, h + 0.1, 0.06, PAL.cream, x, y, z + 0.02, { cast: false });
+    plane(parent, w, h, winMat, x, y, z - 0.01, { ry: Math.PI });
+    box(parent, w + 0.16, 0.06, 0.08, PAL.walnut, x, y - h / 2 - 0.04, z + 0.01, { cast: false });
+  }
+  function stripedAwning(parent, w, len, x, y, z, stripeA, stripeB) {
+    const am = new THREE.MeshStandardMaterial({ map: awning(stripeA, stripeB), roughness: 0.88, metalness: 0.01, side: THREE.DoubleSide });
+    plane(parent, w, len, am, x, y, z, { rx: -Math.PI / 2 + 0.34 });
+  }
+
+  // THE QUILL — tall and narrow, stepped ink parapet, a bay window.
+  (function quill() {
+    const w = 3.05, h = 3.85, d = 2.2;
+    const g = shopGroup(-14.2, d, 16.55);
+    const fz = -d / 2;
+    box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
+    box(g, w + 0.06, 0.85, d + 0.04, PAL.ink, 0, 0.42, 0);
+    box(g, w + 0.16, 0.18, d + 0.12, PAL.ink, 0, h + 0.06, 0, { cast: false });
+    box(g, w * 0.68, 0.28, d * 0.62, PAL.ink, 0, h + 0.28, 0);
+    box(g, w * 0.36, 0.34, d * 0.36, PAL.brass, 0, h + 0.56, 0, { metal: 0.5, rough: 0.38 });
+    cyl(g, 0.025, 0.008, 0.62, PAL.brass, 0, h + 1.02, 0, { metal: 0.55, rough: 0.35 });
+    box(g, 1.15, 1.35, 0.28, PAL.cream, 0, 0.85, fz - 0.1);
+    pane(g, 0.72, 0.85, 0, 0.95, fz - 0.24);
+    pane(g, 0.62, 1.15, -0.62, 2.55, fz);
+    pane(g, 0.62, 1.15, 0.62, 2.55, fz);
+    box(g, 0.62, 1.55, 0.08, PAL.walnut, 0, 0.78, fz - 0.28);
+    shopSignFace(g, 'THE QUILL', 2.7, 0.7, 0, 3.35, fz - 0.08, '#f6efe0', '#171310', '600 72px Georgia, serif');
+  })();
+
+  // HEARTH & RYE — street-facing gable, chimney, cream-and-walnut awning.
+  (function hearth() {
+    const w = 4.6, h = 3.15, d = 2.35;
+    const g = shopGroup(-8.5, d, 16.55);
+    const fz = -d / 2;
+    box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
+    box(g, w + 0.06, 0.7, d + 0.04, PAL.walnut, 0, 0.35, 0);
+    box(g, w + 0.08, 0.05, d + 0.06, PAL.brass, 0, 0.72, 0, { metal: 0.5, rough: 0.4, cast: false });
+    const roofShape = new THREE.Shape();
+    roofShape.moveTo(-w / 2 - 0.18, 0);
+    roofShape.lineTo(0, 1.08);
+    roofShape.lineTo(w / 2 + 0.18, 0);
+    roofShape.closePath();
+    const roofLen = d + 0.4;
+    const roofGeo = new THREE.ExtrudeGeometry(roofShape, { depth: roofLen, bevelEnabled: false });
+    roofGeo.translate(0, 0, -roofLen / 2);
+    const roof = new THREE.Mesh(roofGeo, mat(PAL.walnutDark, { rough: 0.86 }));
+    roof.position.set(0, h, 0); roof.castShadow = true; roof.receiveShadow = true; g.add(roof);
+    box(g, 0.42, 1.05, 0.42, PAL.walnut, 1.25, h + 0.72, 0.28);
+    box(g, 0.54, 0.1, 0.54, PAL.ink, 1.25, h + 1.26, 0.28, { cast: false });
+    stripedAwning(g, w + 0.15, 1.35, 0, 1.72, fz - 0.12, '#4a3423', '#efe6d3');
+    pane(g, 0.82, 0.72, -1.4, 1.15, fz);
+    pane(g, 0.82, 0.72, 1.4, 1.15, fz);
+    box(g, 0.78, 1.55, 0.08, PAL.walnutDark, 0, 0.78, fz - 0.02);
+    cyl(g, 0.02, 0.02, 0.32, PAL.brass, 0.24, 0.82, fz - 0.1, { metal: 0.6, rough: 0.35, cast: false });
+    shopSignFace(g, 'HEARTH & RYE', 3.7, 0.72, 0, 2.42, fz - 0.08, '#f6efe0', '#4a3423', '600 58px Georgia, serif');
+  })();
+
+  // BELL & BRASS — square cream front, round clock, brass cupola.
+  (function bell() {
+    const w = 3.2, h = 3.05, d = 2.2;
+    const g = shopGroup(8.8, d, 16.55);
+    const fz = -d / 2;
+    box(g, w, h, d, PAL.cream, 0, h / 2, 0);
+    box(g, w + 0.05, 0.55, d + 0.03, PAL.walnut, 0, 0.28, 0);
+    box(g, w + 0.14, 0.12, d + 0.1, PAL.brass, 0, h + 0.02, 0, { metal: 0.55, rough: 0.35, cast: false });
+    cyl(g, 0.4, 0.4, 0.1, PAL.brass, 0, 2.62, fz + 0.02, { rx: Math.PI / 2, metal: 0.6, rough: 0.35 });
+    cyl(g, 0.31, 0.31, 0.08, PAL.cream, 0, 2.62, fz - 0.04, { rx: Math.PI / 2, cast: false });
+    box(g, 0.03, 0.22, 0.02, PAL.ink, 0.015, 2.68, fz - 0.1, { cast: false });
+    box(g, 0.16, 0.028, 0.02, PAL.ink, 0.06, 2.6, fz - 0.1, { cast: false });
+    const cup = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.5, 10), mat(PAL.brass, { metal: 0.5, rough: 0.4 }));
+    cup.position.set(0, h + 0.62, 0.15); cup.castShadow = true; g.add(cup);
+    cyl(g, 0.2, 0.32, 0.36, PAL.walnutDark, 0, h + 0.2, 0.15);
+    pane(g, 0.62, 0.72, -0.9, 1.15, fz);
+    pane(g, 0.62, 0.72, 0.9, 1.15, fz);
+    box(g, 0.64, 1.45, 0.08, PAL.walnut, 0, 0.72, fz - 0.02);
+    shopSignFace(g, 'BELL & BRASS', 2.9, 0.62, 0, 1.78, fz - 0.08, '#f6efe0', '#1d2a24', '600 52px Georgia, serif');
+  })();
+
+  // MARROW LANE — low and wide, deep matcha awning, crates on the pavement.
+  (function marrow() {
+    const w = 3.7, h = 2.7, d = 2.3;
+    const g = shopGroup(12.75, d, 16.55);
+    const fz = -d / 2;
+    box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
+    box(g, w + 0.08, 0.16, d + 0.06, PAL.matcha, 0, h + 0.05, 0, { cast: false });
+    box(g, w + 0.04, 0.42, d + 0.02, PAL.walnut, 0, 0.21, 0);
+    stripedAwning(g, w + 0.25, 1.55, 0, 1.7, fz - 0.18, '#86a860', '#f6efe0');
+    shopSignFace(g, 'MARROW LANE', 3.25, 0.66, 0, 2.28, fz - 0.08, '#171310', '#efe6d3', '600 56px Georgia, serif');
+    pane(g, 1.15, 0.62, 0.85, 1.15, fz);
+    box(g, 1.7, 0.85, 0.32, PAL.walnut, -0.7, 0.48, fz - 0.12);
+    box(g, 0.4, 0.34, 0.4, PAL.walnutDark, -1.45, 0.17, fz - 0.55);
+    box(g, 0.36, 0.3, 0.36, PAL.walnut, -1.05, 0.15, fz - 0.62);
+    const fruit = (color, x, y, z, r) => {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), mat(color, { rough: 0.72 }));
+      s.position.set(x, y, z); s.castShadow = true; g.add(s);
+    };
+    fruit(PAL.matcha, -1.45, 0.46, fz - 0.55, 0.11);
+    fruit(PAL.neg, -1.22, 0.44, fz - 0.68, 0.09);
+    fruit(PAL.brass, -1.05, 0.42, fz - 0.5, 0.1);
+    fruit(PAL.cream, 0.15, 0.98, fz - 0.18, 0.1);
+  })();
+
+  // ---- past the far curb: a park apron and a tree line -----------------------
+  // The city slab ends just behind the shops. A matcha lawn runs from that
+  // edge out into the fog so the ground does not stop as a hard cut, and a
+  // low planted ridge closes the empty horizon. Same greens as the awning
+  // and the matcha token — no new hues.
+  const park = new THREE.Group(); scene.add(park);
+  const grassTex = (() => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+    const pg = c.getContext('2d');
+    pg.fillStyle = '#86a860'; pg.fillRect(0, 0, 256, 256);
+    pg.fillStyle = '#2f4f43';
+    for (let i = 0; i < 640; i++) pg.fillRect((i * 47) % 256, (i * 89) % 256, 2 + (i % 3), 2 + (i % 2));
+    pg.fillStyle = 'rgba(246,239,224,.22)';
+    for (let i = 0; i < 180; i++) pg.fillRect((i * 113) % 256, (i * 61) % 256, 1, 2);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(22, 18); t.anisotropy = 8;
+    return t;
+  })();
+  const grassMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.97, metalness: 0, transparent: true });
+  // Same plane as before. Its far side fades out so the haze has no silhouette
+  // to stop on: a fog-coloured edge against the sky is the hard band. Local +Y
+  // points back toward the shops after the ground rotation; local -Y is the
+  // far edge. The near half, under the trees, stays solid.
+  grassMat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying float vLawnFade;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvLawnFade = smoothstep(-42.0, 8.0, position.y);');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vLawnFade;')
+      .replace('#include <opaque_fragment>', '#include <opaque_fragment>\n\tgl_FragColor.a *= vLawnFade;');
+  };
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(96, 90), grassMat);
+  lawn.rotation.x = -Math.PI / 2; lawn.position.set(0, 0.04, 63.95); lawn.receiveShadow = true; park.add(lawn);
+  const moundMat = mat(PAL.matcha, { rough: 0.96 });
+  const shrubMat = mat(PAL.awning, { rough: 0.95 });
+  function mound(x, z, sx, sy, sz) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), moundMat);
+    m.scale.set(sx, sy, sz); m.position.set(x, sy * 0.28, z);
+    m.receiveShadow = true; park.add(m);
+  }
+  [-28, -20, -12, -4, 4, 12, 20, 28].forEach((x, i) => mound(x, 23.2 + (i % 2) * 0.7, 5.4, 0.52 + (i % 3) * 0.08, 2.6));
+  function parkTree(x, z, h, lean) {
+    cyl(park, 0.07, 0.11, h * 0.5, PAL.walnut, x, h * 0.25, z);
+    const crown = new THREE.Mesh(new THREE.SphereGeometry(h * 0.36, 9, 7), shrubMat);
+    crown.position.set(x, h * 0.58, z); crown.castShadow = true; park.add(crown);
+    const puff = new THREE.Mesh(new THREE.SphereGeometry(h * 0.24, 8, 6), moundMat);
+    puff.position.set(x + 0.28 * lean, h * 0.86, z - 0.1); puff.castShadow = true; park.add(puff);
+  }
+  for (const [x, z, h, lean] of [
+    [-27, 28.4, 4.4, -1], [-22, 31.2, 5.6, 1], [-17.2, 27.5, 3.9, -1],
+    [-12.4, 30.8, 6.1, 1], [-7.2, 27.9, 4.6, -1], [-2.2, 31.5, 5.5, 1],
+    [2.8, 27.7, 4.2, -1], [7.6, 31.0, 5.9, 1], [12.4, 28.1, 4.5, -1],
+    [17.2, 31.3, 6.0, 1], [22.2, 28.3, 4.3, -1], [27, 30.6, 5.3, 1],
+  ]) parkTree(x, z, h, lean);
+  for (const [x, z, r] of [
+    [-24.5, 25.1, 0.85], [-15, 24.3, 0.7], [-9.5, 25.5, 0.95], [-4.6, 24.5, 0.65],
+    [0.4, 25.3, 0.8], [5.2, 24.4, 0.72], [10, 25.4, 0.9], [15.4, 24.5, 0.75],
+    [20.5, 25.2, 0.85], [25.5, 24.3, 0.62],
+  ]) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), shrubMat);
+    s.position.set(x, r * 0.72, z); s.castShadow = true; park.add(s);
   }
 
 
@@ -952,15 +1076,15 @@ export function buildWorld(scene, renderer, lite) {
   // ---- time-of-day director ---------------------------------------------------
   // t = minutes since midnight. Light tells the story of the day.
   const K = [
-    { t: 360,  elev: 5,  azim: 15,  sun: 0x8fa3c8, sunI: 0.22, hemiI: 0.28, sky: 0x26304d, fog: 0x1f2740, pend: 1.0,  street: 1 },
-    { t: 410,  elev: 10, azim: 22,  sun: 0xffc27d, sunI: 1.05, hemiI: 0.42, sky: 0xd9a06b, fog: 0xc08e6a, pend: 0.85, street: 0.5 },
-    { t: 500,  elev: 26, azim: 45,  sun: 0xffe9c4, sunI: 1.25, hemiI: 0.55, sky: 0xbcd3e0, fog: 0xb6c4cf, pend: 0.4,  street: 0 },
-    { t: 720,  elev: 55, azim: 90,  sun: 0xfff4e0, sunI: 1.35, hemiI: 0.65, sky: 0xcfe2ea, fog: 0xc3d2da, pend: 0.25, street: 0 },
-    { t: 960,  elev: 40, azim: 125, sun: 0xffedc8, sunI: 1.2,  hemiI: 0.6,  sky: 0xcfdde4, fog: 0xc6cfd4, pend: 0.3,  street: 0 },
-    { t: 1080, elev: 16, azim: 155, sun: 0xffb45e, sunI: 1.0,  hemiI: 0.5,  sky: 0xe0b07a, fog: 0xd09e72, pend: 0.55, street: 0.25 },
-    { t: 1150, elev: 5,  azim: 168, sun: 0xff8a52, sunI: 0.45, hemiI: 0.38, sky: 0x7a6a8a, fog: 0x5e5470, pend: 0.95, street: 0.85 },
-    { t: 1210, elev: 1,  azim: 175, sun: 0x8a9cc8, sunI: 0.15, hemiI: 0.3,  sky: 0x2e3a5c, fog: 0x232c48, pend: 1.1,  street: 1 },
-    { t: 1260, elev: -5, azim: 180, sun: 0x7788bb, sunI: 0.08, hemiI: 0.26, sky: 0x1c2440, fog: 0x161d33, pend: 1.15, street: 1 },
+    { t: 360,  elev: 5,  azim: 15,  sun: 0x8fa3c8, sunI: 0.22, hemiI: 0.28, sky: 0x26304d, fog: PAL.cream, pend: 1.0,  street: 1 },
+    { t: 410,  elev: 10, azim: 22,  sun: 0xffc27d, sunI: 1.05, hemiI: 0.42, sky: 0xd9a06b, fog: PAL.cream, pend: 0.85, street: 0.5 },
+    { t: 500,  elev: 26, azim: 45,  sun: 0xffe9c4, sunI: 1.25, hemiI: 0.55, sky: 0xbcd3e0, fog: PAL.paper, pend: 0.4,  street: 0 },
+    { t: 720,  elev: 55, azim: 90,  sun: 0xfff4e0, sunI: 1.35, hemiI: 0.65, sky: 0xcfe2ea, fog: PAL.paper, pend: 0.25, street: 0 },
+    { t: 960,  elev: 40, azim: 125, sun: 0xffedc8, sunI: 1.2,  hemiI: 0.6,  sky: 0xcfdde4, fog: PAL.paper, pend: 0.3,  street: 0 },
+    { t: 1080, elev: 16, azim: 155, sun: 0xffb45e, sunI: 1.0,  hemiI: 0.5,  sky: 0xe0b07a, fog: PAL.brass, pend: 0.55, street: 0.25 },
+    { t: 1150, elev: 5,  azim: 168, sun: 0xff8a52, sunI: 0.45, hemiI: 0.38, sky: 0x7a6a8a, fog: PAL.brass, pend: 0.95, street: 0.85 },
+    { t: 1210, elev: 1,  azim: 175, sun: 0x8a9cc8, sunI: 0.15, hemiI: 0.3,  sky: 0x2e3a5c, fog: PAL.brass, pend: 1.1,  street: 1 },
+    { t: 1260, elev: -5, azim: 180, sun: 0x7788bb, sunI: 0.08, hemiI: 0.26, sky: 0x1c2440, fog: PAL.brass, pend: 1.15, street: 1 },
   ].map(k => ({ ...k, sunC: new THREE.Color(k.sun), skyC: new THREE.Color(k.sky), fogC: new THREE.Color(k.fog) }));
 
   // delight updaters called from main loop (till slide with shadow stretch)

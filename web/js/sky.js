@@ -43,7 +43,7 @@ void main(){
 const FRAG = `varying vec3 vWorldPos;
 uniform vec3 uZen, uHor, uNad;
 uniform vec3 uSunDir;
-uniform float uSunInt, uStars, uTwinkle;
+uniform float uSunInt, uStars, uTwinkle, uHaze;
 
 float hash21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 // sparse, jittered star: only cells clearing a density threshold get one, at a hashed offset
@@ -63,10 +63,16 @@ float starLayer(vec2 uv, float dens, float seed){
 void main(){
   vec3 vDir = normalize(vWorldPos - cameraPosition);  // built-in uniform -> view direction
   float hgt = vDir.y;
-  // gradient: horizon band -> zenith looking up, horizon band -> nadir looking down
-  float up = smoothstep(0.02, 0.42, hgt);
-  float dn = 1.0 - smoothstep(-0.18, 0.02, hgt);
-  vec3 col = mix(uHor, uZen, up);
+  // By day uHaze is 0 and this is the original horizon. At closing the honey
+  // continues off the lawn into the lower sky and thins upward into the night,
+  // so the meeting has no edge. The zenith stays the night sky.
+  vec3 hor = mix(uHor, vec3(0.10, 0.055, 0.016), uHaze);
+  // Closing: the honey is only the horizon, and it is gone by the time the
+  // view has risen a little, which is the top of the usual street frame.
+  // Day keeps the original 0.02 → 0.42 rise.
+  float up = smoothstep(mix(0.02, -0.04, uHaze), mix(0.42, 0.30, uHaze), hgt);
+  float dn = 1.0 - smoothstep(mix(-0.18, -0.45, uHaze), mix(0.02, 0.06, uHaze), hgt);
+  vec3 col = mix(hor, uZen, up);
   col = mix(col, uNad, dn);
   // sun: warm disc + broad halo, tint deepens near the horizon, all fades out below it
   vec3 sd = normalize(uSunDir);
@@ -94,6 +100,7 @@ export function buildSky(scene) {
     uSunInt: { value: 0 },
     uStars:  { value: 0 },
     uTwinkle:{ value: 0 },
+    uHaze:   { value: 0 },
   };
   try {
     geo = new THREE.SphereGeometry(90, 64, 32);
@@ -134,6 +141,7 @@ export function buildSky(scene) {
     const y = sd.y;
     u.uSunInt.value = y > 0 ? clamp(Math.pow(y, 0.6), 0, 1) : 0;   // 0 below horizon, peak near noon
     u.uStars.value = ss(1140, 1230, t);            // stars rise from ~19:00 to ~20:30
+    u.uHaze.value = ss(1160, 1230, t);             // 0 through the day, 1 by closing
     // mood (vitality 0..1): a lively street scatters its skyglow; a dying one shows stars
     if (mood !== 1) {
       u.uSunInt.value *= 0.75 + 0.5 * mood;
