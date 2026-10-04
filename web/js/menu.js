@@ -8,6 +8,8 @@
 // Pure + deterministic (no DOM, no clock): prices/offered sets live in the
 // sim (main.js module scope, fresh per campaign) and pass in as args, so
 // headless policy runs can't leak state across imports.
+import { ECON } from './config.js';
+import { ATTACH_ITEMS } from './behavioral.js';
 
 export const DRINKS = {
   espresso: { name: 'Espresso', base: 3.20, points: 1, milk: false, blurb: 'fast, cheap, gone in three sips' },
@@ -71,6 +73,57 @@ export function rollDrink(cohort, offered = null, rng = Math.random) {
     if (r <= 0) return id;
   }
   return from[from.length - 1];
+}
+
+// Patience follows prep. A 4-point matcha walks at balkAfter; a 1-point
+// espresso waits four times as long and walks a quarter as often. A batched
+// matcha is the patient cup, not an immortal one. The deal (repriced) and a
+// bad floor (balkMul) still scale the chance the way the old matcha gate did.
+export function prepPoints(drink, batched = false) {
+  if (drink === 'matcha') return batched ? ECON.prepBatched : ECON.prepMatcha;
+  return DRINKS[drink]?.points ?? ECON.prepOther;
+}
+export function balkLimit(drink, batched = false) {
+  const pts = Math.max(1, prepPoints(drink, batched));
+  return ECON.balkAfter * (ECON.prepMatcha / pts);
+}
+export function balkChanceFor(drink, batched = false, { repriced = false, balkMul = 1 } = {}) {
+  const pts = Math.max(1, prepPoints(drink, batched));
+  return ECON.balkChance * (pts / ECON.prepMatcha) * (repriced ? 0.25 : 1) * (balkMul || 1);
+}
+
+// Names the roster and the walk-in pool already store, mapped onto the four
+// drinks the board can actually pour. Tea, latte, pour-over stay off the
+// board: they are not an 86, so the roller still picks.
+const BOARD_DRINK = {
+  espresso: 'espresso', filter: 'filter', matcha: 'matcha', flatwhite: 'flatwhite',
+  'flat white': 'flatwhite',
+};
+export function preferredOnBoard(name, offered = null) {
+  if (!name) return { drink: null, turnedAway: false };
+  const id = BOARD_DRINK[String(name).trim().toLowerCase()] || null;
+  if (!id) return { drink: null, turnedAway: false };
+  const open = id === 'matcha' || (offered ? offered[id] !== false : true);
+  return open ? { drink: id, turnedAway: false } : { drink: null, turnedAway: true };
+}
+
+// One dawn bake. The retail wave is this croissant, not six SKUs.
+// After a day on the floor, tomorrow's case is what sold plus a tray (10%).
+// The first dawn has no history: half the scaled retail sheet. The other
+// half never gets a body — the room holds 260 and the register is four a
+// minute — so the case matches who can reach the till. Leftovers compost.
+export const PASTRY = ATTACH_ITEMS.croissant;
+export function pastryPar(dayWaves, spawnScale = 1, spawnMul = 1, lastRetail = 0) {
+  if (lastRetail > 0) return Math.max(4, Math.round(lastRetail * 1.1));
+  let q = 0;
+  for (const w of dayWaves || []) {
+    for (const s of w.spawns || []) {
+      if (s && s.z && s.z !== 'counter') q += s.q || 0;
+    }
+  }
+  const scale = Number.isFinite(spawnScale) ? spawnScale : 1;
+  const mul = Number.isFinite(spawnMul) ? spawnMul : 1;
+  return Math.max(4, Math.round(q * scale * mul * 0.5));
 }
 
 // Milk delivery: yesterday's milky pour +10%, rounded to 10s, clamped.

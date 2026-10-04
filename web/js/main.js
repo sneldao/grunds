@@ -27,7 +27,7 @@ import { planAttendance, incidentCost, ABSENCE_WORD } from './consequences.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
-import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel } from './menu.js';
+import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY } from './menu.js';
 import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity } from './demand.js';
 import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu } from './shocks.js';
 import { composeLetter } from './letter.js';
@@ -416,6 +416,10 @@ let offerShown = false, offerWaveMul = 1, officeRunAt = 0, oluPayoutAt = 0, esth
 let party = null;   // { name, cohort, left, served, walked, declined? } | null
 let batchWaste = 0; // prepaid cups still on the bar at close
 let batchSpend = 0; // cash spent on cups up front — the receipt shows it beside revenue
+let pastryWaste = 0; // dawn case still in the cabinet at close
+let pastrySpend = 0; // cash paid for that case when the day opens
+let pastryOnOrder = 0;
+let lastRetail = 0; // yesterday's register, sizes tomorrow's case
 let softDay = false, softWeekDone = false, coachedOpening = false, softTest = null, softRng = null;
 const SOFT_MUL = 0.005, SOFT_CAST = new Set(['Mara', 'Pip', 'Olu']), SOFT_EARLY = new Set(['Mara', 'Olu']);
 const wantsSoftDay = () => wantTutorial && !TOOL_IDS.every(t => introducedSet().has(t));
@@ -1184,6 +1188,11 @@ function closeDay() {
   regulars.resolveDay({ served: servedN, balked, defections, priced: repriced });
   batchWaste = Math.max(0, ctx.batchUnits | 0);
   const wasteCost = batchWaste * (ECON.batchCupCost || 1);
+  // The dawn pastry composts the same way: count what's left. The case was
+  // already paid, so close does not bill it again and the receipt grows no row.
+  pastryWaste = Math.max(0, ctx.pastryStock | 0);
+  lastRetail = servedRetail;
+  ctx.pastryStock = 0;
   // Phase 6 — autopsy record: one cause row per day (stale cups by lot,
   // waste, compost, balks, defections, take-home, opinion deltas vs dawn).
   // weekOpStart doubles as the per-day baseline and is refreshed at close.
@@ -1197,7 +1206,7 @@ function closeDay() {
     }
     campaignDays.push({
       day, staleCupsByLot: { ...staleByLotToday },
-      batchWaste, compost: compostToday, balked, defections, netToday: null, opDrops,
+      batchWaste, pastryWaste, compost: compostToday, balked, defections, netToday: null, opDrops,
       emergencyCups, emergencySpend, interest: interestToday, event: exchange.event?.id || null, covered: hedgedCups > 0 || !!exchange.contract,
     });
     weekOpStart = new Map(regulars.regulars.map((r) => [r.name, r.op]));
@@ -3146,6 +3155,12 @@ function prepareDay(d) {
     ? waveMilkEstimate(dayWaves, ECON.spawnScale, demand.spawnMul())
     : deliveryQty(lastMilky);
   ctx.milkStock = milkDelivery; ctx.milky = 0; ctx.milkOut = false; milkToastDone = false;
+  // One pastry case for today's retail wave. Paid when the doors open, so
+  // the planning till stays the player's. Soft opening uses the practice rate.
+  pastryOnOrder = pastryPar(dayWaves, ECON.spawnScale, softDay ? SOFT_MUL : demand.spawnMul(), lastRetail);
+  ctx.pastryStock = null;
+  pastrySpend = 0;
+  pastryWaste = 0;
   patrons.skillPts = ruthSkill;
   patrons.menuOffered = menuOffered;
   ctx.menuPrices = menuPrices;
@@ -3268,6 +3283,12 @@ function startTradingDay(d) {
     if (stratDef) fx.toast(`${COPY.rivalBarista} moves: ${stratDef.name} (£${stratDef.price.toFixed(2)}) — ${COPY.rivalName}'s chalkboard changed`, 'warn');   // PR-B1 — name Sam personally
   }
   if (estherCard) { till -= 2; fx.toast('esther’s stamp card: −£2', ''); }  // her cup's on the house
+  if (pastryOnOrder > 0) {
+    ctx.pastryStock = pastryOnOrder;
+    pastrySpend = Math.round(pastryOnOrder * PASTRY.cogs * 100) / 100;
+    till -= pastrySpend;
+    pastryOnOrder = 0;
+  }
   world.setMail(false);
   mailT.disarm();                 // the wait for a reply never crosses into a live floor
   mailPending = false;
@@ -3950,7 +3971,7 @@ function reset(coreOnly = false) {
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   rushFast = false;
-  party = null; batchWaste = 0; batchSpend = 0;
+  party = null; batchWaste = 0; batchSpend = 0; pastryWaste = 0; pastrySpend = 0; pastryOnOrder = 0; lastRetail = 0; ctx.pastryStock = null;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; solicitorCharge = 140; cOps = 0;
   wifiOutage = null;
   rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day
@@ -4915,6 +4936,7 @@ function loop(now) {
     milkDelivery, milkStock: ctx.milkStock, milky: ctx.milky, milkOut: ctx.milkOut, milkBalked,
     satisfaction: demand ? demand.satisfaction : 62,
     waveBatchServed, waveStockoutAt, batchReservedUntil: ctx.batchReservedUntil,
+    pastryStock: ctx.pastryStock, pastrySpend, pastryWaste,
     awareness: demand ? demand.awareness : 0, ops: lastOps, demand, repriced, prebatched }),
   vitals: () => buildVitals(vitalsSnapshot()),
   tetherWifi,

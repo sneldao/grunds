@@ -3,9 +3,9 @@
 import * as THREE from '../vendor/three.module.js';
 import { COHORTS, LAYOUT, ECON, CAMPAIGN, counterSlot, registerSlot, rivalSlot, MAX_VISIBLE_QUEUE } from './config.js';
 import { salePrice } from './economy.js';
-import { rivalChoiceProbability } from './rival.js';
+import { rivalChoiceProbability, rivalWalkbackChance, FULL_ROOM_PULL } from './rival.js';
 import { memoryLine, shouldBringCompanion } from './identity.js';
-import { DRINKS, rollDrink } from './menu.js';
+import { DRINKS, rollDrink, balkLimit, balkChanceFor, preferredOnBoard, PASTRY } from './menu.js';
 import { gaitFor, moodFor, samplePose, propSway } from './poses.js';
 
 const MAXP = ECON.maxPatrons;
@@ -26,7 +26,7 @@ export class PatronSystem {
     this.fx = fx;                 // for greeting bubbles on join
     this.patrons = [];
     this.free = [];
-    this.counterQ = []; this.registerQ = []; this.rivalQ = [];
+    this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.turnaways = [];
     this.rivalClock = 0;
     this.rivalCredit = 0;
     this.rivalChoices = 0;
@@ -160,10 +160,17 @@ export class PatronSystem {
     if (zone === 'counter' && !this.truceCeasefire && this.rivalQ.length < 42) {
       const ourPrice = this.exchange ? salePrice(this.exchange, this.repriced) : ECON.matchaFull;
       const op = this.regulars ? (this.regulars.reputation - 50) / 50 : 0;
+      // A full room (seats exist and every one is taken) adds to the same
+      // roll for cohorts who came to sit. An empty seat list is a headless
+      // world, not a full cafe.
+      const seats = this.world && this.world.seats;
+      const roomFull = Array.isArray(seats) && seats.length > 0 && seats.every(s => s && s.taken);
+      const campPull = roomFull && ritualDwell * (this.dwellMul || 1) > 1 ? FULL_ROOM_PULL : 0;
       const pr = rivalChoiceProbability({
         strategy: this.rivalStrategy, cohort, ourPrice, op,
         ourQueue: this.queueLength, rivalQueue: this.rivalQ.length,
         reach: this.reach ?? 1, cupQuality: this.cupQuality ?? 1,
+        campPull,
       });
       if (this.random() < pr) toRival = true;
     }
@@ -194,10 +201,19 @@ export class PatronSystem {
         p.preferredDrink = head.drink; p.stage = head.stage; p.visits = head.visits;
       }
     }
+    // A named order, if we pour it. An 86'd usual is the board turnaway:
+    // they do not take a substitute and they do not join the line.
+    if (!toRival && p.preferredDrink) {
+      const standing = preferredOnBoard(p.preferredDrink, this.menuOffered);
+      if (standing.drink) {
+        p.drink = standing.drink;
+        p.wantsMatcha = standing.drink === 'matcha';
+      } else if (standing.turnedAway) p.boardTurnaway = true;
+    }
     // Phase 1 — friends bring a +1: a friend-stage arrival sometimes spawns a
     // visitor companion on the spot. viaCompanion guards the recursion (one
     // level); spawn's null return guards a full floor.
-    if (!toRival && !viaCompanion && shouldBringCompanion(p.stage, this.random)) {
+    if (!toRival && !p.boardTurnaway && !viaCompanion && shouldBringCompanion(p.stage, this.random)) {
       const c = this.spawn(cohort, zone, quick, true);
       if (c && c !== p) {
         c.companionOf = p.pid || p.regularName;
@@ -207,7 +223,7 @@ export class PatronSystem {
     }
     // The 11:00 ask's party — stamp members during the rush so the evening
     // card can count who stayed and who walked.
-    if (!toRival && zone === 'counter' && this.party && !this.party.declined
+    if (!toRival && !p.boardTurnaway && zone === 'counter' && this.party && !this.party.declined
         && this.partyActive && this.party.left > 0 && cohort === this.party.cohort) {
       p.partyMember = true;
       this.party.left--;
@@ -225,6 +241,8 @@ export class PatronSystem {
         p.state = 'defecting';
         p.path = [V3(LAYOUT.crossX, 0, LAYOUT.pavementZ), V3(LAYOUT.crossX, 0, 14.6)];
       }
+    } else if (zone === 'counter' && p.boardTurnaway) {
+      this.turnaways.push(p);
     } else if (zone === 'counter') {
       p.queueRef = 'counter'; this.counterQ.push(p);
       p.goal = this._slotPos(counterSlot, this.counterQ.length - 1, p);
@@ -257,9 +275,15 @@ export class PatronSystem {
   // ---- sim tick (one sim-minute) ---------------------------------------------
   tick(dayMin, ctx) {
     const ev = [];
+    // Board turnaways never join the line. Same walk-out as a balk.
+    if (this.turnaways.length) {
+      const pending = this.turnaways.splice(0);
+      for (const p of pending) this._balk(p, ev, { board: true });
+    }
     // everyone waiting ages a minute
     for (const p of this.counterQ) if (p.state === 'inQueue') p.waitMin++;
     for (const p of this.registerQ) if (p.state === 'inRegisterQ') p.waitMin++;
+    for (const p of this.rivalQ) if (p.state === 'inRivalQ') p.waitMin = (p.waitMin || 0) + 1;
 
     // serve from the counter — the bar spends prep-points each minute.
     // Phase 3: points follow the drink (espresso fast, filter slow, matcha
@@ -308,32 +332,17 @@ export class PatronSystem {
     }
     this._layoutQ(this.counterQ, counterSlot);
 
-    // balks — matcha waiters who've had enough walk to the chain
+    // balks — patience follows prep cost. Unbatched matcha is the least
+    // patient; a deal still buys time; a bad floor still loses it.
     for (let i = this.counterQ.length - 1; i >= 0; i--) {
       const p = this.counterQ[i];
-      const balkChance = ECON.balkChance * (this.repriced ? 0.25 : 1) * (this.balkMul || 1);   // a deal buys patience; a bad floor loses it
-      const hasBatch = (ctx.batchUnits || 0) > 0 && dayMin >= (ctx.batchReservedUntil || 0);
-      if (p.state === 'inQueue' && p.wantsMatcha && !hasBatch && p.waitMin > ECON.balkAfter && Math.random() < balkChance) {
+      if (p.state !== 'inQueue') continue;
+      const dk = p.drink || (p.wantsMatcha ? 'matcha' : 'flatwhite');
+      const batched = dk === 'matcha' && (ctx.batchUnits || 0) > 0 && dayMin >= (ctx.batchReservedUntil || 0);
+      const chance = balkChanceFor(dk, batched, { repriced: !!this.repriced }) * (this.balkMul || 1);
+      if (p.waitMin > balkLimit(dk, batched) && Math.random() < chance) {
         this.counterQ.splice(i, 1);
-        p.flash = 1; p.colorDirty = true;
-        // Phase 5 — walk-outs grumble on camera.
-        p.reactKind = 'grumble'; p.reactT = 0.9;
-        p.op = (Number.isFinite(p.op) ? p.op : 0) - 0.08;
-        ev.push({ type: 'balked', p });
-        // Phase 4 — ceasefire Saturday: walk-outs walk, they don't defect.
-        if (!this.truceCeasefire && Math.random() < 0.7 && this.rivalQ.length < 42) {
-          p.state = 'defecting'; p.queueRef = 'rival'; p.rivalOrigin = 'defection'; this.rivalQ.push(p);
-          p.goal = this._slotPos(rivalSlot, this.rivalQ.length - 1, p);
-          p.path = [
-            V3(LAYOUT.door.x, 0, LAYOUT.door.z + 0.6),
-            V3(LAYOUT.crossX, 0, LAYOUT.pavementZ),
-            V3(LAYOUT.crossX, 0, 14.6),
-          ];
-          // they walked out before being served — don't credit them with having been "seen"
-          if (p.regularIdx >= 0 && this.regulars) { p.defectedFrom = p.regularIdx; this.regulars.unsee(p.regularIdx); }
-          p.regularName = null; p.regularIdx = -1;
-          ev.push({ type: 'defect', p });
-        } else this._leave(p);
+        this._balk(p, ev);
       }
     }
     this._layoutQ(this.counterQ, counterSlot);
@@ -344,6 +353,21 @@ export class PatronSystem {
       const p = this.registerQ[i];
       if (p.state !== 'inRegisterQ') { i++; continue; }
       if (p.waitMin >= 1) {
+        // Retail is the dawn pastry. Stock is counted only once the day
+        // bought a case (ctx.pastryStock set). An empty case is a walk-out,
+        // not a drink ticket. Headless ticks without a case keep the drink path.
+        if (ctx.pastryStock != null) {
+          if (ctx.pastryStock <= 0) {
+            this.registerQ.splice(i, 1);
+            this._balk(p, ev, { pastry: true });
+            continue;
+          }
+          ctx.pastryStock--;
+          this.registerQ.splice(i, 1); regN++;
+          ev.push({ type: 'served', p, isMatcha: false, price: PASTRY.price, viaRegister: true, pastry: true, beanCost: 0, spotCost: 0, hedged: false });
+          if (Math.random() < 0.12) this._afterServe(p); else this._leave(p);
+          continue;
+        }
         // Phase 3 — register honors the drink: matcha pours powder at the
         // board price, the rest pour the house lot at menu prices. Milky
         // orders need milk stock, same as the bar.
@@ -383,10 +407,13 @@ export class PatronSystem {
       }
     }
 
-    // the chain serves slowly — one every two minutes
+    // the chain serves slowly — one every two minutes, faster when their
+    // strategy says so. A long felt wait walks a share back to our door.
+    // Speed is what keeps that wait from arriving.
     const stratDef = CAMPAIGN.rivalStrategies[this.rivalStrategy] || {};
+    const speedMul = stratDef.speedMul || 1;
     const rivalReady = this.rivalQ.length > 0 && this.rivalQ[0].state === 'inRivalQ';
-    this.rivalCredit += 0.5 * (stratDef.speedMul || 1);
+    this.rivalCredit += 0.5 * speedMul;
     if (!rivalReady) this.rivalCredit = Math.min(1, this.rivalCredit);
     while (this.rivalCredit >= 1 - 1e-9 && this.rivalQ.length && this.rivalQ[0].state === 'inRivalQ') {
       const p = this.rivalQ.shift();
@@ -395,8 +422,46 @@ export class PatronSystem {
       p.path = [V3(p.pos.x + 5, 0, 15.4)];
       ev.push({ type: 'rivalServed', p });
     }
+    let walkedBack = false;
+    for (let i = this.rivalQ.length - 1; i >= 0; i--) {
+      const p = this.rivalQ[i];
+      if (p.state !== 'inRivalQ') continue;
+      const back = rivalWalkbackChance(p.waitMin, speedMul);
+      if (back > 0 && Math.random() < back) {
+        this.rivalQ.splice(i, 1);
+        p.state = 'toQueue'; p.queueRef = 'counter'; p.rivalOrigin = 'walkback'; p.waitMin = 0;
+        this.counterQ.push(p);
+        p.goal = this._slotPos(counterSlot, this.counterQ.length - 1, p);
+        ev.push({ type: 'rivalWalkback', p });
+        walkedBack = true;
+      }
+    }
     this._layoutQ(this.rivalQ, rivalSlot);
+    if (walkedBack) this._layoutQ(this.counterQ, counterSlot);
     return ev;
+  }
+
+  // The existing walk-out: grumble, maybe cross, otherwise leave. Board
+  // turnaways and an empty pastry case use this same path.
+  _balk(p, ev, extra) {
+    p.flash = 1; p.colorDirty = true;
+    p.reactKind = 'grumble'; p.reactT = 0.9;
+    p.op = (Number.isFinite(p.op) ? p.op : 0) - 0.08;
+    ev.push({ type: 'balked', p, ...(extra || {}) });
+    // Phase 4 — ceasefire Saturday: walk-outs walk, they don't defect.
+    if (!this.truceCeasefire && Math.random() < 0.7 && this.rivalQ.length < 42) {
+      p.state = 'defecting'; p.queueRef = 'rival'; p.rivalOrigin = 'defection'; this.rivalQ.push(p);
+      p.goal = this._slotPos(rivalSlot, this.rivalQ.length - 1, p);
+      p.path = [
+        V3(LAYOUT.door.x, 0, LAYOUT.door.z + 0.6),
+        V3(LAYOUT.crossX, 0, LAYOUT.pavementZ),
+        V3(LAYOUT.crossX, 0, 14.6),
+      ];
+      // they walked out before being served — don't credit them with having been "seen"
+      if (p.regularIdx >= 0 && this.regulars) { p.defectedFrom = p.regularIdx; this.regulars.unsee(p.regularIdx); }
+      p.regularName = null; p.regularIdx = -1;
+      ev.push({ type: 'defect', p });
+    } else this._leave(p);
   }
 
   _afterServe(p) {
@@ -740,7 +805,7 @@ export class PatronSystem {
 
   reset() {
     for (let i = this.patrons.length - 1; i >= 0; i--) this._despawn(this.patrons[i]);
-    this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.rivalClock = 0; this.rivalCredit = 0; this.rivalChoices = 0;
+    this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.turnaways = []; this.rivalClock = 0; this.rivalCredit = 0; this.rivalChoices = 0;
     this.staffMul = 1; this.capacityMult = 1; this.shockStaff = 0; this.reach = 1; this.cupQuality = 1;
     this.balkMul = 1; this.dwellMul = 1;
     this.companionsToday = [];
