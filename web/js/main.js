@@ -105,6 +105,7 @@ director.add('vitalityGlow', (ctx) => {
   for (const bm of world.bulbMats) bm.emissiveIntensity *= warm;
   for (const lm of world.lampMats) lm.emissiveIntensity *= street;
   for (const sm of world.lampGlows) sm.opacity *= street;
+  for (const ll of world.lampLights) ll.intensity *= street;
   for (const wm of world.winMats) wm.emissiveIntensity *= street;
   world.signMat.emissiveIntensity *= street;
 });
@@ -5019,7 +5020,7 @@ let _slowFrames = 0, _liteSwitched = false;
 function feel(opts = {}) {
   const clock = !!opts.always || (speed <= 60 && !eveningFast && !rushFast);
   const chalk = opts.object === world._chalkPlane;
-  impact.strike(frameNow / 1000, {
+  impact.strike((headless ? frameNow : performance.now()) / 1000, {
     object: opts.object || null,
     patron: opts.patron || null,
     part: opts.part || null,

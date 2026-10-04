@@ -309,7 +309,7 @@ export function buildWorld(scene, renderer, lite) {
 
 
   // ---- street furniture -----------------------------------------------------
-  W.lampMats = []; W.lampGlows = [];
+  W.lampMats = []; W.lampGlows = []; W.lampLights = [];
   const glowTex = softSprite();
   for (const lx of [-9, 7]) {
     cyl(scene, 0.06, 0.08, 3.6, 0x22262a, lx, 1.8, 9.2, { metal: 0.5 });
@@ -320,6 +320,14 @@ export function buildWorld(scene, renderer, lite) {
     const sm = new THREE.SpriteMaterial({ map: glowTex, color: 0xffd9a0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
     const spr = new THREE.Sprite(sm); spr.position.set(lx, 3.5, 8.55); spr.scale.setScalar(2.6); scene.add(spr);
     W.lampGlows.push(sm);
+    // The globe is emissive only. A honey point at the same spot actually
+    // lights the pavement. No shadow. Distance 12 / decay 2 pools the
+    // street and the door queue and falls off before the bar.
+    const ll = new THREE.PointLight(0xffd2a0, 0, 12, 2);
+    ll.castShadow = false;
+    ll.position.copy(lamp.position);
+    scene.add(ll);
+    W.lampLights.push(ll);
   }
   for (const tx of [-14.5, 13.5]) {  // street trees
     cyl(scene, 0.09, 0.13, 1.6, 0x4a3423, tx, 0.8, 7.8);
@@ -955,6 +963,7 @@ export function buildWorld(scene, renderer, lite) {
     for (const bm of W.bulbMats) bm.emissiveIntensity = 0.25 + pend * 1.5;
     for (const lm of W.lampMats) lm.emissiveIntensity = street * 2.4;
     for (const sm of W.lampGlows) sm.opacity = street * 0.5;
+    for (const ll of W.lampLights) ll.intensity = street * 12;
     W.signMat.emissiveIntensity = 0.25 + street * 0.9;
     W.rivalSignMat.emissiveIntensity = 0.2 + street * 1.1 + Math.min(0.6, W._rivalHeat * 0.05);
     // Their glass follows the streetlights: pale reflective panes by day,
