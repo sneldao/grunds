@@ -7,10 +7,10 @@
 // pose, not an object impact.
 //
 // Reduced motion skips all three. Headless day runs pass holdClock:false
-// so a serve cannot stall the fixture clock. At 5×/20× a serve still
-// squashes the cup, but the clock hitch is 1× only — a 70ms hold on
-// every service minute would erase fast-forward. A chalkboard press and
-// a wave verdict always ask for the hold: they are one beat, not a tick.
+// so a serve cannot stall the fixture clock. Routine serves and balks
+// only squash the cup or torso — they never ask for the hold or the
+// punch. A chalkboard press and a wave verdict opt in: they are one
+// beat, not a tick.
 
 export const HITSTOP_SEC = 0.07;
 export const SQUASH_MIN_Y = 0.72;

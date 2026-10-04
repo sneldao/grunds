@@ -5020,12 +5020,12 @@ function momentScan() {
 let acc = 0, last = performance.now();
 let frameNow = 0;
 let _slowFrames = 0, _liteSwitched = false;
-// 1× serves and balks hold the clock. Chalkboard presses and the wave
-// verdict always do — one beat, not every service minute. 5×/20× and the
-// evening/rush fast-forwards still squash the cup; they do not hitch.
+// Serves and balks squash the cup or torso only — they never hold the
+// clock or punch FOV. Chalkboard presses and the wave verdict opt in
+// with always: one beat, not every service minute.
 // Reduced motion is inside impact.
 function feel(opts = {}) {
-  const clock = !!opts.always || (speed <= 60 && !eveningFast && !rushFast);
+  const clock = !!opts.always;
   const chalk = opts.object === world._chalkPlane;
   impact.strike((headless ? frameNow : performance.now()) / 1000, {
     object: opts.object || null,

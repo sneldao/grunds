@@ -110,6 +110,42 @@ test('a serve and a balk squash different objects; fast-forward does not extend 
   assert.deepEqual(axesFor(walked, 'cup', 5.05), { x: 1, y: 1, z: 1 });
 });
 
+const feelSrc = main.slice(main.indexOf('function feel'), main.indexOf('\nfunction ', main.indexOf('function feel') + 1));
+function makeFeel({ speed, eveningFast = false, rushFast = false, strikes = [] }) {
+  const factory = new Function(
+    'impact', 'world', 'chalkPopScale', 'headless', 'frameNow', 'performance', 'speed', 'eveningFast', 'rushFast',
+    feelSrc + '; return feel;'
+  );
+  const impact = { strike: (t, o) => { strikes.push(o); return true; } };
+  const worldObj = { _chalkPlane: { name: 'chalk' } };
+  return factory(impact, worldObj, () => 1, false, 0, performance, speed, eveningFast, rushFast);
+}
+
+test('routine serves and balks never hold the clock or punch FOV at any speed', () => {
+  for (const speed of [60, 300, 1200]) for (const fast of [false, true]) {
+    const strikes = [];
+    const feel = makeFeel({ speed, eveningFast: fast, rushFast: fast, strikes });
+    const cup = { name: 'cup-patron' };
+    feel({ patron: cup, part: 'cup' });
+    const walked = { name: 'torso-patron' };
+    feel({ patron: walked, part: 'torso' });
+    assert.equal(strikes.length, 2, `speed ${speed} fast ${fast}: two strikes`);
+    for (const [i, s] of strikes.entries()) {
+      assert.equal(s.stop, false, `speed ${speed} fast ${fast} strike ${i}: no hitstop`);
+      assert.equal(s.fov, false, `speed ${speed} fast ${fast} strike ${i}: no fov punch`);
+    }
+    assert.equal(strikes[0].patron, cup);
+    assert.equal(strikes[0].part, 'cup');
+    assert.equal(strikes[1].patron, walked);
+    assert.equal(strikes[1].part, 'torso');
+  }
+  const beats = [];
+  const feel = makeFeel({ speed: 300, strikes: beats });
+  feel({ object: { name: 'till' }, always: true });
+  assert.equal(beats[0].stop, true, 'explicit beat keeps the hold');
+  assert.equal(beats[0].fov, true, 'explicit beat keeps the punch');
+});
+
 test('the floor wires the three beats without touching pose squash', () => {
   assert.match(poses, /squash: 0\.08 \* e/);
   assert.match(main, /createImpact\(\{ reduced: reducedMotion, holdClock: !headless \}\)/);
@@ -117,7 +153,7 @@ test('the floor wires the three beats without touching pose squash', () => {
   assert.match(main, /feel\(\{ patron: e\.p, part: 'torso' \}\)/);
   assert.match(main, /feel\(\{ object: world\._chalkPlane, always: true \}\)/);
   assert.match(main, /feel\(\{ object: win \? world\.tillDrawer : world\._chalkPlane, always: true \}\)/);
-  assert.match(main, /speed <= 60 && !eveningFast && !rushFast/);
+  assert.match(main, /const clock = !!opts\.always\s*;/);
   assert.match(main, /acc \+= dt \* 1000 \* impact\.dtScale\(nowSec\)/);
   assert.match(main, /rig\.update\(dt, now\)/);
   assert.match(main, /rig\.setFovOffset\(impact\.fovDelta\(nowSec\)\)/);
