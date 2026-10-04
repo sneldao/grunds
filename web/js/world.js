@@ -51,11 +51,23 @@ export function buildWorld(scene, renderer, lite) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   scene.background = new THREE.Color(0x26304d);
-  // Steam off a cup, not a grey void. Pale cream at open, paper through the
-  // day, honey brass by close. The near distance stays clear so the shops
-  // and the tree line read; the lawn behind them falls off inside the haze,
-  // and the park's far edge is gone before the sky.
-  scene.fog = new THREE.Fog(PAL.cream, 36, 68);
+  // Steam, not a painted wall. Colour still shifts with the day (cream at
+  // open, paper through the afternoon, brass by close — set on the keyframes
+  // below). The shape must not. Stock fog is a smoothstep that hits 1 at
+  // fogFar and stays 1, so every fragment past that distance is the same flat
+  // colour: a white rectangle at open, a yellow band at close, sitting in
+  // front of a sky that does not use fog. This ramp never finishes. It
+  // approaches three-quarters strength on a long scale and is still climbing
+  // at the back of the park (view depth ~120; the lawn ends near z=109), so
+  // there is no distance where the haze becomes a constant colour and grows
+  // an edge. Grass and the far trees stay in the mix and thin into it. The
+  // sky dome is built with fog off, so the sky stays the sky.
+  const HAZE_SCALE = 165;
+  scene.fog = new THREE.Fog(PAL.cream, 0.1, HAZE_SCALE);
+  THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+	float fogFactor = 0.74 * (1.0 - exp(-max(vFogDepth, 0.0) / fogFar));
+	gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);
+#endif`;
 
   // ---- lights -------------------------------------------------------------
   const hemi = new THREE.HemisphereLight(0xc8d8ea, 0x4a3f32, 0.42); scene.add(hemi);
@@ -727,7 +739,19 @@ export function buildWorld(scene, renderer, lite) {
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(22, 18); t.anisotropy = 8;
     return t;
   })();
-  const grassMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.97, metalness: 0 });
+  const grassMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.97, metalness: 0, transparent: true });
+  // Same plane as before. Its far side fades out so the haze has no silhouette
+  // to stop on: a fog-coloured edge against the sky is the hard band. Local +Y
+  // points back toward the shops after the ground rotation; local -Y is the
+  // far edge. The near half, under the trees, stays solid.
+  grassMat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying float vLawnFade;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvLawnFade = smoothstep(-42.0, 8.0, position.y);');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vLawnFade;')
+      .replace('#include <opaque_fragment>', '#include <opaque_fragment>\n\tgl_FragColor.a *= vLawnFade;');
+  };
   const lawn = new THREE.Mesh(new THREE.PlaneGeometry(96, 90), grassMat);
   lawn.rotation.x = -Math.PI / 2; lawn.position.set(0, 0.04, 63.95); lawn.receiveShadow = true; park.add(lawn);
   const moundMat = mat(PAL.matcha, { rough: 0.96 });
