@@ -94,10 +94,10 @@ export function buildWorld(scene, renderer, lite) {
   // sun that's already in the scene; a grate sits in the gutter; one paper
   // cup lies by the bench. The far pavement stays bare.
   const wetMat = new THREE.MeshPhysicalMaterial({
-    color: PAL.asphalt, roughness: 0.14, metalness: 0.02,
-    clearcoat: 1, clearcoatRoughness: 0.08,
+    color: PAL.ink, roughness: 0.06, metalness: 0.04,
+    clearcoat: 1, clearcoatRoughness: 0.04,
     specularIntensity: 1, specularColor: new THREE.Color(PAL.cream),
-    transparent: true, opacity: 0.42, depthWrite: false,
+    transparent: true, opacity: 0.55, depthWrite: false,
     polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
   });
   const puddle = (rx, rz, wobble) => {
@@ -115,9 +115,9 @@ export function buildWorld(scene, renderer, lite) {
   };
   // left lamp, right lamp, and one longer slick on the asphalt clear of the zebra
   const wetSpots = [
-    { x: -8.35, z: 8.12, rx: 0.78, rz: 0.40, wobble: 2, y: 0.032 },
-    { x: 7.62, z: 8.78, rx: 0.62, rz: 0.34, wobble: 5, y: 0.032 },
-    { x: 1.85, z: 10.55, rx: 1.05, rz: 0.38, wobble: 1, y: 0.026 },
+    { x: -8.2, z: 8.2, rx: 0.9, rz: 0.46, wobble: 2, y: 0.032 },
+    { x: 7.45, z: 8.7, rx: 0.72, rz: 0.38, wobble: 5, y: 0.032 },
+    { x: 3.4, z: 10.35, rx: 1.15, rz: 0.42, wobble: 1, y: 0.026 },
   ];
   for (const s of wetSpots) {
     const m = new THREE.Mesh(puddle(s.rx, s.rz, s.wobble), wetMat);
@@ -127,13 +127,13 @@ export function buildWorld(scene, renderer, lite) {
     g.add(m);
   }
   // gutter grate — same iron as the lamp posts, two brass bolts
-  const drainX = -5.35, drainZ = 9.4;
-  box(g, 0.58, 0.016, 0.30, PAL.ink, drainX, 0.03, drainZ, { cast: false, rough: 0.95 });
-  for (let i = 0; i < 4; i++) box(g, 0.50, 0.02, 0.028, 0x22262a, drainX, 0.044, drainZ - 0.09 + i * 0.06, { metal: 0.5, rough: 0.42 });
-  box(g, 0.032, 0.024, 0.30, 0x22262a, drainX - 0.274, 0.042, drainZ, { metal: 0.5, rough: 0.42 });
-  box(g, 0.032, 0.024, 0.30, 0x22262a, drainX + 0.274, 0.042, drainZ, { metal: 0.5, rough: 0.42 });
-  cyl(g, 0.016, 0.016, 0.012, PAL.brass, drainX - 0.2, 0.056, drainZ + 0.12, { metal: 0.7, rough: 0.32, seg: 6, cast: false });
-  cyl(g, 0.016, 0.016, 0.012, PAL.brass, drainX + 0.2, 0.056, drainZ + 0.12, { metal: 0.7, rough: 0.32, seg: 6, cast: false });
+  const drainX = 2.15, drainZ = 9.42;
+  box(g, 0.82, 0.018, 0.42, PAL.ink, drainX, 0.032, drainZ, { cast: false, rough: 0.95 });
+  for (let i = 0; i < 5; i++) box(g, 0.72, 0.022, 0.03, 0x22262a, drainX, 0.048, drainZ - 0.14 + i * 0.07, { metal: 0.5, rough: 0.42 });
+  box(g, 0.04, 0.028, 0.42, 0x22262a, drainX - 0.39, 0.046, drainZ, { metal: 0.5, rough: 0.42 });
+  box(g, 0.04, 0.028, 0.42, 0x22262a, drainX + 0.39, 0.046, drainZ, { metal: 0.5, rough: 0.42 });
+  cyl(g, 0.02, 0.02, 0.014, PAL.brass, drainX - 0.28, 0.064, drainZ + 0.16, { metal: 0.7, rough: 0.32, seg: 6, cast: false });
+  cyl(g, 0.02, 0.02, 0.014, PAL.brass, drainX + 0.28, 0.064, drainZ + 0.16, { metal: 0.7, rough: 0.32, seg: 6, cast: false });
   // one dropped cup, cream paper with a walnut sleeve, lying just past the bench
   const cup = new THREE.Group();
   const paperMat = mat(PAL.paper, { rough: 0.58 });
@@ -146,9 +146,9 @@ export function buildWorld(scene, renderer, lite) {
   const inside = new THREE.Mesh(new THREE.CircleGeometry(0.044, 8), mat(PAL.walnutDark, { rough: 0.4 }));
   inside.rotation.x = -Math.PI / 2; inside.position.y = 0.061;
   cup.add(cupBody, sleeve, lip, inside);
-  cup.rotation.order = 'YXZ';
-  cup.rotation.set(Math.PI / 2, 0.7, 0.22);
-  cup.position.set(6.15, 0.086, 8.22);
+  cup.rotation.set(0, 0.4, Math.PI / 2);
+  cup.scale.setScalar(1.75);
+  cup.position.set(6.45, 0.135, 8.25);
   g.add(cup);
 
   // ---- café shell ---------------------------------------------------------
