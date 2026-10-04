@@ -234,18 +234,39 @@ if (G.reg.regulars[0].absence !== 'returning') fails.push(`Mara should be return
   let tries = 0;
   while (G.phase === 'trading' && G.stats().dayMin < 780 && !hasPend('returning') && tries++ < 2400) runFrames(1);
   const retAt = (pending().find(m => m.type === 'returning') || {}).at ?? G.stats().dayMin;
-  tries = 0;
-  while (G.phase === 'trading' && G.stats().dayMin - retAt < 40 && !hasPend('sam', retAt - 1) && tries++ < 1200) {
-    // the mass stall can fill Sam's queue to the defect cap — keep some room
-    if (G.patrons.rivalQ.length > 38) G.patrons.rivalQ.splice(0, 8);
-    for (const cand of G.patrons.counterQ) {
-      if (cand.regularIdx >= 0 && cand.state === 'inQueue' && cand.regularIdx !== 0) { cand.wantsMatcha = true; cand.waitMin = 99; }
+  const doneNow = new Set(G.moment.done());
+  const samR = G.reg.regulars.find(r => r.name !== 'Mara' && !doneNow.has(`sam:${r.name}`));
+  if (!samR) fails.push('no non-Mara roster regular for the sam defection');
+  else {
+    samR.seen = false; samR._spawned = false; samR.absence = 'present';
+    if (!G.patrons.free.length) {
+      const drop = G.patrons.counterQ.find(x => x.regularIdx < 0);
+      if (drop) { G.patrons.counterQ.splice(G.patrons.counterQ.indexOf(drop), 1); G.patrons._despawn(drop); }
     }
-    if (!G.patrons.counterQ.some(c => c.regularIdx > 0 && c.state === 'inQueue')) {
-      const mara = G.patrons.counterQ.find(x => x.regularIdx === 0 && x.state === 'inQueue');
-      if (mara) { mara.wantsMatcha = true; mara.waitMin = 99; }
+    const oldOnly = G.patrons.markSeenOnly, oldTruce = G.patrons.truceCeasefire;
+    let samP = null;
+    try {
+      G.patrons.markSeenOnly = new Set([samR.name]); G.patrons.truceCeasefire = true;
+      samP = G.patrons.spawn(samR.coh, 'counter', true);
+    } finally {
+      G.patrons.markSeenOnly = oldOnly; G.patrons.truceCeasefire = oldTruce;
     }
-    runFrames(1);
+    if (!samP || samP.regularIdx < 0) fails.push('sam defector spawn did not attach the roster regular');
+    else {
+      samP.drink = 'matcha'; samP.wantsMatcha = true; samP.state = 'inQueue'; samP.queueRef = 'counter'; samP.waitMin = 99;
+      if (!G.patrons.counterQ.includes(samP)) G.patrons.counterQ.push(samP);
+      // the mass stall can fill Sam's queue to the defect cap — keep some room
+      while (G.patrons.rivalQ.length > 38) G.patrons.rivalQ.splice(0, 8);
+      const oldCap = G.patrons.capacityMult, realRand = Math.random;
+      try {
+        G.patrons.capacityMult = 0; Math.random = () => 0.01;
+        runFrames(1);
+      } finally {
+        G.patrons.capacityMult = oldCap; Math.random = realRand;
+      }
+      tries = 0;
+      while (G.phase === 'trading' && !hasPend('sam', retAt - 1) && tries++ < 30) runFrames(1);
+    }
   }
   G.moment.unblock('line');
   tries = 0;

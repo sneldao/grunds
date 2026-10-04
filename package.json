@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "description": "Grunds — The District: Convex backend + Three.js floor",
   "scripts": {
+    "test": "node --experimental-vm-modules --test --test-concurrency=1 web/test/*.mjs",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
     "typecheck": "tsc --noEmit",

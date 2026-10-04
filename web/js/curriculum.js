@@ -22,6 +22,7 @@ export function planTools({
   // never takes the day-1 card — the Brief still teaches prep first.
   if (day === 1) return { visible: new Set(['menu']), newToday: null, essentialNew };
   if (day >= 2) {
+    visible.add('menu');
     for (const t of intro) if (TOOL_IDS.includes(t)) visible.add(t);
     const needCoffee = houseStock <= 0 || (lastPour > 0 && houseStock < lastPour);
     const needTab = debt > 0;

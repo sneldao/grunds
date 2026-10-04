@@ -11,7 +11,7 @@ const ok = (cond, name) => { if (cond) { pass++; } else { fail++; console.error(
 }
 {
   const r = planTools({ day: 2, introduced: [], houseStock: 100, lastPour: 50, debt: 0 });
-  ok(r.newToday === 'coffee' && r.visible.has('coffee'), 'day 2: coffee card (menu already used day 1, carded day 3)');
+  ok(r.newToday === 'coffee' && r.visible.has('coffee') && r.visible.has('menu'), 'day 2: coffee card, menu stays a quiet row (used day 1, carded day 3)');
 }
 {
   const r = planTools({ day: 3, introduced: ['coffee'], houseStock: 100, lastPour: 50, debt: 0 });

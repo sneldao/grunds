@@ -151,6 +151,7 @@ const COHORTS_TEST = ['commuters', 'creatives', 'students', 'elders', 'tourists'
 }
 {
   const sys = new PatronSystem(mkScene(), mkWorld(), null, mkExchange(), null, { random: rng });
+  sys.truceCeasefire = true;
   const ctx = { batchUnits: 40, batchReservedUntil: 840, milkStock: 99999, milky: 0, milkOut: false, menuPrices: null, repriced: false, prebatched: true };
   let p = null;
   for (let i = 0; i < 60 && !p; i++) {
@@ -160,7 +161,7 @@ const COHORTS_TEST = ['commuters', 'creatives', 'students', 'elders', 'tourists'
   if (!p) fails.push('could not spawn a matcha patron for the reservation check');
   else {
     p.state = 'inQueue'; p.waitMin = 0;
-    sys.counterQ = sys.counterQ.filter(x => x === p);
+    sys.counterQ = [p];
     const ev839 = sys.tick(839, ctx);
     const svEarly = ev839.find(e => e.type === 'served' && e.p === p);
     check('pre-window pour is made-to-order, reserved stock untouched', !!svEarly && svEarly.fromBatch === false && ctx.batchUnits === 40, `units=${ctx.batchUnits}`);
@@ -172,7 +173,7 @@ const COHORTS_TEST = ['commuters', 'creatives', 'students', 'elders', 'tourists'
     if (!q) fails.push('could not spawn a second matcha patron');
     else {
       q.state = 'inQueue'; q.waitMin = 0;
-      sys.counterQ = sys.counterQ.filter(x => x === q);
+      sys.counterQ = [q];
       const milkBefore = ctx.milkStock;
       const ev840 = sys.tick(840, ctx);
       const sv = ev840.find(e => e.type === 'served' && e.p === q);
@@ -184,14 +185,15 @@ const COHORTS_TEST = ['commuters', 'creatives', 'students', 'elders', 'tourists'
 }
 {
   const sys = new PatronSystem(mkScene(), mkWorld(), null, mkExchange(), null, { random: rng });
+  sys.truceCeasefire = true;
   const ctx = { batchUnits: 40, batchReservedUntil: 840, milkStock: 99999, milky: 0, milkOut: false, menuPrices: { matcha: 4.80 }, repriced: false, prebatched: true };
   const queued = [];
-  for (let i = 0; i < 12 && queued.length < 9; i++) {
+  for (let i = 0; i < 9; i++) {
     const c = sys.spawn('students', 'counter', true);
-    if (c && c.drink === 'matcha') { c.state = 'inQueue'; c.waitMin = ECON.balkAfter + 50; queued.push(c); }
+    if (c) { c.drink = 'matcha'; c.wantsMatcha = true; c.state = 'inQueue'; c.queueRef = 'counter'; c.waitMin = ECON.balkAfter + 50; queued.push(c); }
   }
   sys.counterQ = [...queued];
-  if (queued.length < 2) fails.push('could not fill a matcha queue for the balk check');
+  if (queued.length < 9) fails.push('could not fill a matcha queue for the balk check');
   else {
     const realRandom = Math.random; Math.random = () => 0.01;
     const ev839 = sys.tick(839, ctx);
@@ -202,6 +204,7 @@ const COHORTS_TEST = ['commuters', 'creatives', 'students', 'elders', 'tourists'
 }
 {
   const sys = new PatronSystem(mkScene(), mkWorld(), null, mkExchange(), null, { random: rng });
+  sys.truceCeasefire = true;
   const ctx = { batchUnits: 0, batchReservedUntil: 0, milkStock: 5, milky: 0, milkOut: false, menuPrices: { flatwhite: 3.60 }, repriced: false };
   let p = null;
   for (let i = 0; i < 80 && !p; i++) {
@@ -211,7 +214,7 @@ const COHORTS_TEST = ['commuters', 'creatives', 'students', 'elders', 'tourists'
   if (!p) fails.push('could not spawn a flat white for the milk check');
   else {
     p.state = 'inQueue'; p.waitMin = 0;
-    sys.counterQ = sys.counterQ.filter(x => x === p);
+    sys.counterQ = [p];
     const ev = sys.tick(700, ctx);
     const sv = ev.find(e => e.type === 'served' && e.p === p);
     check('milky cup draws milk stock and counts it', !!sv && ctx.milkStock === 4 && ctx.milky === 1, JSON.stringify({ milk: ctx.milkStock, milky: ctx.milky }));
@@ -226,7 +229,7 @@ const COHORTS_TEST = ['commuters', 'creatives', 'students', 'elders', 'tourists'
     if (!q) fails.push('could not spawn a second flat white for the dry-bar check');
     else {
       q.state = 'inQueue'; q.waitMin = 0;
-      sys.counterQ = sys.counterQ.filter(x => x === q);
+      sys.counterQ = [q];
       const ev2 = sys.tick(701, ctx);
       check('dry bar balks the milky order, flagged once', ev2.some(e => e.type === 'balked' && e.p === q && e.milkOut) && ctx.milkOut === true, JSON.stringify(ev2.map(e => e.type)));
     }
@@ -234,6 +237,7 @@ const COHORTS_TEST = ['commuters', 'creatives', 'students', 'elders', 'tourists'
 }
 {
   const sys = new PatronSystem(mkScene(), mkWorld(), null, mkExchange(), null, { random: rng });
+  sys.truceCeasefire = true;
   const ctx = { batchUnits: 0, batchReservedUntil: 0, milkStock: 99999, milky: 0, milkOut: false, menuPrices: { flatwhite: 3.60 }, repriced: false };
   const queued = [];
   for (let i = 0; i < 60 && queued.length < 6; i++) {

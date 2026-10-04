@@ -42,11 +42,13 @@ test('PR-5 · commitDayPlan sets leversTimeLocked = true', () => {
 
 // (3) day reset disarms the lock
 test('PR-5 · day reset (around line 1664) disarms leversTimeLocked', () => {
-  // Find the reset block: lines containing `peakQueue = 0` and the
-  // existing prebatched = false ... reset pattern, then check that
-  // leversTimeLocked = false appears within ~120 chars after it.
-  const m = main.match(/peakQueue\s*=\s*0[\s\S]{0,200}?leverOverrideCount\s*=\s*0\s*;/);
-  assert.ok(m, 'day reset must set leversTimeLocked = false and leverOverrideCount = 0');
+  // Find the reset block: the body of prepareDay (bounded by the next
+  // function, startTradingDay), then check that leversTimeLocked = false
+  // and leverOverrideCount = 0 both appear in it.
+  const start = main.indexOf('function prepareDay(');
+  const body = main.slice(start, main.indexOf('function startTradingDay(', start));
+  assert.ok(/leversTimeLocked\s*=\s*false/.test(body) && /leverOverrideCount\s*=\s*0/.test(body),
+    'day reset must set leversTimeLocked = false and leverOverrideCount = 0');
 });
 
 // (4) doPrebatch + doReprice consult chargeLeverOverride when locked

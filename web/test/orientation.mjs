@@ -540,7 +540,8 @@ const briefNew2 = deepText(byId('brief-new'));
   const det = collect(byId('brief-lots'), c => c.tagName === 'DETAILS')[0];
   check('the coffee row is open on its intro day', !!det && det.open === true, `open=${det && det.open}`);
 }
-for (const id of ['brief-menu', 'brief-demand', 'brief-context']) {
+check('day 2 keeps the menu row quiet but visible', byId('brief-menu').style.display !== 'none' && !/New today/.test(deepText(byId('brief-menu'))), deepText(byId('brief-menu')).slice(0, 200));
+for (const id of ['brief-demand', 'brief-context']) {
   check(`day 2 keeps #${id} hidden`, byId(id).style.display === 'none', `display=${byId(id).style.display}`);
 }
 check('day 2 shows the nut row', byId('brief-nut').style.display !== 'none' && /counted at closing|the nut/i.test(deepText(byId('brief-nut'))), deepText(byId('brief-nut')).slice(0, 200));
