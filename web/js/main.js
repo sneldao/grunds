@@ -2480,6 +2480,11 @@ function applyMenu() {
   ctx.menuPrices = menuPrices;
   patrons.menuOffered = menuOffered;
   patrons.menuPrices = menuPrices;
+  world.setMenu({
+    prices: { ...menuPrices, matcha: Number(salePrice(exchange, repriced)) },
+    offered: { ...menuOffered },
+    matchaStruck: !!repriced,
+  });
   stagedMenu = null;
 }
 

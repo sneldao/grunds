@@ -15,6 +15,7 @@ import {
   priceDivert, eightySixedShare,
 } from '../js/menu.js';
 import { ECON } from '../js/config.js';
+import { buildAutopsy } from '../js/autopsy.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
@@ -99,6 +100,9 @@ test('Phase 3 · board prices divert demand; 86s turn away with a reason', () =>
   assert.ok(lure < 0 && lure >= -0.15, `−£1 should lure back capped (got ${lure})`);
   const share = eightySixedShare(ECON);
   assert.ok(share > 0.3 && share < 0.7, `86 share should gut but not empty (got ${share})`);
+  const lines = buildAutopsy([{ day: 1, turnaways: 4, balked: 6, defections: 0, netToday: 1 }]);
+  assert.ok(lines.some(l => l === "4 left at the board (their drink was 86'd)"), lines.join(' | '));
+  assert.ok(lines.some(l => l === '2 walked (queue beat them)'), lines.join(' | '));
 });
 
 // (6) Tick spends drink points; milk gates milky orders (legacy-safe:
@@ -200,6 +204,10 @@ test('Phase 3 · loseable day 1: gouge or gut the menu and the day bleeds', asyn
   };
   let _rs = 0;
   Math.random = () => { _rs = (_rs * 1664525 + 1013904223) >>> 0; return _rs / 4294967296; };
+  const toasts = [];
+  const feed = document.getElementById('feed');
+  const _feedPrepend = feed.prepend.bind(feed);
+  feed.prepend = (node) => { toasts.push(node.textContent); return _feedPrepend(node); };
 
   await import('../js/main.js');
   await new Promise(r => setTimeout(r, 40));
@@ -241,9 +249,14 @@ test('Phase 3 · loseable day 1: gouge or gut the menu and the day bleeds', asyn
   const gouge = await runDay({ prices: { espresso: 4.20, flatwhite: 4.60, filter: 4.00 } });
   await G.reset(); await new Promise(r => setTimeout(r, 10));
 
+  const beforeGut = toasts.length;
   const gutted = await runDay({ offered: { espresso: false, flatwhite: false, filter: false } });
   const guttedHeads = G.patrons.walkins.heads;
   const balkedHeads = guttedHeads.filter(h => (h.events || []).some(e => e.outcome === 'balked'));
+  const gutReceipt = G.lastDayReceipt;
+  const gutRows = G.world.windowMenuRows;
+  G.world.setMatchaPrice('3.90', true);
+  const struckRows = G.world.windowMenuRows;
   await G.reset(); await new Promise(r => setTimeout(r, 10));
 
   const replay = await runDay(null);
@@ -264,6 +277,14 @@ test('Phase 3 · loseable day 1: gouge or gut the menu and the day bleeds', asyn
   assert.ok(gutted.turnaways > 0, 'gutted board produced no board turnaways');
   assert.ok(gutted.served < fair.served, `gutted served ${gutted.served} !< fair ${fair.served}`);
   assert.ok(gutted.cRev < fair.cRev, `gutted revenue ${gutted.cRev} !< fair ${fair.cRev}`);
+  assert.ok(toasts.slice(beforeGut).some(t => /read the board and left/.test(t)), 'board turnaway produced no named toast');
+  assert.ok(gutReceipt.lines.some(row => row[0] === 'left at the board' && /Espresso|Flat white|Filter/.test(row[1])),
+    'receipt lost the board-walk row: ' + JSON.stringify(gutReceipt.lines.filter(r => /board|menu/i.test(r[0]))));
+  assert.ok(gutReceipt.lessons.some(l => /read the board and left/.test(l) && /Espresso/.test(l)),
+    'lessons did not name the 86\'d drinks: ' + gutReceipt.lessons.join(' | '));
+  assert.equal(gutRows.find(r => r.id === 'espresso').offered, false, 'window menu missed the staged 86');
+  assert.equal(struckRows.find(r => r.id === 'matcha').price, '3.90', 'window matcha deal not reflected');
+  assert.equal(struckRows.find(r => r.id === 'espresso').offered, false, 'matcha reprice revived the 86 board');
 
   assert.ok(balkedHeads.length <= Math.max(0, gutted.balked - gutted.turnaways),
     `turnaways wrote identity records: ${balkedHeads.length} balked heads vs ${gutted.balked - gutted.turnaways} real queue balks`);
