@@ -731,11 +731,19 @@ export function buildWorld(scene, renderer, lite) {
   // Replaces the repeated facade blocks and the blank skyline cubes. Four
   // shops, each a different silhouette, signs facing the road. Same plaster,
   // walnut, brass, and canvas-sign language as the café. GLASSHOUSE stays
-  // where it is, in the gap. Window glass still joins W.winMats so dusk
-  // lights them with the rest of the street.
+  // where it is, in the gap. Each street window is a shallow lit diorama:
+  // a warm back (this is what dusk drives through W.winMats), a few props
+  // that belong to the shop, then glass with a faint reflection.
   W.winMats = [];
-  const winMat = new THREE.MeshStandardMaterial({ color: 0xffe7b0, emissive: 0xffd089, emissiveIntensity: 0, roughness: 0.28, metalness: 0.05 });
+  const winMat = new THREE.MeshStandardMaterial({ color: 0xfff2d8, emissive: 0xffd089, emissiveIntensity: 0, roughness: 0.94 });
   W.winMats.push(winMat);
+  const windowGlassMat = new THREE.MeshStandardMaterial({
+    color: PAL.glass, roughness: 0.06, metalness: 0.22, transparent: true, opacity: 0.2,
+    emissive: PAL.glass, emissiveIntensity: 0.08, depthWrite: false,
+  });
+  const reflectMat = new THREE.MeshBasicMaterial({
+    map: windowReflection(), transparent: true, opacity: 0.34, depthWrite: false,
+  });
   const far = new THREE.Group(); scene.add(far);
   // Front faces sit on the far pavement (world z = frontZ). Local -z points
   // at the road, same as the rival's sign.
@@ -751,10 +759,131 @@ export function buildWorld(scene, renderer, lite) {
     plane(parent, w, h, sm, x, y, z, { ry: Math.PI });
     box(parent, w + 0.08, h + 0.08, 0.07, PAL.walnutDark, x, y, z + 0.045, { cast: false });
   }
-  function pane(parent, w, h, x, y, z) {
-    box(parent, w + 0.1, h + 0.1, 0.06, PAL.cream, x, y, z + 0.02, { cast: false });
-    plane(parent, w, h, winMat, x, y, z - 0.01, { ry: Math.PI });
-    box(parent, w + 0.16, 0.06, 0.08, PAL.walnut, x, y - h / 2 - 0.04, z + 0.01, { cast: false });
+  // A cream frame, open in the middle, proud of the solid wall just enough
+  // for a book or a tin to sit between the warm back and the glass.
+  function pane(parent, w, h, x, y, z, dress) {
+    const reveal = 0.15;
+    const front = z - reveal;
+    const backZ = z - 0.02;
+    const midZ = (front + backZ) / 2;
+    const lip = 0.05;
+    box(parent, w + lip * 2, lip, reveal, PAL.cream, x, y + h / 2 + lip / 2, midZ, { cast: false });
+    box(parent, w + lip * 2, lip, reveal, PAL.cream, x, y - h / 2 - lip / 2, midZ, { cast: false });
+    box(parent, lip, h, reveal, PAL.cream, x - w / 2 - lip / 2, y, midZ, { cast: false });
+    box(parent, lip, h, reveal, PAL.cream, x + w / 2 + lip / 2, y, midZ, { cast: false });
+    plane(parent, w * 0.96, h * 0.96, winMat, x, y, backZ, { ry: Math.PI, recv: false });
+    box(parent, w + lip * 2, 0.045, 0.08, PAL.walnut, x, y - h / 2 - 0.012, front + 0.03, { cast: false });
+    const room = { x, y, w, h, z: midZ + 0.01, sill: y - h / 2 + 0.04 };
+    if (dress) dress(parent, room);
+    const glow = new THREE.PointLight(0xffd2a0, 0.18, 0.9, 2);
+    glow.position.set(x, y, front + 0.03);
+    parent.add(glow);
+    addWindowGlass(parent, w * 0.96, h * 0.96, x, y, front);
+  }
+  function windowReflection() {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, 128, 256);
+    const band = g.createLinearGradient(0, 256, 128, 0);
+    band.addColorStop(0, 'rgba(246,239,224,0)');
+    band.addColorStop(0.4, 'rgba(246,239,224,0)');
+    band.addColorStop(0.5, 'rgba(246,239,224,0.9)');
+    band.addColorStop(0.58, 'rgba(239,230,211,0.22)');
+    band.addColorStop(0.7, 'rgba(246,239,224,0)');
+    band.addColorStop(1, 'rgba(246,239,224,0)');
+    g.fillStyle = band; g.fillRect(0, 0, 128, 256);
+    const brass = g.createLinearGradient(24, 230, 78, 16);
+    brass.addColorStop(0, 'rgba(201,162,39,0)');
+    brass.addColorStop(0.47, 'rgba(201,162,39,0)');
+    brass.addColorStop(0.53, 'rgba(201,162,39,0.5)');
+    brass.addColorStop(0.62, 'rgba(201,162,39,0)');
+    brass.addColorStop(1, 'rgba(201,162,39,0)');
+    g.fillStyle = brass; g.fillRect(0, 0, 128, 256);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+  function addWindowGlass(parent, w, h, x, y, z) {
+    const glass = plane(parent, w, h, windowGlassMat, x, y, z, { ry: Math.PI, recv: false, cast: false });
+    glass.renderOrder = 2;
+    const ref = plane(parent, w * 0.97, h * 0.97, reflectMat, x, y, z - 0.012, { ry: Math.PI, recv: false, cast: false });
+    ref.renderOrder = 3;
+  }
+  // Props stay inside the palette: ink, walnut, cream, brass, matcha, teal.
+  function lit(color, o = {}) {
+    return { ...o, em: o.em ?? color, emi: o.emi ?? 0.16, cast: false, rough: o.rough ?? 0.68 };
+  }
+  function bookStack(parent, x, sill, z, cols) {
+    cols.forEach((c, i) => {
+      box(parent, 0.16, 0.06, 0.07, c, x, sill + 0.035 + i * 0.06, z, lit(c, { rz: i === cols.length - 1 ? -0.05 : 0.02, emi: 0.2 }));
+    });
+  }
+  function bookShelf(parent, x, sill, z, cols, bh) {
+    const span = Math.max(0.16, (cols.length - 1) * 0.072 + 0.1);
+    box(parent, span, 0.028, 0.08, PAL.walnut, x, sill, z, lit(PAL.walnut, { rough: 0.55, emi: 0.12 }));
+    cols.forEach((c, i) => {
+      box(parent, 0.062, bh, 0.07, c, x + (i - (cols.length - 1) / 2) * 0.072, sill + 0.02 + bh / 2, z, lit(c, { rough: 0.58, emi: 0.22 }));
+    });
+  }
+  function hangingLamp(parent, x, yTop, z) {
+    cyl(parent, 0.008, 0.008, 0.16, PAL.ink, x, yTop - 0.08, z, { cast: false });
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.12, 8), mat(PAL.brass, lit(PAL.brass, { metal: 0.55, rough: 0.32, emi: 0.4 })));
+    shade.castShadow = false; shade.position.set(x, yTop - 0.18, z); parent.add(shade);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.036, 8, 6), mat(0xfff2d8, { em: 0xffd2a0, emi: 1.35, rough: 0.3, cast: false }));
+    bulb.position.set(x, yTop - 0.2, z); parent.add(bulb);
+  }
+  function tinStack(parent, x, sill, z, n, colors) {
+    for (let i = 0; i < n; i++) {
+      const c = colors[i % colors.length];
+      cyl(parent, 0.08, 0.08, 0.07, c, x, sill + 0.04 + i * 0.072, z, lit(c, { metal: 0.55, rough: 0.3, emi: 0.28 }));
+    }
+  }
+  function shopPlant(parent, x, sill, z, scale = 1) {
+    cyl(parent, 0.06 * scale, 0.05 * scale, 0.07 * scale, PAL.walnut, x, sill + 0.035 * scale, z, lit(PAL.walnut, { rough: 0.8, emi: 0.12 }));
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.11 * scale, 8, 6), mat(PAL.matcha, lit(PAL.matcha, { em: PAL.awning, emi: 0.28, rough: 0.78 })));
+    leaf.castShadow = false; leaf.scale.set(1, 0.75, 0.62); leaf.position.set(x, sill + 0.15 * scale, z); parent.add(leaf);
+    const sprig = new THREE.Mesh(new THREE.SphereGeometry(0.065 * scale, 7, 5), mat(PAL.awning, lit(PAL.awning, { emi: 0.2, rough: 0.8 })));
+    sprig.castShadow = false; sprig.position.set(x + 0.06 * scale, sill + 0.18 * scale, z - 0.01); parent.add(sprig);
+  }
+  function inkwell(parent, x, sill, z) {
+    cyl(parent, 0.038, 0.044, 0.055, PAL.ink, x, sill + 0.028, z, lit(PAL.ink, { emi: 0.12 }));
+    cyl(parent, 0.016, 0.016, 0.02, PAL.brass, x, sill + 0.062, z, lit(PAL.brass, { metal: 0.5, emi: 0.3 }));
+    box(parent, 0.012, 0.22, 0.012, PAL.cream, x + 0.03, sill + 0.14, z, lit(PAL.cream, { rz: -0.6, emi: 0.35 }));
+  }
+  function loaf(parent, x, sill, z) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), mat(PAL.walnut, lit(PAL.walnut, { rough: 0.74, emi: 0.2 })));
+    m.castShadow = false; m.scale.set(1.35, 0.62, 0.8); m.position.set(x, sill + 0.045, z); parent.add(m);
+    box(parent, 0.09, 0.012, 0.012, PAL.cream, x, sill + 0.075, z - 0.03, lit(PAL.cream, { emi: 0.3 }));
+  }
+  function brassBell(parent, x, sill, z) {
+    const b = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.1, 8), mat(PAL.brass, lit(PAL.brass, { metal: 0.62, rough: 0.28, emi: 0.4 })));
+    b.castShadow = false; b.position.set(x, sill + 0.07, z); parent.add(b);
+    cyl(parent, 0.012, 0.012, 0.05, PAL.ink, x, sill + 0.02, z, { cast: false });
+  }
+  function mantelClock(parent, x, sill, z) {
+    box(parent, 0.13, 0.16, 0.045, PAL.walnut, x, sill + 0.08, z, lit(PAL.walnut, { emi: 0.18 }));
+    cyl(parent, 0.05, 0.05, 0.016, PAL.cream, x, sill + 0.09, z - 0.028, lit(PAL.cream, { rx: Math.PI / 2, emi: 0.4 }));
+    box(parent, 0.008, 0.035, 0.008, PAL.ink, x + 0.008, sill + 0.1, z - 0.04, { cast: false });
+    box(parent, 0.028, 0.008, 0.008, PAL.ink, x + 0.012, sill + 0.085, z - 0.04, { cast: false });
+  }
+  function cafeCup(parent, x, sill, z) {
+    cyl(parent, 0.042, 0.034, 0.06, PAL.cream, x, sill + 0.03, z, lit(PAL.cream, { rough: 0.5, emi: 0.45 }));
+    cyl(parent, 0.046, 0.046, 0.012, PAL.brass, x, sill + 0.062, z, lit(PAL.brass, { metal: 0.45, emi: 0.35 }));
+  }
+  // The two front panes are already a flat warm quad. The counter hides
+  // anything below its top, so the plant, cups, and lamp sit on that line,
+  // in front of the glass, with the same faint reflection as the other shops.
+  function dressGlasshouseWindow(parent, x, side) {
+    const y = 1.48, w = 0.42, h = 0.4, zGlass = -1.32;
+    const sill = 1.34;
+    const z = -1.22;
+    if (side === 'left') {
+      shopPlant(parent, x, sill, z, 0.9);
+      cafeCup(parent, x + 0.1, sill, z);
+    } else {
+      hangingLamp(parent, x, 1.64, z);
+      cafeCup(parent, x - 0.08, sill, z);
+    }
+    addWindowGlass(parent, w, h, x, y, zGlass);
   }
   function stripedAwning(parent, w, len, x, y, z, stripeA, stripeB) {
     const am = new THREE.MeshStandardMaterial({ map: awning(stripeA, stripeB), roughness: 0.88, metalness: 0.01, side: THREE.DoubleSide });
@@ -773,9 +902,21 @@ export function buildWorld(scene, renderer, lite) {
     box(g, w * 0.36, 0.34, d * 0.36, PAL.brass, 0, h + 0.56, 0, { metal: 0.5, rough: 0.38 });
     cyl(g, 0.025, 0.008, 0.62, PAL.brass, 0, h + 1.02, 0, { metal: 0.55, rough: 0.35 });
     box(g, 1.15, 1.35, 0.28, PAL.cream, 0, 0.85, fz - 0.1);
-    pane(g, 0.72, 0.85, 0, 0.95, fz - 0.24);
-    pane(g, 0.62, 1.15, -0.62, 2.55, fz);
-    pane(g, 0.62, 1.15, 0.62, 2.55, fz);
+    // The door sits in the middle of the bay, so the lit glass is the two cheeks.
+    pane(g, 0.2, 0.62, -0.44, 1.02, fz - 0.24, (p, d) => {
+      bookStack(p, d.x, d.sill, d.z, [PAL.walnutDark, PAL.ink, PAL.walnut]);
+    });
+    pane(g, 0.2, 0.62, 0.44, 1.02, fz - 0.24, (p, d) => {
+      inkwell(p, d.x, d.sill, d.z);
+    });
+    pane(g, 0.62, 1.15, -0.62, 2.55, fz, (p, d) => {
+      bookShelf(p, d.x, d.sill, d.z, [PAL.ink, PAL.walnut, PAL.cream, PAL.walnutDark], 0.36);
+      bookShelf(p, d.x, d.sill + 0.46, d.z, [PAL.brass, PAL.ink, PAL.walnut, PAL.cream], 0.34);
+    });
+    pane(g, 0.62, 1.15, 0.62, 2.55, fz, (p, d) => {
+      bookShelf(p, d.x - 0.06, d.sill, d.z, [PAL.walnut, PAL.ink, PAL.walnutDark], 0.32);
+      hangingLamp(p, d.x + 0.16, d.y + d.h / 2 - 0.06, d.z);
+    });
     box(g, 0.62, 1.55, 0.08, PAL.walnut, 0, 0.78, fz - 0.28);
     shopSignFace(g, 'THE QUILL', 2.7, 0.7, 0, 3.35, fz - 0.08, '#f6efe0', '#171310', '600 72px Georgia, serif');
   })();
@@ -801,8 +942,15 @@ export function buildWorld(scene, renderer, lite) {
     box(g, 0.42, 1.05, 0.42, PAL.walnut, 1.25, h + 0.72, 0.28);
     box(g, 0.54, 0.1, 0.54, PAL.ink, 1.25, h + 1.26, 0.28, { cast: false });
     stripedAwning(g, w + 0.15, 1.35, 0, 1.72, fz - 0.12, '#4a3423', '#efe6d3');
-    pane(g, 0.82, 0.72, -1.4, 1.15, fz);
-    pane(g, 0.82, 0.72, 1.4, 1.15, fz);
+    pane(g, 0.82, 0.72, -1.4, 1.15, fz, (p, d) => {
+      tinStack(p, d.x - 0.2, d.sill, d.z, 3, [PAL.brass, PAL.teal, PAL.brass]);
+      loaf(p, d.x + 0.2, d.sill, d.z);
+      hangingLamp(p, d.x, d.y + d.h / 2 - 0.02, d.z);
+    });
+    pane(g, 0.82, 0.72, 1.4, 1.15, fz, (p, d) => {
+      hangingLamp(p, d.x + 0.16, d.y + d.h / 2 - 0.04, d.z);
+      loaf(p, d.x - 0.16, d.sill, d.z);
+    });
     box(g, 0.78, 1.55, 0.08, PAL.walnutDark, 0, 0.78, fz - 0.02);
     cyl(g, 0.02, 0.02, 0.32, PAL.brass, 0.24, 0.82, fz - 0.1, { metal: 0.6, rough: 0.35, cast: false });
     shopSignFace(g, 'HEARTH & RYE', 3.7, 0.72, 0, 2.42, fz - 0.08, '#f6efe0', '#4a3423', '600 58px Georgia, serif');
@@ -823,8 +971,14 @@ export function buildWorld(scene, renderer, lite) {
     const cup = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.5, 10), mat(PAL.brass, { metal: 0.5, rough: 0.4 }));
     cup.position.set(0, h + 0.62, 0.15); cup.castShadow = true; g.add(cup);
     cyl(g, 0.2, 0.32, 0.36, PAL.walnutDark, 0, h + 0.2, 0.15);
-    pane(g, 0.62, 0.72, -0.9, 1.15, fz);
-    pane(g, 0.62, 0.72, 0.9, 1.15, fz);
+    pane(g, 0.62, 0.72, -0.9, 1.15, fz, (p, d) => {
+      hangingLamp(p, d.x + 0.12, d.y + d.h / 2 - 0.04, d.z);
+      brassBell(p, d.x - 0.12, d.sill, d.z);
+    });
+    pane(g, 0.62, 0.72, 0.9, 1.15, fz, (p, d) => {
+      mantelClock(p, d.x - 0.1, d.sill, d.z);
+      tinStack(p, d.x + 0.14, d.sill, d.z, 2, [PAL.brass, PAL.cream]);
+    });
     box(g, 0.64, 1.45, 0.08, PAL.walnut, 0, 0.72, fz - 0.02);
     shopSignFace(g, 'BELL & BRASS', 2.9, 0.62, 0, 1.78, fz - 0.08, '#f6efe0', '#1d2a24', '600 52px Georgia, serif');
   })();
@@ -839,7 +993,10 @@ export function buildWorld(scene, renderer, lite) {
     box(g, w + 0.04, 0.42, d + 0.02, PAL.walnut, 0, 0.21, 0);
     stripedAwning(g, w + 0.25, 1.55, 0, 1.7, fz - 0.18, '#86a860', '#f6efe0');
     shopSignFace(g, 'MARROW LANE', 3.25, 0.66, 0, 2.28, fz - 0.08, '#171310', '#efe6d3', '600 56px Georgia, serif');
-    pane(g, 1.15, 0.62, 0.85, 1.15, fz);
+    pane(g, 1.15, 0.62, 0.85, 1.15, fz, (p, d) => {
+      shopPlant(p, d.x - 0.28, d.sill, d.z, 1.35);
+      tinStack(p, d.x + 0.22, d.sill, d.z, 3, [PAL.matcha, PAL.cream, PAL.brass]);
+    });
     box(g, 1.7, 0.85, 0.32, PAL.walnut, -0.7, 0.48, fz - 0.12);
     box(g, 0.4, 0.34, 0.4, PAL.walnutDark, -1.45, 0.17, fz - 0.55);
     box(g, 0.36, 0.3, 0.36, PAL.walnut, -1.05, 0.15, fz - 0.62);
@@ -852,6 +1009,12 @@ export function buildWorld(scene, renderer, lite) {
     fruit(PAL.brass, -1.05, 0.42, fz - 0.5, 0.1);
     fruit(PAL.cream, 0.15, 0.98, fz - 0.18, 0.1);
   })();
+
+  // GLASSHOUSE keeps its glowing panes and the staff behind them. The
+  // street-readable interior is the outer glass: plant and cup on the left,
+  // cups and a lamp on the right, each under a faint reflection.
+  dressGlasshouseWindow(rv, -1.32, 'left');
+  dressGlasshouseWindow(rv, 1.32, 'right');
 
   // ---- past the far curb: a park apron and a tree line -----------------------
   // The city slab ends just behind the shops. A matcha lawn runs from that
@@ -1182,7 +1345,9 @@ export function buildWorld(scene, renderer, lite) {
     const night = THREE.MathUtils.clamp((t - 1150) / 80, 0, 1);
     const duskish = THREE.MathUtils.clamp(1 - Math.abs((t - 720) / 480), 0, 1) * 0.4; // a little window-glow at golden hour too
     if (!W.useSky) { W.starMat.opacity = night * 0.9; W.moonMat.opacity = night; W.moonMat.emissiveIntensity = night * 0.9; }
-    for (const wm of W.winMats) wm.emissiveIntensity = Math.max(night * 1.1, duskish); // the district's windows come alive
+    // Warm enough to read as lit glass after dark, dim enough that the
+    // books and tins in front of it stay separate from the glow.
+    for (const wm of W.winMats) wm.emissiveIntensity = Math.max(night * 0.42, duskish * 0.55);
     W.night = night;
     try { W._updateDelight(performance.now()); } catch {}
   };
