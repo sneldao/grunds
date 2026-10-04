@@ -8,6 +8,11 @@
 // Pure + deterministic (no DOM, no clock): prices/offered sets live in the
 // sim (main.js module scope, fresh per campaign) and pass in as args, so
 // headless policy runs can't leak state across imports.
+//
+// Cause and effect (loseable day 1): price deltas move demand at spawn time
+// (see priceDivert below) and 86ing turns loyalists away at the board (see
+// eightySixedShare) — gouging or gutting the menu can lose the day, not
+// just slow it.
 
 export const DRINKS = {
   espresso: { name: 'Espresso', base: 3.20, points: 1, milk: false, blurb: 'fast, cheap, gone in three sips' },
@@ -64,6 +69,47 @@ export function rollDrink(cohort, offered = null, rng = Math.random) {
 // Milk delivery: yesterday's milky pour +10%, rounded to 10s, clamped.
 export function deliveryQty(lastMilky) {
   return Math.min(4000, Math.max(120, Math.round(((lastMilky || 0) * 1.1) / 10) * 10));
+}
+
+// Price elasticity at spawn time is measured against OUR board, not the
+// rival's: delta = price − base for the rolled drink (£, can be negative).
+// Positive deltas push patrons toward Glasshouse; negative deltas lure a few
+// back (capped — a giveaway still costs margin). Pure: the board math lives
+// here, spawn applies it. Tuned so base prices divert exactly 0, +£1 costs
+// up to +30pts of diversion, −£1 buys back ~15pts. (The street's matcha
+// curve is priced by the district, not the player, so it never diverts —
+// only priced menu deltas and the mid-day deal move demand.)
+export function priceDivert(delta, econ = null) {
+  const per = econ?.pricePullPerPound ?? 0.45;
+  const hi = econ?.pricePullMax ?? 0.30;
+  const lo = econ?.priceLureMax ?? 0.15;
+  const d = Number.isFinite(+delta) ? +delta : 0;
+  if (d >= 0) return Math.min(hi, d * per);
+  return Math.max(-lo, d * per);
+}
+
+// Matcha's board delta when the day-price moves under it: the chalkboard
+// curve (4.80 → 5.40) is priced by the street, so patrons compare against
+// the rival's board, not yesterday's memory. Kept SEPARATE from the
+// player-priced menu path above (spawn never calls it) so the
+// gentrification curve never double-counts the menu tool. Reserved for
+// future event-deck use; not part of the day-1 lose path.
+export function markupDivert(ourPrice, rivalPrice, econ = null) {
+  const per = econ?.pricePullPerPound ?? 0.45;
+  const hi = econ?.pricePullMax ?? 0.30;
+  const lo = econ?.priceLureMax ?? 0.15;
+  const d = (Number.isFinite(+ourPrice) ? +ourPrice : 0) - (Number.isFinite(+rivalPrice) ? +rivalPrice : 0);
+  if (d >= 0) return Math.min(hi, d * per);
+  return Math.max(-lo, d * per);
+}
+
+// 86 turnaway: share of patrons whose first-choice drink is off the board
+// who walk at the board with a reason instead of re-rolling. The rest order
+// something else — gutting the menu still costs the day, but never empties
+// the room outright.
+export function eightySixedShare(econ = null) {
+  const s = econ?.eightySixedTurnaway ?? 0.48;
+  return Math.max(0, Math.min(1, s));
 }
 
 // Day-1 delivery (no history): size from today's wave sheet so the van

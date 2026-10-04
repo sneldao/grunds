@@ -393,6 +393,7 @@ let toolsToday = null;
 let prepHintOpen = false;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let waveBatchServed = 0, waveStockoutAt = 0;
+let turnaways = 0, turnawayToastDone = false;
 let coach = null, coachHold = false;
 let coached = false;   // day-1 lever hint, once per campaign
 // just-in-time nudges: each fires once per campaign, only when its
@@ -788,33 +789,44 @@ function tick() {
       audio.clink();
     } else if (e.type === 'balked') {
       balked++; balks++;
-      // Phase 1 — a walk-out sours a walk-in (roster balks already flow
-      // through resolveDay's served/balked counters).
-      if (e.p && e.p.pid && e.p.regularIdx < 0) walkins.recordVisit(e.p.pid, { day, outcome: 'balked' });
-      if (e.p && e.p.regularIdx >= 0) regulars.noteWalkout(e.p.regularIdx, { day, outcome: 'balked' });
-      if (e.p && e.p.regularIdx < 0) {
-        firstWalked++;
-        if (firstWalkedToast < 2) { firstWalkedToast++; fx.toast('a first-timer walked — first impressions travel', 'warn'); }
-      }
-      if (e.p && e.p.partyMember && party && !party.declined) party.walked++;
-      if (dayMin >= 840 && dayMin <= 1020) { waveBalked++; if (prebatched) prebatchHelped = false; }
-      audio.balk();
-      fx.huff(e.p.pos.x, 1.5, e.p.pos.z);
-      try { if (navigator.vibrate) navigator.vibrate(35); } catch {}
-      // analytics: every balk is a teaching moment — day-1 balks are the signal
-      try {
-        const payload = { day, dayMin, queue: patrons.queueLength, wave: dayMin >= 840 && dayMin <= 1020 ? 1 : 0 };
-        analytics.track(day === 1 ? 'day1_balk' : 'balk', payload);
-      } catch {}
+      // Board turnaways read the 86'd drink and leave with a named reason —
+      // they never queued, never met Ruth, never earned an opinion. The
+      // receipt names the drink so the cause is legible tomorrow.
+      if (e.turnaway) {
+        turnaways++;
+        if (!turnawayToastDone) {
+          turnawayToastDone = true;
+          fx.toast(`no ${DRINKS[e.turnaway]?.name || e.turnaway} today — they read the board and left`, 'warn');
+        }
+      } else {
+        // Phase 1 — a walk-out sours a walk-in (roster balks already flow
+        // through resolveDay's served/balked counters).
+        if (e.p && e.p.pid && e.p.regularIdx < 0) walkins.recordVisit(e.p.pid, { day, outcome: 'balked' });
+        if (e.p && e.p.regularIdx >= 0) regulars.noteWalkout(e.p.regularIdx, { day, outcome: 'balked' });
+        if (e.p && e.p.regularIdx < 0) {
+          firstWalked++;
+          if (firstWalkedToast < 2) { firstWalkedToast++; fx.toast('a first-timer walked — first impressions travel', 'warn'); }
+        }
+        if (e.p && e.p.partyMember && party && !party.declined) party.walked++;
+        if (dayMin >= 840 && dayMin <= 1020) { waveBalked++; if (prebatched) prebatchHelped = false; }
+        audio.balk();
+        fx.huff(e.p.pos.x, 1.5, e.p.pos.z);
+        try { if (navigator.vibrate) navigator.vibrate(35); } catch {}
+        // analytics: every balk is a teaching moment — day-1 balks are the signal
+        try {
+          const payload = { day, dayMin, queue: patrons.queueLength, wave: dayMin >= 840 && dayMin <= 1020 ? 1 : 0 };
+          analytics.track(day === 1 ? 'day1_balk' : 'balk', payload);
+        } catch {}
 
-      // gossip is throttled early: settled openings are unreadable when everyone talks
-      const calmWindow = day === 1 && dayMin < CALM_UNTIL_MIN;
-      const gossipChance = calmWindow ? 0.10 : (speed >= 1200 ? 0.14 : 0.35);
-      if (Math.random() < gossipChance) fx.bubble(e.p, COPY.gossipBad[(Math.random() * COPY.gossipBad.length) | 0], 'bad');
-      // first walk-out names the remedy, not just the failure
-      if (!nudgedBalk) {
-        nudgedBalk = true;
-        fx.toast('they walked — press 1 to prep cups, or 2 to cut the price', 'warn');
+        // gossip is throttled early: settled openings are unreadable when everyone talks
+        const calmWindow = day === 1 && dayMin < CALM_UNTIL_MIN;
+        const gossipChance = calmWindow ? 0.10 : (speed >= 1200 ? 0.14 : 0.35);
+        if (Math.random() < gossipChance) fx.bubble(e.p, COPY.gossipBad[(Math.random() * COPY.gossipBad.length) | 0], 'bad');
+        // first walk-out names the remedy, not just the failure
+        if (!nudgedBalk) {
+          nudgedBalk = true;
+          fx.toast('they walked — press 1 to prep cups, or 2 to cut the price', 'warn');
+        }
       }
     } else if (e.type === 'defect') {
       defections++;
@@ -1179,6 +1191,7 @@ function closeDay() {
     campaignDays.push({
       day, staleCupsByLot: { ...staleByLotToday },
       batchWaste, compost: compostToday, balked, defections, netToday: null, opDrops,
+      turnaways,
       emergencyCups, emergencySpend, interest: interestToday, event: exchange.event?.id || null, covered: hedgedCups > 0 || !!exchange.contract,
     });
     weekOpStart = new Map(regulars.regulars.map((r) => [r.name, r.op]));
@@ -1285,6 +1298,12 @@ function closeDay() {
     } else if (t === 'tab' && settleToday > 0) lessons.push(`Tab settled: ${fmt(settleToday)}`);
   }
   if (menuNeedsLine && !toolsIntroducedToday.includes('menu')) lessons.push(menuServedLine());
+  // Board cause-and-effect: name the turnaway drink so gutting the menu reads
+  // as a decision with a consequence, not a silent slowdown.
+  if (turnaways > 0) {
+    const off = DRINK_IDS.filter(id => menuOffered[id] === false).map(id => DRINKS[id].name);
+    lessons.push(`${turnaways} read the board and left${off.length ? ` — off the menu: ${off.join(', ')}` : ''}. Put it back on tomorrow.`);
+  }
   for (const r of regulars.regulars) {
     for (const ev2 of r.events) {
       if (ev2.day === day && ev2.outcome === 'balked') lessons.push(`${r.name} walked out of the line.`);
@@ -1344,6 +1363,7 @@ function closeDay() {
       ['debt', exchange.debt > 0 ? `${fmt(exchange.debt)} of ${fmt(CAMPAIGN.creditLimit)}` : fmt(0)],
       ['peak queue', peakQueue + ' deep'], ['walked to ' + COPY.rivalName, defections],
       ['chose ' + COPY.rivalName, patrons.rivalChoices],
+      ...(turnaways > 0 ? [['left at the board', turnaways + ` (no ${DRINK_IDS.filter(id => menuOffered[id] === false).map(id => DRINKS[id].name).join(' / ') || '—'} today)`]] : []),
       ['—', '—'],
       ['you vs ' + COPY.rivalBarista, `you ${served + servedRetail} · ${COPY.rivalBarista} ${rivalServed + patrons.rivalChoices}`],   // PR-B1 — side-by-side
       ['NET TODAY', fmt(netToday)],
@@ -2316,6 +2336,7 @@ function applyMenu() {
   Object.assign(menuOffered, stagedMenu.offered);
   ctx.menuPrices = menuPrices;
   patrons.menuOffered = menuOffered;
+  patrons.menuPrices = menuPrices;
   stagedMenu = null;
 }
 
@@ -3061,13 +3082,17 @@ function prepareDay(d) {
   dayWaves = wavesForDay(schedule.waves, d);
   // Phase 3 — milk sized after the sheet lands: day 1 has no history, so
   // size from today's waves; later days adapt from yesterday's milky pour.
-  // Skill + live menu wire in here too (post-waves, pre-trading).
+  // Skill + live menu wire in here too (post-waves, pre-trading). Staged menu
+  // edits (stageMenu headless / Brief section) land here — prepareDay owns
+  // the live board, so a reset between stage and commit can't drop them.
+  if (stagedMenu) applyMenu();
   milkDelivery = d <= 1
     ? waveMilkEstimate(dayWaves, ECON.spawnScale, demand.spawnMul())
     : deliveryQty(lastMilky);
   ctx.milkStock = milkDelivery; ctx.milky = 0; ctx.milkOut = false; milkToastDone = false;
   patrons.skillPts = ruthSkill;
   patrons.menuOffered = menuOffered;
+  patrons.menuPrices = menuPrices;
   ctx.menuPrices = menuPrices;
   stagedRoast = lotState.entry(selectedLot)?.roast ?? 3;
   patrons.dwellMul = 1 + (dayMods.dwellBonus || 0);
@@ -3075,6 +3100,7 @@ function prepareDay(d) {
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false;
+  turnaways = 0; turnawayToastDone = false;
   leversTimeLocked = false; leverOverrideCount = 0;
   waveBatchServed = 0; waveStockoutAt = 0;
   coach = null; coachHold = false; coachHide();
@@ -3892,6 +3918,7 @@ function reset(coreOnly = false) {
   menuPrices = basePrices(); ctx.menuPrices = menuPrices;
   menuOffered = Object.fromEntries(DRINK_IDS.map(id => [id, true]));
   patrons.menuOffered = menuOffered;
+  patrons.menuPrices = menuPrices;
   stagedMenu = null; stagedRoast = 3;
   toolsToday = null;
   milkDelivery = 0; lastMilky = 0; milkTipped = 0; milkToastDone = false;
@@ -4827,6 +4854,7 @@ function loop(now) {
 }
   window.__grunds = {
   stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count, phase, hedgedCups, hedgeSavings: realizedHedgeSavings, batchUnits: ctx.batchUnits, batchSpend, batchWaste,
+    turnaways, rivalTurnaways: patrons.turnaways || 0,
     emergencyCups, beanSpend, emergencySpend, sackSpend, houseLot: lotState.house, houseStock: lotState.entry(lotState.house)?.stock ?? 0,
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, cRev, cCost, cOps, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null, rushFast, eveningFast,
     staffCondition: baristaCondition, staffing: planDraft ? planDraft.staffing : 'work', rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
@@ -4843,6 +4871,43 @@ function loop(now) {
   openDay, applyReply, reset, togglePause, resolveEvening, skipToRush,
   prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
   doPrebatch, doReprice,
+  // Headless lever: stage menu prices + 86 board without DOM (mirrors the
+  // Brief's menu section: stagedMenu → applyMenu at commit). NOTE: commit
+  // order matters — commitDayPlan() calls applyMenu() only inside
+  // startTradingDay()'s commit path; a throw between commit and apply
+  // (e.g. a failed sync) would drop the staging, so stageMenu is
+  // best-effort: it also writes through to the live board immediately.
+  // The Brief's own commit overwrites with the same values — no conflict.
+  stageMenu({ prices, offered } = {}) {
+    if (phase !== 'planning') return false;
+    if (prices) {
+      for (const [id, v] of Object.entries(prices)) {
+        if (!DRINK_IDS.includes(id) || !Number.isFinite(+v)) return false;
+      }
+    }
+    if (offered) {
+      for (const id of Object.keys(offered)) {
+        if (!DRINK_IDS.includes(id) || id === 'matcha') return false;
+      }
+    }
+    if (!stagedMenu) stagedMenu = { prices: { ...menuPrices }, offered: { ...menuOffered } };
+    if (prices) {
+      for (const [id, v] of Object.entries(prices)) {
+        stagedMenu.prices[id] = clampPrice(id, +v);
+        menuPrices[id] = stagedMenu.prices[id];
+      }
+    }
+    if (offered) {
+      for (const [id, on] of Object.entries(offered)) {
+        stagedMenu.offered[id] = !!on;
+        menuOffered[id] = stagedMenu.offered[id];
+      }
+    }
+    ctx.menuPrices = menuPrices;
+    patrons.menuOffered = menuOffered;
+    patrons.menuPrices = menuPrices;
+    return true;
+  },
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
   moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key), enqueue: (t, k, d = {}) => momentEnqueue(t, k, d) },
   stageCellar,

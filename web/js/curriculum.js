@@ -1,5 +1,10 @@
 export const TOOL_IDS = ['coffee', 'menu', 'street', 'insurance', 'tab'];
 
+// Loseable day 1, easy-by-default: the menu tool is visible from day 1 so a
+// player CAN gouge prices or gut the menu on the first morning (and lose for
+// it). Nothing else changes on day 1 — the tool is present but quiet, the
+// Brief still teaches prep first. Later days unlock the rest on schedule.
+// (Day-1 presence is hard-coded in planTools; SCHEDULE still gates the card.)
 const SCHEDULE = { coffee: 2, menu: 3, street: 4, insurance: 5 };
 
 export function planTools({
@@ -12,6 +17,10 @@ export function planTools({
   const visible = new Set();
   const essentialNew = [];
   let newToday = null;
+  // Loseable day 1, easy-by-default: the menu tool is present from the first
+  // morning (a player CAN gouge or gut the menu and lose for it), but it
+  // never takes the day-1 card — the Brief still teaches prep first.
+  if (day === 1) return { visible: new Set(['menu']), newToday: null, essentialNew };
   if (day >= 2) {
     for (const t of intro) if (TOOL_IDS.includes(t)) visible.add(t);
     const needCoffee = houseStock <= 0 || (lastPour > 0 && houseStock < lastPour);

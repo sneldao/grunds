@@ -12,7 +12,9 @@ import { dirname, resolve } from 'node:path';
 import {
   DRINKS, DRINK_IDS, COHORT_ORDERS, PRICE_STEP, PRICE_BAND,
   basePrices, clampPrice, menuPrice, rollDrink, deliveryQty, waveMilkEstimate,
+  priceDivert, eightySixedShare,
 } from '../js/menu.js';
+import { ECON } from '../js/config.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
@@ -75,9 +77,26 @@ test('Phase 3 · clampPrice holds the band', () => {
 
 // (5) Spawn orders by cohort, wantsMatcha stays consistent
 test('Phase 3 · spawn rolls cohort drinks; wantsMatcha follows the drink', () => {
-  assert.match(patrons, /rollDrink\(cohort, this\.menuOffered, this\.random\)/);
+  assert.match(patrons, /rollDrink\(cohort, offered, this\.random\)/);
+  assert.match(patrons, /rollDrink\(cohort, this\.menuOffered, this\.random\)|rollDrink\(cohort, offered, this\.random\)/);
   assert.match(patrons, /drink, wantsMatcha: drink === 'matcha'/);
   assert.match(patrons, /menuOffered = null/);
+});
+
+// (5b) Board cause-and-effect: price deltas divert, 86s turn away
+test('Phase 3 · board prices divert demand; 86s turn away with a reason', () => {
+  assert.match(patrons, /priceDivert\(/);
+  assert.match(patrons, /eightySixedShare\(/);
+  assert.match(patrons, /boardWalk/);
+  assert.match(patrons, /turnaway/);
+  // the numbers: base prices divert exactly 0 (default stream untouched),
+  // +£1 diverts hard, −£1 lures back capped, 86s turn away about half.
+  assert.equal(priceDivert(0, ECON), 0);
+  assert.ok(priceDivert(1, ECON) >= 0.25, `+£1 should divert hard (got ${priceDivert(1, ECON)})`);
+  const lure = priceDivert(-1, ECON);
+  assert.ok(lure < 0 && lure >= -0.15, `−£1 should lure back capped (got ${lure})`);
+  const share = eightySixedShare(ECON);
+  assert.ok(share > 0.3 && share < 0.7, `86 share should gut but not empty (got ${share})`);
 });
 
 // (6) Tick spends drink points; milk gates milky orders (legacy-safe:
@@ -122,4 +141,126 @@ test('Phase 3 · Brief stages prices + 86 board; commit applies', () => {
   assert.match(main, /Object\.assign\(menuPrices, stagedMenu\.prices\)/);
   assert.match(main, /renderMenuSection\(\);/);
   assert.match(html, /id="brief-menu"/);
+  // headless lever: stageMenu mirrors the Brief without DOM
+  assert.match(main, /stageMenu\(\{ prices, offered \}/);
+});
+
+// (10) Loseable day 1, easy-by-default: a gouged/gutted menu loses real
+// revenue AND walks real patrons (not just mix-shift), while a fair board
+// keeps the day. Runs the live sim headless — no DOM, no GL.
+test('Phase 3 · loseable day 1: gouge or gut the menu and the day bleeds', async () => {
+  const anyProxy = () => new Proxy(function () {}, {
+    get: (t, k) => {
+      if (k === Symbol.toPrimitive) return h => h === 'string' ? 'WebGL 2.0' : 1;
+      if (k === 'then') return undefined;
+      return anyProxy();
+    },
+    set: () => true, apply: () => anyProxy(),
+  });
+  const mkEl = () => {
+    const e = {
+      children: [], style: {}, dataset: {}, textContent: '', innerHTML: '',
+      disabled: false, offsetWidth: 10,
+      classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
+      appendChild(c) { c._parent = e; e.children.push(c); return c; },
+      append(...cs) { for (const c of cs) e.appendChild(c); },
+      prepend(c) { c._parent = e; e.children.unshift(c); },
+      remove() { const p = e._parent; if (p) { const i = p.children.indexOf(e); if (i >= 0) p.children.splice(i, 1); } },
+      querySelector: () => mkEl(), querySelectorAll: () => [], addEventListener() {},
+      get lastChild() { return e.children[e.children.length - 1] || null; },
+      click() { e.onclick && e.onclick(); }, onclick: null,
+    };
+    return e;
+  };
+  const reg = new Map();
+  const cs = () => ({ width: 0, height: 0, getContext: () => anyProxy(), style: {}, addEventListener() {} });
+  globalThis.document = {
+    getElementById: id => { if (!reg.has(id)) reg.set(id, mkEl()); return reg.get(id); },
+    createElement: t => t === 'canvas' ? cs() : mkEl(),
+    createElementNS: () => cs(),
+    querySelectorAll: () => [], body: mkEl(),
+  };
+  globalThis.window = globalThis; globalThis.__headless = true;
+  globalThis.innerWidth = 1600; globalThis.innerHeight = 900; globalThis.devicePixelRatio = 1;
+  globalThis.location = { search: '?speed=1200' };
+  globalThis.addEventListener = () => {};
+  let rafCb = null; globalThis.requestAnimationFrame = cb => { rafCb = cb; };
+  const schedule = JSON.parse(readFileSync(resolve(root, 'out/wave_schedule.json'), 'utf8'));
+  globalThis.fetch = () => Promise.resolve({ json: () => Promise.resolve(schedule) });
+  globalThis.AudioContext = class {
+    constructor() { this.currentTime = 0; this.state = 'running'; this.sampleRate = 44100; this.destination = {}; }
+    createGain() { return { gain: { value: 0, setTargetAtTime() {}, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; }
+    createOscillator() { return { type: '', frequency: { value: 0, setTargetAtTime() {}, exponentialRampToValueAtTime() {}, setValueAtTime() {} }, detune: { value: 0 }, connect() {}, start() {}, stop() {} }; }
+    createBiquadFilter() { return { type: '', frequency: { value: 0 }, Q: { value: 0 }, connect() {} }; }
+    createBufferSource() { return { buffer: null, loop: false, playbackRate: { value: 1 }, connect() {}, start() {}, stop() {} }; }
+    createBuffer(c, l) { return { getChannelData: () => new Float32Array(l) }; }
+    resume() {}
+  };
+  let _rs = 0;
+  Math.random = () => { _rs = (_rs * 1664525 + 1013904223) >>> 0; return _rs / 4294967296; };
+
+  await import('../js/main.js');
+  await new Promise(r => setTimeout(r, 40));
+  const G = globalThis.__grunds;
+  reg.get('open').click();
+  await new Promise(r => setTimeout(r, 10));
+  assert.equal(G.phase, 'planning', `expected planning, got ${G.phase}`);
+
+  const p0 = { ...G.patrons.menuPrices }, o0 = { ...G.patrons.menuOffered };
+  assert.equal(G.stageMenu({ prices: { espresso: 4.20, bogus: 1 }, offered: { filter: false } }), false);
+  assert.equal(G.stageMenu({ prices: { flatwhite: NaN } }), false);
+  assert.equal(G.stageMenu({ offered: { matcha: false } }), false);
+  assert.deepEqual({ ...G.patrons.menuPrices }, p0, 'invalid stageMenu mutated prices');
+  assert.deepEqual({ ...G.patrons.menuOffered }, o0, 'invalid stageMenu mutated the 86 board');
+
+  let now = 1000;
+  const runFrames = (n) => {
+    for (let f = 0; f < n; f++) {
+      now += 100; const cb = rafCb; rafCb = null;
+      if (!cb) break;
+      cb(now);
+      const off = reg.get('offer');
+      if (off && off.classList.contains('show')) reg.get('offer-no').click();
+    }
+  };
+  const runDay = async (stage) => {
+    _rs = 424242;
+    if (stage) assert.equal(G.stageMenu(stage), true, 'stageMenu rejected a valid stage');
+    const cr = G.commitDayPlan();
+    assert.ok(cr && cr.ok, 'commit failed: ' + JSON.stringify(cr));
+    runFrames(260);
+    return G.stats();
+  };
+
+  const fair = await runDay(null);
+  const fairHeads = G.patrons.walkins.heads.map(h => ({ pid: h.pid, visits: h.visits, events: [...(h.events || [])] }));
+  await G.reset(); await new Promise(r => setTimeout(r, 10));
+
+  const gouge = await runDay({ prices: { espresso: 4.20, flatwhite: 4.60, filter: 4.00 } });
+  await G.reset(); await new Promise(r => setTimeout(r, 10));
+
+  const gutted = await runDay({ offered: { espresso: false, flatwhite: false, filter: false } });
+  const guttedHeads = G.patrons.walkins.heads;
+  const balkedHeads = guttedHeads.filter(h => (h.events || []).some(e => e.outcome === 'balked'));
+  await G.reset(); await new Promise(r => setTimeout(r, 10));
+
+  const replay = await runDay(null);
+  const replayHeads = G.patrons.walkins.heads.map(h => ({ pid: h.pid, visits: h.visits, events: [...(h.events || [])] }));
+
+  assert.ok(fair.served > 0, `fair day served ${fair.served}`);
+  assert.equal(fair.turnaways, 0, 'fair board should have zero board turnaways');
+  for (const k of ['served', 'balked', 'turnaways', 'rivalChoices', 'defections']) {
+    assert.equal(replay[k], fair[k], `seeded replay drifted on ${k}: ${fair[k]} → ${replay[k]}`);
+  }
+  assert.deepEqual(replayHeads, fairHeads, 'seeded replay drifted on walk-in identities');
+
+  assert.ok(gouge.served < fair.served, `gouge served ${gouge.served} !< fair ${fair.served}`);
+  assert.ok(gouge.rivalChoices > fair.rivalChoices, `gouge rivalChoices ${gouge.rivalChoices} !> fair ${fair.rivalChoices}`);
+
+  assert.ok(gutted.turnaways > 0, 'gutted board produced no board turnaways');
+  assert.ok(gutted.served < fair.served, `gutted served ${gutted.served} !< fair ${fair.served}`);
+  assert.ok(gutted.cRev < fair.cRev, `gutted revenue ${gutted.cRev} !< fair ${fair.cRev}`);
+
+  assert.ok(balkedHeads.length <= Math.max(0, gutted.balked - gutted.turnaways),
+    `turnaways wrote identity records: ${balkedHeads.length} balked heads vs ${gutted.balked - gutted.turnaways} real queue balks`);
 });

@@ -5,7 +5,7 @@ import { COHORTS, LAYOUT, ECON, CAMPAIGN, counterSlot, registerSlot, rivalSlot, 
 import { salePrice } from './economy.js';
 import { rivalChoiceProbability } from './rival.js';
 import { memoryLine, shouldBringCompanion } from './identity.js';
-import { DRINKS, rollDrink } from './menu.js';
+import { DRINKS, rollDrink, priceDivert, eightySixedShare, menuPrice } from './menu.js';
 import { gaitFor, moodFor, samplePose, propSway } from './poses.js';
 
 const MAXP = ECON.maxPatrons;
@@ -22,6 +22,8 @@ export class PatronSystem {
     this.menuOffered = null;      // Phase 3 — {drink: bool} 86 board (null = everything offered)
     this.skillPts = 0;            // Phase 3 — Ruth's skill bonus bar-points, set at dawn
     this.truceCeasefire = false;  // Phase 4 — Saturday ceasefire: no rival-bound spawns
+    this.menuPrices = null;     // Phase 3 — live board prices (set at dawn); null = base
+    this.turnaways = 0;         // board turnaways (86'd first choice walked, never queued)
     this.exchange = exchange;     // for contract unit consumption
     this.fx = fx;                 // for greeting bubbles on join
     this.patrons = [];
@@ -123,7 +125,32 @@ export class PatronSystem {
     const ritualSpeed = (typeof cohortDef.walkSpeed === 'number') ? cohortDef.walkSpeed : 2.1;
     // Phase 3 — the order: weighted by cohort, honoring the 86 board.
     // wantsMatcha stays as the legacy flag so batch/balk/price paths read on.
-    const drink = rollDrink(cohort, this.menuOffered, this.random);
+    // Loseable day 1: when the rolled drink is 86'd, its loyalists walk at the
+    // board with a reason (turnaway) instead of silently re-rolling — gutting
+    // the menu costs the day in lost sales AND reputation, not just mix.
+    // The spawn still returns a patron (contract kept: callers and the queue
+    // never see null); the turnaway is a flagged patron the tick loop walks
+    // out immediately with a reason. The first-choice probe uses a
+    // spawn-local deterministic stream (never this.random, never Math.random)
+    // — with no 86 on the board the branch collapses to a single rollDrink,
+    // so the default stream is bit-identical and seeded harnesses replay.
+    const offered = this.menuOffered;
+    const has86 = offered && Object.entries(offered).some(([id, on]) => on === false && id !== 'matcha');
+    let drink, firstChoice = null, turnedAway = false;
+    if (has86) {
+      const probe = ((n) => { let s = (n >>> 0) || 1; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; })((this._boardProbe = (this._boardProbe || 0) + 1) * 2654435761);
+      firstChoice = rollDrink(cohort, null, probe);
+      if (offered[firstChoice] === false && firstChoice !== 'matcha') {
+        if (probe() < eightySixedShare(ECON)) {
+          turnedAway = true;
+          drink = rollDrink(cohort, offered, this.random);
+        } else drink = rollDrink(cohort, offered, this.random);
+      } else {
+        drink = rollDrink(cohort, offered, this.random);
+      }
+    } else {
+      drink = rollDrink(cohort, offered, this.random);
+    }
     const p = {
       idx, active: true, cohort, zone,
       drink, wantsMatcha: drink === 'matcha',
@@ -152,19 +179,45 @@ export class PatronSystem {
       op: 0, reactT: 0, reactKind: null,
     };
     let toRival = false;
+    let boardWalk = false;
+    // A turnaway never queues — they read the board and leave with a reason.
+    if (turnedAway) {
+      boardWalk = true;
+    }
     // Phase 4 — ceasefire Saturday: nobody crosses, neither way.
-    if (zone === 'counter' && !this.truceCeasefire && this.rivalQ.length < 42) {
+    // Price elasticity folds into the SAME rival-choice roll (no extra RNG):
+    // the rolled drink's board delta shifts the rival probability before they
+    // join. Overcharging pushes them toward Glasshouse; a fair price keeps
+    // them; undercharging lures a few back (margin still pays it). Deltas are
+    // measured against OUR board (menu base / today's matcha board), so base
+    // prices divert exactly 0 and the default stream is untouched — the RNG
+    // order never changes. The matcha deal (4.20 vs the board) lures back.
+    if (!boardWalk && zone === 'counter' && !this.truceCeasefire && this.rivalQ.length < 42) {
+      let divert = 0;
+      try {
+        if (drink === 'matcha') {
+          const board = this.exchange && Number.isFinite(this.exchange.matchaPrice)
+            ? this.exchange.matchaPrice
+            : salePrice(this.exchange, this.repriced);
+          const ticket = this.exchange ? salePrice(this.exchange, this.repriced) : ECON.matchaFull;
+          divert = priceDivert(ticket - board, ECON);
+        } else {
+          const base = DRINKS[drink]?.base;
+          const price = this.menuPrices?.[drink] ?? menuPrice(drink, this.menuPrices);
+          if (Number.isFinite(base) && Number.isFinite(price)) divert = priceDivert(price - base, ECON);
+        }
+      } catch { divert = 0; }
       const ourPrice = this.exchange ? salePrice(this.exchange, this.repriced) : ECON.matchaFull;
       const op = this.regulars ? (this.regulars.reputation - 50) / 50 : 0;
       const pr = rivalChoiceProbability({
         strategy: this.rivalStrategy, cohort, ourPrice, op,
         ourQueue: this.queueLength, rivalQueue: this.rivalQ.length,
-      });
+      }) + divert;
       if (this.random() < pr) toRival = true;
     }
     // Is this spawn a named Regular? If so, mark seen, tag the patron, and
     // emit a one-line greeting when they actually join the queue.
-    if (!toRival && this.regulars && zone === 'counter') {
+    if (!toRival && !boardWalk && this.regulars && zone === 'counter') {
       const r = this.regulars.markSeen(cohort, this.markSeenOnly || null);
       if (r.found) {
         p.regularName = r.name; p.regularIdx = r.idx; p.hasHat = true;
@@ -182,7 +235,7 @@ export class PatronSystem {
     }
     // Phase 1 — walk-in identity: draw a generated head from the day pool so
     // strangers accumulate visits and can graduate. Roster spawns skip this.
-    if (!toRival && !p.regularName && this.walkins && zone === 'counter') {
+    if (!toRival && !boardWalk && !p.regularName && this.walkins && zone === 'counter') {
       const head = this.walkins.draw(cohort);
       if (head) {
         p.pid = head.pid; p.pname = head.name; p.faceSeed = head.faceSeed;
@@ -192,7 +245,7 @@ export class PatronSystem {
     // Phase 1 — friends bring a +1: a friend-stage arrival sometimes spawns a
     // visitor companion on the spot. viaCompanion guards the recursion (one
     // level); spawn's null return guards a full floor.
-    if (!toRival && !viaCompanion && shouldBringCompanion(p.stage, this.random)) {
+    if (!toRival && !boardWalk && !viaCompanion && shouldBringCompanion(p.stage, this.random)) {
       const c = this.spawn(cohort, zone, quick, true);
       if (c && c !== p) {
         c.companionOf = p.pid || p.regularName;
@@ -202,14 +255,32 @@ export class PatronSystem {
     }
     // The 11:00 ask's party — stamp members during the rush so the evening
     // card can count who stayed and who walked.
-    if (!toRival && zone === 'counter' && this.party && !this.party.declined
+    if (!toRival && !boardWalk && zone === 'counter' && this.party && !this.party.declined
         && this.partyActive && this.party.left > 0 && cohort === this.party.cohort) {
       p.partyMember = true;
       this.party.left--;
     }
     this.patrons.push(p);
     const door = V3(LAYOUT.door.x + (Math.random() - 0.5) * 2.2, 0, LAYOUT.door.z + 0.5);
-    if (toRival) {
+    if (boardWalk) {
+      // Read the board, leave the room: counted at spawn (the tick loop must
+      // stay clean — it iterates the whole patron list every sim-minute, so a
+      // scan there flips unrelated seeded outcomes). They arrive through the
+      // door like everyone else so spawn's contract holds (always a patron,
+      // never null) — they just never reach the queue: grumble now, leave now.
+      this.turnaways++;
+      p.turnaway = firstChoice; p.boardWalk = true;
+      p.flash = 1; p.colorDirty = true;
+      p.reactKind = 'grumble'; p.reactT = 0.9;
+      p.turnawayEv = { type: 'balked', p, turnaway: firstChoice };
+      p.state = 'walkingIn'; p.path = [door];
+      p.goal = door.clone ? door.clone() : door;
+      p.queueRef = null;
+      this._paint(p);
+      this._leave(p);
+      return p;
+    }
+    if (toRival && !boardWalk) {
       const lost = this.regulars && this.regulars.regulars.find(r => r.absence === 'lost' && !r._defectShown && r.coh === cohort);
       if (lost) { lost._defectShown = true; p.regularName = lost.name; p.hasHat = true; p.pname = lost.name; p.faceSeed = lost.name; p.lostGlimpse = true; }
       p.rivalOrigin = 'choice'; p.queueRef = 'rival'; this.rivalChoices++;
@@ -252,6 +323,16 @@ export class PatronSystem {
   // ---- sim tick (one sim-minute) ---------------------------------------------
   tick(dayMin, ctx) {
     const ev = [];
+    // Board turnaways were already counted at spawn (which must stay the only
+    // RNG-adjacent change — tick scans must not touch the shared stream).
+    // Drain their stashed events here so the day loop counts them as balks
+    // with a reason, exactly once each.
+    for (const p of this.patrons) {
+      if (p && p.active && p.turnawayEv && !p._turnawayDrained) {
+        p._turnawayDrained = true;
+        ev.push(p.turnawayEv);
+      }
+    }
     // everyone waiting ages a minute
     for (const p of this.counterQ) if (p.state === 'inQueue') p.waitMin++;
     for (const p of this.registerQ) if (p.state === 'inRegisterQ') p.waitMin++;
@@ -735,6 +816,7 @@ export class PatronSystem {
     for (let i = this.patrons.length - 1; i >= 0; i--) this._despawn(this.patrons[i]);
     this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.rivalClock = 0; this.rivalCredit = 0; this.rivalChoices = 0;
     this.staffMul = 1; this.balkMul = 1; this.dwellMul = 1;
+    this.turnaways = 0; this._boardProbe = 0;
     this.companionsToday = [];
   }
 }

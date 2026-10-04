@@ -87,7 +87,10 @@ export function buildAutopsy(campaignDays = [], regularsSnapshot = []) {
   // The floor's verdict in numbers.
   const balked = days.reduce((n, d) => n + (d.balked || 0), 0);
   const defections = days.reduce((n, d) => n + (d.defections || 0), 0);
-  if (balked > 0) lines.push(`${balked} walked (queue beat them)`);
+  const turned = days.reduce((n, d) => n + (d.turnaways || 0), 0);
+  const queueWalked = Math.max(0, balked - turned);
+  if (queueWalked > 0) lines.push(`${queueWalked} walked (queue beat them)`);
+  if (turned > 0) lines.push(`${turned} left at the board (their drink was 86'd)`);
   if (defections > 0) lines.push(`${defections} chose Sam`);
   const negDays = days.filter((d) => (d.netToday ?? 0) < 0).map((d) => d.day);
   if (negDays.length) lines.push(`till went backward day${negDays.length > 1 ? 's' : ''} ${dayRanges(negDays)}`);

@@ -60,6 +60,13 @@ export const ECON = {
   barPoints: 8, prepOther: 1, prepMatcha: 4, prepBatched: 1,   // the bar spends prep-points; matcha is expensive unless batched
   balkAfter: 3, balkChance: 0.12, matchaShare: 0.35,
   sitChance: 0.35, maxPatrons: 260,
+  // Price elasticity: patrons read the board before they join. Overcharging
+  // a drink past its base pushes its share toward Glasshouse (per-cup pull
+  // below); undercharging pulls them back (capped — a giveaway still costs
+  // margin). 86ing a drink turns its loyalists away at the board with a
+  // reason instead of silently re-rolling their order.
+  pricePullPerPound: 0.45, pricePullMax: 0.30, priceLureMax: 0.15,
+  eightySixedTurnaway: 0.48,
   spawnScale: 0.3,   // the 13-week dataset compressed to one day: scale demand to ~2x service at peak
 };
 
