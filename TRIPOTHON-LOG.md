@@ -198,3 +198,29 @@ mark (webhook optional), so a stand described during the day most often
 arrives at the next dawn — which happens to be the better fiction anyway
 ("the builders work overnight"). Described-early generations can still
 land mid-day.
+
+## Oct 5 (late) — The fountain hero, thirteen grown streets
+
+**Six slots now.** `DISTRICT_SLOTS` gained a hero — a **fountain** on the
+far row beside the franchise storefront, run through the newer **P2**
+pipeline at a stand-scale 15k face budget (the taste-calibration A/B the
+plan called for). Slot order is append-only so every existing seed kept
+its prompts; grown seeds picked the fountain up on their next ensure with
+zero re-growth.
+
+**13 streets fully grown** (78 slots): 7 · 11 · 13 · 19 · 23 · 3 · 5 ·
+17 · 21 · 27 · 31 · 42 · 99 — plus two live franchises (seed 42's "a
+bakery with blue shutters", seed 99's "a tiny ramen counter with red
+lanterns"), both Tripo-built and persisted to Convex storage.
+
+**Two honest limits hit, both handled by design:**
+- Tripo's **concurrency cap** ("exceeded the limit of generation") tripped
+  mid-burst — the affected slots fell through to Mint per-slot, so the
+  streets are a visible provider mix (a live demo of the fallback chain,
+  not a bug). Stragglers self-healed on re-ensure once the queue drained.
+- The 50/day `TRIPO_DAILY_BUDGET` guard tripped once — raised to 500 for
+  the sprint; still bounded, still logged.
+
+The asset board now shows a **★ franchise row** per seed — a player's own
+words next to the kit prompts — with live refresh on both routes.
+Balance: ~22,830 of 25,000 credits remaining after ~60 generations.
