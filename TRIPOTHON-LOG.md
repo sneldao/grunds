@@ -156,3 +156,45 @@ planned, so the plan now runs on a decision gate (full logic in
   and claim the track.
 - Open question that changes the math: do we own a **PICO headset**? If
   yes, a `?vr` WebXR viewer mode becomes a real second tool track.
+
+## Oct 5 — The Franchise: player words → geometry (Tier B, merged)
+
+**The money shot is live.** Tier B from the plan shipped as PR #26: from
+day 3 the morning brief offers the vacant storefront at 14 The Row — the
+letter's "For Lease" beat made playable. The player types a description
+(three words or more), it becomes a real Tripo `text_to_model` task, and
+the stand cross-fades into the street when it lands — mid-day if the
+builders are fast, else at the next dawn. Once standing it pays a `+£15`
+rent line on each dawn's receipt. The player's words are now load-bearing
+game state.
+
+- **Backend** — `convex/franchise.ts` sanitizes the prompt (printable
+  ASCII, bounded words, franchise-fitted suffix), derives a deterministic
+  spec (`model_seed`/`texture_seed` hashed from seed+prompt — same words
+  on the same seed grow the same stand), and keys the asset
+  content-addressed via `assetKey()`. Retries reuse the row; a failed
+  attempt frees the seed for a new description; one franchise per seed —
+  the street remembers who built it. Routes: `GET /franchise/status`,
+  `POST /franchise/describe`, same no-auth posture as `/district/*`.
+- **Frontend** — `web/js/franchise.js` polls status, fits + grounds the
+  GLB at the far-row slot (`FRANCHISE` in `config.js`), fires the arrival
+  toast. Same never-block posture as `districtGen`: classic district,
+  headless, no-GL, no bridge, dropped connections — the procedural street
+  is always the floor.
+- **Live-verified end-to-end on seed 99**: describe ("a tiny ramen
+  counter with red lanterns") → real Tripo task `524526a0…` (40 credits,
+  P1-20260311, finished in under a minute) → reaper resolved at the
+  10-min mark → GLB + preview persisted into Convex storage →
+  `/franchise/status` serves permanent URLs. Invalid prompts return
+  `{status:"invalid"}` and free the line for another try.
+- Suite 322/322; `web/test/franchise.mjs` pins sanitize/spec determinism,
+  poll→place→rent timing, and every main.js wiring anchor.
+
+**Credit ledger**: 10 kit tasks (seeds 13/19, ~480) + 1 franchise probe
+(40) ≈ **520 of 25,000 used**. Remaining Tier-C/D runway is enormous.
+
+**Honest note for the judges**: the reaper resolves tasks at the 10-min
+mark (webhook optional), so a stand described during the day most often
+arrives at the next dawn — which happens to be the better fiction anyway
+("the builders work overnight"). Described-early generations can still
+land mid-day.
