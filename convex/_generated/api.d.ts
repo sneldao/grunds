@@ -15,6 +15,7 @@ import type * as decisions from "../decisions.js";
 import type * as district from "../district.js";
 import type * as exchange from "../exchange.js";
 import type * as firecrawl from "../firecrawl.js";
+import type * as franchise from "../franchise.js";
 import type * as gameConfig from "../gameConfig.js";
 import type * as http from "../http.js";
 import type * as letters from "../letters.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   district: typeof district;
   exchange: typeof exchange;
   firecrawl: typeof firecrawl;
+  franchise: typeof franchise;
   gameConfig: typeof gameConfig;
   http: typeof http;
   letters: typeof letters;

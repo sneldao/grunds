@@ -242,6 +242,27 @@ export const districtEnsure = httpAction(async (ctx, req) => {
   return json(await ctx.runAction(api.district.ensure, { seed }));
 });
 
+// The Franchise — the player's words become a stand on The Row. The brief
+// reads /franchise/status to decide whether to show the describe line, and
+// the floor polls it for the reveal; /franchise/describe grows the stand
+// through tripo.generate (budget-guarded inside). Same no-auth posture as
+// /district/* — idempotent and content-keyed.
+export const franchiseStatus = httpAction(async (ctx, req) => {
+  const seed = Number(new URL(req.url).searchParams.get("seed") ?? 7);
+  if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
+  return json(await ctx.runQuery(api.franchise.status, { seed }));
+});
+
+export const franchiseDescribe = httpAction(async (ctx, req) => {
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  const p = new URL(req.url).searchParams;
+  const seed = Number(p.get("seed") ?? 7);
+  const day = Number(p.get("day") ?? 3);
+  const prompt = p.get("prompt") ?? "";
+  if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
+  return json(await ctx.runAction(api.franchise.describe, { seed, prompt, day }));
+});
+
 // Post the letter to a real inbox — the client sends the composed letter
 // plus a recipient; replies resolve back to this campaign via the thread
 // mapping recorded in agentmail.sendLetter.
@@ -620,6 +641,8 @@ http.route({ path: "/ai/gossip", method: "POST", handler: aiGossip });
 http.route({ path: "/ai/research", method: "GET", handler: aiResearch });
 http.route({ path: "/district/kit", method: "GET", handler: districtKit });
 http.route({ path: "/district/ensure", method: "POST", handler: districtEnsure });
+http.route({ path: "/franchise/status", method: "GET", handler: franchiseStatus });
+http.route({ path: "/franchise/describe", method: "POST", handler: franchiseDescribe });
 
 // Static floor (uploaded dist/): exact routes above win, everything else
 // falls back to index.html. App URLs stay at root — no /api prefix move.
