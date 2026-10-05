@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // tools/mint-pipeline.mjs — Generative District pre-warmer (TRIPOTHON.md §4).
+// (Name kept for continuity: `district:ensure` now routes Tripo first, Mint
+// as fallback, server-side — this tool is provider-agnostic.)
 //
 // Grows the district kit for a list of seeds through the LIVE Convex backend:
 // the same `district:ensure` action the first player's boot fires, so offline
 // pre-warm and runtime share one prompt source of truth (convex/district.ts).
-// Instead of waiting on the hourly mint-operation-reaper cron, each poll tick
-// kicks the reaper directly — a fresh kit finalizes inside this run.
+// Instead of waiting on the hourly reaper crons, each poll tick kicks both
+// provider reapers directly — a fresh kit finalizes inside this run.
 //
 // Why pre-warm: judges' first load should hit a cached, art-directed street
 // (seed 7 is the default seed in main.js). A seed nobody pre-warmed still
@@ -28,9 +30,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const KIT_TIMEOUT_MS = 12 * 60 * 1000; // a 5-slot kit finalizes well inside this
+const KIT_TIMEOUT_MS = 25 * 60 * 1000; // Tripo's reaper re-queries after 10 min if a webhook is lost
 const POLL_MS = 25 * 1000;
-const MAX_ROUNDS = 3; // re-ensure retries for transient provider flakes (failed Mint tasks cost zero credits)
+const MAX_ROUNDS = 3; // re-ensure retries for transient provider flakes (failed tasks cost zero credits on either provider)
 
 const argv = process.argv.slice(2);
 const checkOnly = argv.includes('--check');
@@ -54,7 +56,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function summarize(seed, kit) {
   const slots = kit.slots || {};
   const status = Object.fromEntries(
-    Object.entries(slots).map(([s, v]) => [s, { status: v.status, modelUrl: v.modelUrl ?? null, previewUrl: v.previewUrl ?? null }]),
+    Object.entries(slots).map(([s, v]) => [s, { status: v.status, provider: v.provider ?? null, prompt: v.prompt ?? null, modelUrl: v.modelUrl ?? null, previewUrl: v.previewUrl ?? null }]),
   );
   const counts = {};
   for (const v of Object.values(slots)) counts[v.status] = (counts[v.status] || 0) + 1;
@@ -62,11 +64,11 @@ function summarize(seed, kit) {
   // provider refunds failed tasks); processing just needs the reaper kicked.
   const done = Object.keys(slots).length === 5 && !counts.missing && !counts.failed && !counts.processing;
   const growing = !!counts.processing;
-  console.log(`  seed ${seed}: ${Object.entries(slots).map(([s, v]) => `${s}=${v.status}`).join(' ')}${done ? ' · grown' : growing ? ' · growing…' : ' · not grown'}`);
-  return { seed, done, growing, counts, slots };
+  console.log(`  seed ${seed}: ${Object.entries(slots).map(([s, v]) => `${s}=${v.status}${v.provider ? `(${v.provider})` : ''}`).join(' ')}${done ? ' · grown' : growing ? ' · growing…' : ' · not grown'}`);
+  return { seed, done, growing, counts, slots: status };
 }
 
-const manifest = { generatedAt: new Date().toISOString(), provider: 'mint', preset: 'fast', seeds: [] };
+const manifest = { generatedAt: new Date().toISOString(), provider: 'tripo>mint', preset: 'fast', seeds: [] };
 
 for (const seed of seeds) {
   console.log(`\n— seed ${seed}${checkOnly ? ' (check only)' : ''}`);
@@ -86,7 +88,9 @@ for (const seed of seeds) {
     while (report.growing && Date.now() < deadline) {
       await sleep(POLL_MS);
       try {
-        convexRun('mint:reaper', {}); // poll the live Mint operations now, not at :45
+        for (const reaper of ['tripo:reaper', 'mint:reaper']) {
+          try { convexRun(reaper, {}); } catch { /* one provider's hiccup never stalls the other */ }
+        }
         kit = convexRun('district:kit', { seed });
       } catch {
         continue; // transient CLI/network hiccup — next tick retries

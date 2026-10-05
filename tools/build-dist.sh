@@ -12,4 +12,7 @@ if [ ! -f "$ROOT/out/wave_schedule.json" ]; then
   python3 -m grunds.ingest
 fi
 cp "$ROOT/out/wave_schedule.json" "$ROOT/dist/api/schedule.json"
+# Tripothon asset board (slot · provider · prompt · preview · in-game shot).
+# Non-fatal: the game ships even if the board can't be built offline.
+node "$ROOT/tools/build-asset-board.mjs" --out "$ROOT/dist/asset-board.html" || echo "asset board skipped"
 echo "dist ready: $(find "$ROOT/dist" -type f | wc -l | tr -d ' ') files"
