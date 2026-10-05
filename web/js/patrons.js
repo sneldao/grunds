@@ -829,7 +829,12 @@ export class PatronSystem {
     const seats = this.world && this.world.seats;
     const list = Array.isArray(seats) ? seats : [];
     const inside = [];
-    for (const p of this.patrons) if (isInsidePatron(p, { doorZ: LAYOUT.door.z })) inside.push(p);
+    const room = LAYOUT.floor;
+    const bounds = {
+      doorZ: LAYOUT.door.z,
+      minZ: room.z - room.d / 2, minX: room.x - room.w / 2, maxX: room.x + room.w / 2,
+    };
+    for (const p of this.patrons) if (isInsidePatron(p, bounds)) inside.push(p);
     const free = list.filter(s => s && !s.taken);
     const budget = Math.min(floorSeatBudget(inside), free.length);
     const next = planVisualSitters(this._floorSitters, inside, budget);

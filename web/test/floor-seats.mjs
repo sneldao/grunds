@@ -68,12 +68,12 @@ test('chairs spread across tables', () => {
 
 function seatsOf(n = 9) {
   const seats = [];
-  for (let t = 0; t < 3; t++) {
-    const table = { id: t };
+  LAYOUT.tables.forEach((t, ti) => {
+    const table = { id: ti };
     for (let s = 0; s < n / 3; s++) {
-      seats.push({ x: 4 + t * 2, z: -1 + s * 1.6, face: 0, taken: null, table });
+      seats.push({ x: t.x + 0.55, z: t.z + (s - 1) * 0.8, face: 0, taken: null, table });
     }
-  }
+  });
   return seats;
 }
 
