@@ -665,7 +665,7 @@ export class PatronSystem {
   _leave(p) {
     p.state = 'leaving'; p.queueRef = null; p.leaveT = 0;
     const out = [];
-    if (p.pos.z < 5.8) out.push(V3(LAYOUT.door.x + (Math.random() - 0.5) * 2, 0, LAYOUT.door.z + 0.5)); // still inside — head for the door
+    if (p.pos.z < LAYOUT.door.z - 0.15) out.push(V3(LAYOUT.door.x + (Math.random() - 0.5) * 2, 0, LAYOUT.door.z + 0.5)); // still inside — head for the door
     if (this.walkMul > 1.5) {
       out.push(V3(LAYOUT.door.x + (Math.random() - 0.5) * 6, 0, LAYOUT.pavementZ + 0.6)); // step off-camera, bow out
     } else {

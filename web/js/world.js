@@ -137,10 +137,10 @@ export function buildWorld(scene, renderer, lite) {
   // bounce — cheap fill that lifts the underside of the bar + tables
   const bounce = new THREE.HemisphereLight(0x4a3f32, 0x0a0a0a, 0.22); scene.add(bounce);
   const pendants = [];
-  for (const px of [-8.5, -6, -3.5]) {
+  for (const px of [-7.4, -5.4, -3.4]) {
     const p = new THREE.PointLight(0xffd2a0, 7, 10, 2); p.position.set(px, 2.15, -5.2); scene.add(p); pendants.push(p);
   }
-  const tableLight = new THREE.PointLight(0xffd2a0, 5, 10, 2); tableLight.position.set(6, 2.4, 1.4); scene.add(tableLight); pendants.push(tableLight);
+  const tableLight = new THREE.PointLight(0xffd2a0, 5, 10, 2); tableLight.position.set(-2.8, 2.4, 1.1); scene.add(tableLight); pendants.push(tableLight);
   W.lights = { hemi, sun, pendants };
 
   // ---- ground block -------------------------------------------------------
@@ -156,6 +156,12 @@ export function buildWorld(scene, renderer, lite) {
   const paveTex = pavement();
   const paveMat = new THREE.MeshStandardMaterial({ map: paveTex, roughness: 0.92, metalness: 0.01 });
   plane(g, 44, 3.6, paveMat, 0, 0.02, LAYOUT.pavementZ, { rx: -Math.PI / 2 });
+  // The hall that used to surround the tables is the neighbours' ground:
+  // The Quill on the left, Hearth & Rye / Bell & Brass / Marrow Lane on
+  // the right, and a sidewalk from the new front (z=4) out to the street.
+  plane(g, 5.2, 10.75, paveMat, -11.5, 0.02, -1.425, { rx: -Math.PI / 2 });
+  plane(g, 13.6, 10.75, paveMat, 7.65, 0.02, -1.425, { rx: -Math.PI / 2 });
+  plane(g, 32, 1.9, paveMat, -1, 0.02, 5.0, { rx: -Math.PI / 2 });
   plane(g, 44, 2.6, paveMat, 0, 0.02, 15.2, { rx: -Math.PI / 2 });
   const roadTex = road();
   const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.92, metalness: 0.02 });
@@ -225,45 +231,51 @@ export function buildWorld(scene, renderer, lite) {
   g.add(cup);
 
   // ---- café shell ---------------------------------------------------------
+  // Walls follow the customer room. The ground beside it is the neighbours.
+  const roomX0 = LAYOUT.floor.x - LAYOUT.floor.w / 2;
+  const roomX1 = LAYOUT.floor.x + LAYOUT.floor.w / 2;
+  const roomZ0 = LAYOUT.floor.z - LAYOUT.floor.d / 2;
+  const roomZ1 = LAYOUT.floor.z + LAYOUT.floor.d / 2;
   const cafe = new THREE.Group(); scene.add(cafe);
-  const backWall = box(cafe, 24, 4.4, 0.4, PAL.plaster, 0, 2.2, -8.2, { cast: false });            // back wall
-  const leftWall = box(cafe, 0.4, 4.4, 14.4, PAL.plaster, -12.2, 2.2, -1, { cast: false });        // left wall
-  box(cafe, 0.3, 1.15, 14.4, PAL.wainscot, 12.1, 0.57, -1, { cast: false });      // right half-wall (cutaway)
-  box(cafe, 24, 0.9, 0.5, PAL.wainscot, 0, 0.45, -8.05, { cast: false });         // back wainscot
-  box(cafe, 0.5, 0.9, 14.4, PAL.wainscot, -12.05, 0.45, -1, { cast: false });
+  const backWall = box(cafe, LAYOUT.floor.w, 4.4, 0.4, PAL.plaster, LAYOUT.floor.x, 2.2, roomZ0 - 0.2, { cast: false }); // back wall
+  const leftWall = box(cafe, 0.4, 4.4, LAYOUT.floor.d + 0.4, PAL.plaster, roomX0 - 0.2, 2.2, LAYOUT.floor.z, { cast: false }); // left wall
+  box(cafe, 0.3, 1.15, LAYOUT.floor.d + 0.4, PAL.wainscot, roomX1 + 0.1, 0.57, LAYOUT.floor.z, { cast: false }); // right half-wall (cutaway)
+  box(cafe, LAYOUT.floor.w, 0.9, 0.5, PAL.wainscot, LAYOUT.floor.x, 0.45, roomZ0 - 0.05, { cast: false }); // back wainscot
+  box(cafe, 0.5, 0.9, LAYOUT.floor.d + 0.4, PAL.wainscot, roomX0 - 0.05, 0.45, LAYOUT.floor.z, { cast: false });
   // front: pillars + fascia beam + sign + awning (dollhouse — no front wall)
-  for (const px of [-11.6, -7, -3, 11.6]) box(cafe, 0.42, 3.6, 0.42, PAL.walnutDark, px, 1.8, 6);
-  const frontBeam = box(cafe, 24, 0.7, 0.5, PAL.walnutDark, 0, 3.75, 6, { cast: false });
+  for (const px of [roomX0 + 0.35, -6.2, -3.4, roomX1 - 0.35]) box(cafe, 0.42, 3.6, 0.42, PAL.walnutDark, px, 1.8, roomZ1);
+  const frontBeam = box(cafe, LAYOUT.floor.w, 0.7, 0.5, PAL.walnutDark, LAYOUT.floor.x, 3.75, roomZ1, { cast: false });
   const signTex = shopSign('G R U N D S');
   const signMat = new THREE.MeshStandardMaterial({ map: signTex, emissive: 0xffc98a, emissiveMap: signTex, emissiveIntensity: 0.4, roughness: 0.8 });
-  const signFace = plane(cafe, 6.4, 1.2, signMat, 0, 4.6, 6.42); const signBack = box(cafe, 6.6, 1.35, 0.18, PAL.walnutDark, 0, 4.6, 6.32, { cast: false });
+  const signFace = plane(cafe, 6.4, 1.2, signMat, LAYOUT.floor.x, 4.6, roomZ1 + 0.42); const signBack = box(cafe, 6.6, 1.35, 0.18, PAL.walnutDark, LAYOUT.floor.x, 4.6, roomZ1 + 0.32, { cast: false });
   const awnTex = awning();
   const awnMat = new THREE.MeshStandardMaterial({ map: awnTex, roughness: 0.88, metalness: 0.01, side: THREE.DoubleSide });
-  const awningPlane = plane(cafe, 13, 2.6, awnMat, -2, 3.15, 7.1, { rx: -Math.PI / 2 + 0.32 });
+  const awningPlane = plane(cafe, LAYOUT.floor.w - 0.8, 2.2, awnMat, LAYOUT.floor.x, 3.15, roomZ1 + 1.05, { rx: -Math.PI / 2 + 0.32 });
   // awning tie-downs — tiny brass dots where the awning meets the fascia
-  for (const px of [-6.8, -3.9, -1.0, 1.8]) {
+  for (const px of [-7.2, -5.4, -3.6, -1.6]) {
     const td = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mat(0xc9a227, { metal: 0.6, rough: 0.35, cast: false }));
-    td.position.set(px, 3.52, 6.18); cafe.add(td);
+    td.position.set(px, 3.52, roomZ1 + 0.18); cafe.add(td);
   }
   // Near-side front the player stands at (door bay x≈-5, window bay to its
   // left). The wide canopy above is a title occluder and hides in play, so
   // this bay stays dressed: brass-and-cream awning, a menu in the glass,
   // steam drifting from inside out to the door. The walk-through between
-  // the pillars at -7 and -3 stays clear.
+  // the pillars at -6.2 and -3.4 stays clear.
   const doorAwning = new THREE.Group(); cafe.add(doorAwning);
   const doorAwnTex = awning('#c9a227', '#efe6d3'); doorAwnTex.repeat.set(1.35, 1);
   const doorAwnMat = new THREE.MeshStandardMaterial({ map: doorAwnTex, roughness: 0.88, metalness: 0.02, side: THREE.DoubleSide });
   // canopy slopes down toward the pavement; a short valance hangs the scallops
   // where the street can see them, clear of the window lettering below.
-  plane(doorAwning, 9.5, 1.85, doorAwnMat, -7.35, 3.34, 6.95, { rx: -Math.PI / 2 + 0.58, cast: true });
+  const doorAwnX = -4.9, doorAwnW = 3.6;
+  plane(doorAwning, doorAwnW, 1.15, doorAwnMat, doorAwnX, 3.34, roomZ1 + 0.55, { rx: -Math.PI / 2 + 0.58, cast: true });
   const skirtTex = doorAwnTex.clone(); skirtTex.repeat.set(1.35, 0.42); skirtTex.offset.set(0, 0); skirtTex.needsUpdate = true;
   const skirtMat = new THREE.MeshStandardMaterial({ map: skirtTex, roughness: 0.88, metalness: 0.02, side: THREE.DoubleSide });
-  plane(doorAwning, 9.4, 0.48, skirtMat, -7.35, 2.92, 7.55, { cast: true });
-  box(doorAwning, 9.7, 0.16, 0.32, PAL.walnutDark, -7.35, 3.58, 6.08, { cast: false });
-  box(doorAwning, 9.5, 0.045, 0.08, PAL.brass, -7.35, 3.5, 6.24, { metal: 0.55, rough: 0.38, cast: false });
-  for (const px of [-11.4, -9.2, -7.0, -4.8, -3.1]) {
+  plane(doorAwning, doorAwnW - 0.1, 0.36, skirtMat, doorAwnX, 2.98, roomZ1 + 0.95, { cast: true });
+  box(doorAwning, doorAwnW + 0.2, 0.16, 0.32, PAL.walnutDark, doorAwnX, 3.58, roomZ1 + 0.08, { cast: false });
+  box(doorAwning, doorAwnW, 0.045, 0.08, PAL.brass, doorAwnX, 3.5, roomZ1 + 0.22, { metal: 0.55, rough: 0.38, cast: false });
+  for (const px of [-6.4, -5.6, -4.8, -4.0, -3.2]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), mat(PAL.brass, { metal: 0.62, rough: 0.32, cast: false }));
-    eye.position.set(px, 3.5, 6.26); doorAwning.add(eye);
+    eye.position.set(px, 3.5, roomZ1 + 0.24); doorAwning.add(eye);
   }
   W._menuState = { prices: basePrices(), offered: Object.fromEntries(DRINK_IDS.map((id) => [id, true])), matchaStruck: false };
   const winMenuC = document.createElement('canvas'); winMenuC.width = 512; winMenuC.height = 640;
@@ -305,7 +317,7 @@ export function buildWorld(scene, renderer, lite) {
   };
   drawWindowMenu(windowMenuRows(W._menuState));
   const winMenu = W.windowMenuTexture;
-  const winX = -9.15, winY = 1.78, winZ = 6.2, winW = 3.2, winH = 2.35;
+  const winX = -7.15, winY = 1.78, winZ = roomZ1 + 0.2, winW = 1.45, winH = 2.35;
   box(cafe, winW + 0.18, 0.12, 0.16, PAL.walnutDark, winX, winY + winH / 2, winZ, { cast: false });
   box(cafe, winW + 0.22, 0.14, 0.2, PAL.walnutDark, winX, winY - winH / 2, winZ);
   box(cafe, 0.11, winH, 0.16, PAL.walnutDark, winX - winW / 2, winY, winZ, { cast: false });
@@ -314,15 +326,15 @@ export function buildWorld(scene, renderer, lite) {
   const frontGlass = new THREE.MeshStandardMaterial({ color: PAL.glass, roughness: 0.06, metalness: 0.12, transparent: true, opacity: 0.2, depthWrite: false });
   plane(cafe, winW - 0.08, winH - 0.16, frontGlass, winX, winY, winZ + 0.05, { cast: false, recv: false });
   const streak = new THREE.MeshBasicMaterial({ color: 0xf6efe0, transparent: true, opacity: 0.22, depthWrite: false });
-  plane(cafe, 0.16, winH * 0.72, streak, winX - 0.72, winY + 0.08, winZ + 0.07, { rz: 0.06, cast: false, recv: false });
+  plane(cafe, 0.12, winH * 0.72, streak, winX - 0.28, winY + 0.08, winZ + 0.07, { rz: 0.06, cast: false, recv: false });
   const winMenuMat = new THREE.MeshStandardMaterial({ map: winMenu, roughness: 0.86, emissive: 0xf6efe0, emissiveMap: winMenu, emissiveIntensity: 0.16 });
-  plane(cafe, 2.35, 2.05, winMenuMat, winX, winY - 0.02, winZ - 0.1, { cast: false });
+  plane(cafe, winW - 0.2, winH - 0.35, winMenuMat, winX, winY - 0.02, winZ - 0.1, { cast: false });
   const doorSteam = [];
   const steamTex = softSprite();
   for (let i = 0; i < 7; i++) {
     const sm = new THREE.SpriteMaterial({ map: steamTex, color: 0xf6efe0, transparent: true, opacity: 0.45, depthWrite: false });
     const sp = new THREE.Sprite(sm);
-    sp.position.set(-5.05, 1.6, 5.4); sp.scale.setScalar(0.8);
+    sp.position.set(-5.05, 1.6, roomZ1 - 0.6); sp.scale.setScalar(0.8);
     cafe.add(sp);
     doorSteam.push({ sp, sm, phase: i / 7 });
   }
@@ -336,8 +348,8 @@ export function buildWorld(scene, renderer, lite) {
     o.signBack.visible = !play;
     o.awning.visible = !play;
     doorAwning.visible = play;
-    o.backWall.visible = !(play && camPos.z < -8.2);
-    o.leftWall.visible = !(play && camPos.x < -12.2);
+    o.backWall.visible = !(play && camPos.z < roomZ0 - 0.2);
+    o.leftWall.visible = !(play && camPos.x < roomX0 - 0.2);
   };
 
   // ---- the bar ------------------------------------------------------------
@@ -350,17 +362,16 @@ export function buildWorld(scene, renderer, lite) {
   // brass foot rail stays procedural (the GLB doesn't include one)
   cyl(bar, 0.03, 0.03, C.w - 0.6, PAL.brass, C.x, 0.22, C.z + C.d / 2 + 0.22, { rz: Math.PI / 2, metal: 0.8, rough: 0.35, cast: false }); // foot rail
   // Kenney kitchenBar.glb sits on the bar top, facing the customer side.
-  // The bar is 9 m wide (C.w); the GLB is roughly 1 m in the kit. We scale
-  // it to match the bar width; the procedural walnut shell above keeps
-  // the bar visually continuous even if the GLB is a few cm short.
-  place(bar, 'kitchenBar.glb', { position: [C.x, 1.05, C.z], scale: 9, rotationY: 0 });
+  // The GLB is roughly 1 m in the kit. Scale matches the shortened bar
+  // (C.w); the procedural walnut shell above keeps it continuous.
+  place(bar, 'kitchenBar.glb', { position: [C.x, 1.05, C.z], scale: C.w, rotationY: 0 });
   // Kenney kitchenCoffeeMachine.glb replaces the procedural espresso machine.
-  place(bar, 'kitchenCoffeeMachine.glb', { position: [-8.3, 1.05, -5.5], scale: 1.6, rotationY: 0 });
+  place(bar, 'kitchenCoffeeMachine.glb', { position: [-6.35, 1.05, -5.5], scale: 1.6, rotationY: 0 });
   // grinder hopper + body (procedural; no matching Kenney GLB)
-  cyl(bar, 0.16, 0.2, 0.5, 0x8a4f2e, -9.5, 1.35, -5.5, { rough: 0.5 });            // grinder hopper
-  box(bar, 0.4, 0.5, 0.4, 0x3a3d40, -9.5, 1.28, -5.5, { metal: 0.5, rough: 0.5 });
+  cyl(bar, 0.16, 0.2, 0.5, 0x8a4f2e, -7.55, 1.35, -5.5, { rough: 0.5 });            // grinder hopper
+  box(bar, 0.4, 0.5, 0.4, 0x3a3d40, -7.55, 1.28, -5.5, { metal: 0.5, rough: 0.5 });
   // 3 bar stools at the customer-side of the bar (Kenney stoolBar.glb)
-  for (const dx of [-3, 0, 3]) {
+  for (const dx of [-2.2, 0, 2.2]) {
     place(scene, 'stoolBar.glb', { position: [C.x + dx, 0, C.z + C.d / 2 + 1.0], scale: 1.0, rotationY: Math.PI });
   }
   // pastry case
@@ -409,13 +420,13 @@ export function buildWorld(scene, renderer, lite) {
       }),
     );
     stain.rotation.x = -Math.PI / 2;
-    stain.position.set(-7.62, counterTop + 0.004, -4.74);
+    stain.position.set(-2.77, counterTop + 0.004, -4.74);
     stain.scale.set(1.2, 0.78, 1);
     stain.castShadow = false; stain.receiveShadow = false;
     bar.add(stain);
 
     const kettle = new THREE.Group();
-    kettle.position.set(-8.15, counterTop, -4.88);
+    kettle.position.set(-3.3, counterTop, -4.88);
     bar.add(kettle);
     cyl(kettle, 0.09, 0.1, 0.15, PAL.brass, 0, 0.075, 0, { metal: 0.7, rough: 0.38, seg: 10 });
     cyl(kettle, 0.072, 0.088, 0.028, PAL.brass, 0, 0.158, 0, { metal: 0.7, rough: 0.38, seg: 10, cast: false });
@@ -435,7 +446,7 @@ export function buildWorld(scene, renderer, lite) {
     }
 
     // handled mug — paper body, brass lip
-    const mug = new THREE.Group(); mug.position.set(-7.12, counterTop, -4.86); bar.add(mug);
+    const mug = new THREE.Group(); mug.position.set(-2.27, counterTop, -4.86); bar.add(mug);
     cyl(mug, 0.05, 0.042, 0.112, PAL.paper, 0, 0.056, 0, { rough: 0.48, seg: 10 });
     const mugLip = new THREE.Mesh(new THREE.TorusGeometry(0.048, 0.007, 5, 12), mat(PAL.brass, { metal: 0.62, rough: 0.36 }));
     mugLip.rotation.x = Math.PI / 2; mugLip.position.y = 0.11; mug.add(mugLip);
@@ -444,13 +455,13 @@ export function buildWorld(scene, renderer, lite) {
     cyl(mug, 0.038, 0.038, 0.008, PAL.walnut, 0, 0.1, 0, { rough: 0.35, cast: false, seg: 8 });
 
     // short wide cup — cream, matcha in it, no handle
-    const wide = new THREE.Group(); wide.position.set(-6.68, counterTop, -4.72); wide.rotation.y = 0.5; bar.add(wide);
+    const wide = new THREE.Group(); wide.position.set(-1.83, counterTop, -4.72); wide.rotation.y = 0.5; bar.add(wide);
     cyl(wide, 0.064, 0.052, 0.068, PAL.cream, 0, 0.034, 0, { rough: 0.42, seg: 10 });
     cyl(wide, 0.05, 0.05, 0.008, PAL.matcha, 0, 0.064, 0, { rough: 0.28, cast: false, seg: 8 });
 
     // small espresso on a saucer, leaned, no brass
-    cyl(bar, 0.058, 0.058, 0.012, PAL.cream, -6.28, counterTop + 0.006, -4.92, { rough: 0.5, seg: 10, cast: false });
-    const tiny = new THREE.Group(); tiny.position.set(-6.26, counterTop + 0.014, -4.9); tiny.rotation.z = -0.16; tiny.rotation.x = 0.05; bar.add(tiny);
+    cyl(bar, 0.058, 0.058, 0.012, PAL.cream, -1.43, counterTop + 0.006, -4.92, { rough: 0.5, seg: 10, cast: false });
+    const tiny = new THREE.Group(); tiny.position.set(-1.41, counterTop + 0.014, -4.9); tiny.rotation.z = -0.16; tiny.rotation.x = 0.05; bar.add(tiny);
     cyl(tiny, 0.03, 0.024, 0.072, PAL.paper, 0, 0.036, 0, { rough: 0.5, seg: 8 });
     cyl(tiny, 0.022, 0.022, 0.006, PAL.walnut, 0, 0.068, 0, { rough: 0.4, cast: false, seg: 8 });
   }
@@ -512,39 +523,39 @@ export function buildWorld(scene, renderer, lite) {
       if (W._chalkRough != null) W.menuMat.roughness = W._chalkRough;
     }, CHALK_HIT_MS + 80);
   };
-  W._chalkPlane = plane(cafe, 3.6, 2.7, W.menuMat, -5.5, 2.75, -7.95);
+  W._chalkPlane = plane(cafe, 3.6, 2.7, W.menuMat, -5.5, 2.75, -6.48);
   // The menu board hangs on the back wall in view of this counter, so a
   // little chalk has settled on the ledge under its left edge. Static —
   // the press puff stays in flashChalk / fx.chalkDust.
   {
     const dustCol = mat(PAL.cream, { rough: 1 });
     for (const [x, y, z, r] of [
-      [-7.12, 0.912, -7.95, 0.014], [-6.9, 0.908, -8.02, 0.01],
-      [-6.68, 0.916, -7.9, 0.016], [-6.46, 0.91, -8.06, 0.011],
-      [-6.24, 0.914, -7.96, 0.013], [-6.82, 0.906, -7.86, 0.009],
-      [-7.02, 0.918, -8.08, 0.012],
+      [-7.12, 0.912, -6.42, 0.014], [-6.9, 0.908, -6.48, 0.01],
+      [-6.68, 0.916, -6.4, 0.016], [-6.46, 0.91, -6.5, 0.011],
+      [-6.24, 0.914, -6.44, 0.013], [-6.82, 0.906, -6.38, 0.009],
+      [-7.02, 0.918, -6.52, 0.012],
     ]) {
       const d = new THREE.Mesh(new THREE.SphereGeometry(r, 5, 4), dustCol);
       d.position.set(x, y + r, z); d.castShadow = false; d.receiveShadow = false; cafe.add(d);
     }
-    for (const [x, z, r] of [[-7.28, -6.02, 0.011], [-7.02, -5.92, 0.008]]) {
+    for (const [x, z, r] of [[-2.43, -6.02, 0.011], [-2.17, -5.92, 0.008]]) {
       const d = new THREE.Mesh(new THREE.SphereGeometry(r, 5, 4), dustCol);
       d.position.set(x, counterTop + r, z); d.castShadow = false; d.receiveShadow = false; bar.add(d);
     }
   }
   for (const sy of [1.9, 2.5]) {
-    box(cafe, 7, 0.07, 0.5, PAL.walnut, -1.2, sy, -7.85, { cast: false });
-    for (let i = 0; i < 7; i++) {
-      const jx = -4.2 + i * 1.05, jr = ((i * 41 + sy * 13) % 10) / 10;
-      if (jr < 0.5) cyl(cafe, 0.11, 0.11, 0.3, [0xc46a4a, 0x8a9a6a, 0xd8c27a, 0x7fb3b0][i % 4], jx, sy + 0.19, -7.85, { cast: false });
-      else box(cafe, 0.2, 0.3, 0.14, [0xb59a6a, 0x6a7a8a][i % 2], jx, sy + 0.19, -7.85, { cast: false });
+    box(cafe, 5.6, 0.07, 0.4, PAL.walnut, -4.3, sy, -6.38, { cast: false });
+    for (let i = 0; i < 6; i++) {
+      const jx = -6.55 + i * 0.9, jr = ((i * 41 + sy * 13) % 10) / 10;
+      if (jr < 0.5) cyl(cafe, 0.11, 0.11, 0.3, [0xc46a4a, 0x8a9a6a, 0xd8c27a, 0x7fb3b0][i % 4], jx, sy + 0.19, -6.38, { cast: false });
+      else box(cafe, 0.2, 0.3, 0.14, [0xb59a6a, 0x6a7a8a][i % 2], jx, sy + 0.19, -6.38, { cast: false });
     }
   }
   // pendant lamps over the bar — Kenney lampRoundTable.glb replaces the
   // cord+cone shade; the emissive bulb stays procedural so the time-of-day
   // director (W.bulbMats) can still drive the glow.
   W.bulbMats = [];
-  for (const px of [-8.5, -6, -3.5]) {
+  for (const px of [-7.4, -5.4, -3.4]) {
     place(cafe, 'lampRoundTable.glb', { position: [px, 2.7, -5.2], scale: 0.6, rotationY: 0 });
     const bm = new THREE.MeshStandardMaterial({ color: 0xfff2d8, emissive: 0xffd2a0, emissiveIntensity: 1.55 });
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), bm); bulb.position.set(px, 2.9, -5.2); cafe.add(bulb);
@@ -557,7 +568,7 @@ export function buildWorld(scene, renderer, lite) {
   // A small Kenney sideTable.glb next to the table cluster — used for the
   // server's pickup tray. (Procedural equivalent would be one more
   // cylinder+leg; the GLB is a free win.)
-  place(scene, 'sideTable.glb', { position: [9.5, 0, -1], scale: 1.0, rotationY: 0 });
+  place(scene, 'sideTable.glb', { position: [-1.6, 0, -2.15], scale: 1.0, rotationY: 0 });
   // Kenney tableRound.glb + chairModernCushion.glb replace the procedural
   // 3-cylinder-per-table + 2-cylinder-per-chair construction. Seats[] is
   // still emitted with the same shape so patrons.js's sit logic is
@@ -649,12 +660,12 @@ export function buildWorld(scene, renderer, lite) {
   // procedural box+sphere pair. The pot is ~0.6 m tall in the kit, scale 0.6
   // puts the foliage at the same 0.72 m height as the procedural version.
   // W.plant: the living plant — three sphere "leaves" we tint by queue health.
-  for (const px of [-7.8, -2.2]) {
-    place(scene, 'pottedPlant.glb', { position: [px, 0, 6.6], scale: 0.6, rotationY: 0 });
+  for (const px of [-6.5, -3.6]) {
+    place(scene, 'pottedPlant.glb', { position: [px, 0, LAYOUT.door.z + 0.6], scale: 0.6, rotationY: 0 });
   }
-  // living plant crown (3 spheres above the right planter at -2.2, 6.6)
+  // living plant crown (3 spheres above the right planter beside the door)
   W.plantMats = [];
-  W.plantGroup = new THREE.Group(); W.plantGroup.position.set(-2.2, 0.9, 6.6); scene.add(W.plantGroup);
+  W.plantGroup = new THREE.Group(); W.plantGroup.position.set(-3.6, 0.9, LAYOUT.door.z + 0.6); scene.add(W.plantGroup);
   for (let i = 0; i < 3; i++) {
     const pm = new THREE.MeshStandardMaterial({ color: 0x6b8a4a, roughness: 0.9, emissive: 0x2a3d18, emissiveIntensity: 0 });
     const ms = new THREE.Mesh(new THREE.SphereGeometry(0.22 - i * 0.04, 8, 6), pm);
@@ -698,7 +709,7 @@ export function buildWorld(scene, renderer, lite) {
     if (W.catOn) return;
     W.catOn = true; W.catT = 0; W.cat.visible = true; W.catSitsUntil = 0;
     const L = LAYOUT;
-    W.catPath = [new THREE.Vector3(L.spawnL.x, 0, L.spawnL.z), new THREE.Vector3(L.door.x, 0, 6.2), new THREE.Vector3(5.6, 0, 4)];
+    W.catPath = [new THREE.Vector3(L.spawnL.x, 0, L.spawnL.z), new THREE.Vector3(L.door.x, 0, L.door.z + 0.2), new THREE.Vector3(LAYOUT.tables[2].x, 0, LAYOUT.tables[2].z)];
     W.cat.position.copy(W.catPath[0]);
   };
   W._catMeowed = false;
@@ -934,11 +945,11 @@ export function buildWorld(scene, renderer, lite) {
     W.cTarpMatR.opacity = on ? 1.0 : 0.0;
   };
 
-  // ---- the far side: a short row of named shopfronts --------------------------
-  // Replaces the repeated facade blocks and the blank skyline cubes. Four
-  // shops, each a different silhouette, signs facing the road. Same plaster,
-  // walnut, brass, and canvas-sign language as the café. GLASSHOUSE stays
-  // where it is, in the gap. Each street window is a shallow lit diorama:
+  // ---- neighbours: the named shops on the ground the hall gave back ----------
+  // The Quill, Hearth & Rye, Bell & Brass, and Marrow Lane stand on the
+  // lots beside the café, signs turned toward the play camera. Same plaster,
+  // walnut, brass, and canvas-sign language. GLASSHOUSE stays across the
+  // road. Each street window is a shallow lit diorama:
   // a warm back (this is what dusk drives through W.winMats), a few props
   // that belong to the shop, then glass with a faint reflection.
   W.winMats = [];
@@ -953,11 +964,16 @@ export function buildWorld(scene, renderer, lite) {
     map: windowReflection(), transparent: true, opacity: 0.34, depthWrite: false,
   });
   const far = new THREE.Group(); scene.add(far);
-  // Front faces sit on the far pavement (world z = frontZ). Local -z points
-  // at the road, same as the rival's sign.
-  function shopGroup(x, depth, frontZ) {
+  // Local -z is the shop front. faceCamera turns that front toward +z so
+  // the sign reads from the play camera; otherwise it faces the road.
+  function shopGroup(x, depth, frontZ, faceCamera) {
     const g = new THREE.Group();
-    g.position.set(x, 0, frontZ + depth / 2);
+    if (faceCamera) {
+      g.rotation.y = Math.PI;
+      g.position.set(x, 0, frontZ - depth / 2);
+    } else {
+      g.position.set(x, 0, frontZ + depth / 2);
+    }
     far.add(g);
     return g;
   }
@@ -1104,7 +1120,7 @@ export function buildWorld(scene, renderer, lite) {
   // THE QUILL — tall and narrow, stepped ink parapet, a bay window.
   (function quill() {
     const w = 3.05, h = 3.85, d = 2.2;
-    const g = shopGroup(-14.2, d, 16.55);
+    const g = shopGroup(-10.55, d, 3.6, true);
     const fz = -d / 2;
     box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
     box(g, w + 0.06, 0.85, d + 0.04, PAL.ink, 0, 0.42, 0);
@@ -1135,7 +1151,7 @@ export function buildWorld(scene, renderer, lite) {
   // HEARTH & RYE — street-facing gable, chimney, cream-and-walnut awning.
   (function hearth() {
     const w = 4.6, h = 3.15, d = 2.35;
-    const g = shopGroup(-8.5, d, 16.55);
+    const g = shopGroup(3.55, d, 3.6, true);
     const fz = -d / 2;
     box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
     box(g, w + 0.06, 0.7, d + 0.04, PAL.walnut, 0, 0.35, 0);
@@ -1170,7 +1186,7 @@ export function buildWorld(scene, renderer, lite) {
   // BELL & BRASS — square cream front, round clock, brass cupola.
   (function bell() {
     const w = 3.2, h = 3.05, d = 2.2;
-    const g = shopGroup(8.8, d, 16.55);
+    const g = shopGroup(7.9, d, 3.6, true);
     const fz = -d / 2;
     box(g, w, h, d, PAL.cream, 0, h / 2, 0);
     box(g, w + 0.05, 0.55, d + 0.03, PAL.walnut, 0, 0.28, 0);
@@ -1197,7 +1213,7 @@ export function buildWorld(scene, renderer, lite) {
   // MARROW LANE — low and wide, deep matcha awning, crates on the pavement.
   (function marrow() {
     const w = 3.7, h = 2.7, d = 2.3;
-    const g = shopGroup(12.75, d, 16.55);
+    const g = shopGroup(11.7, d, 3.6, true);
     const fz = -d / 2;
     box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
     box(g, w + 0.08, 0.16, d + 0.06, PAL.matcha, 0, h + 0.05, 0, { cast: false });
@@ -1226,6 +1242,110 @@ export function buildWorld(scene, renderer, lite) {
   // cups and a lamp on the right, each under a faint reflection.
   dressGlasshouseWindow(rv, -1.32, 'left');
   dressGlasshouseWindow(rv, 1.32, 'right');
+
+  // ---- closed gardens behind the neighbour houses ----------------------------
+  // The pavement behind The Quill and behind the right-hand row is a walled
+  // garden: grass, a low wall, a shut gate toward the café, a little
+  // overgrowth, two trees on the long plot and one on the short. It is only
+  // scenery. Nothing routes a customer, a sale, or a purchase through it.
+  {
+    const garden = new THREE.Group(); scene.add(garden);
+    const grassTex = (() => {
+      const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+      const pg = c.getContext('2d');
+      pg.fillStyle = '#86a860'; pg.fillRect(0, 0, 128, 128);
+      pg.fillStyle = '#2f4f43';
+      for (let i = 0; i < 280; i++) pg.fillRect((i * 47) % 128, (i * 89) % 128, 2 + (i % 3), 2 + (i % 2));
+      pg.fillStyle = 'rgba(246,239,224,.18)';
+      for (let i = 0; i < 70; i++) pg.fillRect((i * 113) % 128, (i * 61) % 128, 1, 2);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 3); t.anisotropy = 8;
+      return t;
+    })();
+    const gardenGrass = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.97, metalness: 0 });
+    const plots = [
+      { x0: -13.55, x1: -9.25, z0: -8.0, z1: 0.7, gate: 'e', trees: [[-11.3, -3.6, 6.1, -1]] },
+      { x0: 1.45, x1: 13.75, z0: -8.0, z1: 0.7, gate: 'n', trees: [[4.4, -4.6, 6.4, 1], [10.8, -3.2, 5.5, -1]] },
+    ];
+    const wallH = 0.82, wallT = 0.22, gateW = 1.45;
+    const shrub = (x, z, r, lift, col) => {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 5), mat(col, { rough: 0.95 }));
+      s.position.set(x, lift, z); s.castShadow = true; s.receiveShadow = true; garden.add(s);
+    };
+    const tree = (x, z, h, lean) => {
+      cyl(garden, 0.1, 0.15, h * 0.52, PAL.walnut, x, h * 0.26, z);
+      const crown = new THREE.Mesh(new THREE.SphereGeometry(h * 0.32, 9, 7), mat(PAL.awning, { rough: 0.95 }));
+      crown.position.set(x, h * 0.58, z); crown.castShadow = true; garden.add(crown);
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(h * 0.2, 8, 6), mat(PAL.matcha, { rough: 0.96 }));
+      puff.position.set(x + 0.32 * lean, h * 0.84, z + 0.12); puff.castShadow = true; garden.add(puff);
+    };
+    for (const p of plots) {
+      const cx = (p.x0 + p.x1) / 2, cz = (p.z0 + p.z1) / 2;
+      const pw = p.x1 - p.x0, pd = p.z1 - p.z0;
+      plane(garden, pw - 0.2, pd - 0.2, gardenGrass, cx, 0.045, cz, { rx: -Math.PI / 2 });
+      const cap = (x, z, w, d) => box(garden, w, 0.08, d, PAL.walnut, x, wallH + 0.02, z, { cast: false });
+      const runX = (z, xA, xB) => {
+        if (xB - xA < 0.2) return;
+        const w = xB - xA, x = (xA + xB) / 2;
+        box(garden, w, wallH, wallT, PAL.plaster, x, wallH / 2, z, { cast: true });
+        cap(x, z, w + 0.04, wallT + 0.06);
+      };
+      const runZ = (x, zA, zB) => {
+        if (zB - zA < 0.2) return;
+        const d = zB - zA, z = (zA + zB) / 2;
+        box(garden, wallT, wallH, d, PAL.plaster, x, wallH / 2, z, { cast: true });
+        cap(x, z, wallT + 0.06, d + 0.04);
+      };
+      const g0 = (p.gate === 'n' ? cx : cz) - gateW / 2;
+      const g1 = (p.gate === 'n' ? cx : cz) + gateW / 2;
+      if (p.gate === 'n') {
+        runX(p.z1, p.x0, p.x1);
+        runX(p.z0, p.x0, g0);
+        runX(p.z0, g1, p.x1);
+        runZ(p.x0, p.z0, p.z1);
+        runZ(p.x1, p.z0, p.z1);
+        const gz = p.z0;
+        box(garden, 0.12, 1.15, 0.12, PAL.walnutDark, g0, 0.58, gz, { cast: false });
+        box(garden, 0.12, 1.15, 0.12, PAL.walnutDark, g1, 0.58, gz, { cast: false });
+        box(garden, gateW * 0.48, 1.28, 0.06, PAL.walnut, cx - gateW * 0.24, 0.66, gz + 0.02);
+        box(garden, gateW * 0.48, 1.28, 0.06, PAL.walnut, cx + gateW * 0.24, 0.66, gz + 0.02);
+        box(garden, gateW * 0.92, 0.06, 0.04, PAL.brass, cx, 0.92, gz + 0.06, { metal: 0.6, rough: 0.35, cast: false });
+        cyl(garden, 0.035, 0.035, 0.04, PAL.brass, cx, 0.78, gz + 0.08, { metal: 0.65, rough: 0.32, seg: 8, cast: false });
+        box(garden, 0.55, 0.02, 2.4, PAL.walnutDark, cx, 0.055, gz + 1.35, { cast: false });
+      } else {
+        runX(p.z0, p.x0, p.x1);
+        runX(p.z1, p.x0, p.x1);
+        const gx = p.gate === 'e' ? p.x1 : p.x0;
+        const inward = p.gate === 'e' ? -1 : 1;
+        if (p.gate === 'e') {
+          runZ(p.x0, p.z0, p.z1);
+          runZ(p.x1, p.z0, g0);
+          runZ(p.x1, g1, p.z1);
+        } else {
+          runZ(p.x1, p.z0, p.z1);
+          runZ(p.x0, p.z0, g0);
+          runZ(p.x0, g1, p.z1);
+        }
+        box(garden, 0.12, 1.15, 0.12, PAL.walnutDark, gx, 0.58, g0, { cast: false });
+        box(garden, 0.12, 1.15, 0.12, PAL.walnutDark, gx, 0.58, g1, { cast: false });
+        box(garden, 0.06, 1.28, gateW * 0.48, PAL.walnut, gx + inward * 0.02, 0.66, cz - gateW * 0.24);
+        box(garden, 0.06, 1.28, gateW * 0.48, PAL.walnut, gx + inward * 0.02, 0.66, cz + gateW * 0.24);
+        box(garden, 0.04, 0.06, gateW * 0.92, PAL.brass, gx + inward * 0.06, 0.92, cz, { metal: 0.6, rough: 0.35, cast: false });
+        cyl(garden, 0.035, 0.035, 0.04, PAL.brass, gx + inward * 0.08, 0.78, cz, { rx: Math.PI / 2, metal: 0.65, rough: 0.32, seg: 8, cast: false });
+        box(garden, 0.55, 0.02, 2.4, PAL.walnutDark, gx + inward * 1.35, 0.055, cz, { cast: false });
+      }
+      for (const [tx, tz, th, lean] of p.trees) tree(tx, tz, th, lean);
+      const edge = [
+        [p.x0 + 0.55, p.z0 + 0.7, 0.42], [p.x0 + 1.5, p.z1 - 0.6, 0.34],
+        [p.x1 - 0.7, p.z0 + 1.1, 0.38], [cx + 1.7, p.z0 + 0.85, 0.28],
+        [cx + (p.x1 - cx) * 0.45, cz + 0.4, 0.5],
+      ];
+      edge.forEach(([x, z, r], i) => {
+        shrub(x, z, r, r * 0.7, i % 2 ? PAL.matcha : PAL.awning);
+        if (i % 2 === 0) shrub(x + 0.22, z - 0.16, r * 0.65, wallH + r * 0.2, PAL.awning);
+      });
+    }
+  }
 
   // ---- past the far curb: a park apron and a tree line -----------------------
   // The city slab ends just behind the shops. A matcha lawn runs from that
@@ -1594,8 +1714,8 @@ export function buildWorld(scene, renderer, lite) {
 
   // ---- anchors ----------------------------------------------------------------
   W.focus = {
-    counter: new THREE.Vector3(-6, 1.2, -4.2),
-    tables: new THREE.Vector3(6, 1, 1.5),
+    counter: new THREE.Vector3(-5.2, 1.2, -4.2),
+    tables: new THREE.Vector3(-2.8, 1, 1.1),
     wide: new THREE.Vector3(0, 1, 3),
     rival: new THREE.Vector3(LAYOUT.rival.x, 1.6, LAYOUT.rival.z - 1),
     newbuild: new THREE.Vector3(8, 2.2, 16),   // the sold storefronts, day-5 finale

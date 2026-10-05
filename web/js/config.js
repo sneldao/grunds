@@ -24,14 +24,17 @@ export const COHORTS = {
 };
 export const COHORT_KEYS = Object.keys(COHORTS);
 
-// The diorama. Café floor x∈[-12,12], z∈[-8,6]; street z∈[6,14]; rival across.
+// The diorama. Customer room x∈[-8.4, 0.5], z∈[-6.6, 4] — the bar queue
+// and the three tables fill it. The ground that used to be the hall is
+// the neighbours: The Quill on the left, Hearth & Rye, Bell & Brass, and
+// Marrow Lane on the right. Street z∈[4, 14]; rival across.
 export const LAYOUT = {
-  floor: { x: 0, z: -1, w: 24, d: 14 },
-  counter: { x: -6, z: -5.4, w: 9, d: 1.3 },       // drinks bar along the back
+  floor: { x: -3.95, z: -1.3, w: 8.9, d: 10.6 },
+  counter: { x: -4.8, z: -5.4, w: 6.4, d: 1.3 },    // drinks bar, shortened with the room
   register: { x: -0.6, z: -5.4 },                   // till at the right end of the bar
-  retail: { x: -11.2, z: 1, w: 1.4, d: 6 },         // shelf along the left wall
-  tables: [ { x: 4.2, z: -0.4 }, { x: 8, z: 1.2 }, { x: 5.6, z: 4 } ],
-  door: { x: -5, z: 6 },                            // front opening
+  retail: { x: -7.7, z: -1.2, w: 0.9, d: 3.2 },     // shelf along the left wall
+  tables: [ { x: -3.6, z: -0.4 }, { x: -1.5, z: 1.1 }, { x: -3.2, z: 2.6 } ],
+  door: { x: -5, z: 4 },                            // front opening
   pavementZ: 7.8, roadZ0: 9.6, roadZ1: 13.8,
   rival: { x: 1.5, z: 16.6 },                       // GLASSHOUSE across the road
   crossX: -2.2,                                     // pedestrian crossing
@@ -41,8 +44,9 @@ export const LAYOUT = {
 // Queue slot lines. The counter queue snakes out the door when it gets long —
 // the line IS the chart.
 export function counterSlot(i) {
-  if (i < 12) return { x: -6, z: -3.7 + i * 0.85 };            // inside, facing the bar
-  return { x: -5.8 - (i - 12) * 0.85, z: 7.1 };                 // out the door, along the pavement
+  const inside = 9;                                             // fills the shorter room, then the street
+  if (i < inside) return { x: -6, z: -3.7 + i * 0.85 };         // inside, facing the bar
+  return { x: -5.2 - (i - inside) * 0.85, z: LAYOUT.door.z + 1.0 }; // out the door, along the pavement
 }
 export function registerSlot(i) { return { x: -0.6, z: -3.7 + i * 0.8 }; }
 export function rivalSlot(i) { return { x: 1.5 + 0.9 + i * 0.85, z: 15.4 }; }
