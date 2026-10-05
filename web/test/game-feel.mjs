@@ -148,7 +148,7 @@ ok(!/pay £40/.test(index) && !/−£40/.test(index) && !/Buy 40 cups for £40/.
 ok(!/matchaWaitMin/.test(config), 'dead matchaWaitMin still in ECON');
 ok(/residualEveningCups/.test(main) && /evening usually brings/.test(main),
   'evening call has no residual-demand hint');
-ok(/revenue', fmt\(till \+ batchSpend\)/.test(main), 'receipt revenue is not gross of batch spend');
+ok(/revenue', fmt\(till \+ batchSpend - franchiseRentToday\)/.test(main), 'receipt revenue is not gross of batch spend (rent is itemized separately)');
 ok(/matcha batch bought/.test(main), 'receipt has no batch-bought line');
 ok(!/estBalkNoBatchWave|waveBalked \+ \(prebatched \|\| repriced \? 12/.test(main),
   'waveRead still invents a fixed +12 saved count');

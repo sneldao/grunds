@@ -273,7 +273,7 @@ console.log('RIVAL     walk-back vs speed verified');
   ok((main.match(/unsold croissants/g) || []).length === 2, 'both day results name the unsold close charge');
   ok(!/pastry|croissant|seat-map|rival menu/i.test(vitals), 'vitals gains no meter');
   ok(!html.includes('id="pastry"') && !html.includes('seat-map'), 'no pastry widget and no seat map');
-  ok(/revenue', fmt\(till \+ batchSpend\)/.test(main), 'receipt revenue stays gross of the matcha batch only');
+  ok(/revenue', fmt\(till \+ batchSpend - franchiseRentToday\)/.test(main), 'receipt revenue stays gross of the matcha batch, net of the itemized rent line');
 }
 console.log('WIRING    pastry, patience, and the untouched panels verified');
 
