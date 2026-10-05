@@ -127,12 +127,12 @@ const seedNow = () => SEED_OVERRIDE != null ? SEED_OVERRIDE : SEED;
 // procedural district is the fallback. No-ops when headless / no-GL / no Convex.
 // ?classicDistrict forces the procedural street (completeness escape hatch).
 const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search) });
-// The Franchise (Tripothon S1 — Tier B): the player's words become a stand
-// on The Row. Same posture as the district — fire-and-forget, the classic
-// street is the floor. Arrival beats mid-day or at the next dawn.
+// The Franchise (Tripothon S1 — Tier B): the player's words become stands
+// on The Row — three storefronts unlock across the campaign. Same posture
+// as the district — fire-and-forget, the classic street is the floor.
 const franchise = initFranchise({
   scene, seed: SEED, classic: districtOptOut(location.search),
-  onArrived: () => fx.toast('the builders finished — 14 The Row is open', 'good'),
+  onArrived: (inst, def) => fx.toast(`the builders finished — ${def.name} is open`, 'good'),
 });
 // Linkup market intel: fetched once per session (server-cached 6h). Tilts the
 // dawn deck via exchange.openDay(bias) and is cited in the roaster's letter.
@@ -1484,7 +1484,7 @@ function closeDay() {
       // Till is already net of emergency cups (billed at serve); lot sacks
       // never touched it (they ride the tab). Only batch prep grosses back.
       ['revenue', fmt(till + batchSpend - franchiseRentToday)],
-      ...(franchiseRentToday > 0 ? [['14 The Row · stand rent', `+${fmt(franchiseRentToday)}`]] : []),
+      ...(franchiseRentToday > 0 ? [['The Row · stand rent', `+${fmt(franchiseRentToday)}`]] : []),
       ['bean cost', fmt(beanCostToday)],
       ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
       ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
@@ -2129,27 +2129,40 @@ function appendLoanLine(wrap) {
   wrap.appendChild(line);
 }
 
-// One line in the prep block from day 3: name the stand you want on The
-// Row. Sends the words to the builders (Tripo); success cross-fades the
-// storefront in at the next dawn — or mid-day if they're fast.
+// One line in the prep block: name the stand you want on the next vacant
+// lot of The Row — words, or a photo link the builders can copy. Success
+// cross-fades the storefront in at the next dawn — or mid-day if they're
+// fast. When the whole row is spoken for, the line says who built it:
+// a stand somebody else described still pays you rent. That's the gift.
 function appendFranchiseLine(wrap) {
-  if (!wrap || softDay || day < FRANCHISE.offerDay) return;
-  if (franchise.status === 'processing' || franchise.status === 'success') return;
+  if (!wrap || softDay) return;
+  const vacant = franchise.nextVacant(day);
+  if (!vacant) {
+    const inh = franchise.inherited && franchise.inherited();
+    if (!inh) return;
+    const done = document.createElement('div');
+    done.id = 'brief-franchise';
+    done.style.cssText = 'font-size:11px;margin-top:8px;opacity:.75';
+    done.textContent = `the Row is spoken for — ${inh.name} was built by a previous owner and still pays you rent`;
+    wrap.appendChild(done);
+    return;
+  }
   const line = document.createElement('div');
   line.id = 'brief-franchise';
   line.style.cssText = 'font-size:11px;margin-top:8px;display:flex;gap:6px;align-items:center';
   const label = document.createElement('span');
-  label.textContent = franchise.status === 'invalid' ? 'the builders need three words or more —' : '14 The Row is vacant — describe the stand you want there:';
+  const ls = franchise.lots[vacant.id];
+  label.textContent = ls && ls.status === 'invalid' ? 'the builders need three words or more —' : `${vacant.name} is vacant — describe the stand you want there (words, or a photo link):`;
   const input = document.createElement('input');
-  input.type = 'text'; input.maxLength = FRANCHISE.promptMax; input.placeholder = 'a tiny ramen counter…';
+  input.type = 'text'; input.maxLength = FRANCHISE.promptMax; input.placeholder = 'a tiny ramen counter… or https://photo.jpg';
   input.style.cssText = 'flex:1;min-width:0;padding:2px 0;background:transparent;border:0;border-bottom:1px solid rgba(122,90,42,.45);font-family:var(--serif);font-size:12px;color:inherit;outline:none';
   const btn = document.createElement('button');
   btn.textContent = 'send to the builders'; btn.style.fontSize = '10px';
   btn.onclick = () => {
     if (phase !== 'planning' || !input.value.trim()) return;
     btn.disabled = true; btn.textContent = 'sent — the builders work fast';
-    franchise.describe(input.value, day).then(d => {
-      if (d && d.status === 'invalid') { btn.disabled = false; btn.textContent = 'send to the builders'; label.textContent = 'the builders need three words or more —'; }
+    franchise.describe(vacant.id, input.value, day).then(d => {
+      if (d && (d.status === 'invalid' || d.status === 'locked')) { btn.disabled = false; btn.textContent = 'send to the builders'; label.textContent = 'the builders need three words or more —'; }
     });
   };
   line.append(label, input, btn);

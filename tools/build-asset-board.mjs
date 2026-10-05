@@ -97,7 +97,7 @@ for (const seed of seeds) {
     from: src.from,
     street: shot(`seed-${seed}`),
     franchiseShot: shot(`seed-${seed}-franchise`),
-    franchise: franchise && franchise.status !== 'missing' ? franchise : null,
+    franchise: franchise && (franchise.lots || []).length ? franchise.lots : null,
     slots: SLOTS.map((slot) => {
       const s = src.slots[slot] || { status: 'missing' };
       return {
@@ -130,9 +130,8 @@ function renderBoard(d) {
       <td class="img">${img(r.previewUrl, `${r.slot} preview`, r.modelUrl) || '<span class="ph">no preview yet</span>'}${r.modelUrl ? `<br><a class="glb" href="${esc(r.modelUrl)}" target="_blank" rel="noopener">GLB ↗</a>` : ''}</td>
       <td class="img">${img(r.shot || s.street, `${r.slot} in game`) || '<span class="ph">in-game capture pending</span>'}</td>
     </tr>`).join('');
-    const f = s.franchise;
-    if (f) rows += `<tr class="fr">
-      <td class="slot">★ franchise <small>player-built</small></td>
+    for (const f of s.franchise || []) rows += `<tr class="fr">
+      <td class="slot">★ ${esc(f.lot)} The Row <small>player-built</small></td>
       <td><span class="p tripo">tripo</span></td>
       <td><span class="st ${esc(f.status)}">${esc(f.status)}</span></td>
       <td class="prompt">${f.prompt ? esc(`“${f.prompt}” — described by a player, day ${f.day}`) : ''}</td>
@@ -191,7 +190,7 @@ ${renderBoard.toString()}
         changed = true;
       }
       const fr = await fetch('/franchise/status?seed=' + s.seed).then((r) => r.ok ? r.json() : null).catch(() => null);
-      if (fr && fr.status !== 'missing') { s.franchise = fr; changed = true; }
+      if (fr && (fr.lots || []).length) { s.franchise = fr.lots; changed = true; }
       s.from = 'live';
     } catch {}
   }

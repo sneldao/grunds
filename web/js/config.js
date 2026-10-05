@@ -235,19 +235,24 @@ export const CAMPAIGN = {
   },
 };
 
-// The Franchise (Tripothon S1 — Tier B). Day 3's brief offers the vacant
-// storefront on The Row; the player's own words become a Tripo-grown stand
-// that cross-fades in by the next dawn and pays a rent line at each open.
-// Placement: across the road in front of the left facade row (same block
-// the day-5 scaffolds dress), facing the café — the lease camera beat at
-// newbuild frames it dead centre.
+// The Franchise (Tripothon S1 — Tier B). The Row is buildable: three vacant
+// storefronts unlock across the campaign, and the player's own words (or a
+// pasted photo link) become Tripo-grown stands that cross-fade in and pay a
+// rent line at each open. One stand per (seed, lot) — every later player on
+// the seed inherits what the first built.
+// Placement: across the road on the far row (the same block the day-5
+// scaffolds dress), facing the café — the lease/newbuild camera beats frame
+// them. 14 sits left of the rent sign; 11 and 18 front the left/right
+// facade blocks. Lot ids/unlocks/rents mirror convex/franchise.ts
+// FRANCHISE_LOTS — the test suite pins parity.
 export const FRANCHISE = {
-  offerDay: 3,                  // first brief the describe line can appear
-  rent: 15,                     // dawn income once the stand is placed
   promptMax: 160,               // brief input cap (server sanitizes harder)
-  position: [-3, 0, 15.6],      // far row, left of the rent sign
-  rotationY: Math.PI,           // face the café across the road
   height: 3.2,                  // storefront scale, taller than pavement props
+  lots: [
+    { id: '14', name: '14 The Row', unlockDay: 3, rent: 15, position: [-3, 0, 15.6], rotationY: Math.PI },
+    { id: '11', name: '11 The Row', unlockDay: 4, rent: 15, position: [-9.5, 0, 15.6], rotationY: Math.PI },
+    { id: '18', name: '18 The Row', unlockDay: 5, rent: 15, position: [14, 0, 15.6], rotationY: Math.PI },
+  ],
 };
 
 // The event deck — Drug Wars blood. Pity timer: never two catastrophes in a row,
