@@ -18,7 +18,9 @@ import { assetKey, type GenerateSpec } from "./tripo";
 // level. Mint exposes no seed parameters — there "same seed → same street"
 // is *key memoization* (generate once, cache forever).
 
-export const DISTRICT_SLOTS = ["lantern", "planter", "stall", "sign", "cart"] as const;
+// Slot order is load-bearing: kitSpec consumes rng draws in array order,
+// so new slots MUST be appended or every existing seed's prompts shift.
+export const DISTRICT_SLOTS = ["lantern", "planter", "stall", "sign", "cart", "fountain"] as const;
 export type SlotName = (typeof DISTRICT_SLOTS)[number];
 
 export const DISTRICT_PRESET = "fast"; // ≈198 credits final per slot (calibrated)
@@ -54,6 +56,14 @@ const WORDS: Record<SlotName, string[]> = {
     "a vintage tea trolley with a brass kettle and stacked cups",
     "a pastel pastry cart with a small striped awning",
     "a hot-cross bun cart with a folded canvas hood",
+  ],
+  // The hero slot — the one stand-out piece per street, grown on the newer
+  // P2 pipeline (the taste-calibration A/B from TRIPOTHON.md §6). Stand-scale
+  // face budget; the slot sits across the road beside the franchise stand.
+  fountain: [
+    "a small two-tier stone fountain with brass spouts and a round basin",
+    "a cast-iron drinking fountain with a brass dome and a small basin",
+    "a low octagonal stone fountain with a carved centre column",
   ],
 };
 
@@ -118,6 +128,14 @@ const TRIPO_FACE_LIMIT: Record<SlotName, number> = {
   stall: 12000,
   sign: 8000,
   cart: 10000,
+  fountain: 15000,
+};
+
+// The hero slot runs the newer P-series pipeline; everything else stays on
+// the calibrated P1 workhorse. Model lives in the spec so assetKey differs —
+// a model change grows a fresh row, never clobbers a cached one.
+const TRIPO_SLOT_MODEL: Partial<Record<SlotName, string>> = {
+  fountain: "tripo-p2",
 };
 
 // (district seed, slot) → stable positive int32 seed. Distinct salts keep
@@ -135,7 +153,7 @@ export function tripoSpecForSlot(
 ): GenerateSpec {
   return {
     prompt: spec.prompt,
-    model: TRIPO_MODEL,
+    model: TRIPO_SLOT_MODEL[slot] ?? TRIPO_MODEL,
     modelSeed: tripoSlotSeed(seed, slot),
     textureSeed: tripoSlotSeed(seed, slot, 0x7e57),
     faceLimit: TRIPO_FACE_LIMIT[slot],

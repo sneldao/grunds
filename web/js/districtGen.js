@@ -24,6 +24,10 @@ export const SLOTS = {
   stall: { position: [-10.2, 0, 7.0], rotationY: 0.25, height: 2.4 },
   sign: { position: [2.0, 0, 5.6], rotationY: -0.1, height: 1.5 },
   cart: { position: [8.6, 0, 7.0], rotationY: -0.3, height: 1.35 },
+  // The hero piece — across the road on the far row, between the franchise
+  // storefront (-3, 15.6) and the day-5 scaffold zone (-10, 15.9). Faces the
+  // café; the lease/newbuild camera beats frame it beside the stand.
+  fountain: { position: [-6, 0, 15.5], rotationY: Math.PI, height: 2.6 },
 };
 
 const MAX_POLLS = 8; // ~4 min at 30 s — a young district; older ones hit the cache
