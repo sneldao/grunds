@@ -235,6 +235,21 @@ export const CAMPAIGN = {
   },
 };
 
+// The Franchise (Tripothon S1 — Tier B). Day 3's brief offers the vacant
+// storefront on The Row; the player's own words become a Tripo-grown stand
+// that cross-fades in by the next dawn and pays a rent line at each open.
+// Placement: across the road in front of the left facade row (same block
+// the day-5 scaffolds dress), facing the café — the lease camera beat at
+// newbuild frames it dead centre.
+export const FRANCHISE = {
+  offerDay: 3,                  // first brief the describe line can appear
+  rent: 15,                     // dawn income once the stand is placed
+  promptMax: 160,               // brief input cap (server sanitizes harder)
+  position: [-3, 0, 15.6],      // far row, left of the rent sign
+  rotationY: Math.PI,           // face the café across the road
+  height: 3.2,                  // storefront scale, taller than pavement props
+};
+
 // The event deck — Drug Wars blood. Pity timer: never two catastrophes in a row,
 // and a catastrophe is always followed by a recovery-ish draw (docs: "fairest
 // losses win"). `tier` drives the dawn's weather/atmosphere and the letter's tone.

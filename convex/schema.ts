@@ -241,6 +241,18 @@ export default defineSchema({
     .index("by_key", ["key"])
     .index("by_task", ["taskId"]),
 
+  // The Franchise (Tripothon S1 — Tier B). A player-described stand on The
+  // Row: seed → one row naming the tripoAssets key + the words that built it,
+  // so /franchise/status finds the asset without knowing the prompt. One
+  // franchise per seed — the street remembers who built it.
+  franchises: defineTable({
+    seed: v.number(),
+    key: v.string(),          // tripoAssets.key for the generated stand
+    prompt: v.string(),       // the player's own words (sanitized)
+    day: v.number(),          // campaign day it was described
+    createdAt: v.number(),
+  }).index("by_seed", ["seed"]),
+
   // PR-4e — RevenueCat entitlement mirror. One row per appUserId (the
   // stand owner), updated by the RevenueCat webhook. The client polls
   // /sync/entitlements on boot to reconcile localStorage-billing state,

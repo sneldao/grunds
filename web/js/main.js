@@ -3,9 +3,10 @@
 //   THE READ (hours)    — the wave schedule + the Roaster's Notebook
 //   THE SCRAMBLE (sec)  — the queue: pre-batch, reprice, or lose them to GLASSHOUSE
 import * as THREE from '../vendor/three.module.js';
-import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS } from './config.js';
+import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS, FRANCHISE } from './config.js';
 import { buildWorld, chalkPopScale } from './world.js';
 import { initDistrictGen, districtOptOut } from './districtGen.js';
+import { initFranchise } from './franchise.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
 import { buildDirector } from './director.js';
@@ -126,6 +127,13 @@ const seedNow = () => SEED_OVERRIDE != null ? SEED_OVERRIDE : SEED;
 // procedural district is the fallback. No-ops when headless / no-GL / no Convex.
 // ?classicDistrict forces the procedural street (completeness escape hatch).
 const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search) });
+// The Franchise (Tripothon S1 — Tier B): the player's words become a stand
+// on The Row. Same posture as the district — fire-and-forget, the classic
+// street is the floor. Arrival beats mid-day or at the next dawn.
+const franchise = initFranchise({
+  scene, seed: SEED, classic: districtOptOut(location.search),
+  onArrived: () => fx.toast('the builders finished — 14 The Row is open', 'good'),
+});
 // Linkup market intel: fetched once per session (server-cached 6h). Tilts the
 // dawn deck via exchange.openDay(bias) and is cited in the roaster's letter.
 let marketIntel = null;
@@ -360,7 +368,7 @@ let womPids = new Set();
 let selectedLot = 'huila', topUpCups = 0, beanSpend = 0, emergencySpend = 0, sackSpend = 0;
 // Morning stock loan — a lump beside the tab, not a replacement for it.
 const loan = new MorningLoan();
-let stagedLoan = 0, stagedCases = 0, caseUnits = 0, caseRevenueToday = 0;
+let stagedLoan = 0, stagedCases = 0, caseUnits = 0, caseRevenueToday = 0, franchiseRentToday = 0;
 let loanLotCover = 0, loanSponsorCover = 0, loanCashCap = null, closeTillOverride = null;
 let loanClaim = null, menuHeld = null, salesTillForOps = null;
 let pouredOther = 0, lastPour = 0, dawnIndex = 1.0;
@@ -1475,7 +1483,9 @@ function closeDay() {
       [standName, playerName],
       // Till is already net of emergency cups (billed at serve); lot sacks
       // never touched it (they ride the tab). Only batch prep grosses back.
-      ['revenue', fmt(till + batchSpend)], ['bean cost', fmt(beanCostToday)],
+      ['revenue', fmt(till + batchSpend - franchiseRentToday)],
+      ...(franchiseRentToday > 0 ? [['14 The Row · stand rent', `+${fmt(franchiseRentToday)}`]] : []),
+      ['bean cost', fmt(beanCostToday)],
       ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
       ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
       ...(pastryWasteCost > 0 ? [['unsold croissants', `${pastryWaste} · ${fmt(pastryWasteCost)}`]] : []),
@@ -2099,6 +2109,7 @@ function renderPrepSection() {
   renderPastryCut(wrap);
   renderShockCounter(wrap);
   appendLoanLine(wrap);
+  appendFranchiseLine(wrap);
 }
 
 // One line in the prep block: borrow a step, or skip. Not a new panel.
@@ -2115,6 +2126,33 @@ function appendLoanLine(wrap) {
     stagedLoan = steps[(i + 1) % steps.length];
     renderPrepSection();
   };
+  wrap.appendChild(line);
+}
+
+// One line in the prep block from day 3: name the stand you want on The
+// Row. Sends the words to the builders (Tripo); success cross-fades the
+// storefront in at the next dawn — or mid-day if they're fast.
+function appendFranchiseLine(wrap) {
+  if (!wrap || softDay || day < FRANCHISE.offerDay) return;
+  if (franchise.status === 'processing' || franchise.status === 'success') return;
+  const line = document.createElement('div');
+  line.id = 'brief-franchise';
+  line.style.cssText = 'font-size:11px;margin-top:8px;display:flex;gap:6px;align-items:center';
+  const label = document.createElement('span');
+  label.textContent = franchise.status === 'invalid' ? 'the builders need three words or more —' : '14 The Row is vacant — describe the stand you want there:';
+  const input = document.createElement('input');
+  input.type = 'text'; input.maxLength = FRANCHISE.promptMax; input.placeholder = 'a tiny ramen counter…';
+  input.style.cssText = 'flex:1;min-width:0;padding:2px 0;background:transparent;border:0;border-bottom:1px solid rgba(122,90,42,.45);font-family:var(--serif);font-size:12px;color:inherit;outline:none';
+  const btn = document.createElement('button');
+  btn.textContent = 'send to the builders'; btn.style.fontSize = '10px';
+  btn.onclick = () => {
+    if (phase !== 'planning' || !input.value.trim()) return;
+    btn.disabled = true; btn.textContent = 'sent — the builders work fast';
+    franchise.describe(input.value, day).then(d => {
+      if (d && d.status === 'invalid') { btn.disabled = false; btn.textContent = 'send to the builders'; label.textContent = 'the builders need three words or more —'; }
+    });
+  };
+  line.append(label, input, btn);
   wrap.appendChild(line);
 }
 
@@ -3529,6 +3567,7 @@ function prepareDay(d) {
   maintenanceBill = 0; tipsForgoneToday = 0;
   loan.beginMorning();
   stagedLoan = 0; stagedCases = 0; caseRevenueToday = 0;
+  franchiseRentToday = 0; franchise.refresh(d);
   loanLotCover = 0; loanSponsorCover = 0; salesTillForOps = null;
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   demand.staged.sample = false; demand.staged.sponsor = false;
@@ -3690,6 +3729,7 @@ function startTradingDay(d) {
     if (stratDef) fx.toast(`${COPY.rivalBarista} moves: ${stratDef.name} (£${stratDef.price.toFixed(2)}) — ${COPY.rivalName}'s chalkboard changed`, 'warn');   // PR-B1 — name Sam personally
   }
   if (estherCard) { till -= 2; fx.toast('esther’s stamp card: −£2', ''); }  // her cup's on the house
+  { const fr = franchise.rentDue(d); if (fr) { till += fr; franchiseRentToday = fr; } }  // 14 The Row pays at open
   ctx.pastryStock = pastryOnOrder;
   pastryOnOrder = 0;
   world.setMail(false);
@@ -4410,7 +4450,7 @@ function reset(coreOnly = false) {
   samGrudge = { cuts: 0, preps: 0, snubs: 0 }; samTruce = false; truceShown = false;
   // Phase 2 — the cellar rewinds with the campaign (fresh starter sacks).
   lotState.reset(); selectedLot = 'huila'; topUpCups = 0; beanSpend = 0; emergencySpend = 0; sackSpend = 0;
-  loan.reset(); stagedLoan = 0; stagedCases = 0; caseUnits = 0; caseRevenueToday = 0;
+  loan.reset(); stagedLoan = 0; stagedCases = 0; caseUnits = 0; caseRevenueToday = 0; franchiseRentToday = 0;
   loanLotCover = 0; loanSponsorCover = 0; loanCashCap = null; closeTillOverride = null;
   loanClaim = null; menuHeld = null; salesTillForOps = null;
   pouredOther = 0; lastPour = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set();
@@ -5450,6 +5490,7 @@ function loop(now) {
   moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key), enqueue: (t, k, d = {}) => momentEnqueue(t, k, d) },
   stageCellar, stageLoan, stageCase,
   patrons, barStaff, modals, openDossier, showIncident, showLicence,
+  franchise,
   renderBrief() { if (phase === 'planning') { if (softDay) showSoftIntro(0); else showMorningBrief(); } },
   get phase() { return phase; },
   get party() { return party; },
