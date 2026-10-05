@@ -88,7 +88,7 @@ check('no-base boot made no fetch', fetchCalls === 0, `fetch called ${fetchCalls
 // ============================================================
 // 5) slot table integrity (placement contract)
 // ============================================================
-check('five street slots', Object.keys(SLOTS).length === 5, Object.keys(SLOTS).join(','));
+check('six street slots', Object.keys(SLOTS).length === 6, Object.keys(SLOTS).join(','));
 check('every slot has position + height',
   Object.values(SLOTS).every(s => Array.isArray(s.position) && s.position.length === 3 && typeof s.height === 'number'),
   'a slot is missing position/height');

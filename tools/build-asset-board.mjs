@@ -19,7 +19,7 @@ import { dirname, join, relative, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SLOTS = ['lantern', 'planter', 'stall', 'sign', 'cart'];
+const SLOTS = ['lantern', 'planter', 'stall', 'sign', 'cart', 'fountain'];
 
 const argv = process.argv.slice(2);
 const opt = (name, dflt) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : dflt; };
@@ -43,6 +43,14 @@ async function liveKit(seed) {
   if (OFFLINE) return null;
   try {
     const r = await fetch(`${BASE}/district/kit?seed=${seed}`, { signal: AbortSignal.timeout(15000) });
+    return r.ok ? await r.json() : null;
+  } catch { return null; }
+}
+
+async function liveFranchise(seed) {
+  if (OFFLINE) return null;
+  try {
+    const r = await fetch(`${BASE}/franchise/status?seed=${seed}`, { signal: AbortSignal.timeout(15000) });
     return r.ok ? await r.json() : null;
   } catch { return null; }
 }
@@ -82,11 +90,14 @@ const inferProvider = (s) => s.provider || (s.modelUrl ? (/mint\.gg/.test(s.mode
 const data = { generatedAt: new Date().toISOString(), base: BASE, seeds: [] };
 for (const seed of seeds) {
   const live = await liveKit(seed);
+  const franchise = await liveFranchise(seed);
   const src = live?.slots ? { from: 'live', slots: live.slots } : manifestSeed(seed) ? { from: 'manifest', slots: manifestSeed(seed).slots } : { from: 'none', slots: {} };
   data.seeds.push({
     seed,
     from: src.from,
     street: shot(`seed-${seed}`),
+    franchiseShot: shot(`seed-${seed}-franchise`),
+    franchise: franchise && franchise.status !== 'missing' ? franchise : null,
     slots: SLOTS.map((slot) => {
       const s = src.slots[slot] || { status: 'missing' };
       return {
@@ -111,7 +122,7 @@ function renderBoard(d) {
   const summary = `<p class="sum"><b>${n((s) => s.status === 'success')}</b> grown of ${all.length} slots · <span class="p tripo">tripo</span> ${n((s) => s.provider === 'tripo' && s.status === 'success')} · <span class="p mint">mint</span> ${n((s) => s.provider === 'mint' && s.status === 'success')} · processing ${n((s) => s.status === 'processing')}</p>`;
   const img = (src, alt, href) => src ? `<a href="${esc(href || src)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(src)}" alt="${esc(alt)}"></a>` : '';
   const seeds = d.seeds.map((s) => {
-    const rows = s.slots.map((r) => `<tr>
+    let rows = s.slots.map((r) => `<tr>
       <td class="slot">${esc(r.slot)}</td>
       <td>${r.provider ? `<span class="p ${esc(r.provider)}">${esc(r.provider)}</span>` : '—'}</td>
       <td><span class="st ${esc(r.status)}">${esc(r.status)}</span></td>
@@ -119,6 +130,15 @@ function renderBoard(d) {
       <td class="img">${img(r.previewUrl, `${r.slot} preview`, r.modelUrl) || '<span class="ph">no preview yet</span>'}${r.modelUrl ? `<br><a class="glb" href="${esc(r.modelUrl)}" target="_blank" rel="noopener">GLB ↗</a>` : ''}</td>
       <td class="img">${img(r.shot || s.street, `${r.slot} in game`) || '<span class="ph">in-game capture pending</span>'}</td>
     </tr>`).join('');
+    const f = s.franchise;
+    if (f) rows += `<tr class="fr">
+      <td class="slot">★ franchise <small>player-built</small></td>
+      <td><span class="p tripo">tripo</span></td>
+      <td><span class="st ${esc(f.status)}">${esc(f.status)}</span></td>
+      <td class="prompt">${f.prompt ? esc(`“${f.prompt}” — described by a player, day ${f.day}`) : ''}</td>
+      <td class="img">${img(f.previewUrl, 'franchise preview', f.modelUrl) || '<span class="ph">no preview yet</span>'}${f.modelUrl ? `<br><a class="glb" href="${esc(f.modelUrl)}" target="_blank" rel="noopener">GLB ↗</a>` : ''}</td>
+      <td class="img">${img(s.franchiseShot || s.street, 'franchise in game') || '<span class="ph">in-game capture pending</span>'}</td>
+    </tr>`;
     return `<section><h2>District seed ${esc(s.seed)} <a href="${esc(d.base)}/?seed=${esc(s.seed)}" target="_blank" rel="noopener">play ↗</a> <small>${esc(s.from)}</small></h2>
       ${s.street ? `<img class="street" src="${esc(s.street)}" alt="seed ${esc(s.seed)} street in game">` : ''}
       <table><thead><tr><th>Slot</th><th>Provider</th><th>Status</th><th>Exact prompt</th><th>Provider preview</th><th>In game</th></tr></thead><tbody>${rows}</tbody></table></section>`;
@@ -148,7 +168,7 @@ const html = `<!doctype html>
   @media (max-width:760px){td.prompt{max-width:none}td.img img,.ph{width:110px;height:84px;line-height:84px}}
 </style></head><body><main>
 <h1>Grunds — The Generative District · asset board</h1>
-<p class="lede">Every street-furniture slot is grown from a District Seed: seed → five deterministic prompts → Tripo text-to-model (P1, per-slot <code>model_seed</code>/<code>texture_seed</code> derived from the seed) with Mint as the fallback provider → cached once, shared by every player on that seed.</p>
+<p class="lede">Every street-furniture slot is grown from a District Seed: seed → six deterministic prompts → Tripo text-to-model (P1, hero slot on P2; per-slot <code>model_seed</code>/<code>texture_seed</code> derived from the seed) with Mint as the fallback provider → cached once, shared by every player on that seed. The ★ franchise row is a stand a player described in words.</p>
 <div id="board">${renderBoard(data)}</div>
 </main>
 <script id="board-data" type="application/json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>
@@ -170,6 +190,8 @@ ${renderBoard.toString()}
         Object.assign(row, { status: v.status, provider: v.provider || row.provider, prompt: v.prompt || row.prompt, modelUrl: v.modelUrl, previewUrl: v.previewUrl });
         changed = true;
       }
+      const fr = await fetch('/franchise/status?seed=' + s.seed).then((r) => r.ok ? r.json() : null).catch(() => null);
+      if (fr && fr.status !== 'missing') { s.franchise = fr; changed = true; }
       s.from = 'live';
     } catch {}
   }

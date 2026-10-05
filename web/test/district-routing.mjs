@@ -124,6 +124,12 @@ check('tripoSpecForSlot · P1 model, PBR, house negative prompt', () => {
   assert.equal(s.pbr, true);
   for (const w of ['text', 'watermark', 'logo', 'broken mesh']) assert.match(s.negativePrompt, new RegExp(w));
 });
+check('tripoSpecForSlot · fountain runs the P2 hero pipeline', () => {
+  const s = D.tripoSpecForSlot(7, 'fountain', D.kitSpecForSeed(7).fountain);
+  assert.equal(s.model, 'tripo-p2');
+  assert.ok(T.MODEL_IDS[s.model], 'model must be pinned in MODEL_IDS');
+  assert.equal(s.faceLimit, 15000);
+});
 check('tripoSpecForSlot · face limits inside 8–15k', () => {
   for (const slot of SLOTS) {
     const f = D.tripoSpecForSlot(7, slot, D.kitSpecForSeed(7)[slot]).faceLimit;
@@ -138,7 +144,7 @@ check('tripoSlotSeed · positive int32, distinct per slot / seed / salt', () => 
     seen.add(s);
     assert.notEqual(s, D.tripoSlotSeed(seed, slot, 0x7e57), 'model and texture seeds must differ');
   }
-  assert.equal(seen.size, 15, 'model seeds collide across slots/seeds');
+  assert.equal(seen.size, 18, 'model seeds collide across slots/seeds');
 });
 check('keys differ by provider by design', () => {
   const kit = D.kitSpecForSeed(7);
@@ -190,7 +196,7 @@ await (async () => {
   const ctx = makeCtx(new Map(), { tripo: () => ({ key: 'k', created: true, status: 'processing' }), mint: never });
   const r = plain(await D.ensure.handler(ctx, { seed: 11 }));
   check('ensure · fresh seed → Tripo only, once per slot', () => {
-    assert.equal(ctx.calls.length, 5);
+    assert.equal(ctx.calls.length, 6);
     assert.ok(ctx.calls.every((c) => c.fn === 'tripo.generate'));
   });
   check('ensure · Tripo args are tripoSpecForSlot', () => {
@@ -211,7 +217,7 @@ await (async () => {
   });
   const r = plain(await D.ensure.handler(ctx, { seed: 23 }));
   check('ensure · Tripo refusal or throw → Mint generates the slot', () => {
-    assert.equal(ctx.calls.filter((c) => c.provider === 'mint').length, 5);
+    assert.equal(ctx.calls.filter((c) => c.provider === 'mint').length, 6);
     for (const s of SLOTS) { assert.equal(r.slots[s].status, 'processing'); assert.equal(r.slots[s].provider, 'mint'); }
   });
   check('ensure · Mint args unchanged (prompt/name/fast preset → same mint key)', () => {
@@ -248,7 +254,7 @@ await (async () => {
   });
   const r = plain(await D.ensure.handler(ctx, { seed: 11 }));
   check('ensure · mixed seed only grows the un-grown slots', () => {
-    assert.deepEqual(ctx.calls.map((c) => c.provider), ['mint', 'tripo', 'tripo']); // stall, sign, cart
+    assert.deepEqual(ctx.calls.map((c) => c.provider), ['mint', 'tripo', 'tripo', 'tripo']); // stall, sign, cart, fountain
     assert.equal(r.slots.lantern.provider, 'mint'); assert.equal(r.slots.planter.provider, 'tripo');
     assert.equal(r.slots.stall.provider, 'mint');
   });
