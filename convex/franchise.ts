@@ -56,6 +56,16 @@ export function isImageInput(clean: string): boolean {
   return /^https?:\/\/\S+$/i.test(clean);
 }
 
+// The builder's signature — a short name on the deeds, shown in the
+// Streets gallery and to every later player who inherits the stand.
+// Optional; anonymous builds stay anonymous (absent, not "").
+export function sanitizeByline(raw: string | undefined): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const clean = raw.replace(/\s+/g, " ").trim().slice(0, 24);
+  // A signature needs letters — punctuation-only isn't a name.
+  return /[a-zA-Z0-9]/.test(clean) ? clean : undefined;
+}
+
 // Deterministic spec: same (seed, lot, prompt) → same seeds → same stand.
 // The lot salts the prompt hash so the same words on two lots still grow
 // different geometry — the address is part of the stand.
@@ -93,6 +103,7 @@ type LotStatus = {
   prompt: string | null;
   day: number | null;
   purpose: string | null;
+  byline: string | null;
   modelUrl: string | null;
   previewUrl: string | null;
 };
@@ -119,6 +130,7 @@ export const status = query({
         prompt: fr.prompt,
         day: fr.day,
         purpose: fr.purpose ?? null,
+        byline: fr.byline ?? null,
         modelUrl: row?.modelUrl ?? null,
         previewUrl: row?.previewUrl ?? null,
       });
@@ -177,6 +189,7 @@ export const describe = action({
     prompt: v.string(),
     day: v.number(),
     purpose: v.optional(v.string()),
+    byline: v.optional(v.string()),
   },
   handler: async (
     ctx,
@@ -185,6 +198,7 @@ export const describe = action({
     status: string;
     prompt?: string;
     purpose?: string | null;
+    byline?: string | null;
     claimed?: boolean;
     modelUrl?: string | null;
     error?: string;
@@ -196,6 +210,7 @@ export const describe = action({
     const purpose = args.purpose ?? null;
     if (purpose !== null && !(FRANCHISE_PURPOSES as readonly string[]).includes(purpose))
       return { status: "invalid", error: "unknown purpose" };
+    const byline = sanitizeByline(args.byline) ?? null;
     const prompt = sanitizeFranchisePrompt(args.prompt);
     if (!prompt) return { status: "invalid", error: "describe it in three words or more" };
     // A live franchise on this lot returns as-is; failed/missing falls
@@ -208,6 +223,7 @@ export const describe = action({
         status: mine.status,
         prompt: mine.prompt ?? prompt,
         purpose: mine.purpose ?? null,
+        byline: mine.byline ?? null, // the deeds keep the builder's signature
         claimed: false, // the lot was already spoken for — nothing new written
         modelUrl: mine.modelUrl,
       };
@@ -231,8 +247,9 @@ export const describe = action({
       prompt,
       day: args.day,
       purpose: purpose ?? undefined,
+      byline: byline ?? undefined,
     });
-    return { status: g.status, prompt, purpose, claimed: true, modelUrl: g.modelUrl ?? null, error: g.error };
+    return { status: g.status, prompt, purpose, byline, claimed: true, modelUrl: g.modelUrl ?? null, error: g.error };
   },
 });
 
@@ -246,6 +263,7 @@ export const record = internalMutation({
     prompt: v.string(),
     day: v.number(),
     purpose: v.optional(v.string()),
+    byline: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<void> => {
     const rows = await ctx.db
@@ -260,6 +278,7 @@ export const record = internalMutation({
         prompt: args.prompt,
         day: args.day,
         purpose: args.purpose,
+        byline: args.byline,
         createdAt: Date.now(),
       });
     } else {
@@ -270,8 +289,47 @@ export const record = internalMutation({
         prompt: args.prompt,
         day: args.day,
         purpose: args.purpose,
+        byline: args.byline,
         createdAt: Date.now(),
       });
     }
+  },
+});
+
+// The Streets gallery index: every seed that has a stand on its Row, with
+// the deeds (prompt, purpose, signature, preview). Small table — a plain
+// collect + group is cheaper than a schema change for this.
+export const streets = query({
+  args: {},
+  handler: async (ctx): Promise<{ seeds: { seed: number; stands: LotStatus[] }[] }> => {
+    const frs = await ctx.db.query("franchises").collect();
+    const bySeed = new Map<number, LotStatus[]>();
+    for (const fr of frs) {
+      const row = await ctx.db
+        .query("tripoAssets")
+        .withIndex("by_key", (q) => q.eq("key", fr.key))
+        .unique();
+      const ls: LotStatus = {
+        lot: fr.lot ?? "14",
+        status: row?.status ?? "missing",
+        prompt: fr.prompt,
+        day: fr.day,
+        purpose: fr.purpose ?? null,
+        byline: fr.byline ?? null,
+        modelUrl: null,            // gallery shows previews, not GLBs
+        previewUrl: row?.previewUrl ?? null,
+      };
+      const arr = bySeed.get(fr.seed) ?? [];
+      arr.push(ls);
+      bySeed.set(fr.seed, arr);
+    }
+    return {
+      seeds: [...bySeed.entries()]
+        .map(([seed, stands]) => ({
+          seed,
+          stands: stands.sort((a, b) => a.lot.localeCompare(b.lot)),
+        }))
+        .sort((a, b) => a.seed - b.seed),
+    };
   },
 });

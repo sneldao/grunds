@@ -253,6 +253,7 @@ export default defineSchema({
     prompt: v.string(),       // the player's own words (sanitized)
     day: v.number(),          // campaign day it was described
     purpose: v.optional(v.string()), // "draw" | "community" | "rent" — absent rows predate purposes → no bonus
+    byline: v.optional(v.string()),  // the builder's signature — absent rows are anonymous
     createdAt: v.number(),
   }).index("by_seed", ["seed"]),
 

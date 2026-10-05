@@ -50,6 +50,7 @@ const convexFr = readFileSync(join(ROOT, 'convex/franchise.ts'), 'utf8');
 const convexTripo = readFileSync(join(ROOT, 'convex/tripo.ts'), 'utf8');
 const http = readFileSync(join(ROOT, 'convex/http.ts'), 'utf8');
 const schema = readFileSync(join(ROOT, 'convex/schema.ts'), 'utf8');
+const idxHtml = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
 
 // ============================================================
 // 1) the lot table — mirrored client/server, pinned both ends
@@ -340,14 +341,15 @@ check('http: /franchise/status GET route', http.includes('path: "/franchise/stat
 check('http: /franchise/describe POST route', http.includes('path: "/franchise/describe"') && http.includes('method: "POST"'));
 check('http: describe is POST-only', /franchiseDescribe[\s\S]{0,200}POST only/.test(http));
 check('http: describe passes the lot param', /p\.get\("lot"\)/.test(http));
-check('http: describe passes the purpose param', /p\.get\("purpose"\) \?\? undefined/.test(http) && /describe, \{ seed, lot, prompt, day, purpose \}/.test(http));
+check('http: describe passes the purpose param', /p\.get\("purpose"\) \?\? undefined/.test(http) && /describe, \{ seed, lot, prompt, day, purpose, byline \}/.test(http));
 
 // ============================================================
 // 6) main.js wiring
 // ============================================================
 check('initFranchise called with scene + seed', /initFranchise\(\{[\s\S]*scene, seed: SEED/.test(main));
 check('arrival toast names the lot', main.includes('${def.name} is open'));
-check('inherited arrival never claims "builders finished"', main.includes('a previous owner built it; the rent is yours') && main.includes('ls && ls.mine'));
+check('inherited arrival never claims "builders finished"', main.includes('the rent is yours') && main.includes('a previous owner built it') && main.includes('ls && ls.mine'));
+check('a signed inherited stand names its builder', main.includes('`built by ${ls.byline}`') && main.includes('ls && ls.byline'));
 check('card states the £15 ground rent plainly', main.includes('£15 ground rent each dawn'));
 check('chosen purpose previews its effect honestly', main.includes('first full day on the street'));
 check('worksite markers live in franchise.js', /new THREE\.Group\(\)/.test(frJs) && frJs.includes('scaffold(l.lot)') && frJs.includes('unscaffold(lotId)'));
@@ -365,7 +367,7 @@ check('render key digests every lot status + purpose', main.includes("ls(l.id).s
 check('typed draft survives same-lot redraws', main.includes('input.value = rowDraft') && main.includes('rowDraft = input.value'));
 check('draft resets only on a new day or lot', /if \(forNow !== rowFor\) \{ rowFor = forNow;/.test(main));
 check('brief offers the next vacant lot', main.includes('franchise.nextVacant(day)'));
-check('lease card POSTs describe with lot + purpose', /franchise\.describe\(vacant\.id, text, day, rowPurpose\)/.test(main));
+check('lease card POSTs describe with lot + purpose + byline', /franchise\.describe\(vacant\.id, text, day, rowPurpose,/.test(main));
 check('lease card labels the three purposes', main.includes('awareness at close') && main.includes('returnees tomorrow') && main.includes('rent per dawn'));
 check('purpose labels derive from config so they cannot drift', /FRANCHISE\.purposes\.\w+\.\w+/.test(main) && main.includes('FRANCHISE.purposes.rent.rentBonus'));
 check('purpose buttons are mutually exclusive pressed-states', (main.match(/aria-pressed/g) || []).length >= 2 && main.includes('row-purpose'));
@@ -393,12 +395,20 @@ check('claimed lots suppress the day-5 scaffold props', main.includes("setConstr
 check('scaffold setters accept the suppress flag', /setConstruction = \(day, suppress = false\)/.test(readFileSync(join(ROOT, 'web/js/world.js'), 'utf8')));
 check('the letter is Row-aware', main.includes('snap.row = rowSummary') && readFileSync(join(ROOT, 'web/js/letter.js'), 'utf8').includes('s.row'));
 check('status route nudges mature tasks', http.includes('api.franchise.statusLive'));
+check('deeds carry an optional signature', convexFr.includes('sanitizeByline') && convexFr.includes('byline: v.optional(v.string())') && schema.includes('byline'));
+check('status returns the builder signature', convexFr.includes('byline: fr.byline ?? null'));
+check('client passes byline on describe and stores it on read', frJs.includes('&byline=') && frJs.includes('ls.byline = d.byline ?? null') && frJs.includes('ls.byline = l.byline ?? null'));
+check('lease card has a deeds signature line', main.includes('brief-row-byline') && main.includes('rowByline') && /describe\(vacant\.id, text, day, rowPurpose, \(sign/.test(main));
+check('signature pre-fills from the licence name', main.includes("playerName !== 'Sam' ? playerName"));
+check('streets registry + route exist', convexFr.includes('export const streets') && http.includes('/franchise/streets'));
+check('gallery page reads the registry and plays seed links', readFileSync(join(ROOT, 'web/streets.html'), 'utf8').includes('/franchise/streets') && readFileSync(join(ROOT, 'web/streets.html'), 'utf8').includes('?seed='));
+check('gallery is shipped by the build', readFileSync(join(ROOT, 'tools/build-dist.sh'), 'utf8').includes('streets.html'));
+check('licence links to the gallery', idxHtml.includes('href="/streets.html"'));
 check('statusLive re-queries past the nudge threshold', convexFr.includes('statusLive') && convexFr.includes('NUDGE_MS') && convexFr.includes('internal.tripo.pollTask'));
 check('tripo exposes a per-task live poll', convexTripo.includes('export const pollTask') && convexTripo.includes('checkTripoTask'));
 check('licence offers the two street entries', main.includes("lic-see-street") && main.includes("lic-new-street") && main.includes("set('seed', '99')"));
 check('franchiseRentToday reset per dawn + campaign', (main.match(/franchiseRentToday = 0/g) || []).length >= 2);
 check('franchise exported for headless tests', /\n  franchise,\n/.test(main));
-const idxHtml = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
 check('index.html: #brief-row sits above #brief-prep', idxHtml.indexOf('id="brief-row"') > -1 && idxHtml.indexOf('id="brief-row"') < idxHtml.indexOf('id="brief-prep"'));
 check('index.html: licence street entries exist', idxHtml.includes('id="lic-see-street"') && idxHtml.includes('id="lic-new-street"'));
 

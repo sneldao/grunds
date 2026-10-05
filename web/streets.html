@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Streets — Grunds</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
+<style>
+  :root {
+    --ink: #171310; --paper: #efe6d3; --cream: #f6efe0;
+    --brass: #c9a227; --matcha: #86a860; --neg: #d0603b; --teal: #7fb3b0;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ink); color: var(--paper);
+    font-family: var(--serif); min-height: 100vh;
+  }
+  header { max-width: 880px; margin: 0 auto; padding: 40px 20px 8px; }
+  h1 { font-size: 26px; font-weight: 600; letter-spacing: .02em; margin: 0 0 6px; }
+  h1 em { color: var(--brass); font-style: normal; }
+  .lede { font-size: 13px; line-height: 1.55; opacity: .78; max-width: 62ch; }
+  .lede a { color: var(--teal); }
+  nav { max-width: 880px; margin: 0 auto; padding: 0 20px; font-size: 11.5px; opacity: .7; }
+  nav a { color: inherit; }
+  main { max-width: 880px; margin: 0 auto; padding: 20px 20px 60px; }
+  .street {
+    border: 1px solid rgba(201,162,39,.25); border-radius: 4px;
+    background: rgba(246,239,224,.03); padding: 14px 16px; margin: 14px 0;
+  }
+  .street h2 { margin: 0; font-size: 16px; font-weight: 600; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .street h2 .n { color: var(--brass); font-family: var(--mono); font-size: 13px; }
+  .street h2 .tags { font-size: 10px; font-family: var(--mono); opacity: .65; letter-spacing: .04em; }
+  .street h2 .play { margin-left: auto; font-size: 11px; }
+  .street h2 .play a { color: var(--matcha); text-decoration: none; border-bottom: 1px dotted var(--matcha); }
+  .strip { display: flex; gap: 6px; margin: 10px 0 4px; flex-wrap: wrap; }
+  .strip img, .strip .ph {
+    width: 104px; height: 72px; object-fit: cover; border-radius: 3px;
+    background: rgba(246,239,224,.06); border: 1px solid rgba(246,239,224,.08);
+  }
+  .strip .ph { display: flex; align-items: center; justify-content: center; font-size: 9px; font-family: var(--mono); opacity: .4; text-align: center; padding: 4px; }
+  .strip .slot { font-size: 8px; font-family: var(--mono); opacity: .45; display: block; text-align: center; margin-top: 2px; letter-spacing: .06em; }
+  .stands { margin-top: 8px; border-top: 1px dashed rgba(201,162,39,.2); padding-top: 8px; }
+  .stands .none { font-size: 11px; font-style: italic; opacity: .55; }
+  .stand { display: flex; gap: 10px; align-items: center; padding: 6px 0; }
+  .stand img, .stand .ph {
+    width: 64px; height: 44px; object-fit: cover; border-radius: 3px; flex: none;
+    background: rgba(246,239,224,.06); border: 1px solid rgba(201,162,39,.2);
+  }
+  .stand .ph { display: flex; align-items: center; justify-content: center; font-size: 8.5px; font-family: var(--mono); opacity: .4; text-align: center; padding: 3px; }
+  .stand .deed { font-size: 12px; line-height: 1.45; }
+  .stand .deed .lot { color: var(--brass); font-family: var(--mono); font-size: 10.5px; margin-right: 6px; }
+  .stand .deed .who { opacity: .85; }
+  .stand .deed .meta { font-size: 10px; font-family: var(--mono); opacity: .6; margin-left: 6px; }
+  .stand .st { font-size: 9px; font-family: var(--mono); padding: 2px 6px; border-radius: 2px; margin-left: 6px; }
+  .st.success { background: rgba(134,168,96,.2); color: var(--matcha); }
+  .st.processing { background: rgba(201,162,39,.15); color: var(--brass); }
+  .st.failed, .st.missing { background: rgba(208,96,59,.15); color: var(--neg); }
+  .loading { font-size: 12px; font-style: italic; opacity: .6; padding: 30px 0; text-align: center; }
+  footer { max-width: 880px; margin: 0 auto; padding: 0 20px 40px; font-size: 10.5px; opacity: .5; line-height: 1.6; }
+</style>
+</head>
+<body>
+<header>
+  <h1>The <em>Streets</em></h1>
+  <p class="lede">
+    Every district in Grunds is grown from a seed — the same seed always grows the same street,
+    for everyone. The storefronts on each Row are described by players and built for real:
+    whoever signs the lease first keeps it, and every later player on that seed inherits
+    their stand — rent included. A world is a gift.
+  </p>
+</header>
+<nav><a href="/">← back to the counter</a></nav>
+<main id="streets"><div class="loading">reading the deeds registry…</div></main>
+<footer>
+  Stands are generated live from players' words (or a pasted photo) and shared by everyone
+  on the seed — no copies, no resets. District grown by the seed · stands grown by players.
+</footer>
+<script type="module">
+  // Same-origin on the deployment; file:// previews hit the live site.
+  const BASE = location.origin.endsWith('convex.site') ? location.origin
+    : 'https://striped-anaconda-746.convex.site';
+  // Districts we've grown and want on show — the registry adds any seed
+  // a player builds a stand on, so the page can't go stale.
+  const KNOWN_SEEDS = [5, 7, 11, 13, 17, 19, 21, 23, 27, 31, 42, 99];
+  const PURPOSE_LABEL = { draw: 'a draw', community: 'a hub', rent: 'a tenant' };
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  async function get(url) {
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    return r.ok ? r.json() : null;
+  }
+
+  async function main() {
+    const host = document.getElementById('streets');
+    const streets = await get(`${BASE}/franchise/streets`);
+    const bySeed = new Map((streets?.seeds || []).map((s) => [s.seed, s.stands || []]));
+    const seeds = [...new Set([...KNOWN_SEEDS, ...bySeed.keys()])]
+      .sort((a, b) => (bySeed.get(b)?.length || 0) - (bySeed.get(a)?.length || 0) || a - b);
+    host.textContent = '';
+    for (const seed of seeds) {
+      const stands = bySeed.get(seed) || [];
+      const card = document.createElement('section');
+      card.className = 'street';
+      card.innerHTML = `
+        <h2><span class="n">district №${esc(seed)}</span>
+          <span class="tags">${stands.length ? `${stands.length} stand${stands.length > 1 ? 's' : ''} on the Row` : 'leases open'}</span>
+          <span class="play"><a href="/?seed=${esc(seed)}">play this street →</a></span></h2>
+        <div class="strip"><span class="ph">reading the kit…</span></div>
+        <div class="stands"></div>`;
+      host.appendChild(card);
+      // The Row: the deeds, named and signed.
+      const sd = card.querySelector('.stands');
+      if (stands.length) {
+        sd.innerHTML = stands.map((s) => `
+          <div class="stand">
+            ${s.previewUrl ? `<img src="${esc(s.previewUrl)}" alt="" loading="lazy">` : '<span class="ph">on the<br>drawing board</span>'}
+            <span class="deed"><span class="lot">${esc(s.lot)} The Row</span><span class="who">“${esc(s.prompt || '')}”</span>
+              <span class="meta">${esc(PURPOSE_LABEL[s.purpose] || 'a stand')}${s.byline ? ` · signed ${esc(s.byline)}` : ''} · day ${esc(s.day)}</span>
+              <span class="st ${esc(s.status)}">${esc(s.status)}</span></span>
+          </div>`).join('');
+      } else {
+        sd.innerHTML = '<div class="none">nobody has signed a lease here yet — day 3 opens the first</div>';
+      }
+      // The district kit behind it — grown by the seed itself.
+      get(`${BASE}/district/kit?seed=${seed}`).then((kit) => {
+        const strip = card.querySelector('.strip');
+        if (!strip) return;
+        const slots = Object.entries(kit?.slots || {}).filter(([, s]) => s.status === 'success' && s.previewUrl);
+        strip.innerHTML = slots.length
+          ? slots.map(([k, s]) => `<span><img src="${esc(s.previewUrl)}" alt="${esc(k)}" loading="lazy"><span class="slot">${esc(k)}</span></span>`).join('')
+          : '<span class="ph">the classic street — nothing grown yet</span>';
+      }).catch(() => {});
+    }
+  }
+  main().catch(() => {
+    document.getElementById('streets').innerHTML =
+      '<div class="loading">the deeds registry is unreachable — <a href="/" style="color:inherit">head back</a></div>';
+  });
+</script>
+</body>
+</html>

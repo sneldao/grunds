@@ -6,7 +6,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 rm -rf "$ROOT/dist"
 mkdir -p "$ROOT/dist/api"
-cp "$ROOT/web/index.html" "$ROOT/dist/"
+cp "$ROOT/web/index.html" "$ROOT/web/streets.html" "$ROOT/dist/"
 cp -R "$ROOT/web/js" "$ROOT/web/vendor" "$ROOT/web/assets" "$ROOT/dist/"
 if [ ! -f "$ROOT/out/wave_schedule.json" ]; then
   python3 -m grunds.ingest

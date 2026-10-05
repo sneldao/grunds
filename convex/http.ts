@@ -263,8 +263,15 @@ export const franchiseDescribe = httpAction(async (ctx, req) => {
   const lot = p.get("lot") ?? "14";
   const prompt = p.get("prompt") ?? "";
   const purpose = p.get("purpose") ?? undefined;
+  const byline = p.get("byline") ?? undefined;
   if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
-  return json(await ctx.runAction(api.franchise.describe, { seed, lot, prompt, day, purpose }));
+  return json(await ctx.runAction(api.franchise.describe, { seed, lot, prompt, day, purpose, byline }));
+});
+
+// The Streets gallery: every seed with stands on its Row — the deeds,
+// not the geometry. Client merges this with the curated district seeds.
+export const franchiseStreets = httpAction(async (ctx) => {
+  return json(await ctx.runQuery(api.franchise.streets, {}));
 });
 
 // Post the letter to a real inbox — the client sends the composed letter
@@ -647,6 +654,7 @@ http.route({ path: "/district/kit", method: "GET", handler: districtKit });
 http.route({ path: "/district/ensure", method: "POST", handler: districtEnsure });
 http.route({ path: "/franchise/status", method: "GET", handler: franchiseStatus });
 http.route({ path: "/franchise/describe", method: "POST", handler: franchiseDescribe });
+http.route({ path: "/franchise/streets", method: "GET", handler: franchiseStreets });
 
 // Static floor (uploaded dist/): exact routes above win, everything else
 // falls back to index.html. App URLs stay at root — no /api prefix move.

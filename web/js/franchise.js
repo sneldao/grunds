@@ -28,7 +28,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     onArrived,          // optional: fired when a stand lands mid-session (toast)
   };
   const lotState = (id) => state.lots[id] || (state.lots[id] = {
-    status: 'missing', prompt: null, describedDay: null, placed: false, placedDay: 0, mine: false, purpose: null,
+    status: 'missing', prompt: null, describedDay: null, placed: false, placedDay: 0, mine: false, purpose: null, byline: null,
   });
   const lotDef = (id) => FRANCHISE.lots.find((l) => l.id === id);
 
@@ -114,6 +114,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
         ls.prompt = l.prompt ?? ls.prompt;
         ls.describedDay = l.day ?? ls.describedDay;
         ls.purpose = l.purpose ?? null; // status is authoritative — never keep a stale local one
+        ls.byline = l.byline ?? null;   // the builder's signature, same rule
         if (ls.status === 'success' && l.modelUrl && !ls.placed) await place(l.lot, l.modelUrl, state.day, !firstRead);
         if (ls.status === 'processing') { anyProcessing = true; scaffold(l.lot); }
         // The worksite survives a failed GLB load — place() removes it only
@@ -152,12 +153,13 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
 
   // The brief's describe button. Returns the server's verdict so the caller
   // can flip the line to "sent" or surface the invalid-prompt hint.
-  state.describe = async (lotId, text, dayNow, purpose) => {
+  state.describe = async (lotId, text, dayNow, purpose, byline) => {
     if (dead || !base) return { status: 'error', error: 'the builders could not be reached' };
     try {
       const r = await fetch(
         `${base}/franchise/describe?seed=${seed}&lot=${encodeURIComponent(lotId)}&day=${dayNow || state.day || 0}&prompt=${encodeURIComponent(text)}` +
-        (purpose ? `&purpose=${encodeURIComponent(purpose)}` : ''),
+        (purpose ? `&purpose=${encodeURIComponent(purpose)}` : '') +
+        (byline ? `&byline=${encodeURIComponent(byline)}` : ''),
         { method: 'POST' },
       );
       const d = await r.json().catch(() => ({}));
@@ -167,9 +169,10 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
         ls.status = d.status;
         ls.prompt = d.prompt ?? text;
         ls.describedDay = dayNow || state.day;
-        // The server's purpose is authoritative — a live franchise answers
-        // with the builder's own, which may be null; never keep what we asked for.
+        // The server's purpose and signature are authoritative — a live
+        // franchise answers with the builder's own; never keep ours.
         ls.purpose = d.purpose ?? null;
+        ls.byline = d.byline ?? null;
         if (d.claimed) ls.mine = true;   // claimed=false: somebody else got here first
         if (d.status === 'processing') { scaffold(lotId); setTimeout(() => poll(1), 30000); }
         // place() owns the worksite — it comes down only after a real GLB lands.

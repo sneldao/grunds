@@ -310,3 +310,30 @@ corner bookshop (community), an artisan bakery (rent).
 
 **Credit ledger**: ~3,070 of 25,000 used (~21,930 remain) — three more
 generations for the purpose-demo Row.
+
+## The Streets — discovery + signatures (2026-10-05, night)
+
+The first Phase-2 primitive, shipped before submission: worlds are now
+discoverable and their builders are named.
+
+- **`/streets.html`** — a live gallery of every grown district: slot
+  thumbnails from `/district/kit`, the Row's deeds from a new
+  `/franchise/streets` registry route (seed → stands, prompt, purpose,
+  signature, status, preview), and a "play this street →" link into each
+  world. Stands-bearing seeds sort first; the registry auto-discovers
+  any seed with a claim, so it can't go stale. Linked from the licence
+  screen ("browse the streets").
+- **Signatures** — the lease card's deeds line (pre-filled from the
+  licence name, editable, optional) rides describe → schema → status.
+  The builder's name is on the deeds forever: inherited arrivals toast
+  "built by X", the done-block lists `· by X`, gallery + asset board
+  show it. Anonymous stays anonymous — legacy stands keep no byline.
+- Verified live end-to-end: seed 13 lot 14 signed "quincy" → processing
+  → success through the status nudge (~2 min) → registry picked the
+  seed up automatically. Gallery + `/franchise/streets` curl-verified.
+- Suite: focused franchise file green incl. 10 new anchors (byline
+  sanitize/passthrough, signature input, registry route, gallery page,
+  build shipping).
+
+**Credit ledger**: ~3,120 of 25,000 used — one more generation for the
+signed demo stand.

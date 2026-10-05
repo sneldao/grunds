@@ -134,7 +134,7 @@ const franchise = initFranchise({
   scene, seed: SEED, classic: districtOptOut(location.search),
   onArrived: (inst, def, ls) => fx.toast(ls && ls.mine
     ? `the builders finished — ${def.name} is open`
-    : `${def.name} is open — a previous owner built it; the rent is yours`, 'good'),
+    : `${def.name} is open — ${ls && ls.byline ? `built by ${ls.byline}` : 'a previous owner built it'}; the rent is yours`, 'good'),
   onStatus: () => {
     if (phase === 'planning') renderFranchiseRow();
     applyConstruction(day);   // a claimed lot drops its generic scaffold prop
@@ -2198,6 +2198,9 @@ const ROW_EXAMPLES = ['a tiny ramen counter', 'a vinyl listening bar', 'a flower
 // read or a failed send must not eat the typing); a new day or a new lot
 // on offer starts it clean.
 let rowPurpose = null, rowSending = false, rowError = null, rowDraft = '', rowFor = '';
+// The signature is the player, not the lot — it pre-fills from the
+// licence and isn't cleared when the day/lot draft resets.
+let rowByline = null;
 
 function rowPurposeLabel(purpose) {
   const p = ROW_PURPOSES.find(x => x.id === purpose);
@@ -2253,7 +2256,8 @@ function renderFranchiseRow() {
     done.id = 'brief-franchise';
     done.className = 'row-done';
     const inh = franchise.inherited && franchise.inherited();
-    const builtList = built.map(l => `${l.name}${rowPurposeLabel(ls(l.id).purpose)}`).join(', ');
+    const builtList = built.map(l =>
+      `${l.name}${rowPurposeLabel(ls(l.id).purpose)}${ls(l.id).byline ? ` · by ${ls(l.id).byline}` : ''}`).join(', ');
     const waiting = FRANCHISE.lots.filter(l => ls(l.id).status !== 'success');
     let text;
     if (!built.length) {
@@ -2364,6 +2368,21 @@ function renderFranchiseRow() {
   btn.textContent = 'send to the builders'; btn.style.fontSize = '10px';
   send.append(input, btn);
   card.appendChild(send);
+
+  // The deeds line: optional signature, pre-filled from the licence.
+  // Whoever claims the lot first keeps it — later players inherit the name.
+  const signRow = document.createElement('div');
+  signRow.className = 'row-send row-sign';
+  const sign = document.createElement('input');
+  sign.id = 'brief-row-byline';
+  sign.type = 'text'; sign.maxLength = 24;
+  if (rowByline === null) rowByline = playerName !== 'Sam' ? playerName : '';
+  sign.value = rowByline;
+  sign.placeholder = 'sign it — a name for the deeds (optional)';
+  sign.setAttribute('aria-label', 'a name for the deeds (optional)');
+  sign.addEventListener('input', () => { rowByline = sign.value; });
+  signRow.appendChild(sign);
+  card.appendChild(signRow);
   card.appendChild(statusEl);
 
   btn.onclick = () => {
@@ -2374,7 +2393,7 @@ function renderFranchiseRow() {
     rowSending = true; rowError = null; rowDraft = text;
     btn.disabled = true; btn.textContent = 'sent — the builders are working';
     statusEl.textContent = `sent to the builders — ${vacant.name} · ${rowPurposeLabel(rowPurpose).slice(3)}`;
-    franchise.describe(vacant.id, text, day, rowPurpose).then(d => {
+    franchise.describe(vacant.id, text, day, rowPurpose, (sign.value || '').trim() || undefined).then(d => {
       rowSending = false;
       if (d && (d.status === 'invalid' || d.status === 'locked')) {
         rowError = d.error || 'the builders need three words or more';
