@@ -74,7 +74,7 @@ export function assetKey(spec: GenerateSpec): string {
     spec.faceLimit ?? 0,
     spec.pbr ?? true,
     spec.negativePrompt ?? "",
-    spec.imageUrl ?? "",
+    ...(spec.imageUrl ? [spec.imageUrl] : []),
   ]);
   return `tripo:${hashKey(fingerprint)}`;
 }

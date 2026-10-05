@@ -224,3 +224,49 @@ lanterns"), both Tripo-built and persisted to Convex storage.
 The asset board now shows a **★ franchise row** per seed — a player's own
 words next to the kit prompts — with live refresh on both routes.
 Balance: ~22,830 of 25,000 credits remaining after ~60 generations.
+
+## Oct 5 (later still) — The whole Row is buildable: three lots, photo-to-model, inherited stands (PR #28)
+
+**The franchise went from a storefront to a street.** Three vacant
+storefronts now unlock across the campaign — 14 The Row on day 3, 11 on
+day 4, 18 on day 5 — and each one takes its own description. By the
+finale the player has authored a third of the street themselves; the
+Tripo generation isn't decoration, it's the campaign's creative verb.
+"Their world grew three buildings while they slept" is now playable.
+
+- **Photo-to-world shipped.** The same describe line accepts a pasted
+  image link → Tripo `image_to_model` turns a photograph of a real café
+  into the stand. `GenerateSpec.imageUrl` flows through the same
+  content-keyed, budget-guarded, reaper-resolved, storage-persisted
+  pipeline as text. Live-verified: seed 42 lot 11 resolved a photo
+  source to a real GLB in Convex storage.
+- **The gift made legible.** One franchise per `(seed, lot)` means
+  first-come authorship is the mechanic the event is named for — every
+  later player on a seed inherits the stands, and once the Row is
+  spoken for the brief says exactly that ("built by a previous owner
+  and still pays you rent").
+- **Determinism deepened**: the lot salts `model_seed`/`texture_seed`
+  hashing, so identical words on different addresses grow different
+  geometry. Pre-multi-lot franchise rows back-fill to lot 14 — no
+  regeneration, no drift.
+- **Live-verified all six stands**: seed 99 carries the full terrace
+  (ramen counter · jazz record shop · flower kiosk), seed 42 carries
+  bakery · photo-built stand · bookshop — all `success`, all persisted.
+  `locked`/`invalid` gates verified live (day-3 describe on the day-5
+  lot correctly refuses).
+- Suite 322/322 after the franchise test's rewrite (75 checks — lot
+  parity across client/server tables, unlock gating, per-lot placement
+  and summed rent timing, image-mode anchors on route + spec).
+
+**Credit ledger**: 2,920 of 25,000 used (~22,080 remain). The gift
+credits remain largely unspent — the ambition that fit the deadline was
+depth of mechanic, not volume.
+
+**Caught and fixed in the same sprint**: adding `imageUrl` to the asset
+fingerprint initially shifted every content key, orphaning all
+pre-existing TriPo rows (seed 13 read all-missing). The fix only
+appends `imageUrl` to the fingerprint when a spec actually carries one —
+text-mode keys are byte-identical to before, every orphaned row
+re-resolved instantly, and the ~15 slots that re-grew under the shifted
+keys became harmless duplicate rows. The test now pins the conditional
+fingerprint so a future spec field can't repeat it.

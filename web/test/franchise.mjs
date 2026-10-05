@@ -182,7 +182,7 @@ check('image specs carry imageUrl', /if \(isImageInput\(prompt\)\) spec\.imageUr
 check('generate args accept imageUrl', /imageUrl: v\.optional\(v\.string\(\)\)/.test(convexTripo));
 check('image tasks hit the image-to-model endpoint', convexTripo.includes('image-to-model'));
 check('image tasks post file {type,url}', /file: \{[\s\S]{0,400}url: spec\.imageUrl/.test(convexTripo));
-check('imageUrl is content-addressed in assetKey', convexTripo.includes('spec.imageUrl ?? ""'));
+check('imageUrl is content-addressed in assetKey (and only present for image specs, so legacy keys hold)', convexTripo.includes('...(spec.imageUrl ? [spec.imageUrl] : [])'));
 
 check('http: /franchise/status GET route', http.includes('path: "/franchise/status"') && http.includes('method: "GET"'));
 check('http: /franchise/describe POST route', http.includes('path: "/franchise/describe"') && http.includes('method: "POST"'));
