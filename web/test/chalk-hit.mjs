@@ -92,7 +92,7 @@ test('press uses the existing dust and screech on both levers', () => {
     const i = mainSrc.indexOf(`world.flashChalk('${kind}')`);
     assert.ok(i > -1, kind);
     const slice = mainSrc.slice(i, i + 260);
-    assert.match(slice, /fx\.chalkDust\(-5\.5, 2\.75, -7\.95\)/);
+    assert.match(slice, /fx\.chalkDust\(-5\.5, 2\.75, -6\.48\)/);
     assert.match(slice, /audio\.chalkScreech\(\)/);
     assert.match(slice, /feel\(\{ object: world\._chalkPlane, always: true \}\)/);
   }

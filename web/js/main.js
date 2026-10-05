@@ -3927,7 +3927,7 @@ function doPrebatch(opts = {}) {
   audio.clink();
   world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced);
   world.flashChalk('batch');
-  try { fx.chalkDust(-5.5, 2.75, -7.95); audio.chalkScreech(); } catch {}
+  try { fx.chalkDust(-5.5, 2.75, -6.48); audio.chalkScreech(); } catch {}
   feel({ object: world._chalkPlane, always: true });
   rivalReact('prebatch');   // PR-B2 — Sam clocks the prep
   try { audio.clink(); } catch {}
@@ -3969,7 +3969,7 @@ function doReprice(opts = {}) {
   world.setMatchaPrice(ECON.matchaDeal.toFixed(2), true);
   world.flashChalk('reprice');
   feel({ object: world._chalkPlane, always: true });
-  try { fx.chalkDust(-5.5, 2.75, -7.95); audio.chalkScreech(); } catch {}
+  try { fx.chalkDust(-5.5, 2.75, -6.48); audio.chalkScreech(); } catch {}
   fx.notebook(false);
   fx.toast(`matcha is ${fmt(ECON.matchaDeal)} for the rest of today — prep is locked` + (opts.asPlanned ? ' · as planned in the brief' : ''), 'good');
   audio.clink();
