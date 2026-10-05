@@ -647,19 +647,25 @@ G.renderBrief();
   check('the regulars board opens over the floor', G.modals.top() === 'regulars', G.modals.top());
   const rows = collect(byId('board-cast'), c => c.tagName === 'BUTTON');
   check('cast board rows are keyboard-activatable buttons', rows.length === 8 && rows.every(r => r.tagName === 'BUTTON'), `${rows.length}`);
-  rows.find(r => /Mara/.test(r.textContent)).click();
+  // Pick a cast member who is actually in today - the sim decides who stays
+  // home on a given day, so the test follows whoever is present (Mara first
+  // when she's in). An 'away' member's dossier disables the hello button.
+  const pick = (G.reg.regulars.find(r => r.name === 'Mara' && r.absence !== 'away' && r.absence !== 'lost')
+    || G.reg.regulars.find(r => r.absence !== 'away' && r.absence !== 'lost'));
+  check('a cast member is in today to greet', !!pick, G.reg.regulars.map(r => `${r.name}:${r.absence}`).join(' '));
+  rows.find(r => new RegExp(pick.name).test(r.textContent)).click();
   check('a cast row opens the profile on top of the board', G.modals.top() === 'dossier', G.modals.top());
   const prof = deepText(byId('dossier'));
-  check('Mara’s profile reads bio/wants/usual/feeling in words', /8:10/.test(prof) && /Wants:/.test(prof) && /Usual:/.test(prof) && /warming to you|unhappy with you|still making up their mind/.test(prof), prof.slice(0, 300));
+  check('the profile reads bio/wants/usual/feeling in words', byId('dossier-bio').textContent.length > 0 && /Wants:/.test(prof) && /Usual:/.test(prof) && /warming to you|unhappy with you|still making up their mind/.test(prof), prof.slice(0, 300));
   check('the profile carries no raw opinion numbers', !/op [\d.]|0\.15/.test(prof), prof.slice(0, 300));
-  writeFileSync(join(LOGS, 'profile-mara.txt'), prof);
-  const op0 = G.reg.regulars.find(r => r.name === 'Mara').op;
+  writeFileSync(join(LOGS, `profile-${pick.name.toLowerCase()}.txt`), prof);
+  const op0 = pick.op;
   const hello = byId('dossier-hello');
   hello.click();
-  const op1 = G.reg.regulars.find(r => r.name === 'Mara').op;
-  check('Say hello warms the cast member exactly +0.06 and locks for the day', Math.abs(op1 - op0 - 0.06) < 1e-9 && hello.disabled === true && /said hello today/.test(hello.textContent), `${op0}→${op1}`);
+  const op1 = G.reg.regulars.find(r => r.name === pick.name).op;
+  check('Say hello warms the cast member exactly +0.06 and locks for the day', Math.abs(op1 - op0 - 0.06) < 1e-9 && hello.disabled === true && /said hello today/.test(hello.textContent), `${op0}->${op1}`);
   hello.click();
-  check('a second hello does nothing', G.reg.regulars.find(r => r.name === 'Mara').op === op1, `${op1}`);
+  check('a second hello does nothing', G.reg.regulars.find(r => r.name === pick.name).op === op1, `${op1}`);
   key('Escape');
   check('Escape returns to the board', G.modals.top() === 'regulars', G.modals.top());
   byId('board-close').click();
