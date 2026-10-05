@@ -206,7 +206,8 @@ patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day 
 fx.patrons = patrons;
 const barStaff = buildBarStaff(scene);
 function syncBarStaff(mode) {
-  const m = mode ?? (baristaHomeToday ? 'home' : apprenticeHiredToday ? 'apprentice' : (planDraft && planDraft.staffing) || 'work');
+  const m = onRobotHire() ? 'robot'
+    : mode ?? (baristaHomeToday ? 'home' : apprenticeHiredToday ? 'apprentice' : (planDraft && planDraft.staffing) || 'work');
   barStaff.setMode(m);
 }
 const analytics = createAnalytics();
@@ -4123,6 +4124,7 @@ const INCIDENTS = [
         apprenticeHiredToday = true;
         patrons.apprenticeActive = true;
         patrons.staffMul = (CAMPAIGN.staff?.apprenticeStaffMul || 1.05) * perkStaffMul;
+        syncBarStaff();
       }
     },
     decline() { patrons.staffMul = 0.6; } },

@@ -9,7 +9,11 @@ import { barPose } from './poses.js';
 const LOOK = {
   work: { seed: 'ruth', cohort: 'commuters' },
   apprentice: { seed: 'apprentice', cohort: 'students' },
+  robot: { seed: 'robot', cohort: 'commuters' },
 };
+
+// The leased robot is a steel figure — no portrait seed to borrow.
+const ROBOT_SPEC = { clothing: 0x7d848d, skin: 0xaab1b9, hairColor: 0x7d848d, hairStyle: null, accessory: null };
 
 const LEG = 0x2a2c34;
 const CUP = 0xf0ead8;
@@ -20,6 +24,7 @@ const POUR_SECS = 2.6;
 export function barStaffSpec(mode) {
   const who = LOOK[mode];
   if (!who) return null;
+  if (mode === 'robot') return { mode, seed: who.seed, cohort: who.cohort, ...ROBOT_SPEC };
   return { mode, seed: who.seed, cohort: who.cohort, ...avatarSpec(who.seed, who.cohort) };
 }
 
@@ -28,10 +33,13 @@ export function barStaffSpec(mode) {
 // pour above the bar. The feet stay in the well behind the counter.
 const BAR_LIFT = 0.82;
 
-// Feet behind the counter, facing the room. Not in the queue.
+// Feet behind the counter, facing the room. Not in the queue. The small
+// room leaves a narrow well between the bar and the back wall — the stand
+// sits centred in it, clear of the grinder and the coffee machine.
 export function barStand() {
   const C = LAYOUT.counter;
-  return { x: -7.4, y: BAR_LIFT, z: C.z - C.d / 2 - 0.62, face: 0 };
+  const wallZ = LAYOUT.floor.z - LAYOUT.floor.d / 2;
+  return { x: C.x, y: BAR_LIFT, z: wallZ + 0.3, face: 0 };
 }
 
 export function buildBarStaff(scene) {

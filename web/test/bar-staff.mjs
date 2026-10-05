@@ -31,7 +31,10 @@ test('bar staff look follows the portrait seeds', () => {
   assert.notEqual(apprentice.clothing, ruth.clothing, 'apprentice wears a different colour');
   assert.notEqual(apprentice.accessory, 'hat', 'apprentice is not Ruth in a hat');
   assert.equal(barStaffSpec('home'), null);
-  assert.equal(barStaffSpec('robot'), null);
+  const robot = barStaffSpec('robot');
+  assert.ok(robot && robot.mode === 'robot', 'the lease still leaves a figure on the bar');
+  assert.notEqual(robot.accessory, 'hat', 'the robot wears no hat');
+  assert.notEqual(robot.clothing, ruth.clothing, 'the robot is not Ruth in a coat');
 });
 
 test('the stand is behind the counter, not in the queue', () => {
@@ -40,7 +43,8 @@ test('the stand is behind the counter, not in the queue', () => {
   const backEdge = C.z - C.d / 2;
   assert.ok(stand.z < backEdge, `z ${stand.z} should be behind the bar at ${backEdge}`);
   assert.ok(stand.y >= 0.7, 'lifted so the shoulders clear the bar');
-  assert.ok(stand.z > -7.7, 'still in front of the back wall');
+  const wallZ = LAYOUT.floor.z - LAYOUT.floor.d / 2;
+  assert.ok(stand.z > wallZ, 'still in front of the back wall');
   assert.ok(Math.abs(stand.x - C.x) < C.w / 2, 'along the bar, not off to the side');
   assert.ok(stand.z < -4, 'not in the customer queue');
 });
