@@ -1243,6 +1243,110 @@ export function buildWorld(scene, renderer, lite) {
   dressGlasshouseWindow(rv, -1.32, 'left');
   dressGlasshouseWindow(rv, 1.32, 'right');
 
+  // ---- closed gardens behind the neighbour houses ----------------------------
+  // The pavement behind The Quill and behind the right-hand row is a walled
+  // garden: grass, a low wall, a shut gate toward the café, a little
+  // overgrowth, two trees on the long plot and one on the short. It is only
+  // scenery. Nothing routes a customer, a sale, or a purchase through it.
+  {
+    const garden = new THREE.Group(); scene.add(garden);
+    const grassTex = (() => {
+      const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+      const pg = c.getContext('2d');
+      pg.fillStyle = '#86a860'; pg.fillRect(0, 0, 128, 128);
+      pg.fillStyle = '#2f4f43';
+      for (let i = 0; i < 280; i++) pg.fillRect((i * 47) % 128, (i * 89) % 128, 2 + (i % 3), 2 + (i % 2));
+      pg.fillStyle = 'rgba(246,239,224,.18)';
+      for (let i = 0; i < 70; i++) pg.fillRect((i * 113) % 128, (i * 61) % 128, 1, 2);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 3); t.anisotropy = 8;
+      return t;
+    })();
+    const gardenGrass = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.97, metalness: 0 });
+    const plots = [
+      { x0: -13.55, x1: -9.25, z0: -8.0, z1: 0.7, gate: 'e', trees: [[-11.3, -3.6, 6.1, -1]] },
+      { x0: 1.45, x1: 13.75, z0: -8.0, z1: 0.7, gate: 'n', trees: [[4.4, -4.6, 6.4, 1], [10.8, -3.2, 5.5, -1]] },
+    ];
+    const wallH = 0.82, wallT = 0.22, gateW = 1.45;
+    const shrub = (x, z, r, lift, col) => {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 5), mat(col, { rough: 0.95 }));
+      s.position.set(x, lift, z); s.castShadow = true; s.receiveShadow = true; garden.add(s);
+    };
+    const tree = (x, z, h, lean) => {
+      cyl(garden, 0.1, 0.15, h * 0.52, PAL.walnut, x, h * 0.26, z);
+      const crown = new THREE.Mesh(new THREE.SphereGeometry(h * 0.32, 9, 7), mat(PAL.awning, { rough: 0.95 }));
+      crown.position.set(x, h * 0.58, z); crown.castShadow = true; garden.add(crown);
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(h * 0.2, 8, 6), mat(PAL.matcha, { rough: 0.96 }));
+      puff.position.set(x + 0.32 * lean, h * 0.84, z + 0.12); puff.castShadow = true; garden.add(puff);
+    };
+    for (const p of plots) {
+      const cx = (p.x0 + p.x1) / 2, cz = (p.z0 + p.z1) / 2;
+      const pw = p.x1 - p.x0, pd = p.z1 - p.z0;
+      plane(garden, pw - 0.2, pd - 0.2, gardenGrass, cx, 0.045, cz, { rx: -Math.PI / 2 });
+      const cap = (x, z, w, d) => box(garden, w, 0.08, d, PAL.walnut, x, wallH + 0.02, z, { cast: false });
+      const runX = (z, xA, xB) => {
+        if (xB - xA < 0.2) return;
+        const w = xB - xA, x = (xA + xB) / 2;
+        box(garden, w, wallH, wallT, PAL.plaster, x, wallH / 2, z, { cast: true });
+        cap(x, z, w + 0.04, wallT + 0.06);
+      };
+      const runZ = (x, zA, zB) => {
+        if (zB - zA < 0.2) return;
+        const d = zB - zA, z = (zA + zB) / 2;
+        box(garden, wallT, wallH, d, PAL.plaster, x, wallH / 2, z, { cast: true });
+        cap(x, z, wallT + 0.06, d + 0.04);
+      };
+      const g0 = (p.gate === 'n' ? cx : cz) - gateW / 2;
+      const g1 = (p.gate === 'n' ? cx : cz) + gateW / 2;
+      if (p.gate === 'n') {
+        runX(p.z1, p.x0, p.x1);
+        runX(p.z0, p.x0, g0);
+        runX(p.z0, g1, p.x1);
+        runZ(p.x0, p.z0, p.z1);
+        runZ(p.x1, p.z0, p.z1);
+        const gz = p.z0;
+        box(garden, 0.12, 1.15, 0.12, PAL.walnutDark, g0, 0.58, gz, { cast: false });
+        box(garden, 0.12, 1.15, 0.12, PAL.walnutDark, g1, 0.58, gz, { cast: false });
+        box(garden, gateW * 0.48, 1.28, 0.06, PAL.walnut, cx - gateW * 0.24, 0.66, gz + 0.02);
+        box(garden, gateW * 0.48, 1.28, 0.06, PAL.walnut, cx + gateW * 0.24, 0.66, gz + 0.02);
+        box(garden, gateW * 0.92, 0.06, 0.04, PAL.brass, cx, 0.92, gz + 0.06, { metal: 0.6, rough: 0.35, cast: false });
+        cyl(garden, 0.035, 0.035, 0.04, PAL.brass, cx, 0.78, gz + 0.08, { metal: 0.65, rough: 0.32, seg: 8, cast: false });
+        box(garden, 0.55, 0.02, 2.4, PAL.walnutDark, cx, 0.055, gz + 1.35, { cast: false });
+      } else {
+        runX(p.z0, p.x0, p.x1);
+        runX(p.z1, p.x0, p.x1);
+        const gx = p.gate === 'e' ? p.x1 : p.x0;
+        const inward = p.gate === 'e' ? -1 : 1;
+        if (p.gate === 'e') {
+          runZ(p.x0, p.z0, p.z1);
+          runZ(p.x1, p.z0, g0);
+          runZ(p.x1, g1, p.z1);
+        } else {
+          runZ(p.x1, p.z0, p.z1);
+          runZ(p.x0, p.z0, g0);
+          runZ(p.x0, g1, p.z1);
+        }
+        box(garden, 0.12, 1.15, 0.12, PAL.walnutDark, gx, 0.58, g0, { cast: false });
+        box(garden, 0.12, 1.15, 0.12, PAL.walnutDark, gx, 0.58, g1, { cast: false });
+        box(garden, 0.06, 1.28, gateW * 0.48, PAL.walnut, gx + inward * 0.02, 0.66, cz - gateW * 0.24);
+        box(garden, 0.06, 1.28, gateW * 0.48, PAL.walnut, gx + inward * 0.02, 0.66, cz + gateW * 0.24);
+        box(garden, 0.04, 0.06, gateW * 0.92, PAL.brass, gx + inward * 0.06, 0.92, cz, { metal: 0.6, rough: 0.35, cast: false });
+        cyl(garden, 0.035, 0.035, 0.04, PAL.brass, gx + inward * 0.08, 0.78, cz, { rx: Math.PI / 2, metal: 0.65, rough: 0.32, seg: 8, cast: false });
+        box(garden, 0.55, 0.02, 2.4, PAL.walnutDark, gx + inward * 1.35, 0.055, cz, { cast: false });
+      }
+      for (const [tx, tz, th, lean] of p.trees) tree(tx, tz, th, lean);
+      const edge = [
+        [p.x0 + 0.55, p.z0 + 0.7, 0.42], [p.x0 + 1.5, p.z1 - 0.6, 0.34],
+        [p.x1 - 0.7, p.z0 + 1.1, 0.38], [cx + 1.7, p.z0 + 0.85, 0.28],
+        [cx + (p.x1 - cx) * 0.45, cz + 0.4, 0.5],
+      ];
+      edge.forEach(([x, z, r], i) => {
+        shrub(x, z, r, r * 0.7, i % 2 ? PAL.matcha : PAL.awning);
+        if (i % 2 === 0) shrub(x + 0.22, z - 0.16, r * 0.65, wallH + r * 0.2, PAL.awning);
+      });
+    }
+  }
+
   // ---- past the far curb: a park apron and a tree line -----------------------
   // The city slab ends just behind the shops. A matcha lawn runs from that
   // edge out into the fog so the ground does not stop as a hard cut, and a
