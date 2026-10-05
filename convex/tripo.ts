@@ -60,6 +60,7 @@ export interface GenerateSpec {
   faceLimit?: number;
   pbr?: boolean;
   negativePrompt?: string;
+  imageUrl?: string; // photo → model instead of text → model (franchise lots)
 }
 
 // Content-address asset key. Deterministic across calls and deployments.
@@ -73,6 +74,7 @@ export function assetKey(spec: GenerateSpec): string {
     spec.faceLimit ?? 0,
     spec.pbr ?? true,
     spec.negativePrompt ?? "",
+    spec.imageUrl ?? "",
   ]);
   return `tripo:${hashKey(fingerprint)}`;
 }
@@ -152,6 +154,7 @@ export const generate = action({
     faceLimit: v.optional(v.number()),
     pbr: v.optional(v.boolean()),
     negativePrompt: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
   },
   handler: async (
     ctx,
@@ -173,6 +176,7 @@ export const generate = action({
       faceLimit: args.faceLimit,
       pbr: args.pbr,
       negativePrompt: args.negativePrompt,
+      imageUrl: args.imageUrl,
     };
     const key = assetKey(spec);
     const existing = await ctx.runQuery(api.tripo.byKey, { key });
@@ -192,17 +196,29 @@ export const generate = action({
     if (n > budget)
       return { key, created: false, fallback: true, status: "missing", error: "daily-budget" };
     try {
-      const body: Record<string, unknown> = {
-        prompt: spec.prompt,
-        model: resolveModel(spec.model),
-        pbr: spec.pbr ?? true,
-      };
+      // Photo → model runs a sibling endpoint: the image IS the input, so
+      // no prompt/negative-prompt fields. Everything else (model pin,
+      // seeds, face budget, task/reaper/persist plumbing) is identical.
+      const body: Record<string, unknown> = spec.imageUrl
+        ? {
+            file: {
+              type: /\.png(\?|$)/i.test(spec.imageUrl) ? "png" : /\.webp(\?|$)/i.test(spec.imageUrl) ? "webp" : "jpg",
+              url: spec.imageUrl,
+            },
+            model: resolveModel(spec.model),
+            pbr: spec.pbr ?? true,
+          }
+        : {
+            prompt: spec.prompt,
+            model: resolveModel(spec.model),
+            pbr: spec.pbr ?? true,
+          };
       if (spec.modelSeed !== undefined) body.model_seed = spec.modelSeed;
       if (spec.imageSeed !== undefined) body.image_seed = spec.imageSeed;
       if (spec.textureSeed !== undefined) body.texture_seed = spec.textureSeed;
       if (spec.faceLimit !== undefined) body.face_limit = spec.faceLimit;
-      if (spec.negativePrompt) body.negative_prompt = spec.negativePrompt;
-      const res = await fetch(`${BASE}/generation/text-to-model`, {
+      if (spec.negativePrompt && !spec.imageUrl) body.negative_prompt = spec.negativePrompt;
+      const res = await fetch(`${BASE}/generation/${spec.imageUrl ? "image-to-model" : "text-to-model"}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,

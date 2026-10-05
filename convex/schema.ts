@@ -242,11 +242,13 @@ export default defineSchema({
     .index("by_task", ["taskId"]),
 
   // The Franchise (Tripothon S1 — Tier B). A player-described stand on The
-  // Row: seed → one row naming the tripoAssets key + the words that built it,
-  // so /franchise/status finds the asset without knowing the prompt. One
-  // franchise per seed — the street remembers who built it.
+  // Row: (seed, lot) → one row naming the tripoAssets key + the words that
+  // built it, so /franchise/status finds the asset without knowing the
+  // prompt. One franchise per (seed, lot) — the street remembers who built
+  // it, and every later player on the seed inherits the stands.
   franchises: defineTable({
     seed: v.number(),
+    lot: v.optional(v.string()), // "14" | "11" | "18" — absent rows predate multi-lot → "14"
     key: v.string(),          // tripoAssets.key for the generated stand
     prompt: v.string(),       // the player's own words (sanitized)
     day: v.number(),          // campaign day it was described
