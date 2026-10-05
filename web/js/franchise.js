@@ -25,6 +25,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     day: 0,             // last day the floor told us about
     lots: {},           // lotId → { status, prompt, describedDay, placed, placedDay, purpose }
     onStatus,           // optional: fired when a status read lands (brief re-render)
+    onArrived,          // optional: fired when a stand lands mid-session (toast)
   };
   const lotState = (id) => state.lots[id] || (state.lots[id] = {
     status: 'missing', prompt: null, describedDay: null, placed: false, placedDay: 0, mine: false, purpose: null,
@@ -76,10 +77,10 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
   const base = (baseUrl() || '').replace(/\/$/, '');
   const glb = loader || GLBLoader();
 
-  async function place(id, modelUrl, dayNow) {
+  async function place(id, modelUrl, dayNow, announce = true) {
     const ls = lotState(id), def = lotDef(id);
     if (!def || ls.placed) return;
-    ls.placed = true; // once only — a bad GLB shows the empty lot, not a retry loop
+    ls.placed = true; // cleared on a failed load so the next read retries
     try {
       const inst = await glb.loadGLB(modelUrl, {
         position: def.position.slice(),
@@ -90,7 +91,9 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       scene.add(inst);
       unscaffold(id);
       ls.placedDay = dayNow || state.day || 0; // pre-existing stands pay from day 1
-      if (state.onArrived) state.onArrived(inst, def, ls);
+      // announce=false on the hydration read — a stand that was always
+      // there didn't "arrive"; only transitions witnessed live get a toast.
+      if (announce && state.onArrived) state.onArrived(inst, def, ls);
     } catch {
       ls.placed = false; // network blip — next poll tries again
     }
@@ -102,6 +105,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       const r = await fetch(`${base}/franchise/status?seed=${seed}`);
       if (!r.ok) return;
       const d = await r.json();
+      const firstRead = !state.live;
       state.live = true;
       let anyProcessing = false;
       for (const l of d.lots || []) {
@@ -110,7 +114,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
         ls.prompt = l.prompt ?? ls.prompt;
         ls.describedDay = l.day ?? ls.describedDay;
         ls.purpose = l.purpose ?? null; // status is authoritative — never keep a stale local one
-        if (ls.status === 'success' && l.modelUrl && !ls.placed) await place(l.lot, l.modelUrl, state.day);
+        if (ls.status === 'success' && l.modelUrl && !ls.placed) await place(l.lot, l.modelUrl, state.day, !firstRead);
         if (ls.status === 'processing') { anyProcessing = true; scaffold(l.lot); }
         // The worksite survives a failed GLB load — place() removes it only
         // after a real stand lands; anything that isn't buildable loses it.
@@ -135,8 +139,8 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
   };
 
   // The next storefront the brief can offer: first unlocked lot nobody is
-  // building on. The builders take one job at a time — a described lot
-  // hides the line until it resolves.
+  // building on. Builds run in parallel — a described lot just can't be
+  // re-offered while it resolves.
   state.nextVacant = (dayNow) => {
     const day = dayNow ?? state.day;
     return FRANCHISE.lots.find((l) => {
@@ -178,26 +182,30 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
   };
 
   // Rent: every standing stand pays at each open. placedDay guards the
-  // first morning — a stand can't owe rent before it exists. A stand
-  // leased "for the rent" pays +£5 on its base £15; legacy purpose-less
-  // stands just pay the base.
+  // first morning — a stand can't owe rent before it exists. A tenant
+  // purpose pays the commercial lease on top of the peppercorn base;
+  // legacy purpose-less stands just pay the base.
   state.rentDue = (dayNow) => FRANCHISE.lots.reduce((sum, l) => {
     const s = lotState(l.id);
     if (!s.placed || !(dayNow > 0) || !(dayNow > s.placedDay)) return sum;
-    return sum + l.rent + (s.purpose === 'rent' ? 5 : 0);
+    return sum + l.rent + (s.purpose === 'rent' ? FRANCHISE.purposes.rent.rentBonus : 0);
   }, 0);
 
   // The purpose bonuses a placed stand owes the street — counted at each
   // close for stands already standing before the day began (arrival day
   // itself earns nothing; day N+1 does). Stands still building, failed,
-  // or purpose-less (legacy rows) contribute nothing.
+  // or purpose-less (legacy rows) contribute nothing. rentBonus rides
+  // along purely so the receipt can split the tenant uplift out of the
+  // dawn's rent line — same eligibility window as rentDue.
   state.effectsDue = (dayNow) => {
-    const out = { awareness: 0, returnees: 0 };
+    const P = FRANCHISE.purposes;
+    const out = { awareness: 0, returnees: 0, rentBonus: 0 };
     for (const l of FRANCHISE.lots) {
       const s = lotState(l.id);
       if (!s.placed || !s.purpose || !(dayNow > s.placedDay)) continue;
-      if (s.purpose === 'draw') out.awareness += 0.02;
-      else if (s.purpose === 'community') out.returnees += 8;
+      if (s.purpose === 'draw') out.awareness += P.draw.awareness;
+      else if (s.purpose === 'community') out.returnees += P.community.returnees;
+      else if (s.purpose === 'rent') out.rentBonus += P.rent.rentBonus;
     }
     return out;
   };

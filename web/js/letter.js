@@ -56,12 +56,30 @@ function driftLine(s) {
   return '';
 }
 function neighborhoodLine(s) {
-  // The Roaster's Letter: the verbal beat for the day-4 / day-5 visual
-  // changes. driftLine handles the bean-index creep; neighborhoodLine
-  // handles the *physical* building changes the player can see (the rent
-  // sign on day 3, the two scaffolds on day 5). Inserted after
-  // reputationLine so the player reads the market mood, then their own
-  // performance, then the district's.
+  // The Roaster's Letter: the verbal beat for the street the player can
+  // see. s.row = { built, claimed, unsigned } names the Row's real state
+  // (a stand the player — or a previous owner — described isn't "For
+  // Lease" anymore); absent on old snapshots → the pre-Row lines stand.
+  const r = s.row;
+  if (r) {
+    if (s.day === 3)
+      return r.claimed > 0
+        ? `A new name is already up across the road — a previous keeper got there first. The Row takes words, not bids.`
+        : `A For Lease sign went up across the road overnight — the first of the Row's three storefronts. What goes there is someone's words.`;
+    if (s.day === 4) {
+      if (r.claimed > 0)
+        return `A new keeper already on the Row${r.unsigned ? ' — another lease went up beside them' : ''}. The street is moving.`;
+      return `Two of the Row's storefronts carry For Lease signs now. The street is moving.`;
+    }
+    if (s.day >= 5) {
+      if (r.built >= 3)
+        return `Every storefront on the Row has a new name over the door — the street remade, some of it by you.`;
+      if (r.claimed > 0)
+        return `Scaffolds and new signs across the road — the Row is halfway remade.`;
+      return `All three storefronts across the road are scaffolded now. The street is being remade — for or against you, that's the question.`;
+    }
+    return '';
+  }
   if (s.day === 4) return `Two of the storefronts across the road have a For Lease sign up. The street's moving.`;
   if (s.day >= 5) return `Both storefronts are scaffolded now. The street is being remade — for or against you, that's the question.`;
   return '';

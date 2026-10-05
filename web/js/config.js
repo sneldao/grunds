@@ -248,6 +248,16 @@ export const CAMPAIGN = {
 export const FRANCHISE = {
   promptMax: 160,               // brief input cap (server sanitizes harder)
   height: 3.2,                  // storefront scale, taller than pavement props
+  // What a stand is FOR — the lease card's choice. Sized against the real
+  // cost sheet (~£2.9k daily nut): a tenant's commercial rent (~+£40) is
+  // the same order as a hub's eight returnees (~£38 gross) and a draw's
+  // awareness (~2/3 of a chalk gain, every close). The ids mirror
+  // convex/franchise.ts FRANCHISE_PURPOSES — the test suite pins parity.
+  purposes: {
+    draw:      { awareness: 0.04 },  // a landmark — the street keeps looking this way
+    community: { returnees: 8 },     // a hub — neighbours bring neighbours
+    rent:      { rentBonus: 40 },    // a tenant — a real commercial lease on the peppercorn rate
+  },
   lots: [
     { id: '14', name: '14 The Row', unlockDay: 3, rent: 15, position: [-3, 0, 15.6], rotationY: Math.PI },
     { id: '11', name: '11 The Row', unlockDay: 4, rent: 15, position: [-9.5, 0, 15.6], rotationY: Math.PI },

@@ -131,10 +131,10 @@ function renderBoard(d) {
       <td class="img">${img(r.shot || s.street, `${r.slot} in game`) || '<span class="ph">in-game capture pending</span>'}</td>
     </tr>`).join('');
     for (const f of s.franchise || []) rows += `<tr class="fr">
-      <td class="slot">★ ${esc(f.lot)} The Row <small>player-built</small></td>
+      <td class="slot">★ ${esc(f.lot)} The Row <small>player-authored</small></td>
       <td><span class="p tripo">tripo</span></td>
       <td><span class="st ${esc(f.status)}">${esc(f.status)}</span></td>
-      <td class="prompt">${f.prompt ? esc(`“${f.prompt}” — described by a player, day ${f.day}`) : ''}</td>
+      <td class="prompt">${f.prompt ? esc(`“${f.prompt}” — described by a player, day ${f.day}${f.purpose ? ` · ${f.purpose}` : ''}`) : ''}</td>
       <td class="img">${img(f.previewUrl, 'franchise preview', f.modelUrl) || '<span class="ph">no preview yet</span>'}${f.modelUrl ? `<br><a class="glb" href="${esc(f.modelUrl)}" target="_blank" rel="noopener">GLB ↗</a>` : ''}</td>
       <td class="img">${img(s.franchiseShot || s.street, 'franchise in game') || '<span class="ph">in-game capture pending</span>'}</td>
     </tr>`;

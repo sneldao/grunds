@@ -883,8 +883,10 @@ export function buildWorld(scene, renderer, lite) {
   for (const side of [-1, 1]) {
     box(cgrp, 0.06, 5.6, 0.06, PAL.walnutDark, side * 1.6, 2.8, 0, { rz: Math.atan2(5.6, 3.2) * 0.5 * side, cast: false });
   }
-  W.setConstruction = (day) => {
-    const on = dayHasConstruction(day);
+  // `suppress`: a Row stand claimed this facade — the player's worksite or
+  // finished stand is the construction story here, not the generic prop.
+  W.setConstruction = (day, suppress = false) => {
+    const on = dayHasConstruction(day) && !suppress;
     cgrp.visible = on;
     W.cTarpMat.opacity = on ? 1.0 : 0.0;
   };
@@ -910,8 +912,8 @@ export function buildWorld(scene, renderer, lite) {
   for (const side of [-1, 1]) {
     box(cgrpL, 0.06, 4.4, 0.06, PAL.walnutDark, side * 1.4, 2.4, 0, { rz: Math.atan2(4.4, 2.8) * 0.5 * side, cast: false });
   }
-  W.setConstructionLeft = (day) => {
-    const on = dayHasConstruction(day);
+  W.setConstructionLeft = (day, suppress = false) => {
+    const on = dayHasConstruction(day) && !suppress;
     cgrpL.visible = on;
     W.cTarpMatL.opacity = on ? 1.0 : 0.0;
   };

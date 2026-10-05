@@ -150,29 +150,34 @@ check('inherited() spots a stand we never described', live.inherited()?.id === '
 live.lots['14'].mine = true;
 check('inherited() skips our own builds', live.inherited()?.id === '11');
 
-// ---- purposes: draw +awareness, community +returnees, rent +£5 ---------
-// legacy stands (purpose null) keep the plain £15 rent and no bonus.
+// ---- purposes: draw +awareness, community +returnees, rent +bonus -----
+// effect sizes live in config.js FRANCHISE.purposes so labels and ledger
+// can't drift; legacy stands (purpose null) keep the plain £15 rent.
+const P = FRANCHISE.purposes;
+check('purpose ids mirror the backend list',
+  JSON.stringify(Object.keys(P).sort()) === JSON.stringify(['community', 'draw', 'rent']));
 live.day = 5;
 live.lots['14'].purpose = null; live.lots['14'].placedDay = 3;
 live.lots['11'].purpose = 'community'; live.lots['11'].placedDay = 4;
 check('legacy purpose-less stand pays base rent', live.rentDue(5) === rent14 + rent11, `rentDue(5)=${live.rentDue(5)}`);
 let fx = live.effectsDue(5);
-check('community stand adds +8 returnees', fx.returnees === 8, JSON.stringify(fx));
+check('community stand adds the config returnees', fx.returnees === P.community.returnees, JSON.stringify(fx));
 check('community stand adds no awareness', fx.awareness === 0, JSON.stringify(fx));
 check('arrival day earns nothing (14 arrived 3, close of 3)', live.effectsDue(3).returnees === 0);
 live.lots['11'].purpose = 'draw';
 fx = live.effectsDue(5);
-check('draw stand adds +0.02 awareness', Math.abs(fx.awareness - 0.02) < 1e-9, JSON.stringify(fx));
+check('draw stand adds the config awareness', Math.abs(fx.awareness - P.draw.awareness) < 1e-9, JSON.stringify(fx));
 check('draw stand adds no returnees', fx.returnees === 0);
 live.lots['11'].purpose = 'rent';
-check('rent stand pays +£5 over base', live.rentDue(5) === rent14 + rent11 + 5, `rentDue(5)=${live.rentDue(5)}`);
+check('tenant stand pays the lease bonus over base', live.rentDue(5) === rent14 + rent11 + P.rent.rentBonus, `rentDue(5)=${live.rentDue(5)}`);
+check('tenant uplift surfaces in effectsDue for the receipt split', live.effectsDue(5).rentBonus === P.rent.rentBonus);
 live.lots['11'].placedDay = 5; // arrived today → not yet eligible
 check('same-day arrival earns no bonus', live.effectsDue(5).returnees === 0 && live.rentDue(5) === rent14);
 live.lots['11'].placedDay = 4;
 check('unplaced stand earns no bonus', (live.lots['11'].placed = false, live.rentDue(5) === rent14));
 live.lots['11'].placed = true;
 // inherited stands still carry their purpose — the gift keeps its terms
-check('inherited stand bonus counts (14 not ours, purpose set)', (live.lots['14'].purpose = 'rent', live.rentDue(5) === rent14 + 5 + rent11 + 5));
+check('inherited stand bonus counts (14 not ours, purpose set)', (live.lots['14'].purpose = 'rent', live.rentDue(5) === rent14 + P.rent.rentBonus + rent11 + P.rent.rentBonus));
 
 // ============================================================
 // 4) describe POSTs the right route with lot + day + encoded prompt
@@ -278,6 +283,22 @@ check('worksite removed once the real GLB lands', !live2.lots['14'].marker && re
 check('stand placed exactly once after retry', adds2.filter(o => o.type !== 'Group').length === 1 && live2.lots['14'].placed);
 check('no duplicate markers across the whole flow', adds2.filter(o => o.type === 'Group').length === 1);
 
+// Arrival toasts only fire for transitions witnessed live — the first
+// status read hydrates silently (an inherited street was always there,
+// nothing "opened" today); a describe landing success still announces.
+const scene3 = { add(){}, remove(){} };
+let toasts3 = 0;
+fetchImpl = async () => ({ ok: true, json: async () => ({ lots: [
+  { lot: '14', status: 'success', prompt: 'a ramen counter', day: 3, purpose: null, modelUrl: 'https://x/a.glb' },
+] }) });
+const live3 = initFranchise({ scene: scene3, seed: 44, classic: false, loader, onArrived: () => { toasts3++; } });
+await new Promise(r => setTimeout(r, 60));
+check('hydration read places stands silently', toasts3 === 0 && live3.lots['14'].placed, `toasts=${toasts3}`);
+fetchImpl = async () => ({ ok: true, json: async () => ({ status: 'success', purpose: null, claimed: true, modelUrl: 'https://x/b.glb' }) });
+await live3.describe('11', 'a jazz record shop', 4, 'draw');
+await new Promise(r => setTimeout(r, 60));
+check('a witnessed arrival still announces', toasts3 === 1 && live3.lots['11'].placed, `toasts=${toasts3}`);
+
 // ============================================================
 // 5) convex backend — sanitize, spec, key contract, image mode, routes
 // ============================================================
@@ -327,15 +348,15 @@ check('http: describe passes the purpose param', /p\.get\("purpose"\) \?\? undef
 check('initFranchise called with scene + seed', /initFranchise\(\{[\s\S]*scene, seed: SEED/.test(main));
 check('arrival toast names the lot', main.includes('${def.name} is open'));
 check('inherited arrival never claims "builders finished"', main.includes('a previous owner built it; the rent is yours') && main.includes('ls && ls.mine'));
-check('card states the £15 base rent plainly', main.includes('pays you £15 rent each dawn'));
-check('chosen purpose previews its effect and the receipt', main.includes('lands on the next receipt'));
+check('card states the £15 ground rent plainly', main.includes('£15 ground rent each dawn'));
+check('chosen purpose previews its effect honestly', main.includes('first full day on the street'));
 check('worksite markers live in franchise.js', /new THREE\.Group\(\)/.test(frJs) && frJs.includes('scaffold(l.lot)') && frJs.includes('unscaffold(lotId)'));
 check('markers never appear in dead/classic mode', frJs.includes('dead || !scene'));
 check('dawn refresh in prepareDay', /franchise\.refresh\(d\)/.test(main));
 check('rent applied at open', /const fr = franchise\.rentDue\(d\); if \(fr\) \{ till \+= fr/.test(main));
 check('receipt carries the rent row', main.includes("'The Row · stand rent'"));
 check('the Row card renders in its own brief section', main.includes("renderFranchiseRow()") && main.includes("$('brief-row')"));
-check('row teaser promises leases on day 3', main.includes('the Row leases open day 3'));
+check('row teaser promises the first lease on day 3', main.includes('the first lease opens day 3'));
 check('teaser skipped once stands are built (inherited seed before day 3)', /if \(built\.length\) \{ doneBlock\(false\); return; \}/.test(main));
 check('partial row names remaining lease days, not "spoken for"', main.includes('opens day ${l.unlockDay}') && main.includes('already ${built.length > 1 ? \'stand\' : \'stands\'} on the Row'));
 check('full-row wording only when every lot is built', main.includes('built.length === FRANCHISE.lots.length'));
@@ -345,7 +366,8 @@ check('typed draft survives same-lot redraws', main.includes('input.value = rowD
 check('draft resets only on a new day or lot', /if \(forNow !== rowFor\) \{ rowFor = forNow;/.test(main));
 check('brief offers the next vacant lot', main.includes('franchise.nextVacant(day)'));
 check('lease card POSTs describe with lot + purpose', /franchise\.describe\(vacant\.id, text, day, rowPurpose\)/.test(main));
-check('lease card labels the three purposes exactly', main.includes('+0.02 awareness at close') && main.includes('+8 returnees tomorrow') && main.includes('+£5 rent per dawn'));
+check('lease card labels the three purposes', main.includes('awareness at close') && main.includes('returnees tomorrow') && main.includes('rent per dawn'));
+check('purpose labels derive from config so they cannot drift', /FRANCHISE\.purposes\.\w+\.\w+/.test(main) && main.includes('FRANCHISE.purposes.rent.rentBonus'));
 check('purpose buttons are mutually exclusive pressed-states', (main.match(/aria-pressed/g) || []).length >= 2 && main.includes('row-purpose'));
 check('lease card has an aria-live status line', main.includes("id = 'brief-row-status'") && main.includes("aria-live', 'polite'") || main.includes('brief-row-status') && main.includes('aria-live'));
 check('send requires a chosen purpose', main.includes('pick what the stand is for'));
@@ -359,12 +381,20 @@ check('close folds purpose returnees into resolveDay', /extraReturnees: womRetur
 check('draw bonus clamps awareness once after resolveDay', /demand\.awareness = Math\.min\(1, Math\.max\(0, demand\.awareness \+ rowFx\.awareness\)\)/.test(main));
 check('logged awareness after stays consistent', main.includes('dtrace.after = demand.awareness'));
 check('receipt names the awareness bonus (non-money row)', main.includes("'The Row · a draw'") && main.includes('awareness carried into tomorrow'));
-check('receipt names the returnees bonus (non-money row)', main.includes("'The Row · a neighbourly stand'") && main.includes('returnees tomorrow'));
-check('purpose bonuses reset with the day and the campaign', (main.match(/franchiseFxToday = \{ awareness: 0, returnees: 0 \}/g) || []).length >= 3);
+check('receipt names the returnees bonus by the chosen word', main.includes("'The Row · a hub'") && main.includes('returnees tomorrow'));
+check('receipt splits the tenant lease out of the rent line', main.includes('a tenant’s lease') && main.includes('franchiseRentToday - franchiseFxToday.rentBonus'));
+check('purpose bonuses reset with the day and the campaign', (main.match(/franchiseFxToday = \{ awareness: 0, returnees: 0, rentBonus: 0 \}/g) || []).length >= 3);
 check('client takes the server purpose verbatim', frJs.includes('ls.purpose = d.purpose ?? null'));
 check('client marks mine only on claimed', frJs.includes('if (d.claimed) ls.mine = true'));
 check('poll overwrites purpose with the read', frJs.includes('ls.purpose = l.purpose ?? null'));
-check('status reads re-render the card while planning', /onStatus: \(\) => \{ if \(phase === 'planning'\) renderFranchiseRow\(\)/.test(main));
+check('hydration read never toasts — only witnessed arrivals', frJs.includes('!firstRead') && /announce = true/.test(frJs));
+check('status reads re-render the card while planning', /if \(phase === 'planning'\) renderFranchiseRow\(\)/.test(main));
+check('claimed lots suppress the day-5 scaffold props', main.includes("setConstruction(d, rowClaimed('18'))") && main.includes("setConstructionLeft(d, rowClaimed('11'))"));
+check('scaffold setters accept the suppress flag', /setConstruction = \(day, suppress = false\)/.test(readFileSync(join(ROOT, 'web/js/world.js'), 'utf8')));
+check('the letter is Row-aware', main.includes('snap.row = rowSummary') && readFileSync(join(ROOT, 'web/js/letter.js'), 'utf8').includes('s.row'));
+check('status route nudges mature tasks', http.includes('api.franchise.statusLive'));
+check('statusLive re-queries past the nudge threshold', convexFr.includes('statusLive') && convexFr.includes('NUDGE_MS') && convexFr.includes('internal.tripo.pollTask'));
+check('tripo exposes a per-task live poll', convexTripo.includes('export const pollTask') && convexTripo.includes('checkTripoTask'));
 check('licence offers the two street entries', main.includes("lic-see-street") && main.includes("lic-new-street") && main.includes("set('seed', '99')"));
 check('franchiseRentToday reset per dawn + campaign', (main.match(/franchiseRentToday = 0/g) || []).length >= 2);
 check('franchise exported for headless tests', /\n  franchise,\n/.test(main));

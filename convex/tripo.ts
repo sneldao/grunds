@@ -48,8 +48,12 @@ function resolveModel(model: string): string {
 // Reaper thresholds: webhooks normally land within a few minutes; re-query
 // anything still processing after 10 min, give up after 1h (failed tasks
 // are refunded, so a lost task only costs the row, not credits).
+// NUDGE_MS is the live path: a status read on a task past 90s re-queries
+// Tripo itself, so a described stand can arrive mid-session instead of
+// waiting for the hourly cron.
 export const REAPER_STUCK_MS = 10 * 60 * 1000;
 export const REAPER_DEAD_MS = 60 * 60 * 1000;
+export const NUDGE_MS = 90 * 1000;
 
 export interface GenerateSpec {
   prompt: string;
@@ -263,6 +267,64 @@ export const generate = action({
   },
 });
 
+// One live re-query of a Tripo task. Returns the outcome to applyResult,
+// or null while still in flight / on a transient read — callers retry.
+async function checkTripoTask(
+  apiKey: string,
+  taskId: string,
+): Promise<
+  { ok: true; modelUrl?: string; previewUrl?: string } | { ok: false; error: string } | null
+> {
+  try {
+    const res = await fetch(`${BASE}/tasks/${taskId}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    const data = (await res.json()) as {
+      code: number;
+      data?: {
+        status?: string;
+        output?: { model_url?: string; rendered_image_url?: string };
+      };
+    };
+    const t = data.data;
+    if (!t || data.code !== 0) return null; // transient — retry next tick
+    if (t.status === "success")
+      return { ok: true, modelUrl: t.output?.model_url, previewUrl: t.output?.rendered_image_url };
+    if (t.status === "failed" || t.status === "cancelled" || t.status === "banned")
+      return { ok: false, error: `tripo: ${t.status}` };
+    return null; // queued / running
+  } catch {
+    return null;
+  }
+}
+
+// Live nudge: a status read on a task past NUDGE_MS asks Tripo directly —
+// the player watching a worksite shouldn't wait for the hourly reaper.
+export const pollTask = internalAction({
+  args: { taskId: v.string() },
+  handler: async (ctx, args): Promise<{ done: boolean }> => {
+    const apiKey = process.env.TRIPO_API_KEY;
+    if (!apiKey) return { done: false };
+    const row = (await ctx.runQuery(internal.tripo.staleProcessing, {}))
+      .find((r) => r.taskId === args.taskId && r.provider === "tripo");
+    if (!row) return { done: true }; // already terminal
+    const age = Date.now() - row.createdAt;
+    if (age < NUDGE_MS) return { done: false };
+    const r = age > REAPER_DEAD_MS
+      ? ({ ok: false, error: "reaper: timed out" } as const)
+      : await checkTripoTask(apiKey, args.taskId);
+    if (!r) return { done: false };
+    await ctx.runMutation(internal.tripo.applyResult, {
+      taskId: args.taskId,
+      ok: r.ok,
+      modelUrl: r.ok ? r.modelUrl : undefined,
+      previewUrl: r.ok ? r.previewUrl : undefined,
+      error: r.ok ? undefined : r.error,
+    });
+    return { done: true };
+  },
+});
+
 // Reaper backstop: re-query tasks stuck in "processing" (lost webhook).
 // Internal — driven by the cron, never public.
 export const reaper = internalAction({
@@ -286,38 +348,16 @@ export const reaper = internalAction({
         continue;
       }
       if (now - row.createdAt < REAPER_STUCK_MS) continue; // webhook likely on its way
-      try {
-        const res = await fetch(`${BASE}/tasks/${row.taskId}`, {
-          headers: { Authorization: `Bearer ${apiKey}` },
-        });
-        const data = (await res.json()) as {
-          code: number;
-          data?: {
-            status?: string;
-            output?: { model_url?: string; rendered_image_url?: string };
-          };
-        };
-        const t = data.data;
-        if (!t || data.code !== 0) continue; // transient — retry next tick
-        if (t.status === "success") {
-          await ctx.runMutation(internal.tripo.applyResult, {
-            taskId: row.taskId,
-            ok: true,
-            modelUrl: t.output?.model_url,
-            previewUrl: t.output?.rendered_image_url,
-          });
-          resolved++;
-        } else if (t.status === "failed" || t.status === "cancelled" || t.status === "banned") {
-          await ctx.runMutation(internal.tripo.applyResult, {
-            taskId: row.taskId,
-            ok: false,
-            error: `reaper: ${t.status}`,
-          });
-          failed++;
-        }
-      } catch {
-        // network blip — leave processing, next tick retries
-      }
+      const t = await checkTripoTask(apiKey, row.taskId);
+      if (!t) continue;
+      await ctx.runMutation(internal.tripo.applyResult, {
+        taskId: row.taskId,
+        ok: t.ok,
+        modelUrl: t.ok ? t.modelUrl : undefined,
+        previewUrl: t.ok ? t.previewUrl : undefined,
+        error: t.ok ? undefined : t.error,
+      });
+      if (t.ok) resolved++; else failed++;
     }
     return { checked: rows.length, resolved, failed };
   },

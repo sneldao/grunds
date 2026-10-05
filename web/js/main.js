@@ -135,8 +135,41 @@ const franchise = initFranchise({
   onArrived: (inst, def, ls) => fx.toast(ls && ls.mine
     ? `the builders finished — ${def.name} is open`
     : `${def.name} is open — a previous owner built it; the rent is yours`, 'good'),
-  onStatus: () => { if (phase === 'planning') renderFranchiseRow(); },
+  onStatus: () => {
+    if (phase === 'planning') renderFranchiseRow();
+    applyConstruction(day);   // a claimed lot drops its generic scaffold prop
+  },
 });
+// The day-5 gentrification props share the facades the Row builds on:
+// a claimed lot shows its own worksite/stand instead of the generic
+// scaffold. Right prop overlaps lot 18, left overlaps lot 11; the back-row
+// prop has no lot — it always dresses the turnover.
+function rowClaimed(id) {
+  const s = franchise.lots[id]?.status;
+  return s === 'success' || s === 'processing';
+}
+function applyConstruction(d) {
+  world.setConstruction(d, rowClaimed('18'));
+  world.setConstructionLeft(d, rowClaimed('11'));
+  world.setConstructionRight(d);
+}
+// The Row's real state for the letter — built stands, claimed (built or
+// in the builders' hands), and leases open but unsigned as of day d.
+function rowSummary(d) {
+  // null until a live read lands — dead/classic mode and the pre-poll
+  // window fall back to the letter's legacy lines rather than assert
+  // Row state we don't actually know.
+  if (!franchise.live) return null;
+  const lots = franchise.lots || {};
+  let built = 0, claimed = 0;
+  for (const l of FRANCHISE.lots) {
+    const s = lots[l.id]?.status;
+    if (s === 'success') built++;
+    if (s === 'success' || s === 'processing') claimed++;
+  }
+  const unsigned = FRANCHISE.lots.filter(l => d >= l.unlockDay && lots[l.id]?.status !== 'success' && lots[l.id]?.status !== 'processing').length;
+  return { built, claimed, unsigned };
+}
 // Linkup market intel: fetched once per session (server-cached 6h). Tilts the
 // dawn deck via exchange.openDay(bias) and is cited in the roaster's letter.
 let marketIntel = null;
@@ -372,7 +405,7 @@ let selectedLot = 'huila', topUpCups = 0, beanSpend = 0, emergencySpend = 0, sac
 // Morning stock loan — a lump beside the tab, not a replacement for it.
 const loan = new MorningLoan();
 let stagedLoan = 0, stagedCases = 0, caseUnits = 0, caseRevenueToday = 0, franchiseRentToday = 0;
-let franchiseFxToday = { awareness: 0, returnees: 0 };   // the Row's purpose bonuses landed at last close
+let franchiseFxToday = { awareness: 0, returnees: 0, rentBonus: 0 };   // the Row's purpose bonuses landed at last close
 let loanLotCover = 0, loanSponsorCover = 0, loanCashCap = null, closeTillOverride = null;
 let loanClaim = null, menuHeld = null, salesTillForOps = null;
 let pouredOther = 0, lastPour = 0, dawnIndex = 1.0;
@@ -1282,9 +1315,9 @@ function closeDay() {
   lastPour = pouredOther;
   // Phase 4 — advice ignored: the rumour warned, the player rode naked.
   if (exchange.event?.id === 'rumour_frost' && !exchange.contract) ignoredAdvice++;
-  // The Row's purposes land at close: a hub stand brings +8 returnees
-  // tomorrow, a draw stand nudges street awareness +0.02 (applied after
-  // resolveDay's own clamp, clamped once more).
+  // The Row's purposes land at close: a hub stand brings returnees
+  // tomorrow, a draw stand nudges street awareness (applied after
+  // resolveDay's own clamp, clamped once more) — values in FRANCHISE.purposes.
   const rowFx = franchise.effectsDue(day);
   const dtrace = demand.resolveDay({
     served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier,
@@ -1494,11 +1527,15 @@ function closeDay() {
       // Till is already net of emergency cups (billed at serve); lot sacks
       // never touched it (they ride the tab). Only batch prep grosses back.
       ['revenue', fmt(till + batchSpend - franchiseRentToday)],
-      ...(franchiseRentToday > 0 ? [['The Row · stand rent', `+${fmt(franchiseRentToday)}`]] : []),
+      // The rent line splits a tenant's commercial lease out of the
+      // peppercorn base — the player's purpose choice is visible on paper,
+      // not folded silently into one number.
+      ...(franchiseRentToday - (franchiseFxToday.rentBonus || 0) > 0 ? [['The Row · stand rent', `+${fmt(franchiseRentToday - franchiseFxToday.rentBonus)}`]] : []),
+      ...(franchiseFxToday.rentBonus > 0 ? [['The Row · a tenant’s lease', `+${fmt(franchiseFxToday.rentBonus)}`]] : []),
       // Purpose bonuses settled at close: not money, so no £ — the draw
       // lifted awareness into tomorrow, the hub sent returnees home happy.
       ...(franchiseFxToday.awareness > 0 ? [['The Row · a draw', `+${franchiseFxToday.awareness.toFixed(2)} awareness carried into tomorrow`]] : []),
-      ...(franchiseFxToday.returnees > 0 ? [['The Row · a neighbourly stand', `+${franchiseFxToday.returnees} returnees tomorrow`]] : []),
+      ...(franchiseFxToday.returnees > 0 ? [['The Row · a hub', `+${franchiseFxToday.returnees} returnees tomorrow`]] : []),
       ['bean cost', fmt(beanCostToday)],
       ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
       ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
@@ -1613,6 +1650,7 @@ function showLetter() {
     lastHedge,
   };
   snap.idris = buildIdrisMemory(snap);
+  snap.row = rowSummary(snap.day);   // the letter speaks to the day ahead
   const L = composeLetter(snap);
   $('letter-head').textContent = L.head;
   $('letter-body').textContent = L.body;
@@ -2151,9 +2189,9 @@ function appendLoanLine(wrap) {
 // instead of a dead end: a stand somebody else described still pays you
 // rent. That's the gift.
 const ROW_PURPOSES = [
-  { id: 'draw',      label: 'a draw',    benefit: '+0.02 awareness at close' },
-  { id: 'community', label: 'a hub',     benefit: '+8 returnees tomorrow' },
-  { id: 'rent',      label: 'a tenant',  benefit: '+£5 rent per dawn' },
+  { id: 'draw',      label: 'a draw',    benefit: `+${FRANCHISE.purposes.draw.awareness.toFixed(2)} awareness at close` },
+  { id: 'community', label: 'a hub',     benefit: `+${FRANCHISE.purposes.community.returnees} returnees tomorrow` },
+  { id: 'rent',      label: 'a tenant',  benefit: `+£${FRANCHISE.purposes.rent.rentBonus} rent per dawn` },
 ];
 const ROW_EXAMPLES = ['a tiny ramen counter', 'a vinyl listening bar', 'a flower stall'];
 // Draft state survives re-renders for the SAME lot (a mid-entry status
@@ -2249,7 +2287,7 @@ function renderFranchiseRow() {
     if (!building.length) {
       const t = document.createElement('div');
       t.className = 'row-teaser';
-      t.textContent = 'across the road, three storefronts stand empty — the Row leases open day 3';
+      t.textContent = 'across the road, three storefronts stand empty — the first lease opens day 3';
       host.appendChild(t);
     }
     return;
@@ -2269,7 +2307,7 @@ function renderFranchiseRow() {
   title.textContent = `${vacant.name} is vacant`;
   const why = document.createElement('p');
   why.className = 'row-why';
-  why.textContent = 'describe the stand you want there and the builders grow it — every stand on the Row pays you £15 rent each dawn, and what it’s for adds its own pull on the street. first, tell them what the stand is for:';
+  why.textContent = 'describe the stand you want there and the builders grow it — £15 ground rent each dawn, plus whatever its purpose brings the street. first, tell them what the stand is for:';
   card.append(kick, title, why);
 
   const statusEl = document.createElement('div');
@@ -2294,7 +2332,7 @@ function renderFranchiseRow() {
     b.onclick = () => {
       rowPurpose = p.id;
       for (const q of ROW_PURPOSES) purposeBtns[q.id].setAttribute('aria-pressed', q.id === p.id ? 'true' : 'false');
-      statusEl.textContent = `${p.label} — ${p.benefit} · on top of the £15 dawn rent, and it lands on the next receipt`;
+      statusEl.textContent = `${p.label} — ${p.benefit} · on top of the £15 ground rent, from its first full day on the street`;
     };
     purposeBtns[p.id] = b;
     purposes.appendChild(b);
@@ -3086,6 +3124,7 @@ function showMorningBrief() {
     lastHedge,
   };
   snap.idris = buildIdrisMemory(snap);
+  snap.row = rowSummary(day);
   // MakeReadable: if the player hasn't seen headlines yet, the Brief is the
   // first place the wire's strongest tilt is explained — not just hinted.
   const L = composeLetter(snap);
@@ -3765,7 +3804,7 @@ function prepareDay(d) {
   loan.beginMorning();
   stagedLoan = 0; stagedCases = 0; caseRevenueToday = 0;
   franchiseRentToday = 0; franchise.refresh(d);
-  franchiseFxToday = { awareness: 0, returnees: 0 };
+  franchiseFxToday = { awareness: 0, returnees: 0, rentBonus: 0 };
   loanLotCover = 0; loanSponsorCover = 0; salesTillForOps = null;
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   demand.staged.sample = false; demand.staged.sponsor = false;
@@ -3958,9 +3997,7 @@ function startTradingDay(d) {
     world.mistMat.color.setHex(frosty ? 0xc2c9d1 : harvest ? 0xffe9a8 : 0x9a9ea6);
   } catch {}
   world.setRentPressure(d);          // the gentrification sign: 'let' → 'lease' → 'sold'
-  world.setConstruction(d);          // the day-5 scaffold + tarp: the building is being remade
-  world.setConstructionLeft(d);      // the day-5 mirror scaffold on the left: the whole district is turning over
-  world.setConstructionRight(d);      // the day-5 back-row scaffold: gentrification reaches the further blocks
+  applyConstruction(d);
   const constructionOn = d >= 5;     // matches dayHasConstruction in world.js
   fx.constructionActive = constructionOn;   // drifting dust between the scaffolds
   audio.constructionSaw(constructionOn);    // a low procedural saw fading in/out
@@ -4649,7 +4686,7 @@ function reset(coreOnly = false) {
   // Phase 2 — the cellar rewinds with the campaign (fresh starter sacks).
   lotState.reset(); selectedLot = 'huila'; topUpCups = 0; beanSpend = 0; emergencySpend = 0; sackSpend = 0;
   loan.reset(); stagedLoan = 0; stagedCases = 0; caseUnits = 0; caseRevenueToday = 0; franchiseRentToday = 0;
-  franchiseFxToday = { awareness: 0, returnees: 0 };
+  franchiseFxToday = { awareness: 0, returnees: 0, rentBonus: 0 };
   loanLotCover = 0; loanSponsorCover = 0; loanCashCap = null; closeTillOverride = null;
   loanClaim = null; menuHeld = null; salesTillForOps = null;
   pouredOther = 0; lastPour = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set();

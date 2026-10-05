@@ -1,7 +1,7 @@
-import { action, internalMutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { assetKey, type GenerateSpec } from "./tripo";
+import { assetKey, NUDGE_MS, type GenerateSpec } from "./tripo";
 import { hashKey } from "./apiCache";
 import { tripoSlotSeed, TRIPO_MODEL, TRIPO_NEGATIVE } from "./district";
 
@@ -124,6 +124,45 @@ export const status = query({
       });
     }
     return { lots };
+  },
+});
+
+// Live status: the plain read plus a nudge — a lot still "processing"
+// past NUDGE_MS asks Tripo for the answer itself, so a stand described at
+// the morning brief can arrive while the player is still trading rather
+// than waiting on the hourly reaper. Read-only-looking, same shape back.
+export const statusLive = action({
+  args: { seed: v.number() },
+  handler: async (ctx, args): Promise<{ lots: LotStatus[] }> => {
+    const tasks = await ctx.runQuery(internal.franchise.processingTasks, { seed: args.seed });
+    const now = Date.now();
+    for (const t of tasks) {
+      if (now - t.createdAt >= NUDGE_MS)
+        await ctx.runAction(internal.tripo.pollTask, { taskId: t.taskId });
+    }
+    return ctx.runQuery(api.franchise.status, { seed: args.seed });
+  },
+});
+
+// Processing lots on a seed → the asset row's task id + age, for the
+// nudge. Actions can't touch the db, so this is a query.
+export const processingTasks = internalQuery({
+  args: { seed: v.number() },
+  handler: async (ctx, args): Promise<{ lot: string; taskId: string; createdAt: number }[]> => {
+    const frs = await ctx.db
+      .query("franchises")
+      .withIndex("by_seed", (q) => q.eq("seed", args.seed))
+      .collect();
+    const out: { lot: string; taskId: string; createdAt: number }[] = [];
+    for (const fr of frs) {
+      const row = await ctx.db
+        .query("tripoAssets")
+        .withIndex("by_key", (q) => q.eq("key", fr.key))
+        .unique();
+      if (row?.status === "processing" && row.taskId)
+        out.push({ lot: fr.lot ?? "14", taskId: row.taskId, createdAt: row.createdAt });
+    }
+    return out;
   },
 });
 

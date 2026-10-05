@@ -250,7 +250,9 @@ export const districtEnsure = httpAction(async (ctx, req) => {
 export const franchiseStatus = httpAction(async (ctx, req) => {
   const seed = Number(new URL(req.url).searchParams.get("seed") ?? 7);
   if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
-  return json(await ctx.runQuery(api.franchise.status, { seed }));
+  // statusLive nudges mature processing tasks itself — a described stand
+  // can land mid-session instead of waiting on the hourly reaper.
+  return json(await ctx.runAction(api.franchise.statusLive, { seed }));
 });
 
 export const franchiseDescribe = httpAction(async (ctx, req) => {
