@@ -14,6 +14,15 @@
 
 ## Log
 
+### 2026-10-05 — Tripo goes live: credits landed, provider routing shipped, first Tripo-grown districts
+- **The blocker cleared:** a funded `TRIPO_API_KEY` (25,000 credits) replaced the empty key on the deployment. `tripo:balance` verifies live — `fallback: false`, 25k in.
+- **Provider routing shipped (PR #25):** `district.ensure` now tries `tripo.generate` first for un-grown slots and falls back to `mint.generate` on refusal, missing key, budget stop, or throw. `kit` + `ensure` read BOTH provider keys per slot (`mintKey` vs `tripo.assetKey`), so Mint-cached seeds keep resolving untouched and a Tripo-failed slot lets Mint retry first — an outage can't pin a slot to `failed`. Tripo slots run `tripo-p1` with per-slot face limits (8–12k), the house negative prompt, and `model_seed`/`texture_seed` derived deterministically from (district seed, slot).
+- **Signed-URL fix:** Tripo's model/preview URLs expire, so a success triggers `tripo.persist` — the GLB + preview are copied into Convex file storage and the row repoints. Every future visitor loads a permanent URL.
+- **First Tripo districts grown: seeds 13 + 19, 5/5 each, ~48 credits/asset** (480 total of 25k). Seeds 11 + 23 turned out already Mint-grown since the Sep-19 refusal — the first player who visited them paid the generation; the memoization design did its job. In-game board shots captured for both Tripo seeds.
+- **Asset board live:** `tools/build-asset-board.mjs` → `dist/asset-board.html` (built by `build:dist`, served at `/asset-board.html`). Slot · provider · status · exact prompt · provider preview → GLB link · in-game screenshot; self-refreshes from `/district/kit` so it fills in as more seeds grow.
+- **`web/test/district-routing.mjs`** (19 assertions): provider order, fallback decisions, dual-key reads, idempotency, board wiring. Suite 321/321, `tsc` clean, deployed.
+- **Tool-track claim is now honest:** real Tripo generations are load-bearing in the shipped game — two whole districts exist because Tripo built them.
+
 ### 2026-09-19 — The unblockable demo: `?classicDistrict`, on-demand pre-warm, seed in every artifact
 - **`tools/mint-pipeline.mjs` (new):** grows or checks district kits through the *same* live `district:ensure` / `district:kit` path the first player's boot fires — one prompt source of truth (`convex/district.ts`), offline and runtime can't drift. Each poll tick kicks `mint:reaper` directly instead of waiting for the hourly cron, so a fresh kit finalizes inside one run; writes `out/district-manifest.json`. **Hero seed 7: 5/5 grown + cached** — the seed judges land on never waits on a provider.
 - **`?classicDistrict` built** (aliases `?noDistrict` / `?nogen`) — the completeness guarantee the plan named but nobody had wired: `districtOptOut()` is pure + test-pinned; a classic boot makes **zero network calls**. New `web/test/district.mjs` (20 assertions): opt-out regex (incl. substring false-positives), classic/headless/no-GL/no-base no-ops, slot placement contract, main.js wiring. Gate **20/20**, `tsc` clean, site uploaded.

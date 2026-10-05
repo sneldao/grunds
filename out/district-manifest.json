@@ -1,75 +1,95 @@
 {
-  "generatedAt": "2026-09-19T17:26:40.875Z",
-  "provider": "mint",
+  "generatedAt": "2026-10-05T17:24:12.660Z",
+  "provider": "tripo>mint",
   "preset": "fast",
   "seeds": [
     {
-      "seed": 11,
-      "done": false,
+      "seed": 13,
+      "done": true,
       "growing": false,
       "counts": {
-        "missing": 5
+        "success": 5
       },
       "slots": {
         "cart": {
-          "modelUrl": null,
-          "previewUrl": null,
-          "status": "missing"
+          "status": "success",
+          "provider": "tripo",
+          "prompt": "a wooden bagel vendor cart on four small wheels, oak and sage green with brass fittings, clean stylized game-ready prop, small-scale street furniture, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans",
+          "modelUrl": "https://tripo-data.rg1.data.tripo3d.com/tcli_6496dc5c79724540a3203d086065058e/20261005/85aacbfe-a58a-4ca4-8d9b-5ce8526cfa69/tripo_pbr_model_85aacbfe-a58a-4ca4-8d9b-5ce8526cfa69.glb?Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly90cmlwby1kYXRhLnJnMS5kYXRhLnRyaXBvM2QuY29tL3RjbGlfNjQ5NmRjNWM3OTcyNDU0MGEzMjAzZDA4NjA2NTA1OGUvMjAyNjEwMDUvODVhYWNiZmUtYTU4YS00Y2E0LThkOWItNWNlODUyNmNmYTY5L3RyaXBvX3Bicl9tb2RlbF84NWFhY2JmZS1hNThhLTRjYTQtOGQ5Yi01Y2U4NTI2Y2ZhNjkuZ2xiIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzkxMzA4MDc1fX19XX0_&Signature=Q-y2fT1rbdKqqSOTLsNZHaJlbkXMgAxBsOFnAIAm2C11P0aLa-GBhTY9lwmsV7hYUPBB5rd3i5wUhMUN5EX5Dl1WQo3JDMAIECSPsog908QujFzTdrJbZmfL35g592a-6W0JVkEaKWGhTztAxFd5E0R0n-Wh6prlVQqGwQ24tBywMhfXv0YV48V591vURRnIpBi7Hu31-trurBHc4hU0Ls16Fi9nZXuObMWgFD1z0lEOC7B8f-83fVIS7gi9kkzM8rg03NS~L6JN-7UsuLFnmqp1-h0e-yI86dZJ2-KsvrPP~rFknueypk-tvlPXVpHranq4q3aJ9JrYd6S32RbTXQ__&Key-Pair-Id=K1676C64NMVM2J",
+          "previewUrl": "https://tripo-data.rg1.data.tripo3d.com/tcli_6496dc5c79724540a3203d086065058e/20261005/85aacbfe-a58a-4ca4-8d9b-5ce8526cfa69/legacy_mesh.webp?Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly90cmlwby1kYXRhLnJnMS5kYXRhLnRyaXBvM2QuY29tL3RjbGlfNjQ5NmRjNWM3OTcyNDU0MGEzMjAzZDA4NjA2NTA1OGUvMjAyNjEwMDUvODVhYWNiZmUtYTU4YS00Y2E0LThkOWItNWNlODUyNmNmYTY5L2xlZ2FjeV9tZXNoLndlYnAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTEzMDgwNzV9fX1dfQ__&Signature=ITKLITxESZD2czrxM1HGujsJCGrSpxnZHuCxuOlVKFTTQu9A4GoJ8q9LGdER5j9IK6O5~nKYy3-wxCFREP3K92H6VNYbrZlA06LbgGj3i-GCs3blIEi~HpR4tF4YGqUG17h7R9wpZxWV3qq86TI3lkktu1Bc9-H35MCO1x5oVl1d4pnTL7icgKkvQh~RDfrPfiaQyMsdzZylfuOG7Y-69LXH9ZItWl~6eW3hhaggM3teUYVDRnxLXbdzMOPEWv6FCgsevws7nrZoWmkycXUa5FxoAKBy7x-IBe3UtdGLnjfITd7k0oELqkirQZ-vIfbBYEvEoi6k-6fzWmubR2LwyA__&Key-Pair-Id=K1676C64NMVM2J"
         },
         "lantern": {
-          "modelUrl": null,
-          "previewUrl": null,
-          "status": "missing"
+          "status": "success",
+          "provider": "tripo",
+          "prompt": "a low round ceramic street lantern on a stone base, oak and sage green with brass fittings, clean stylized game-ready prop, small-scale street furniture, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans",
+          "modelUrl": "https://striped-anaconda-746.convex.cloud/api/storage/5aa3d36b-0e09-4e9a-926f-dfd7c2e0e4a3",
+          "previewUrl": "https://striped-anaconda-746.convex.cloud/api/storage/83065cdc-8488-4314-b863-a0607b75adb0"
         },
         "planter": {
-          "modelUrl": null,
-          "previewUrl": null,
-          "status": "missing"
+          "status": "success",
+          "provider": "tripo",
+          "prompt": "a square cast-iron planter with a lush monstera plant, oak and sage green with brass fittings, clean stylized game-ready prop, small-scale street furniture, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans",
+          "modelUrl": "https://striped-anaconda-746.convex.cloud/api/storage/612d43cd-216b-49e1-8fc1-86303539fc70",
+          "previewUrl": "https://striped-anaconda-746.convex.cloud/api/storage/b2dc4f34-915f-437c-a93c-9c7d607afba2"
         },
         "sign": {
-          "modelUrl": null,
-          "previewUrl": null,
-          "status": "missing"
+          "status": "success",
+          "provider": "tripo",
+          "prompt": "a small copper district plaque on an oak post, oak and sage green with brass fittings, clean stylized game-ready prop, small-scale street furniture, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans",
+          "modelUrl": "https://striped-anaconda-746.convex.cloud/api/storage/15bbb32d-da7b-493f-95cb-6dd8c484ed9b",
+          "previewUrl": "https://striped-anaconda-746.convex.cloud/api/storage/d083cd10-9091-4583-8272-11b445df96f6"
         },
         "stall": {
-          "modelUrl": null,
-          "previewUrl": null,
-          "status": "missing"
+          "status": "success",
+          "provider": "tripo",
+          "prompt": "a lemonade trolley stall with a striped canvas canopy, oak and sage green with brass fittings, clean stylized game-ready prop, small-scale street furniture, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans",
+          "modelUrl": "https://striped-anaconda-746.convex.cloud/api/storage/e9b47683-4a14-4d1d-9c83-18929160ae91",
+          "previewUrl": "https://striped-anaconda-746.convex.cloud/api/storage/e155a34b-51cb-4aed-b2d9-dfd443f2187a"
         }
       }
     },
     {
-      "seed": 23,
-      "done": false,
+      "seed": 19,
+      "done": true,
       "growing": false,
       "counts": {
-        "missing": 5
+        "success": 5
       },
       "slots": {
         "cart": {
-          "modelUrl": null,
-          "previewUrl": null,
-          "status": "missing"
+          "status": "success",
+          "provider": "tripo",
+          "prompt": "a wooden bagel vendor cart on four small wheels, oak and terracotta with brass fittings, clean stylized game-ready prop, small-scale street furniture, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans",
+          "modelUrl": "https://striped-anaconda-746.convex.cloud/api/storage/6c3e2a11-2ae7-4b73-997d-c2a52a53bef3",
+          "previewUrl": "https://striped-anaconda-746.convex.cloud/api/storage/fd93e3bb-6047-4685-b412-beb35cfbd977"
         },
         "lantern": {
-          "modelUrl": null,
-          "previewUrl": null,
-          "status": "missing"
+          "status": "success",
+          "provider": "tripo",
+          "prompt": "a low round ceramic street lantern on a stone base, oak and terracotta with brass fittings, clean stylized game-ready prop, small-scale street furniture, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans",
+          "modelUrl": "https://striped-anaconda-746.convex.cloud/api/storage/60bfc88d-e13b-43d6-b3b0-776e6d2bc3e1",
+          "previewUrl": "https://striped-anaconda-746.convex.cloud/api/storage/b8961281-7c8d-4306-855a-dd17ff4e28bf"
         },
         "planter": {
-          "modelUrl": null,
-          "previewUrl": null,
-          "status": "missing"
+          "status": "success",
+          "provider": "tripo",
+          "prompt": "a wooden planter box overflowing with lavender and small white flowers, oak and terracotta with brass fittings, clean stylized game-ready prop, small-scale street furniture, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans",
+          "modelUrl": "https://striped-anaconda-746.convex.cloud/api/storage/4fbabc15-eb5b-4a75-b913-19ba8fab13d7",
+          "previewUrl": "https://striped-anaconda-746.convex.cloud/api/storage/ce79ab61-dc64-4d1f-bb03-7d8a99594b3b"
         },
         "sign": {
-          "modelUrl": null,
-          "previewUrl": null,
-          "status": "missing"
+          "status": "success",
+          "provider": "tripo",
+          "prompt": "a small copper district plaque on an oak post, oak and terracotta with brass fittings, clean stylized game-ready prop, small-scale street furniture, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans",
+          "modelUrl": "https://striped-anaconda-746.convex.cloud/api/storage/3f216131-f5ca-47b5-9baf-f5aaa55cc6bd",
+          "previewUrl": "https://striped-anaconda-746.convex.cloud/api/storage/f50680ee-b9b3-486c-b126-a4f4b86ea1ad"
         },
         "stall": {
-          "modelUrl": null,
-          "previewUrl": null,
-          "status": "missing"
+          "status": "success",
+          "provider": "tripo",
+          "prompt": "a lemonade trolley stall with a striped canvas canopy, oak and terracotta with brass fittings, clean stylized game-ready prop, small-scale street furniture, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans",
+          "modelUrl": "https://striped-anaconda-746.convex.cloud/api/storage/7928ea63-71c1-4f21-9f60-0b8ecdd9ef08",
+          "previewUrl": "https://striped-anaconda-746.convex.cloud/api/storage/946970d8-7a85-4c9e-b3ec-a5392cc0207a"
         }
       }
     }
