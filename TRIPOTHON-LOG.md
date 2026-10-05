@@ -270,3 +270,43 @@ text-mode keys are byte-identical to before, every orphaned row
 re-resolved instantly, and the ~15 slots that re-grew under the shifted
 keys became harmless duplicate rows. The test now pins the conditional
 fingerprint so a future spec field can't repeat it.
+
+## Consistency pass — the Row meets the game (2026-10-05, late)
+
+A harmonization sweep across every system the Row touches, after the
+purpose/worksite sprint left seams:
+
+- **Live arrival is real now**: `/franchise/status` runs `statusLive`,
+  which re-queries Tripo for any task past 90s (`tripo.pollTask`,
+  factored out of the hourly reaper). Verified end-to-end on seed 5 —
+  three stands described, resolved to `success` inside ~2 minutes
+  through the status read itself, no cron wait.
+- **World + letter agree with the Row**: claimed lots suppress the
+  baked day-5 scaffold props that physically overlapped them; the
+  Roaster's Letter reads `s.row` = { built, claimed, unsigned } instead
+  of asserting the pre-Row "For Lease / scaffolded" story. `rowSummary`
+  returns null until a live status read lands so dead mode keeps legacy
+  lines and a boot-time letter can't assert unknown state.
+- **Purposes scaled to the economy** (+0.04 awareness / +8 returnees /
+  +£40 tenant lease — the £5 uplift was ~7x weaker than the hub's gross
+  against a ~£2.9k/day operating nut) and centralized in
+  `FRANCHISE.purposes`; UI labels, effects, and receipt rows all derive
+  from the one table.
+- **Honest toasts**: `state.onArrived` was never assigned — arrival
+  toasts were unreachable. Now wired, and the first status read
+  hydrates silently (`announce=false`) so an inherited street doesn't
+  announce itself as newly arrived.
+- **Receipt speaks the player's words**: the chosen purpose is named
+  ("a draw" / "a hub") and the tenant uplift is split out of the stand-
+  rent line ("a tenant's lease"). Asset board: `player-authored`, and
+  purpose shown beside the prompt.
+- Suite: focused franchise file green (151+ checks incl. new anchors
+  for the nudge, suppression, hydration silence); typecheck + syntax
+  clean. No browser used anywhere — hardware constraint respected.
+
+**Demo seed for the video**: `?seed=5` — fully-grown district plus all
+three purposes standing: a neon-lit vinyl listening bar (draw), a
+corner bookshop (community), an artisan bakery (rent).
+
+**Credit ledger**: ~3,070 of 25,000 used (~21,930 remain) — three more
+generations for the purpose-demo Row.
