@@ -2,19 +2,21 @@ import { action, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { mintKey } from "./mint";
+import { assetKey, type GenerateSpec } from "./tripo";
 
 // The Generative District — district kits (TRIPOTHON.md Tier A).
 //
 // A District Seed is a shareable world: seed → deterministic kit spec
 // (five street-furniture slots, each a precise prompt) → content-keyed
-// get-or-create via the active provider (Mint today; Tripo when credits
-// land — the keys differ by provider by design, so flipping providers
-// re-grows the district rather than clobbering cached rows).
+// get-or-create, provider-routed: Tripo first, Mint as the proven fallback.
+// Keys differ by provider by design (`mintKey` vs `tripo.assetKey`), so a
+// slot already grown by Mint stays cached under its mint key and is never
+// re-grown; un-grown slots go to Tripo. Both may coexist for one seed.
 //
-// Determinism note: Mint exposes no seed parameters, so "same seed → same
-// street" is *key memoization* — the first player on a seed pays for the
-// generation, every later player loads the cached rows. The seed never
-// changes what the street looks like after the first grow.
+// Determinism note: Tripo slots carry a `model_seed`/`texture_seed` derived
+// from (district seed, slot), so a Tripo district is reproducible at the API
+// level. Mint exposes no seed parameters — there "same seed → same street"
+// is *key memoization* (generate once, cache forever).
 
 export const DISTRICT_SLOTS = ["lantern", "planter", "stall", "sign", "cart"] as const;
 export type SlotName = (typeof DISTRICT_SLOTS)[number];
@@ -104,6 +106,89 @@ export function slotKey(slot: SlotName, spec: { prompt: string; name: string }):
   return mintKey({ prompt: spec.prompt, name: spec.name, preset: DISTRICT_PRESET });
 }
 
+// Tripo spec for a slot. P1 is the low-poly game-pipeline workhorse;
+// face limits follow TRIPOTHON.md §7 scale discipline (stall is the one
+// stand-sized piece). Negative prompt = the house-style negative block.
+export const TRIPO_MODEL = "tripo-p1";
+export const TRIPO_NEGATIVE =
+  "blurry, broken mesh, duplicated parts, watermark, logo, text, letters, humans";
+const TRIPO_FACE_LIMIT: Record<SlotName, number> = {
+  lantern: 8000,
+  planter: 8000,
+  stall: 12000,
+  sign: 8000,
+  cart: 10000,
+};
+
+// (district seed, slot) → stable positive int32 seed. Distinct salts keep
+// geometry and texture seeds independent.
+export function tripoSlotSeed(seed: number, slot: SlotName, salt = 0): number {
+  const idx = DISTRICT_SLOTS.indexOf(slot);
+  const rng = mulberry32((Math.imul(seed | 0, 2654435761) ^ Math.imul(idx + 1, 0x85ebca6b) ^ salt) >>> 0);
+  return 1 + Math.floor(rng() * 2147483646);
+}
+
+export function tripoSpecForSlot(
+  seed: number,
+  slot: SlotName,
+  spec: { prompt: string; name: string },
+): GenerateSpec {
+  return {
+    prompt: spec.prompt,
+    model: TRIPO_MODEL,
+    modelSeed: tripoSlotSeed(seed, slot),
+    textureSeed: tripoSlotSeed(seed, slot, 0x7e57),
+    faceLimit: TRIPO_FACE_LIMIT[slot],
+    pbr: true,
+    negativePrompt: TRIPO_NEGATIVE,
+  };
+}
+
+export function tripoSlotKey(seed: number, slot: SlotName, spec: { prompt: string; name: string }): string {
+  return assetKey(tripoSpecForSlot(seed, slot, spec));
+}
+
+export type Provider = "tripo" | "mint";
+type SlotRow = {
+  status: string;
+  provider?: string;
+  modelUrl?: string | null;
+  previewUrl?: string | null;
+} | null;
+
+const live = (r: SlotRow) => !!r && (r.status === "success" || r.status === "processing");
+
+// Dual-key read: which provider's row represents this slot. A success under
+// either key wins (Tripo preferred when both exist); then processing; then
+// whatever row exists (failed); else null → "missing".
+export function pickSlotRow(
+  mintRow: SlotRow,
+  tripoRow: SlotRow,
+): { provider: Provider; row: NonNullable<SlotRow> } | null {
+  const order: [Provider, SlotRow][] = [["tripo", tripoRow], ["mint", mintRow]];
+  for (const want of ["success", "processing"]) {
+    for (const [provider, row] of order) if (row && row.status === want) return { provider, row };
+  }
+  for (const [provider, row] of order) if (row) return { provider, row };
+  return null;
+}
+
+// Which providers ensure() should try for a slot, in order. [] = leave it
+// alone (success/processing under either key — idempotent, never re-grow).
+// Tripo first; if Tripo already failed this slot asynchronously and Mint
+// hasn't, Mint goes first so a Tripo outage can't pin a slot to "failed".
+export function providerOrder(mintRow: SlotRow, tripoRow: SlotRow): Provider[] {
+  if (live(mintRow) || live(tripoRow)) return [];
+  if (tripoRow?.status === "failed" && mintRow?.status !== "failed") return ["mint", "tripo"];
+  return ["tripo", "mint"];
+}
+
+// A generate() result that didn't start or find a live task → try the next
+// provider (missing key, daily budget, safety refusal, upstream error).
+export function shouldFallBack(g: { fallback?: boolean; status: string } | null | undefined): boolean {
+  return !g || !!g.fallback || (g.status !== "success" && g.status !== "processing");
+}
+
 // Floor read: full kit status for a seed, one query. The client polls this
 // while any slot is "processing"; "success" rows cross-fade in on arrival.
 export const kit = query({
@@ -111,68 +196,96 @@ export const kit = query({
   handler: async (ctx, args): Promise<{
     seed: number;
     preset: string;
-    slots: Record<
-      string,
-      { status: string; modelUrl: string | null; previewUrl: string | null }
-    >;
+    slots: Record<string, KitSlot>;
   }> => {
     const spec = kitSpecForSeed(args.seed);
-    const slots = {} as Record<
-      string,
-      { status: string; modelUrl: string | null; previewUrl: string | null }
-    >;
+    const slots = {} as Record<string, KitSlot>;
+    const byKey = (key: string) =>
+      ctx.db.query("tripoAssets").withIndex("by_key", (q) => q.eq("key", key)).unique();
     for (const slot of DISTRICT_SLOTS) {
-      const key = slotKey(slot, spec[slot]);
-      const row = await ctx.db
-        .query("tripoAssets")
-        .withIndex("by_key", (q) => q.eq("key", key))
-        .unique();
-      slots[slot] = row
-        ? { status: row.status, modelUrl: row.modelUrl ?? null, previewUrl: row.previewUrl ?? null }
-        : { status: "missing", modelUrl: null, previewUrl: null };
+      const mintRow = await byKey(slotKey(slot, spec[slot]));
+      const tripoRow = await byKey(tripoSlotKey(args.seed, slot, spec[slot]));
+      const hit = pickSlotRow(mintRow, tripoRow);
+      slots[slot] = hit
+        ? {
+            status: hit.row.status,
+            provider: hit.provider,
+            modelUrl: hit.row.modelUrl ?? null,
+            previewUrl: hit.row.previewUrl ?? null,
+            prompt: spec[slot].prompt,
+          }
+        : { status: "missing", provider: null, modelUrl: null, previewUrl: null, prompt: spec[slot].prompt };
     }
     return { seed: args.seed, preset: DISTRICT_PRESET, slots };
   },
 });
 
-// Get-or-create the kit: missing/failed slots are generated (Mint),
-// processing/success slots are left alone. Idempotent — the first player on
-// a seed grows it for everyone. Budget-guarded inside mint.generate.
+type KitSlot = {
+  status: string;
+  provider: Provider | null;
+  modelUrl: string | null;
+  previewUrl: string | null;
+  prompt: string;
+};
+
+// Get-or-create the kit: missing/failed slots are generated (Tripo first,
+// Mint fallback), processing/success slots under either provider key are
+// left alone. Idempotent — the first player on a seed grows it for
+// everyone. Budget-guarded inside each provider's generate. Never throws on
+// provider trouble: an un-grown slot reads "missing" → classic stand-in.
 export const ensure = action({
   args: { seed: v.number() },
   handler: async (ctx, args): Promise<{
     seed: number;
-    slots: Record<string, { status: string; modelUrl: string | null; fallback?: boolean; error?: string }>;
+    slots: Record<string, EnsureSlot>;
   }> => {
     const spec = kitSpecForSeed(args.seed);
-    const slots = {} as Record<string, {
-      status: string;
-      modelUrl: string | null;
-      fallback?: boolean;
-      error?: string;
-    }>;
+    const slots = {} as Record<string, EnsureSlot>;
     for (const slot of DISTRICT_SLOTS) {
-      const key = slotKey(slot, spec[slot]);
-      const existing = await ctx.runQuery(api.tripo.byKey, { key });
-      if (
-        existing &&
-        (existing.status === "success" || existing.status === "processing")
-      ) {
-        slots[slot] = { status: existing.status, modelUrl: existing.modelUrl };
+      const tripoSpec = tripoSpecForSlot(args.seed, slot, spec[slot]);
+      const mintRow = await ctx.runQuery(api.tripo.byKey, { key: slotKey(slot, spec[slot]) });
+      const tripoRow = await ctx.runQuery(api.tripo.byKey, { key: assetKey(tripoSpec) });
+      const order = providerOrder(mintRow, tripoRow);
+      if (!order.length) {
+        const hit = pickSlotRow(mintRow, tripoRow)!;
+        slots[slot] = { status: hit.row.status, provider: hit.provider, modelUrl: hit.row.modelUrl ?? null };
         continue;
       }
-      const g = await ctx.runAction(api.mint.generate, {
-        prompt: spec[slot].prompt,
-        name: spec[slot].name,
-        preset: DISTRICT_PRESET,
-      });
-      slots[slot] = {
-        status: g.status,
-        modelUrl: g.modelUrl ?? null,
-        fallback: g.fallback,
-        error: g.error,
-      };
+      const errors: string[] = [];
+      let result: EnsureSlot = { status: "missing", provider: null, modelUrl: null, fallback: true };
+      for (const provider of order) {
+        let g: { status: string; modelUrl?: string | null; fallback?: boolean; error?: string } | null;
+        try {
+          g =
+            provider === "tripo"
+              ? await ctx.runAction(api.tripo.generate, tripoSpec)
+              : await ctx.runAction(api.mint.generate, {
+                  prompt: spec[slot].prompt,
+                  name: spec[slot].name,
+                  preset: DISTRICT_PRESET,
+                });
+        } catch (e) {
+          g = null;
+          errors.push(`${provider}: ${(e as { message?: string } | null)?.message ?? "generate threw"}`);
+        }
+        if (g && !shouldFallBack(g)) {
+          result = { status: g.status, provider, modelUrl: g.modelUrl ?? null };
+          break;
+        }
+        if (g?.error) errors.push(`${provider}: ${g.error}`);
+        result = { status: g?.status ?? "missing", provider: null, modelUrl: null, fallback: true };
+      }
+      if (errors.length) result.error = errors.join("; ");
+      slots[slot] = result;
     }
     return { seed: args.seed, slots };
   },
 });
+
+type EnsureSlot = {
+  status: string;
+  provider: Provider | null;
+  modelUrl: string | null;
+  fallback?: boolean;
+  error?: string;
+};

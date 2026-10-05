@@ -404,6 +404,12 @@ export const applyResult = internalMutation({
           previewUrl: args.previewUrl,
           error: undefined,
         });
+        if (row.provider === "tripo" && args.modelUrl)
+          await ctx.scheduler.runAfter(0, internal.tripo.persist, {
+            key: row.key,
+            modelUrl: args.modelUrl,
+            previewUrl: args.previewUrl,
+          });
       } else {
         await ctx.db.patch(row._id, {
           status: "failed",
@@ -413,5 +419,45 @@ export const applyResult = internalMutation({
         });
       }
     }
+  },
+});
+
+// Tripo's output URLs are signed and short-lived; the floor loads GLBs for
+// every future visitor, so copy them into Convex file storage once and
+// repoint the row. Best-effort: on any failure the original URL stays.
+export const persist = internalAction({
+  args: { key: v.string(), modelUrl: v.string(), previewUrl: v.optional(v.string()) },
+  handler: async (ctx, args): Promise<{ stored: boolean }> => {
+    const copy = async (url: string): Promise<string | null> => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`fetch ${res.status}`);
+      const id = await ctx.storage.store(await res.blob());
+      return await ctx.storage.getUrl(id);
+    };
+    try {
+      const modelUrl = await copy(args.modelUrl);
+      if (!modelUrl) return { stored: false };
+      let previewUrl: string | undefined;
+      if (args.previewUrl) previewUrl = (await copy(args.previewUrl).catch(() => null)) ?? undefined;
+      await ctx.runMutation(internal.tripo.setStoredUrls, { key: args.key, modelUrl, previewUrl });
+      return { stored: true };
+    } catch {
+      return { stored: false };
+    }
+  },
+});
+
+export const setStoredUrls = internalMutation({
+  args: { key: v.string(), modelUrl: v.string(), previewUrl: v.optional(v.string()) },
+  handler: async (ctx, args): Promise<void> => {
+    const row = await ctx.db
+      .query("tripoAssets")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
+      .unique();
+    if (!row || row.status !== "success") return;
+    await ctx.db.patch(row._id, {
+      modelUrl: args.modelUrl,
+      ...(args.previewUrl ? { previewUrl: args.previewUrl } : {}),
+    });
   },
 });
