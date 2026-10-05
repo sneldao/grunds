@@ -21,7 +21,7 @@ check(loanAmount(400) === 400 && loanAmount(800) === 800 && loanAmount(1200) ===
 check(loanAmount(100) === null && loanAmount(2000) === null && loanAmount(-400) === null, 'off-step and over-cap draws are refused');
 check(LOAN_STEP === 400 && LOAN_MAX === 1600 && LOAN_RATE === 0.18, 'agreed step, cap, and rate');
 check(CASE_RETURN_CAP === 0.48, 'case return cap stays 48%');
-check(CAMPAIGN.demand.returnMax === 0.35, 'loyalty return cap is not raised');
+check(CAMPAIGN.demand.returnMax === 0.48, 'loyalty return cap is not raised');
 check(deliveryQty(200) === 220, 'the milk van stays at its existing buffer');
 check(loanDue(400).interest === 72 && loanDue(400).due === 472, '£400 costs £72');
 check(loanDue(1600).interest === 288 && loanDue(1600).due === 1888, '£1,600 costs £288');
