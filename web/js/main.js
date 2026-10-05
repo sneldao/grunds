@@ -34,7 +34,7 @@ import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, co
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay, modifiersForDay, wavesForDay, getMacroShockForDay, calculateNonLinearDrift, MACRO_SHOCKS } from './gentrification.js';
 import { strategyForDay } from './rival.js';
-import { canChooseStaffing, canHaveStaffCrisis, earnedRestDay } from './staffing.js';
+import { canChooseStaffing, canHaveStaffCrisis, earnedRestDay, canStageHire, sickMorningCover, isMaintenanceMorning, robotPace, visitLands, tipForgone, quietOpinionDrag, HIRE_ROBOT } from './staffing.js';
 import { resolveDecision } from './decision.js';
 import { firstMorningCopy, economicsLesson } from './orientation.js';
 import { planTools, TOOL_IDS, toolCopy, essentialNote } from './curriculum.js';
@@ -449,6 +449,11 @@ let baristaCondition = 1.0, baristaHomeToday = false, baristaRested = false, bar
 // arc is the week); all reset on campaign restart.
 let ruthNoticed = false, ruthAsked = false, ruthRestDay = 0, ruthReturned = false, ruthRestOffer = 0;
 let starCarry = false; // a starred week; reset does not clear it — day 1 of the next week spends it
+// Week hire. Day 1 of the real week chooses Ruth (default) or the robot.
+// It locks at open. quietCarry is the room that lease leaves behind: reset
+// does not clear it, and dawn does not either.
+let weekHire = 'ruth', hireLocked = false, quietCarry = 0;
+let maintenanceBill = 0, tipsForgoneToday = 0;
 let pastryCut = 0;     // staged share of tomorrow's case to skip, 0..1
 const RUTH_CAUSES = {
   rush: 'It’s the lunch rush, every day — the line never ends and I’m the whole bar.',
@@ -750,6 +755,10 @@ function tick() {
         continue;
       }
       till += e.price; cogs += e.lotId ? 0 : e.beanCost ?? 0; sales++;   // Phase 2 cash-basis: lot cups were expensed at the dawn top-up
+      // The gratuity rides inside the ticket. A warm Ruth week forgoes
+      // none of it. A robot week, and the quieter room it leaves, keeps less.
+      const forgone = tipForgone(e.price, regulars.tipMul, { robot: onRobotHire(), quiet: quietCarry });
+      if (forgone) { till -= forgone; tipsForgoneToday += forgone; }
       if (e.hedged) { hedgedCups++; realizedHedgeSavings += e.spotCost - e.beanCost; }
       if (e.viaRegister) servedRetail++; else served++;
       // Phase 2 — the cup tells its story: emergency sacks bill the till at
@@ -806,7 +815,7 @@ function tick() {
           const stage = regulars.noteVisit(e.p.regularIdx, { day, drink: drinkName });
           if (stage) e.p.stage = stage;
           if (e.p.stage === 'evangelist' && !womPids.has(womKey)) { womPids.add(womKey); evangelistServes++; }
-        } else if (e.p.pid) {
+        } else if (e.p.pid && visitLands(served, { robot: onRobotHire(), quiet: quietCarry })) {
           const head = walkins.recordVisit(e.p.pid, { day, drink: drinkName, outcome: 'served' });
           if (head) { e.p.stage = head.stage; e.p.visits = head.visits;
             if (head.stage === 'evangelist' && !womPids.has(womKey)) { womPids.add(womKey); evangelistServes++; } }
@@ -1012,7 +1021,7 @@ function beats() {
   }
   // Ruth breaks — pushed under a fifth of her condition and worked anyway,
   // she fails on the floor: asleep at the counter or sharp with a regular.
-  if (canHaveStaffCrisis({ day, staffing: baristaHomeToday ? 'home' : apprenticeHiredToday ? 'apprentice' : 'work', condition: baristaCondition, crisis: baristaCrisis, dayMin })) {
+  if (canHaveStaffCrisis({ day, staffing: onRobotHire() ? 'robot' : baristaHomeToday ? 'home' : apprenticeHiredToday ? 'apprentice' : 'work', condition: baristaCondition, crisis: baristaCrisis, dayMin })) {
     baristaCrisis = true;
     if (Math.random() < 0.5) { patrons.staffMul = 0.5; fx.toast('Ruth’s gone quiet — she’s asleep on the back counter. The bar crawls.', 'bad'); }
     else { regulars.adjustOpinions(-0.2); fx.toast('Ruth snapped at a regular — the room went cold.', 'bad'); }
@@ -1195,7 +1204,12 @@ function closeDay() {
   // bar runs a third slower while she's off. Apprentice gives partial rest.
   const ruthWasHome = baristaHomeToday;
   const hiredApprentice = apprenticeHiredToday;
-  if (ruthWasHome) { baristaCondition = Math.min(1, baristaCondition + 0.45); baristaRested = true; }
+  const robotShift = onRobotHire();
+  if (robotShift) {
+    // Ruth is off the rota for the stretch. She doesn't drain, and the
+    // robot doesn't rest its way into her condition.
+    quietCarry = Math.min(1, Math.round((quietCarry + (CAMPAIGN.staff.quietStep || 0)) * 1000) / 1000);
+  } else if (ruthWasHome) { baristaCondition = Math.min(1, baristaCondition + 0.45); baristaRested = true; }
   else if (hiredApprentice) { baristaCondition = Math.min(1, baristaCondition + (CAMPAIGN.staff?.ruthApprenticeRest || 0.25)); baristaRested = true; }
   else baristaCondition = Math.max(0, baristaCondition - 0.14 - (peakQueue > 50 ? 0.08 : 0) - (balked > 60 ? 0.06 : 0));
   baristaHomeToday = false;
@@ -1236,7 +1250,13 @@ function closeDay() {
       else if (party.walked > party.served) r.op = Math.max(-1, r.op - 0.12);
     }
   }
-  regulars.resolveDay({ served: servedN, balked, defections, priced: repriced });
+  const roomQuiet = robotShift || quietCarry > 0;
+  regulars.resolveDay({
+    served: servedN, balked, defections, priced: repriced,
+    warmth: roomQuiet ? CAMPAIGN.staff.robotWarmth : 1,
+    landVisit: (i) => visitLands(i + day, { robot: robotShift, quiet: quietCarry }),
+  });
+  if (robotShift) regulars.adjustOpinions(quietOpinionDrag(CAMPAIGN.staff.quietStep || 0));
   const offer = earnedRestDay(day, { reputation: regulars.reputation, served: servedN, balked, campaignDays: CAMPAIGN.days });
   if (offer) ruthRestOffer = offer;
   batchWaste = Math.max(0, ctx.batchUnits | 0);
@@ -1277,9 +1297,10 @@ function closeDay() {
   }
   const ops = operatingCosts({
     till, served: servedN,
-    staffing: ruthWasHome ? 'home' : hiredApprentice ? 'apprentice' : 'work',
+    staffing: robotShift ? 'robot' : ruthWasHome ? 'home' : hiredApprentice ? 'apprentice' : 'work',
     marketing: marketingSpend,   // the sponsor invoice arrives with the milk bill
     training: trainingSpend, sampling: sampleSpend,
+    maintenance: maintenanceBill,
     perkCostMul, modifiers: dayMods,
   });
   lastOps = ops;
@@ -1413,7 +1434,9 @@ function closeDay() {
       ...(milkTipped > 0 ? [['milk tipped', `${milkTipped} units`]] : []),
       ...(hedgedCups > 0 ? [['hedge benefit (before fees)', fmt(realizedHedgeSavings)],
                             ...(feeToday > 0 ? [['hedge net of the fee', fmt(realizedHedgeSavings - feeToday)]] : [])] : []),
-      ['staff', fmt(ops.staff)], ['milk + cups' + (dayMods.suppliesDelta ? ' (incl. oat surcharge)' : ''), fmt(ops.supplies)],
+      ['staff', fmt(ops.staff)],
+      ...(ops.maintenance > 0 ? [['call-out', fmt(ops.maintenance)]] : []),
+      ['milk + cups' + (dayMods.suppliesDelta ? ' (incl. oat surcharge)' : ''), fmt(ops.supplies)],
       ['pitch rent' + (dayMods.pitchMinDelta ? ' (incl. reval)' : ''), fmt(ops.pitch)], ['card fees', fmt(ops.fees)],
       ['electricity', fmt(ops.power)], ['wifi', fmt(ops.wifi)],
       ...(wifiOutage && wifiOutage.tethered ? [['phone hotspot (outage)', `−${fmt(wifiOutage.tetherCost)} from the till`]] : []),
@@ -1633,6 +1656,8 @@ function stageDayPlan(patch = {}) {
   }
   if (patch.staffing !== undefined) {
     if (!STAFFING_CHOICES.includes(patch.staffing)) return false;
+    // The robot replaced both of them. Home and the apprentice are Ruth's.
+    if (hireLocked && weekHire === HIRE_ROBOT && patch.staffing !== 'work') return false;
     if (patch.staffing !== 'work' && !canChooseStaffing(day, baristaCondition) && ruthRestOffer !== day) return false;
     cand.staffing = patch.staffing;
   }
@@ -1711,8 +1736,15 @@ function applyCommittedPlan(res) {
   // Ruth's shift lands here — staged in the Brief, committed with the hedge.
   // Sent home: bar −30% today, her wage saved tonight, she recovers at close.
   // Apprentice: hire temp barista, Ruth half-day rest, extra speed.
-  baristaHomeToday = res.plan.staffing === 'home';
-  apprenticeHiredToday = res.plan.staffing === 'apprentice';
+  // Day 1 of the real week locks the hire. The robot replaces both of them.
+  if (!softDay && day === 1) hireLocked = true;
+  if (onRobotHire()) {
+    baristaHomeToday = false;
+    apprenticeHiredToday = false;
+  } else {
+    baristaHomeToday = res.plan.staffing === 'home';
+    apprenticeHiredToday = res.plan.staffing === 'apprentice';
+  }
   baristaStaged = false;
   // Street work lands here too — staged at dawn, paid today, felt tomorrow.
   // Sampling burns cups out of today's COGS; sponsoring invoices the ops sheet.
@@ -1849,7 +1881,7 @@ function watchDrawer(det, id) {
 function renderPlanQuote() {
   const nutEl = $('brief-nut'); if (!nutEl || !planDraft) return;
   const q = quoteDayPlan({
-    day, hedge: planDraft.hedge, staffing: planDraft.staffing, marketing: planDraft.marketing,
+    day, hedge: planDraft.hedge, staffing: onRobotHire() ? 'robot' : planDraft.staffing, marketing: planDraft.marketing,
     debt: exchange.debt, extraFee: contractFeeExtra, perkCostMul, modifiers: modifiersForDay(day),
   });
   // The cellar stages at dawn prices: show the restock's tab impact in the
@@ -2684,7 +2716,11 @@ function showMorningBrief() {
     if (heading) heading.textContent = firstDay ? (softWeekDone ? 'OPENING WEEK' : firstMorningCopy().heading) : 'THE MORNING BRIEF';
     const obj = $('brief-objective');
     if (obj) {
-      if (firstDay) { obj.textContent = ''; obj.style.display = 'none'; }
+      if (firstDay) {
+        obj.textContent = '';
+        obj.style.display = 'none';
+        if (!softDay) renderHireLine();
+      }
       else {
         obj.textContent = 'Keep the café going for five days. The rival across the road counts cups too; regulars remember who made them welcome.';
         obj.style.display = '';
@@ -3007,7 +3043,10 @@ function showMorningBrief() {
     staffRow.textContent = '';
     baristaStaged = false;
     const earnedRest = ruthRestOffer === day;
-    if (canChooseStaffing(day, baristaCondition) || earnedRest) {
+    // The lease is one line on day 1, not this row. Once it locks, the
+    // robot cannot be sent home and the apprentice is not on the rota.
+    if (hireLocked && weekHire === HIRE_ROBOT) staffRow.style.display = 'none';
+    else if (canChooseStaffing(day, baristaCondition) || earnedRest) {
       staffRow.style.display = '';
       const t = document.createElement('div');
       t.style.cssText = 'font-size:10.5px;opacity:.78;margin-bottom:5px;font-style:italic';
@@ -3176,6 +3215,39 @@ function showMorningBrief() {
   try { analytics.track('brief_shown', { day, event: exchange.event ? exchange.event.id : null, index: exchange.beanIndex, hasWire: !!marketIntel }); } catch {}
 }
 
+function onRobotHire() {
+  return !softDay && weekHire === HIRE_ROBOT;
+}
+
+// One line on the existing brief. Day 1 of the real week, locked at open.
+function renderHireLine() {
+  const obj = $('brief-objective');
+  if (!obj || day !== 1 || softDay) return;
+  obj.style.display = '';
+  obj.textContent = '';
+  for (const c of [...(obj.children || [])]) c.remove?.();
+  const ruth = document.createElement('span');
+  ruth.id = 'brief-hire-ruth';
+  ruth.textContent = 'Keep Ruth';
+  ruth.onclick = () => stageWeekHire('ruth');
+  const or = document.createElement('span');
+  or.textContent = ' or ';
+  const bot = document.createElement('span');
+  bot.id = 'brief-hire-robot';
+  bot.textContent = 'lease the robot.';
+  bot.onclick = () => stageWeekHire(HIRE_ROBOT);
+  obj.append(ruth, or, bot);
+}
+
+function stageWeekHire(which) {
+  if (!canStageHire(day, { softDay, locked: hireLocked })) return false;
+  if (which !== 'ruth' && which !== HIRE_ROBOT) return false;
+  weekHire = which;
+  renderHireLine();
+  renderPlanQuote();
+  return true;
+}
+
 function showSoftIntro(step = 0) {
   const el = $('softintro'); if (!el) return;
   const wrap = $('softintro-step');
@@ -3259,7 +3331,8 @@ function prepareDay(d) {
   }
   if (ruthRestDay === d) {
     if (planDraft) planDraft.staffing = 'home';
-    fx.toast('Ruth’s day off — as promised. The bar is yours alone.', '');
+    if (weekHire === HIRE_ROBOT) { if (planDraft) planDraft.staffing = 'work'; }
+    else fx.toast('Ruth’s day off — as promised. The bar is yours alone.', '');
   }
   if (ruthRestDay > 0 && d === ruthRestDay + 1 && !ruthReturned) {
     ruthReturned = true;
@@ -3295,6 +3368,7 @@ function prepareDay(d) {
   realizedHedgeSavings = 0; hedgedCups = 0; preparedCups = 0;
   marketingSpend = 0; trainingSpend = 0; sampleSpend = 0; lastOps = null;
   feeToday = 0; interestToday = 0; settleToday = 0;
+  maintenanceBill = 0; tipsForgoneToday = 0;
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   demand.staged.sample = false; demand.staged.sponsor = false;
   dayMods = modifiersForDay(d);
@@ -3383,7 +3457,12 @@ function startTradingDay(d) {
   tapePrev = exchange.history.length ? exchange.history[exchange.history.length - 1].index : 1.0;
   // Ruth's pace at dawn — exhausted legs move slower until she's rested or sent home
   patrons.staffMul = (baristaCondition < 0.35 ? 0.8 : 1) * perkStaffMul; patrons.balkMul = 1;
-  if (baristaHomeToday) patrons.staffMul = 0.7;
+  if (onRobotHire()) {
+    const maint = isMaintenanceMorning(seedNow(), d);
+    maintenanceBill = maint ? CAMPAIGN.staff.maintenanceCallout : 0;
+    patrons.staffMul = robotPace(maint) * perkStaffMul;
+    patrons.balkMul = CAMPAIGN.staff.robotBalkMul;
+  } else if (baristaHomeToday) patrons.staffMul = 0.7;
   else if (apprenticeHiredToday) patrons.staffMul = (CAMPAIGN.staff?.apprenticeStaffMul || 1.05) * perkStaffMul;
   const ev = exchange.openDay(intelBias);    // drift first, then roll the market + the event
   // Phase 2 — wire → shelf: schedule this event's lot moves, land what's due.
@@ -3855,7 +3934,8 @@ function tetherWifi() {
 // while trading and the staged plan at dawn, so the panel previews the choice.
 function vitalsSnapshot() {
   const trading = phase === 'trading';
-  const staffing = trading ? (baristaHomeToday ? 'home' : apprenticeHiredToday ? 'apprentice' : 'work')
+  const staffing = onRobotHire() ? 'robot'
+    : trading ? (baristaHomeToday ? 'home' : apprenticeHiredToday ? 'apprentice' : 'work')
     : (planDraft ? planDraft.staffing : 'work');
   const house = lotState.house;
   const he = lotState.entry(house);
@@ -4027,7 +4107,15 @@ const INCIDENTS = [
   { who: 'Ruth, your barista', base: 55, share: 0.06, line: '“So sorry — I’ve woken up with no voice. I can’t make it in.”',
     effect: c => `£${c} agency cover · or solo shift — the bar runs ~40% slower`,
     yes: 'book the cover', no: 'work it solo',
-    accept() { till -= this._cost * perkCostMul; },
+    accept() {
+      till -= this._cost * perkCostMul;
+      // The cover is the apprentice. A robot stretch never takes this call.
+      if (sickMorningCover(weekHire) === 'apprentice') {
+        apprenticeHiredToday = true;
+        patrons.apprenticeActive = true;
+        patrons.staffMul = (CAMPAIGN.staff?.apprenticeStaffMul || 1.05) * perkStaffMul;
+      }
+    },
     decline() { patrons.staffMul = 0.6; } },
   { who: 'the card machine', base: 25, share: 0.03, line: 'The reader’s dead. Cash only until a 4G dongle lands.',
     effect: c => `£${c} for the dongle · or a fifth of today’s sales die at the till`,
@@ -4067,7 +4155,7 @@ function showIncident() {
   // Ruth can't call in sick on a day you already sent her home — and when
   // she's on fumes the call isn't a sick day, it's a warning shot.
   if (o.who === 'Ruth, your barista') {
-    if (baristaHomeToday || apprenticeHiredToday) o = INCIDENTS[(idx + 1) % INCIDENTS.length];
+    if (baristaHomeToday || apprenticeHiredToday || weekHire === HIRE_ROBOT) o = INCIDENTS[(idx + 1) % INCIDENTS.length];
     else if (baristaCondition < 0.4) o = { ...o,
       line: '“I can’t do another one like yesterday.” Ruth’s voice is flat — she’s on fumes.',
       effect: c => `£${c} agency cover · or she pushes on — the bar runs ~60% slower`,
@@ -4176,6 +4264,7 @@ function reset(coreOnly = false) {
   demand.reset(); marketingSpend = 0;
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
   apprenticeHiredToday = false; rivalStrategy = 'DEFAULT'; rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];
+  weekHire = 'ruth'; hireLocked = false; maintenanceBill = 0; tipsForgoneToday = 0;
   try { modals.closeAll(); } catch {}
   deskHeldPause = false;
   mailPending = false;
@@ -4185,6 +4274,8 @@ function reset(coreOnly = false) {
   if (sync.abandonRun) { sync.abandonRun(); if (sync.live && !sync.runDisabled) sync.beginRun(SEED).catch(() => {}); }
   const newOpWarm = (PERK_VALUES[perkBg] || {}).opWarm;
   for (const r of regulars.regulars) { r.op = newOpWarm != null ? Math.max(r.op, newOpWarm) : 0.15; r.visits = 5; r.stage = 'regular'; r.drink = CANON_DRINKS[r.name] || 'filter'; r.events = []; r.seen = false; r._spawned = false; r.served = 0; r.balked = 0; r.absence = 'present'; r.absentReason = null; r.justLost = false; r._defectShown = false; r._lastWalkoutDay = undefined; r._lastOutcomeDay = undefined; }
+  // The quieter room survives the new week. Dawn does not clear it either.
+  if (quietCarry > 0) regulars.adjustOpinions(quietOpinionDrag(quietCarry));
   walkins.reset();
   cRev = cCost = cBalked = cServed = cDef = cRivalServed = cRivalChoices = settledPaid = 0;
   campaignDone = false; paused = false;
@@ -5128,7 +5219,8 @@ function loop(now) {
     turnaways, rivalTurnaways: patrons.turnaways || 0,
     emergencyCups, beanSpend, emergencySpend, sackSpend, houseLot: lotState.house, houseStock: lotState.entry(lotState.house)?.stock ?? 0,
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, cRev, cCost, cOps, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null, rushFast, eveningFast,
-    staffCondition: baristaCondition, staffing: planDraft ? planDraft.staffing : 'work', rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
+    staffCondition: baristaCondition, staffing: onRobotHire() ? 'robot' : (planDraft ? planDraft.staffing : 'work'), rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
+    weekHire, hireLocked, quietCarry, apprentice: apprenticeHiredToday, maintenance: maintenanceBill, tipsForgone: tipsForgoneToday, staffMul: patrons.staffMul, tipMul: regulars.tipMul,
     trainingSpend, sampleSpend, feeToday, interestToday, settleToday, marketingSpend,
     milkDelivery, milkStock: ctx.milkStock, milky: ctx.milky, milkOut: ctx.milkOut, milkBalked,
     satisfaction: demand ? demand.satisfaction : 62,
@@ -5142,7 +5234,7 @@ function loop(now) {
   exc: exchange, reg: regulars, sync, world, rig, analytics,
   vitality, director, district, kitBeat, mailT, impact,
   openDay, applyReply, reset, togglePause, resolveEvening, skipToRush,
-  prepareDay, stageDayPlan, commitDayPlan, continueFromReview,
+  prepareDay, stageDayPlan, stageWeekHire, commitDayPlan, continueFromReview,
   stageShockCounter, stageCounterable, stagePastryCut,
   doPrebatch, doReprice,
   // Headless lever: stage menu prices + 86 board without DOM (mirrors the
@@ -5194,16 +5286,20 @@ function loop(now) {
   get coachedOpening() { return coachedOpening; },
   beginWeek,
   get plan() { return planDraft ? { ...planDraft, marketing: { ...demand.staged } } : null; },
+  get weekHire() { return weekHire; },
+  get hireLocked() { return hireLocked; },
+  get quietCarry() { return quietCarry; },
   get lastDayReceipt() { return lastDayReceipt; },
   get quote() {
     return planDraft ? quoteDayPlan({
-      day, hedge: planDraft.hedge, staffing: planDraft.staffing, marketing: planDraft.marketing,
+      day, hedge: planDraft.hedge, staffing: onRobotHire() ? 'robot' : planDraft.staffing, marketing: planDraft.marketing,
       debt: exchange.debt, extraFee: contractFeeExtra, perkCostMul, modifiers: modifiersForDay(day),
     }) : null;
   },
   get paused() { return paused; },
-  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci, pace: pc, moments: mo, moveTick: mt, softOpening: so, tutorial: tu } = {}) => {
+  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci, pace: pc, moments: mo, moveTick: mt, softOpening: so, tutorial: tu, quietCarry: qc } = {}) => {
     if (typeof c === 'number') baristaCondition = c;
+    if (typeof qc === 'number') quietCarry = qc;
     if (tu !== undefined) wantTutorial = !!tu;
     if (so !== undefined) { softTest = so === null ? null : !!so; if (phase === 'planning' && day === 1 && !softWeekDone) { softDay = softTest !== null ? softTest : wantsSoftDay(); patrons.markSeenOnly = softDay ? SOFT_CAST : null; if (softDay && !softRng) softRng = seeded(seedNow() + 101); } }
     if (pc !== undefined) paceTest = !!pc;

@@ -177,6 +177,17 @@ export const CAMPAIGN = {
     apprenticeStaffMul: 1.05,  // combined throughput bonus
     apprenticeWasteExtra: 0.04,// minor clumsiness increases waste
     ruthApprenticeRest: 0.25,  // partial rest Ruth gains when backed by a temp
+    // A week-long robot lease. Cheaper than Ruth's rostered day, slower than
+    // a healthy Ruth, and the room it leaves does not refill at dawn.
+    robotDayRate: 980,
+    robotStaffMul: 0.58,
+    robotBalkMul: 1.4,
+    robotTipRate: 0.08,        // the gratuity that usually rides inside the ticket
+    robotTipKeep: 0.4,         // a robot room leaves this share of it
+    robotWarmth: 0.45,         // opinion gains shrink while the room is quiet
+    maintenanceCallout: 96,    // one seeded morning, billed on the close
+    maintenanceSlow: 0.62,     // that morning the bar slows further
+    quietStep: 0.2,            // each robot day, the quieter room deepens
   },
   // Rival AI archetypes — GLASSHOUSE adopts dynamic strategies across the week.
   rivalStrategies: {

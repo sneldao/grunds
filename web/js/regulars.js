@@ -98,14 +98,17 @@ export class Regulars {
   // round of friendship contagion (each regular pulls 5% toward the mean
   // of their friends' opinions). Brought to the next dawn via the letter's
   // tone and the reputation meter.
-  resolveDay({ served, balked, defections, priced }) {
+  resolveDay({ served, balked, defections, priced, landVisit = null, warmth = 1 }) {
     const happy = busyHappy(served);
+    const land = typeof landVisit === 'function' ? landVisit : () => true;
+    const warm = Number.isFinite(warmth) ? warmth : 1;
     for (const r of this.regulars) {
       if (!r.seen) continue;
       // Phase 1 — a seen day is a visit (mirrors server resolveDay exactly:
       // visits = 5 + days seen). Restage after the op update below.
-      r.visits += 1;
-      r.op += (happy - 0.5) * 0.10;
+      // A quiet room credits fewer of them. The default credits every one.
+      if (land(r.i)) r.visits += 1;
+      r.op += (happy - 0.5) * 0.10 * warm;
       if (balked > served * 0.15) r.op -= 0.10;        // the floor drowned — the room sours hard
       else if (balked > served * 0.06) r.op -= 0.05;   // a rough day sours the room
       if (defections > 8) r.op -= 0.03;                // the chain's line is a bad sign

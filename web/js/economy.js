@@ -4,8 +4,11 @@ import { utilityCosts } from './utilities.js';
 export function salePrice(exchange, repriced = false) {
   return repriced ? ECON.matchaDeal : exchange.matchaPrice ?? priceForDay(Math.max(1, exchange.day));
 }
-export function operatingCosts({ till = 0, served = 0, staffing = 'work', marketing = 0, training = 0, sampling = 0, perkCostMul = 1, modifiers = {} } = {}) {
-  const wage = staffing === 'home' ? 0 : staffing === 'apprentice' ? CAMPAIGN.staff.apprenticeDayRate : CAMPAIGN.staffDayRate;
+export function operatingCosts({ till = 0, served = 0, staffing = 'work', marketing = 0, training = 0, sampling = 0, maintenance = 0, perkCostMul = 1, modifiers = {} } = {}) {
+  const wage = staffing === 'home' ? 0
+    : staffing === 'apprentice' ? CAMPAIGN.staff.apprenticeDayRate
+    : staffing === 'robot' ? CAMPAIGN.staff.robotDayRate
+    : CAMPAIGN.staffDayRate;
   const costs = {
     staff: wage + served * CAMPAIGN.staffPerCup,
     supplies: served * (CAMPAIGN.suppliesPerCup + (modifiers.suppliesDelta || 0) + (staffing === 'apprentice' ? CAMPAIGN.staff.apprenticeWasteExtra : 0)),
@@ -16,6 +19,7 @@ export function operatingCosts({ till = 0, served = 0, staffing = 'work', market
     marketing,
     training,
     sampling,
+    maintenance: maintenance || 0,
   };
   return { ...costs, total: Object.values(costs).reduce((a,b) => a+b,0) };
 }
