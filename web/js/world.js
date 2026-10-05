@@ -140,7 +140,7 @@ export function buildWorld(scene, renderer, lite) {
   for (const px of [-8.5, -6, -3.5]) {
     const p = new THREE.PointLight(0xffd2a0, 7, 10, 2); p.position.set(px, 2.15, -5.2); scene.add(p); pendants.push(p);
   }
-  const tableLight = new THREE.PointLight(0xffd2a0, 5, 10, 2); tableLight.position.set(6, 2.4, 1.4); scene.add(tableLight); pendants.push(tableLight);
+  const tableLight = new THREE.PointLight(0xffd2a0, 5, 10, 2); tableLight.position.set(-0.7, 2.4, 1.6); scene.add(tableLight); pendants.push(tableLight);
   W.lights = { hemi, sun, pendants };
 
   // ---- ground block -------------------------------------------------------
@@ -156,6 +156,12 @@ export function buildWorld(scene, renderer, lite) {
   const paveTex = pavement();
   const paveMat = new THREE.MeshStandardMaterial({ map: paveTex, roughness: 0.92, metalness: 0.01 });
   plane(g, 44, 3.6, paveMat, 0, 0.02, LAYOUT.pavementZ, { rx: -Math.PI / 2 });
+  // The customer room used to run out to x=12. That wing is the same
+  // near-side pavement as the sidewalk, so the tables are not sitting
+  // in a second empty floor.
+  const floorRight = LAYOUT.floor.x + LAYOUT.floor.w / 2;
+  const returnedW = 12 - floorRight;
+  plane(g, returnedW, LAYOUT.floor.d, paveMat, (floorRight + 12) / 2, 0.02, LAYOUT.floor.z, { rx: -Math.PI / 2 });
   plane(g, 44, 2.6, paveMat, 0, 0.02, 15.2, { rx: -Math.PI / 2 });
   const roadTex = road();
   const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.92, metalness: 0.02 });
@@ -225,21 +231,26 @@ export function buildWorld(scene, renderer, lite) {
   g.add(cup);
 
   // ---- café shell ---------------------------------------------------------
+  // Walls follow the customer room. The old right edge (x=12) is pavement.
+  const roomX0 = LAYOUT.floor.x - LAYOUT.floor.w / 2;
+  const roomX1 = LAYOUT.floor.x + LAYOUT.floor.w / 2;
+  const roomZ0 = LAYOUT.floor.z - LAYOUT.floor.d / 2;
+  const roomZ1 = LAYOUT.floor.z + LAYOUT.floor.d / 2;
   const cafe = new THREE.Group(); scene.add(cafe);
-  const backWall = box(cafe, 24, 4.4, 0.4, PAL.plaster, 0, 2.2, -8.2, { cast: false });            // back wall
-  const leftWall = box(cafe, 0.4, 4.4, 14.4, PAL.plaster, -12.2, 2.2, -1, { cast: false });        // left wall
-  box(cafe, 0.3, 1.15, 14.4, PAL.wainscot, 12.1, 0.57, -1, { cast: false });      // right half-wall (cutaway)
-  box(cafe, 24, 0.9, 0.5, PAL.wainscot, 0, 0.45, -8.05, { cast: false });         // back wainscot
-  box(cafe, 0.5, 0.9, 14.4, PAL.wainscot, -12.05, 0.45, -1, { cast: false });
+  const backWall = box(cafe, LAYOUT.floor.w, 4.4, 0.4, PAL.plaster, LAYOUT.floor.x, 2.2, roomZ0 - 0.2, { cast: false }); // back wall
+  const leftWall = box(cafe, 0.4, 4.4, LAYOUT.floor.d + 0.4, PAL.plaster, roomX0 - 0.2, 2.2, LAYOUT.floor.z, { cast: false }); // left wall
+  box(cafe, 0.3, 1.15, LAYOUT.floor.d + 0.4, PAL.wainscot, roomX1 + 0.1, 0.57, LAYOUT.floor.z, { cast: false }); // right half-wall (cutaway)
+  box(cafe, LAYOUT.floor.w, 0.9, 0.5, PAL.wainscot, LAYOUT.floor.x, 0.45, roomZ0 - 0.05, { cast: false }); // back wainscot
+  box(cafe, 0.5, 0.9, LAYOUT.floor.d + 0.4, PAL.wainscot, roomX0 - 0.05, 0.45, LAYOUT.floor.z, { cast: false });
   // front: pillars + fascia beam + sign + awning (dollhouse — no front wall)
-  for (const px of [-11.6, -7, -3, 11.6]) box(cafe, 0.42, 3.6, 0.42, PAL.walnutDark, px, 1.8, 6);
-  const frontBeam = box(cafe, 24, 0.7, 0.5, PAL.walnutDark, 0, 3.75, 6, { cast: false });
+  for (const px of [roomX0 + 0.4, -7, -3, roomX1 - 0.4]) box(cafe, 0.42, 3.6, 0.42, PAL.walnutDark, px, 1.8, roomZ1);
+  const frontBeam = box(cafe, LAYOUT.floor.w, 0.7, 0.5, PAL.walnutDark, LAYOUT.floor.x, 3.75, roomZ1, { cast: false });
   const signTex = shopSign('G R U N D S');
   const signMat = new THREE.MeshStandardMaterial({ map: signTex, emissive: 0xffc98a, emissiveMap: signTex, emissiveIntensity: 0.4, roughness: 0.8 });
   const signFace = plane(cafe, 6.4, 1.2, signMat, 0, 4.6, 6.42); const signBack = box(cafe, 6.6, 1.35, 0.18, PAL.walnutDark, 0, 4.6, 6.32, { cast: false });
   const awnTex = awning();
   const awnMat = new THREE.MeshStandardMaterial({ map: awnTex, roughness: 0.88, metalness: 0.01, side: THREE.DoubleSide });
-  const awningPlane = plane(cafe, 13, 2.6, awnMat, -2, 3.15, 7.1, { rx: -Math.PI / 2 + 0.32 });
+  const awningPlane = plane(cafe, 12.2, 2.6, awnMat, -3.0, 3.15, 7.1, { rx: -Math.PI / 2 + 0.32 });
   // awning tie-downs — tiny brass dots where the awning meets the fascia
   for (const px of [-6.8, -3.9, -1.0, 1.8]) {
     const td = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mat(0xc9a227, { metal: 0.6, rough: 0.35, cast: false }));
@@ -336,8 +347,8 @@ export function buildWorld(scene, renderer, lite) {
     o.signBack.visible = !play;
     o.awning.visible = !play;
     doorAwning.visible = play;
-    o.backWall.visible = !(play && camPos.z < -8.2);
-    o.leftWall.visible = !(play && camPos.x < -12.2);
+    o.backWall.visible = !(play && camPos.z < roomZ0 - 0.2);
+    o.leftWall.visible = !(play && camPos.x < roomX0 - 0.2);
   };
 
   // ---- the bar ------------------------------------------------------------
@@ -557,7 +568,7 @@ export function buildWorld(scene, renderer, lite) {
   // A small Kenney sideTable.glb next to the table cluster — used for the
   // server's pickup tray. (Procedural equivalent would be one more
   // cylinder+leg; the GLB is a free win.)
-  place(scene, 'sideTable.glb', { position: [9.5, 0, -1], scale: 1.0, rotationY: 0 });
+  place(scene, 'sideTable.glb', { position: [2.45, 0, -2.2], scale: 1.0, rotationY: 0 });
   // Kenney tableRound.glb + chairModernCushion.glb replace the procedural
   // 3-cylinder-per-table + 2-cylinder-per-chair construction. Seats[] is
   // still emitted with the same shape so patrons.js's sit logic is
@@ -698,7 +709,7 @@ export function buildWorld(scene, renderer, lite) {
     if (W.catOn) return;
     W.catOn = true; W.catT = 0; W.cat.visible = true; W.catSitsUntil = 0;
     const L = LAYOUT;
-    W.catPath = [new THREE.Vector3(L.spawnL.x, 0, L.spawnL.z), new THREE.Vector3(L.door.x, 0, 6.2), new THREE.Vector3(5.6, 0, 4)];
+    W.catPath = [new THREE.Vector3(L.spawnL.x, 0, L.spawnL.z), new THREE.Vector3(L.door.x, 0, 6.2), new THREE.Vector3(LAYOUT.tables[2].x, 0, LAYOUT.tables[2].z)];
     W.cat.position.copy(W.catPath[0]);
   };
   W._catMeowed = false;
@@ -1595,7 +1606,7 @@ export function buildWorld(scene, renderer, lite) {
   // ---- anchors ----------------------------------------------------------------
   W.focus = {
     counter: new THREE.Vector3(-6, 1.2, -4.2),
-    tables: new THREE.Vector3(6, 1, 1.5),
+    tables: new THREE.Vector3(-0.7, 1, 1.6),
     wide: new THREE.Vector3(0, 1, 3),
     rival: new THREE.Vector3(LAYOUT.rival.x, 1.6, LAYOUT.rival.z - 1),
     newbuild: new THREE.Vector3(8, 2.2, 16),   // the sold storefronts, day-5 finale

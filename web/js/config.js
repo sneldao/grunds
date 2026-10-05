@@ -24,13 +24,15 @@ export const COHORTS = {
 };
 export const COHORT_KEYS = Object.keys(COHORTS);
 
-// The diorama. Café floor x∈[-12,12], z∈[-8,6]; street z∈[6,14]; rival across.
+// The diorama. Customer room x∈[-12, 3.5], z∈[-8, 6] — the bar queue and
+// the three tables, not the old 24 m hall. The wing x∈[3.5, 12] is the
+// near pavement. Street z∈[6, 14]; rival and the named shops across.
 export const LAYOUT = {
-  floor: { x: 0, z: -1, w: 24, d: 14 },
+  floor: { x: -4.25, z: -1, w: 15.5, d: 14 },
   counter: { x: -6, z: -5.4, w: 9, d: 1.3 },       // drinks bar along the back
   register: { x: -0.6, z: -5.4 },                   // till at the right end of the bar
   retail: { x: -11.2, z: 1, w: 1.4, d: 6 },         // shelf along the left wall
-  tables: [ { x: 4.2, z: -0.4 }, { x: 8, z: 1.2 }, { x: 5.6, z: 4 } ],
+  tables: [ { x: -2.4, z: -0.4 }, { x: 1.3, z: 1.2 }, { x: -1.0, z: 4 } ],
   door: { x: -5, z: 6 },                            // front opening
   pavementZ: 7.8, roadZ0: 9.6, roadZ1: 13.8,
   rival: { x: 1.5, z: 16.6 },                       // GLASSHOUSE across the road
