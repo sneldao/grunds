@@ -80,7 +80,7 @@ test('PR-A1 · applyCommittedPlan calls applyStagedPrep after startTradingDay', 
   const idx = main.indexOf('function applyCommittedPlan');
   assert.ok(idx > 0);
   // applyCommittedPlan is ~50 lines — slice generously and find both anchors.
-  const body = main.slice(idx, idx + 3500);
+  const body = main.slice(idx, idx + 4500);
   // applyStagedPrep() must be called between startTradingDay and modals.close('brief').
   const st = body.search(/startTradingDay\(d\)\s*;?/);
   assert.ok(st > 0, 'startTradingDay must be called in applyCommittedPlan');

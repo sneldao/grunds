@@ -1254,7 +1254,7 @@ function closeDay() {
   regulars.resolveDay({
     served: servedN, balked, defections, priced: repriced,
     warmth: roomQuiet ? CAMPAIGN.staff.robotWarmth : 1,
-    landVisit: (i) => visitLands(i, { robot: robotShift, quiet: quietCarry }),
+    landVisit: (i) => visitLands(i + day, { robot: robotShift, quiet: quietCarry }),
   });
   if (robotShift) regulars.adjustOpinions(quietOpinionDrag(CAMPAIGN.staff.quietStep || 0));
   const offer = earnedRestDay(day, { reputation: regulars.reputation, served: servedN, balked, campaignDays: CAMPAIGN.days });
