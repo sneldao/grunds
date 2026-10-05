@@ -140,6 +140,25 @@ export function serveReactPose(t, mood) {
   };
 }
 
+// Bar clip: one pour over the counter. cycle is 0..1 and loops.
+// The right arm reaches forward and returns; the body leans in and
+// the head dips. Sine so the loop meets itself. Reduced motion holds
+// cycle at 0 — the rest pose, no looping motion.
+export function barPose(cycle) {
+  const c = ((Number(cycle) || 0) % 1 + 1) % 1;
+  const e = Math.sin(c * Math.PI);
+  return {
+    bob: 0.012 * e,
+    lean: 0.18 * e,
+    legSwing: 0,
+    armL: 0.12 * e,
+    armR: 1.15 * e,
+    headRy: 0,
+    headDip: 0.07 * e,
+    squash: 0,
+  };
+}
+
 // Prop sway: cohorts swing their props with their gait.
 export function propSway(phase, gait, walking) {
   if (!walking) return 0;
