@@ -132,7 +132,10 @@ const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(lo
 // as the district — fire-and-forget, the classic street is the floor.
 const franchise = initFranchise({
   scene, seed: SEED, classic: districtOptOut(location.search),
-  onArrived: (inst, def) => fx.toast(`the builders finished — ${def.name} is open`, 'good'),
+  onArrived: (inst, def, ls) => fx.toast(ls && ls.mine
+    ? `the builders finished — ${def.name} is open`
+    : `${def.name} is open — a previous owner built it; the rent is yours`, 'good'),
+  onStatus: () => { if (phase === 'planning') renderFranchiseRow(); },
 });
 // Linkup market intel: fetched once per session (server-cached 6h). Tilts the
 // dawn deck via exchange.openDay(bias) and is cited in the roaster's letter.
@@ -369,6 +372,7 @@ let selectedLot = 'huila', topUpCups = 0, beanSpend = 0, emergencySpend = 0, sac
 // Morning stock loan — a lump beside the tab, not a replacement for it.
 const loan = new MorningLoan();
 let stagedLoan = 0, stagedCases = 0, caseUnits = 0, caseRevenueToday = 0, franchiseRentToday = 0;
+let franchiseFxToday = { awareness: 0, returnees: 0 };   // the Row's purpose bonuses landed at last close
 let loanLotCover = 0, loanSponsorCover = 0, loanCashCap = null, closeTillOverride = null;
 let loanClaim = null, menuHeld = null, salesTillForOps = null;
 let pouredOther = 0, lastPour = 0, dawnIndex = 1.0;
@@ -1278,15 +1282,21 @@ function closeDay() {
   lastPour = pouredOther;
   // Phase 4 — advice ignored: the rumour warned, the player rode naked.
   if (exchange.event?.id === 'rumour_frost' && !exchange.contract) ignoredAdvice++;
+  // The Row's purposes land at close: a hub stand brings +8 returnees
+  // tomorrow, a draw stand nudges street awareness +0.02 (applied after
+  // resolveDay's own clamp, clamped once more).
+  const rowFx = franchise.effectsDue(day);
   const dtrace = demand.resolveDay({
     served: servedN, reputation: regulars.reputation, eventTier: exchange.event?.tier,
-    extraReturnees: womReturnees(evangelistServes),
+    extraReturnees: womReturnees(evangelistServes) + rowFx.returnees,
     priceLevel: ticketLevel(menuPrices, salePrice(exchange, repriced) * (ctx.priceMult || 1)),
     cupQuality: currentCupQuality(),
     queueBalks: Math.max(0, balked - milkBalked),
     milkBalks: milkBalked,
     attracted: servedN + balked,
   });
+  if (rowFx.awareness) { demand.awareness = Math.min(1, Math.max(0, demand.awareness + rowFx.awareness)); dtrace.after = demand.awareness; }
+  franchiseFxToday = rowFx;   // receipt names what the neighbours add
   vitality.recompute();   // the evening settles on the block's true mood
   try { analytics.track('demand_resolved', { day, ...dtrace }); } catch {}
   // gentrification pressure first: cohort expectations drift by `day * delta`.
@@ -1485,6 +1495,10 @@ function closeDay() {
       // never touched it (they ride the tab). Only batch prep grosses back.
       ['revenue', fmt(till + batchSpend - franchiseRentToday)],
       ...(franchiseRentToday > 0 ? [['The Row · stand rent', `+${fmt(franchiseRentToday)}`]] : []),
+      // Purpose bonuses settled at close: not money, so no £ — the draw
+      // lifted awareness into tomorrow, the hub sent returnees home happy.
+      ...(franchiseFxToday.awareness > 0 ? [['The Row · a draw', `+${franchiseFxToday.awareness.toFixed(2)} awareness carried into tomorrow`]] : []),
+      ...(franchiseFxToday.returnees > 0 ? [['The Row · a neighbourly stand', `+${franchiseFxToday.returnees} returnees tomorrow`]] : []),
       ['bean cost', fmt(beanCostToday)],
       ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
       ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
@@ -2109,7 +2123,6 @@ function renderPrepSection() {
   renderPastryCut(wrap);
   renderShockCounter(wrap);
   appendLoanLine(wrap);
-  appendFranchiseLine(wrap);
 }
 
 // One line in the prep block: borrow a step, or skip. Not a new panel.
@@ -2129,44 +2142,213 @@ function appendLoanLine(wrap) {
   wrap.appendChild(line);
 }
 
-// One line in the prep block: name the stand you want on the next vacant
-// lot of The Row — words, or a photo link the builders can copy. Success
-// cross-fades the storefront in at the next dawn — or mid-day if they're
-// fast. When the whole row is spoken for, the line says who built it:
-// a stand somebody else described still pays you rent. That's the gift.
-function appendFranchiseLine(wrap) {
-  if (!wrap || softDay) return;
+// The Row lease card — a dedicated brief section above the morning prep.
+// Days 1–2 get a one-line teaser; day 3+ the next vacant lot's lease:
+// pick a purpose (what the stand does for the street), describe it in
+// words or a photo link, and send it to the builders. They work while
+// you trade — the stand may arrive later that day or the next dawn. A
+// row already spoken for says who built it and offers a fresh street
+// instead of a dead end: a stand somebody else described still pays you
+// rent. That's the gift.
+const ROW_PURPOSES = [
+  { id: 'draw',      label: 'a draw',    benefit: '+0.02 awareness at close' },
+  { id: 'community', label: 'a hub',     benefit: '+8 returnees tomorrow' },
+  { id: 'rent',      label: 'a tenant',  benefit: '+£5 rent per dawn' },
+];
+const ROW_EXAMPLES = ['a tiny ramen counter', 'a vinyl listening bar', 'a flower stall'];
+// Draft state survives re-renders for the SAME lot (a mid-entry status
+// read or a failed send must not eat the typing); a new day or a new lot
+// on offer starts it clean.
+let rowPurpose = null, rowSending = false, rowError = null, rowDraft = '', rowFor = '';
+
+function rowPurposeLabel(purpose) {
+  const p = ROW_PURPOSES.find(x => x.id === purpose);
+  return p ? ` · ${p.label} (${p.benefit})` : '';
+}
+
+// A fresh district: random seed across the whole 32-bit range, keeping
+// the link's other params.
+function newStreetUrl() {
+  const u = new URL(location.href);
+  let n = 0;
+  try { const a = new Uint32Array(1); crypto.getRandomValues(a); n = a[0]; }
+  catch { n = Math.floor(Math.random() * 0xffffffff); }
+  u.searchParams.set('seed', String(1 + (n % 4294967295)));
+  return u.toString();
+}
+
+function renderFranchiseRow() {
+  const host = $('brief-row'); if (!host) return;
+  if (softDay || phase !== 'planning' || day < 1) { host.style.display = 'none'; return; }
   const vacant = franchise.nextVacant(day);
-  if (!vacant) {
-    const inh = franchise.inherited && franchise.inherited();
-    if (!inh) return;
+  const ls = (id) => franchise.lots[id] || {};
+  const building = FRANCHISE.lots.filter(l => ls(l.id).status === 'processing');
+  const built = FRANCHISE.lots.filter(l => ls(l.id).status === 'success');
+  const vacantStatus = vacant ? (ls(vacant.id).status || 'missing') : '';
+  // A new day or a different lot on offer retires the old draft — the card
+  // never carries yesterday's words into someone else's lease.
+  const forNow = `${day}:${vacant ? vacant.id : 'full'}`;
+  if (forNow !== rowFor) { rowFor = forNow; rowPurpose = null; rowSending = false; rowError = null; rowDraft = ''; }
+  // Rebuild only when the state the card shows actually changes — every
+  // lot's status + purpose feeds the key so a status read that resolves a
+  // build (or fills the row) redraws, while one that changes nothing
+  // leaves the draft untouched.
+  const key = [forNow, FRANCHISE.lots.map(l => `${ls(l.id).status || ''}:${ls(l.id).purpose || ''}`).join('+'),
+    rowSending, rowError || ''].join('|');
+  if (host.dataset.rowKey === key) return;
+  host.dataset.rowKey = key;
+  clearEl(host);
+  host.style.display = '';
+
+  if (building.length) {
+    const note = document.createElement('div');
+    note.className = 'row-teaser';
+    note.textContent = `the builders are working on ${building.map(l => l.name).join(' and ')} — keep playing; the stand may arrive later today or at the next dawn`;
+    host.appendChild(note);
+  }
+
+  // The standing-Row block: full occupation says who built it and offers
+  // a way out; a partial row names what's standing and when the rest of
+  // the leases open — never a premature "spoken for".
+  const doneBlock = (withFresh) => {
     const done = document.createElement('div');
     done.id = 'brief-franchise';
-    done.style.cssText = 'font-size:11px;margin-top:8px;opacity:.75';
-    done.textContent = `the Row is spoken for — ${inh.name} was built by a previous owner and still pays you rent`;
-    wrap.appendChild(done);
+    done.className = 'row-done';
+    const inh = franchise.inherited && franchise.inherited();
+    const builtList = built.map(l => `${l.name}${rowPurposeLabel(ls(l.id).purpose)}`).join(', ');
+    const waiting = FRANCHISE.lots.filter(l => ls(l.id).status !== 'success');
+    let text;
+    if (!built.length) {
+      text = 'every lease on the Row is under scaffolding — nothing to sign today';
+    } else if (built.length === FRANCHISE.lots.length) {
+      text = inh
+        ? `the Row is spoken for — ${inh.name} was built by a previous owner and still pays you rent · built: ${builtList}`
+        : `the Row is spoken for — built: ${builtList}`;
+    } else {
+      const rest = waiting.map(l => ls(l.id).status === 'processing'
+        ? `${l.name} is under scaffolding`
+        : `${l.name} opens day ${l.unlockDay}`).join(' · ');
+      text = `${builtList} already ${built.length > 1 ? 'stand' : 'stands'} on the Row` +
+        `${inh ? ' — built by a previous owner, still paying you rent' : ''} · ${rest}`;
+    }
+    done.textContent = text;
+    if (withFresh) {
+      const fresh = document.createElement('button');
+      fresh.id = 'brief-row-fresh';
+      fresh.textContent = 'open a fresh district →';
+      fresh.onclick = () => { location.href = newStreetUrl(); };
+      done.appendChild(fresh);
+    }
+    host.appendChild(done);
+  };
+
+  if (day < FRANCHISE.lots[0].unlockDay) {
+    // An inherited seed (e.g. 99) shows the standing Row before day 3 —
+    // the teaser only runs when nothing is built or building yet.
+    if (built.length) { doneBlock(false); return; }
+    if (!building.length) {
+      const t = document.createElement('div');
+      t.className = 'row-teaser';
+      t.textContent = 'across the road, three storefronts stand empty — the Row leases open day 3';
+      host.appendChild(t);
+    }
     return;
   }
-  const line = document.createElement('div');
-  line.id = 'brief-franchise';
-  line.style.cssText = 'font-size:11px;margin-top:8px;display:flex;gap:6px;align-items:center';
-  const label = document.createElement('span');
-  const ls = franchise.lots[vacant.id];
-  label.textContent = ls && ls.status === 'invalid' ? 'the builders need three words or more —' : `${vacant.name} is vacant — describe the stand you want there (words, or a photo link):`;
+
+  if (!vacant) { doneBlock(true); return; }
+
+  const card = document.createElement('div');
+  card.id = 'brief-franchise';
+  card.className = 'row-card';
+
+  const kick = document.createElement('div');
+  kick.className = 'row-kicker';
+  kick.textContent = 'the row · a lease on the counter';
+  const title = document.createElement('div');
+  title.className = 'row-title';
+  title.textContent = `${vacant.name} is vacant`;
+  const why = document.createElement('p');
+  why.className = 'row-why';
+  why.textContent = 'describe the stand you want there and the builders grow it — every stand on the Row pays you £15 rent each dawn, and what it’s for adds its own pull on the street. first, tell them what the stand is for:';
+  card.append(kick, title, why);
+
+  const statusEl = document.createElement('div');
+  statusEl.className = 'row-status';
+  statusEl.id = 'brief-row-status';
+  statusEl.setAttribute('aria-live', 'polite');
+  if (rowError) statusEl.textContent = rowError;
+  else if (vacantStatus === 'invalid') statusEl.textContent = 'the builders need three words or more';
+
+  const purposes = document.createElement('div');
+  purposes.className = 'row-purposes';
+  purposes.setAttribute('role', 'group');
+  purposes.setAttribute('aria-label', 'what the stand is for');
+  const purposeBtns = {};
+  for (const p of ROW_PURPOSES) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'row-purpose';
+    b.id = `brief-row-purpose-${p.id}`;
+    b.setAttribute('aria-pressed', rowPurpose === p.id ? 'true' : 'false');
+    b.innerHTML = `${p.label}<small>${p.benefit}</small>`;
+    b.onclick = () => {
+      rowPurpose = p.id;
+      for (const q of ROW_PURPOSES) purposeBtns[q.id].setAttribute('aria-pressed', q.id === p.id ? 'true' : 'false');
+      statusEl.textContent = `${p.label} — ${p.benefit} · on top of the £15 dawn rent, and it lands on the next receipt`;
+    };
+    purposeBtns[p.id] = b;
+    purposes.appendChild(b);
+  }
+  card.appendChild(purposes);
+
+  const examples = document.createElement('div');
+  examples.className = 'row-examples';
   const input = document.createElement('input');
-  input.type = 'text'; input.maxLength = FRANCHISE.promptMax; input.placeholder = 'a tiny ramen counter… or https://photo.jpg';
-  input.style.cssText = 'flex:1;min-width:0;padding:2px 0;background:transparent;border:0;border-bottom:1px solid rgba(122,90,42,.45);font-family:var(--serif);font-size:12px;color:inherit;outline:none';
+  input.id = 'brief-row-input';
+  input.type = 'text'; input.maxLength = FRANCHISE.promptMax;
+  input.placeholder = 'a tiny ramen counter… or a photo link https://';
+  input.setAttribute('aria-label', `describe the stand for ${vacant.name}`);
+  input.value = rowDraft;
+  input.addEventListener('input', () => { rowDraft = input.value; });
+  for (const ex of ROW_EXAMPLES) {
+    const e = document.createElement('button');
+    e.type = 'button';
+    e.textContent = `“${ex}”`;
+    e.onclick = () => { input.value = ex; rowDraft = ex; input.focus(); };
+    examples.appendChild(e);
+  }
+  card.appendChild(examples);
+
+  const send = document.createElement('div');
+  send.className = 'row-send';
   const btn = document.createElement('button');
+  btn.id = 'brief-row-send';
   btn.textContent = 'send to the builders'; btn.style.fontSize = '10px';
+  send.append(input, btn);
+  card.appendChild(send);
+  card.appendChild(statusEl);
+
   btn.onclick = () => {
-    if (phase !== 'planning' || !input.value.trim()) return;
-    btn.disabled = true; btn.textContent = 'sent — the builders work fast';
-    franchise.describe(vacant.id, input.value, day).then(d => {
-      if (d && (d.status === 'invalid' || d.status === 'locked')) { btn.disabled = false; btn.textContent = 'send to the builders'; label.textContent = 'the builders need three words or more —'; }
+    if (phase !== 'planning' || rowSending) return;
+    const text = (input.value || '').trim();
+    if (!rowPurpose) { statusEl.textContent = 'pick what the stand is for — a draw, a hub, or a tenant'; return; }
+    if (!text) { statusEl.textContent = 'describe the stand — words, or a photo link'; return; }
+    rowSending = true; rowError = null; rowDraft = text;
+    btn.disabled = true; btn.textContent = 'sent — the builders are working';
+    statusEl.textContent = `sent to the builders — ${vacant.name} · ${rowPurposeLabel(rowPurpose).slice(3)}`;
+    franchise.describe(vacant.id, text, day, rowPurpose).then(d => {
+      rowSending = false;
+      if (d && (d.status === 'invalid' || d.status === 'locked')) {
+        rowError = d.error || 'the builders need three words or more';
+      } else if (d && d.status === 'error') {
+        rowError = d.error || 'the builders could not be reached — try again';
+      } else if (d && (d.status === 'processing' || d.status === 'success')) {
+        rowError = null; rowPurpose = null; rowDraft = '';
+      }
+      renderFranchiseRow();
     });
   };
-  line.append(label, input, btn);
-  wrap.appendChild(line);
+  host.appendChild(card);
 }
 
 function stageLoan(amount) {
@@ -3177,6 +3359,8 @@ function showMorningBrief() {
     nutEl.style.display = day >= 2 ? '' : 'none';
     if (day >= 2) renderPlanQuote(); else { clearEl(nutEl); updateBriefFooter(); }
   }
+  // The Row lease card — sits above the prep controls, its own section.
+  renderFranchiseRow();
   // PR-A1 — Stage your prep. Two pills, both optional: pre-batch the cups
   // (paid now, fast bar at the rush) or cut the price (cheap till, slower
   // wave). Staging either commits the decision — the lever auto-fires at
@@ -3581,6 +3765,7 @@ function prepareDay(d) {
   loan.beginMorning();
   stagedLoan = 0; stagedCases = 0; caseRevenueToday = 0;
   franchiseRentToday = 0; franchise.refresh(d);
+  franchiseFxToday = { awareness: 0, returnees: 0 };
   loanLotCover = 0; loanSponsorCover = 0; salesTillForOps = null;
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   demand.staged.sample = false; demand.staged.sponsor = false;
@@ -4464,6 +4649,7 @@ function reset(coreOnly = false) {
   // Phase 2 — the cellar rewinds with the campaign (fresh starter sacks).
   lotState.reset(); selectedLot = 'huila'; topUpCups = 0; beanSpend = 0; emergencySpend = 0; sackSpend = 0;
   loan.reset(); stagedLoan = 0; stagedCases = 0; caseUnits = 0; caseRevenueToday = 0; franchiseRentToday = 0;
+  franchiseFxToday = { awareness: 0, returnees: 0 };
   loanLotCover = 0; loanSponsorCover = 0; loanCashCap = null; closeTillOverride = null;
   loanClaim = null; menuHeld = null; salesTillForOps = null;
   pouredOther = 0; lastPour = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set();
@@ -5027,6 +5213,16 @@ function signLicence() {
   if (wantTutorial) openTutorial();
   else { started = true; audio.start(); openDay(1); rig.crane(); }
 }
+// Two ways onto the street: visit a Row another owner already filled
+// (seed 99), or roll a fresh district where the leases are still yours
+// to take. Both keep the link's other params; neither touches the seed
+// the player arrived on until they choose.
+if ($('lic-see-street')) $('lic-see-street').onclick = () => {
+  const u = new URL(location.href);
+  u.searchParams.set('seed', '99');
+  location.href = u.toString();
+};
+if ($('lic-new-street')) $('lic-new-street').onclick = () => { location.href = newStreetUrl(); };
 if ($('lic-sign')) $('lic-sign').onclick = signLicence;
 if ($('lic-next')) $('lic-next').onclick = () => {
   licStep = Math.min(LIC_STEPS - 1, licStep + 1);

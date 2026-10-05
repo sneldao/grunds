@@ -260,8 +260,9 @@ export const franchiseDescribe = httpAction(async (ctx, req) => {
   const day = Number(p.get("day") ?? 3);
   const lot = p.get("lot") ?? "14";
   const prompt = p.get("prompt") ?? "";
+  const purpose = p.get("purpose") ?? undefined;
   if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
-  return json(await ctx.runAction(api.franchise.describe, { seed, lot, prompt, day }));
+  return json(await ctx.runAction(api.franchise.describe, { seed, lot, prompt, day, purpose }));
 });
 
 // Post the letter to a real inbox — the client sends the composed letter

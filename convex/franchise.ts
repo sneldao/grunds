@@ -81,11 +81,18 @@ export function franchiseKey(seed: number, lot: string, prompt: string): string 
   return assetKey(franchiseSpec(seed, lot, prompt));
 }
 
+// What the stand is FOR, chosen deliberately on the lease card — not
+// inferred from the words and never part of the asset key, so the same
+// geometry can serve any purpose. Absent (legacy rows) means no bonus:
+// the stand still pays its plain £15 rent.
+export const FRANCHISE_PURPOSES = ["draw", "community", "rent"] as const;
+
 type LotStatus = {
   lot: string;
   status: string;
   prompt: string | null;
   day: number | null;
+  purpose: string | null;
   modelUrl: string | null;
   previewUrl: string | null;
 };
@@ -111,6 +118,7 @@ export const status = query({
         status: row?.status ?? "missing",
         prompt: fr.prompt,
         day: fr.day,
+        purpose: fr.purpose ?? null,
         modelUrl: row?.modelUrl ?? null,
         previewUrl: row?.previewUrl ?? null,
       });
@@ -124,13 +132,21 @@ export const status = query({
 // uses, records which key this (seed, lot) lives under. Idempotent: a live
 // franchise returns as-is — never re-grows; a locked or taken lot refuses.
 export const describe = action({
-  args: { seed: v.number(), lot: v.string(), prompt: v.string(), day: v.number() },
+  args: {
+    seed: v.number(),
+    lot: v.string(),
+    prompt: v.string(),
+    day: v.number(),
+    purpose: v.optional(v.string()),
+  },
   handler: async (
     ctx,
     args,
   ): Promise<{
     status: string;
     prompt?: string;
+    purpose?: string | null;
+    claimed?: boolean;
     modelUrl?: string | null;
     error?: string;
   }> => {
@@ -138,6 +154,9 @@ export const describe = action({
     if (!def) return { status: "invalid", error: "no such lot on The Row" };
     if (args.day < def.unlockDay)
       return { status: "locked", error: `${def.name} isn't listed yet` };
+    const purpose = args.purpose ?? null;
+    if (purpose !== null && !(FRANCHISE_PURPOSES as readonly string[]).includes(purpose))
+      return { status: "invalid", error: "unknown purpose" };
     const prompt = sanitizeFranchisePrompt(args.prompt);
     if (!prompt) return { status: "invalid", error: "describe it in three words or more" };
     // A live franchise on this lot returns as-is; failed/missing falls
@@ -146,7 +165,13 @@ export const describe = action({
     const existing = await ctx.runQuery(api.franchise.status, { seed: args.seed });
     const mine = existing.lots.find((l) => l.lot === args.lot);
     if (mine && (mine.status === "success" || mine.status === "processing")) {
-      return { status: mine.status, prompt: mine.prompt ?? prompt, modelUrl: mine.modelUrl };
+      return {
+        status: mine.status,
+        prompt: mine.prompt ?? prompt,
+        purpose: mine.purpose ?? null,
+        claimed: false, // the lot was already spoken for — nothing new written
+        modelUrl: mine.modelUrl,
+      };
     }
     const spec = franchiseSpec(args.seed, args.lot, prompt);
     const g = await ctx.runAction(api.tripo.generate, {
@@ -166,15 +191,23 @@ export const describe = action({
       key,
       prompt,
       day: args.day,
+      purpose: purpose ?? undefined,
     });
-    return { status: g.status, prompt, modelUrl: g.modelUrl ?? null, error: g.error };
+    return { status: g.status, prompt, purpose, claimed: true, modelUrl: g.modelUrl ?? null, error: g.error };
   },
 });
 
 // Upsert the (seed, lot) → franchise-key mapping. New words overwrite the
 // pointer; the old asset row stays cached under its own key either way.
 export const record = internalMutation({
-  args: { seed: v.number(), lot: v.string(), key: v.string(), prompt: v.string(), day: v.number() },
+  args: {
+    seed: v.number(),
+    lot: v.string(),
+    key: v.string(),
+    prompt: v.string(),
+    day: v.number(),
+    purpose: v.optional(v.string()),
+  },
   handler: async (ctx, args): Promise<void> => {
     const rows = await ctx.db
       .query("franchises")
@@ -187,6 +220,7 @@ export const record = internalMutation({
         key: args.key,
         prompt: args.prompt,
         day: args.day,
+        purpose: args.purpose,
         createdAt: Date.now(),
       });
     } else {
@@ -196,6 +230,7 @@ export const record = internalMutation({
         key: args.key,
         prompt: args.prompt,
         day: args.day,
+        purpose: args.purpose,
         createdAt: Date.now(),
       });
     }

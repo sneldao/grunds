@@ -252,6 +252,7 @@ export default defineSchema({
     key: v.string(),          // tripoAssets.key for the generated stand
     prompt: v.string(),       // the player's own words (sanitized)
     day: v.number(),          // campaign day it was described
+    purpose: v.optional(v.string()), // "draw" | "community" | "rent" — absent rows predate purposes → no bonus
     createdAt: v.number(),
   }).index("by_seed", ["seed"]),
 
