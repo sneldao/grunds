@@ -7,6 +7,7 @@ import { rivalChoiceProbability, rivalWalkbackChance, FULL_ROOM_PULL } from './r
 import { memoryLine, shouldBringCompanion } from './identity.js';
 import { DRINKS, rollDrink, balkLimit, balkChanceFor, preferredOnBoard, PASTRY, eightySixedShare, menuPrice } from './menu.js';
 import { gaitFor, moodFor, samplePose, propSway } from './poses.js';
+import { floorSeatBudget, isInsidePatron, planVisualSitters, spreadSeats } from './floorSeats.js';
 import { axesFor } from './impact.js';
 
 const MAXP = ECON.maxPatrons;
@@ -45,6 +46,8 @@ export class PatronSystem {
     this.reach = 1;        // marketing reach — weights who crosses, and the wave that spawned them
     this.cupQuality = 1;   // house-lot cup, 1 fresh; pulls the rival split
     this.balkMul = 1;    // >1 impatient floor — they walk sooner
+    this._floorSitters = []; // patrons shown in a chair; follows who is inside
+    this._reduced = false;
     this._d = new THREE.Object3D();
     this._c = new THREE.Color();
 
@@ -692,6 +695,7 @@ export class PatronSystem {
     if (!p.active) return;
     p.active = false;
     if (p.seat) { p.seat.taken = null; p.seat = null; }
+    p._floorSeat = null; p._seatSettled = false;
     const z = new THREE.Matrix4().makeScale(0, 0, 0);
     for (const part of Object.values(this.parts)) { part.setMatrixAt(p.idx, z); part.instanceMatrix.needsUpdate = true; }
     // PR-A2 — also zero-scale the prop instance so the rig disappears when
@@ -818,18 +822,80 @@ export class PatronSystem {
     return null;
   }
 
+  // Chairs follow patrons who are actually inside. An empty room
+  // keeps every seat free. Visual chairs are not `seat.taken` — that
+  // flag is the full-room rival pull, and this must not change it.
+  _syncFloorSeats() {
+    const seats = this.world && this.world.seats;
+    const list = Array.isArray(seats) ? seats : [];
+    const inside = [];
+    const room = LAYOUT.floor;
+    const bounds = {
+      doorZ: LAYOUT.door.z,
+      minZ: room.z - room.d / 2, minX: room.x - room.w / 2, maxX: room.x + room.w / 2,
+    };
+    for (const p of this.patrons) if (isInsidePatron(p, bounds)) inside.push(p);
+    const free = list.filter(s => s && !s.taken);
+    const budget = Math.min(floorSeatBudget(inside), free.length);
+    const next = planVisualSitters(this._floorSitters, inside, budget);
+    const nextSet = new Set(next);
+    this._floorSitters = next;
+    const used = new Set();
+    for (const p of this.patrons) {
+      if (nextSet.has(p)) continue;
+      p._floorSeat = null;
+      p._seatSettled = false;
+    }
+    for (const p of next) {
+      const prev = p._floorSeat;
+      if (prev && !prev.taken && list.includes(prev) && !used.has(prev)) used.add(prev);
+      else { p._floorSeat = null; p._seatSettled = false; }
+    }
+    const need = next.filter(p => !p._floorSeat);
+    const open = free.filter(s => !used.has(s));
+    const picked = spreadSeats(open, need.length);
+    need.forEach((p, i) => {
+      p._floorSeat = picked[i] || null;
+      if (!picked[i]) p._seatSettled = false;
+    });
+  }
+
   // ---- per-frame: movement, walk cycle, matrix composition --------------------
-  update(dt, walkMul, now) {
+  update(dt, walkMul, now, reduced = false) {
     this.walkMul = walkMul;
+    this._reduced = !!reduced;
+    this._syncFloorSeats();
     const d = this._d; d.rotation.order = 'YXZ';
     const P = this.parts;
     for (const p of [...this.patrons]) {   // copy: arrivals can despawn mid-loop
       // movement: queue states slide toward their slot; everyone else walks waypoints.
       // The slide is speed-capped (no ice-skating) but 3x walk pace, so the line
       // advances fluidly at any sim speed and nobody chase-lags forever.
+      // A floor chair holds them out of that slide until they leave the room.
       let walking = false;
+      const seatHold = p._floorSeat && p.state !== 'sit' && p.state !== 'toSeat';
       const inQueueState = p.goal && (p.state === 'toQueue' || p.state === 'inQueue' || p.state === 'toRegister' || p.state === 'inRegisterQ' || p.state === 'inRivalQ');
-      if (inQueueState) {
+      if (seatHold) {
+        const seat = p._floorSeat;
+        const dx = seat.x - p.pos.x, dz = seat.z - p.pos.z;
+        const dist = Math.hypot(dx, dz);
+        const step = p.speed * (walkMul || 1) * dt;
+        if (dist <= Math.max(step, 0.08)) {
+          p.pos.x = seat.x; p.pos.z = seat.z;
+          p._seatSettled = true;
+          let diff = seat.face - p.face;
+          while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI;
+          p.face += diff * Math.min(1, dt * 6);
+        } else {
+          p._seatSettled = false;
+          p.pos.x += (dx / dist) * step; p.pos.z += (dz / dist) * step;
+          const want = Math.atan2(dx, dz);
+          let diff = want - p.face;
+          while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI;
+          p.face += diff * Math.min(1, dt * 10);
+          walking = true;
+        }
+      } else if (inQueueState) {
         const dx = p.goal.x - p.pos.x, dz = p.goal.z - p.pos.z;
         const dist = Math.hypot(dx, dz);
         if (dist > 1.15) {
@@ -893,12 +959,12 @@ export class PatronSystem {
 
       // Phase 5 — pose clips: one sample carries walk/sit/sip/react.
       const sipping = p.sipping > 0;
-      const sitting = p.state === 'sit';
+      const sitting = p.state === 'sit' || !!(seatHold && p._seatSettled);
       const s = p.scale;
       const mood = moodFor(p.op);
       const pose = samplePose({
         phase: p.phase, gait: gaitFor(p.cohort), walking,
-        nowMs: now, idx: p.idx, sitting,
+        nowMs: now, idx: p.idx, sitting, reduced: !!(this._reduced && sitting),
         sipT: sipping ? 0.5 : -1,
         reactT: p.reactT > 0 ? 1 - p.reactT / 0.9 : -1,
         reactKind: p.reactT > 0 ? p.reactKind : null, mood,
@@ -989,6 +1055,7 @@ export class PatronSystem {
     this.balkMul = 1; this.dwellMul = 1;
     this.turnaways = 0; this._boardProbe = 0; this._boardEvents = [];
     this.companionsToday = [];
+    this._floorSitters = [];
   }
 }
 

@@ -56,6 +56,25 @@ test('Phase 5 · sitPose breathes within bounds, legs folded', () => {
   assert.notDeepEqual(poses.sitPose(12345, 3), poses.sitPose(12345, 4), 'sit varies by patron');
 });
 
+test('reduced motion holds a still sit', () => {
+  const a = poses.sitPose(1000, 2, true);
+  const b = poses.sitPose(90000, 9, true);
+  assert.deepEqual(a, b, 'a reduced sit does not advance with time or patron');
+  for (const k of ['bob', 'lean', 'legSwing', 'armL', 'armR', 'headRy', 'headDip', 'squash']) {
+    assert.equal(a[k], 0, `still sit ${k} is the rest pose`);
+  }
+  const early = poses.samplePose({ sitting: true, idx: 2, nowMs: 1000, reduced: true });
+  const late = poses.samplePose({ sitting: true, idx: 4, nowMs: 90000, reduced: true });
+  assert.deepEqual(early, late, 'samplePose keeps the still sit');
+  assert.notEqual(
+    poses.samplePose({ sitting: true, idx: 2, nowMs: 1000 }).headRy,
+    poses.samplePose({ sitting: true, idx: 2, nowMs: 90000 }).headRy,
+    'the sit loop still breathes when motion is allowed',
+  );
+  const walk = poses.samplePose({ walking: true, phase: 0.4, gait: poses.GAIT.students, reduced: true });
+  assert.notEqual(walk.legSwing, 0, 'reduced motion stills the sit, not the walk');
+});
+
 test('Phase 5 · sipPose eases in and out (no snap)', () => {
   const z0 = poses.sipPose(0), z1 = poses.sipPose(1), mid = poses.sipPose(0.5);
   assert.ok(Math.abs(z0.armR) < 1e-9 && Math.abs(z1.armR) < 1e-9, 'sip rests at ends');

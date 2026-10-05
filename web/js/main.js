@@ -5160,7 +5160,7 @@ function loop(now) {
     const msPerMin = 300 / (effSpeed / 60);
     while (acc > msPerMin && phase === 'trading' && !paused && !closed && impact.dtScale(nowSec) > 0) {
       acc -= msPerMin;
-      if (movePerTick) patrons.update(300 / (speed / 60) / 1000, WALK_MUL[speed] || 2, now);
+      if (movePerTick) patrons.update(300 / (speed / 60) / 1000, WALK_MUL[speed] || 2, now, reducedMotion);
       tick(); ticked++;
     }
     // After the evening call the rest of the day resolves in a short burst
@@ -5183,8 +5183,8 @@ function loop(now) {
   mailT.update(dt, now);
   try { world.manageCutaway?.(camera.position, document.body.classList.contains('photo') ? 'photo' : rig.mode); } catch {}
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
-  if (impact.dtScale(nowSec) === 0) patrons.update(0, WALK_MUL[speed] || 2, now);
-  else if (!(movePerTick && ticked)) patrons.update(dt, WALK_MUL[speed] || 2, now);
+  if (impact.dtScale(nowSec) === 0) patrons.update(0, WALK_MUL[speed] || 2, now, reducedMotion);
+  else if (!(movePerTick && ticked)) patrons.update(dt, WALK_MUL[speed] || 2, now, reducedMotion);
   world.updateRival(dt, now);
   try { world.updateCat(dt, patrons.queueLength); world._updateDelight(now, dt); } catch {}
   fx.steamFrom(dt);

@@ -52,7 +52,13 @@ export function walkPose(phase, gait) {
 
 // Sit clip: settled breathing, legs folded (legSwing 0), head wanders.
 // Deterministic in (nowMs, idx) — no clock reads inside.
-export function sitPose(nowMs, idx) {
+// Reduced motion holds the rest pose: no breath, no head loop.
+export function sitPose(nowMs, idx, reduced = false) {
+  if (reduced) {
+    return {
+      bob: 0, lean: 0, legSwing: 0, armL: 0, armR: 0, headRy: 0, headDip: 0, squash: 0,
+    };
+  }
   return {
     bob: Math.sin(nowMs * 0.0016 + idx * 1.7) * 0.012,
     lean: 0,
@@ -145,11 +151,11 @@ export function propSway(phase, gait, walking) {
 export function samplePose(opts) {
   const {
     phase = 0, gait = GAIT.rival, walking = false,
-    nowMs = 0, idx = 0, sitting = false,
+    nowMs = 0, idx = 0, sitting = false, reduced = false,
     sipT = -1, reactT = -1, reactKind = null, mood = 'flat',
   } = opts || {};
   const base = sitting
-    ? { ...sitPose(nowMs, idx) }
+    ? { ...sitPose(nowMs, idx, reduced) }
     : walking
       ? { ...walkPose(phase, gait) }
       : { ...sitPose(nowMs, idx), legSwing: 0 };
