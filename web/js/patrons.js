@@ -15,6 +15,7 @@ const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];
 const LEGS = [0x2a2c34, 0x3a3230, 0x24303a];
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const RED = new THREE.Color(0xd0503a);
+const GLASS = new THREE.Color(0x7fb3b0);
 
 export class PatronSystem {
   constructor(scene, world, regulars = null, exchange = null, fx = null, { random = Math.random, walkins = null } = {}) {
@@ -212,12 +213,21 @@ export class PatronSystem {
     this.rivalQ.push(p);
     p.goal = this._slotPos(rivalSlot, this.rivalQ.length - 1, p);
     if (quick) {
+      const fromX = p.pos.x, fromZ = p.pos.z;
       p.state = 'inRivalQ';
       p.pos.set(p.goal.x + (Math.random() - 0.5), 0, p.goal.z + 0.6 + Math.random() * 0.4);
+      this._noteCross(fromX, fromZ);
     } else {
       p.state = 'defecting';
-      p.path = [V3(LAYOUT.crossX, 0, LAYOUT.pavementZ), V3(LAYOUT.crossX, 0, 14.6)];
+      p.path = [V3(LAYOUT.crossX, 0, LAYOUT.pavementZ), V3(LAYOUT.crossX, 0, LAYOUT.farSideZ)];
     }
+  }
+
+  // High-speed defections join Sam's queue immediately so service timing
+  // stays put. The callback only traces a cosmetic walker on the zebra.
+  _noteCross(x, z) {
+    if (typeof this.onCosmeticCross !== 'function') return;
+    try { this.onCosmeticCross({ x, z }); } catch { /* a silhouette never blocks the queue */ }
   }
 
   spawn(cohort, zone, quick = false, viaCompanion = false) {
@@ -406,10 +416,14 @@ export class PatronSystem {
       p.rivalOrigin = 'choice'; p.queueRef = 'rival'; this.rivalChoices++;
       this.rivalQ.push(p);
       p.goal = this._slotPos(rivalSlot, this.rivalQ.length - 1, p);
-      if (quick) { p.state = 'inRivalQ'; p.pos.set(p.goal.x + (Math.random() - 0.5), 0, p.goal.z + 0.6 + Math.random() * 0.4); }
-      else {
+      if (quick) {
+        const fromX = p.pos.x, fromZ = p.pos.z;
+        p.state = 'inRivalQ';
+        p.pos.set(p.goal.x + (Math.random() - 0.5), 0, p.goal.z + 0.6 + Math.random() * 0.4);
+        this._noteCross(fromX, fromZ);
+      } else {
         p.state = 'defecting';
-        p.path = [V3(LAYOUT.crossX, 0, LAYOUT.pavementZ), V3(LAYOUT.crossX, 0, 14.6)];
+        p.path = [V3(LAYOUT.crossX, 0, LAYOUT.pavementZ), V3(LAYOUT.crossX, 0, LAYOUT.farSideZ)];
       }
     } else if (zone === 'counter') {
       // Quick spawn joins now, so the room is judged now. A slow walk
@@ -631,7 +645,7 @@ export class PatronSystem {
       p.path = [
         V3(LAYOUT.door.x, 0, LAYOUT.door.z + 0.6),
         V3(LAYOUT.crossX, 0, LAYOUT.pavementZ),
-        V3(LAYOUT.crossX, 0, 14.6),
+        V3(LAYOUT.crossX, 0, LAYOUT.farSideZ),
       ];
       // they walked out before being served — don't credit them with having been "seen"
       if (p.regularIdx >= 0 && this.regulars) { p.defectedFrom = p.regularIdx; this.regulars.unsee(p.regularIdx); }
@@ -688,7 +702,7 @@ export class PatronSystem {
         break;
       case 'toBrowse': p.state = 'browse'; p.dwell = 2 + (Math.random() * 4 | 0); break;
       case 'toSeat': p.state = 'sit'; p.dwell = Math.round((8 + (Math.random() * 14 | 0)) * this.dwellMul); p.face = p.seat.face; p.sipAt = Math.max(1, p.dwell - 4); break;
-      case 'defecting': p.state = 'inRivalQ'; break;
+      case 'defecting': p.state = 'inRivalQ'; this._paint(p); break;
       case 'leaving': this._despawn(p); break;
     }
   }
@@ -953,7 +967,12 @@ export class PatronSystem {
         if (p.leaveT > ttl) { this._despawn(p); continue; }
       }
       p.phase += dt * (walking ? 7 * gaitFor(p.cohort).freqMul * Math.min(walkMul, 2.2) : 1.4);
-      if (p.flash > 0) {
+      if (p.state === 'defecting') {
+        // Teal while they cross, so a walk to Sam reads against the café crowd.
+        // Queue join still happens at the end of the same path as before.
+        this._c.copy(p.torso).lerp(GLASS, 0.62);
+        P.torso.setColorAt(p.idx, this._c); P.torso.instanceColor.needsUpdate = true;
+      } else if (p.flash > 0) {
         p.flash = Math.max(0, p.flash - dt * 1.6);
         this._c.copy(p.torso).lerp(RED, p.flash * 0.85);
         P.torso.setColorAt(p.idx, this._c); P.torso.instanceColor.needsUpdate = true;

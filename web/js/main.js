@@ -16,6 +16,7 @@ import { leverState } from './nextAction.js';
 import { buildHalo, shouldHalo } from './halo.js';
 import { buildKitBeat } from './kitArrival.js';
 import { PatronSystem } from './patrons.js';
+import { StreetLife } from './streetLife.js';
 import { buildBarStaff } from './barstaff.js';
 import { FX } from './fx.js';
 import { CameraRig } from './camera.js';
@@ -264,6 +265,9 @@ function currentAction() {
 }
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
+// Cosmetic street life. Own meshes, own random stream — never a café wave.
+const street = new StreetLife(scene, { lite });
+patrons.onCosmeticCross = (from) => street.mirrorCrossing(from);
 fx.patrons = patrons;
 const barStaff = buildBarStaff(scene);
 function syncBarStaff(mode) {
@@ -841,6 +845,9 @@ function tick() {
   if (paused) { updateHUD(); return; }
   // run the floor
   const events = patrons.tick(dayMin, ctx);
+  street.syncFranchise(franchise, day);
+  street.setRivalHeat(patrons.rivalQ.length);
+  street.tick();
   // deliver the wire's gossip once the named regular is actually on the
   // floor — routed through the friend graph so it lands as word-of-mouth
   if (pendingGossip?.text) {
@@ -3985,7 +3992,8 @@ function prepareDay(d) {
   if (d === 1) kitPendingAtOpen = !district.grown;   // the kit is an event only if it grows during play
   coached = d !== 1;   // the lever hint only coaches day 1, once per campaign
   companionsYesterday = patrons.companionsToday || [];
-  patrons.reset(); fx.reset();
+  patrons.reset(); fx.reset(); street.reset();
+  street.setTruce(samTruce && d === 5);
   greetedToday.clear();
   momentPending = []; momentActive = null; momentDone.clear(); momentSeen.clear();
   { const me = $('moment'); if (me) me.hidden = true; }
@@ -4263,6 +4271,9 @@ function startTradingDay(d) {
   phase = 'trading';
   closed = false;
   paused = false; if ($('pause')) $('pause').textContent = 'pause';
+  street.setTruce(samTruce && d === 5);
+  street.beginDay(d, seedNow());
+  street.syncFranchise(franchise, d);
   updateHUD();
 }
 
@@ -4981,6 +4992,7 @@ function reset(coreOnly = false) {
   // The quieter room survives the new week. Dawn does not clear it either.
   if (quietCarry > 0) regulars.adjustOpinions(quietOpinionDrag(quietCarry));
   walkins.reset();
+  street.reset();
   cRev = cCost = cBalked = cServed = cDef = cRivalServed = cRivalChoices = settledPaid = 0;
   campaignDone = false; paused = false;
   campaignDays = []; weekOpStart = null; staleByLotToday = {};   // Phase 6 — autopsy rewinds
@@ -5914,7 +5926,7 @@ function loop(now) {
     _slowFrames++;
     if (_slowFrames >= 3) {
       _liteSwitched = true;
-      try { renderer.shadowMap.enabled = false; postfx.dispose(); world.setLite(true); } catch {}
+      try { renderer.shadowMap.enabled = false; postfx.dispose(); world.setLite(true); street.setLite(true); } catch {}
     }
   }
   // shadow budget: at peak queue shadows are noise — save the fill rate
@@ -5935,7 +5947,12 @@ function loop(now) {
     const msPerMin = 300 / (effSpeed / 60);
     while (acc > msPerMin && phase === 'trading' && !paused && !closed && impact.dtScale(nowSec) > 0) {
       acc -= msPerMin;
-      if (movePerTick) patrons.update(300 / (speed / 60) / 1000, WALK_MUL[speed] || 2, now, reducedMotion);
+      if (movePerTick) {
+        const step = 300 / (speed / 60) / 1000;
+        const mul = WALK_MUL[speed] || 2;
+        patrons.update(step, mul, now, reducedMotion);
+        street.update(step, mul, reducedMotion);
+      }
       tick(); ticked++;
     }
     // After the evening call the rest of the day resolves in a short burst
@@ -5951,6 +5968,7 @@ function loop(now) {
     }
   }
   vitality.tick();
+  try { world.setRivalHeat(patrons.rivalQ.length); } catch {}
   world.updateTimeOfDay(dayMin);
   sky.update(dayMin, null, vitality.current);
   director.update({ dt, now, dayMin, night: world.night || 0, vitality: vitality.current });
@@ -5958,8 +5976,13 @@ function loop(now) {
   mailT.update(dt, now);
   try { world.manageCutaway?.(camera.position, document.body.classList.contains('photo') ? 'photo' : rig.mode); } catch {}
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
-  if (impact.dtScale(nowSec) === 0) patrons.update(0, WALK_MUL[speed] || 2, now, reducedMotion);
-  else if (!(movePerTick && ticked)) patrons.update(dt, WALK_MUL[speed] || 2, now, reducedMotion);
+  if (impact.dtScale(nowSec) === 0) {
+    patrons.update(0, WALK_MUL[speed] || 2, now, reducedMotion);
+    street.update(0, WALK_MUL[speed] || 2, reducedMotion);
+  } else if (!(movePerTick && ticked)) {
+    patrons.update(dt, WALK_MUL[speed] || 2, now, reducedMotion);
+    street.update(dt, WALK_MUL[speed] || 2, reducedMotion);
+  }
   barStaff.update(dt, reducedMotion);
   world.updateRival(dt, now);
   try { world.updateCat(dt, patrons.queueLength); world._updateDelight(now, dt); } catch {}
