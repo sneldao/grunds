@@ -57,7 +57,7 @@ console.log('LADDER  dayHasConstruction: 1..4=false, 5..=true');
 
 // 4) Integration: main.js → world.setConstruction(d); world.js defines it
 const main = readFileSync(join(ROOT, 'web/js/main.js'), 'utf8');
-if (!/world\.setConstruction\(d\)/.test(main))
+if (!/world\.setConstruction\(d[,)]/.test(main))
   fails.push('main.js does not call world.setConstruction(d) in openDay');
 const world = readFileSync(join(ROOT, 'web/js/world.js'), 'utf8');
 if (!/W\.setConstruction\s*=/.test(world))

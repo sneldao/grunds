@@ -35,7 +35,7 @@ console.log('TOGGLE  cgrpL.visible + cTarpMatL.opacity both gated by dayHasConst
 
 // 4) main.js calls world.setConstructionLeft(d) in openDay
 const main = readFileSync(join(ROOT, 'web/js/main.js'), 'utf8');
-if (!/world\.setConstructionLeft\(d\)/.test(main))
+if (!/world\.setConstructionLeft\(d[,)]/.test(main))
   fails.push('main.js does not call world.setConstructionLeft(d) in openDay');
 console.log('WIRED   main.openDay → world.setConstructionLeft(d)');
 

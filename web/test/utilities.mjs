@@ -1,8 +1,10 @@
 // Utilities — power + wifi on the cost sheet, and the seeded wifi drop.
-// Pure checks, then a headless run of the default seed through its outage
-// day: ignoring the drop costs card sales; tethering costs a flat fee.
+// Pure checks, then a headless outage-day run on the default seed (mechanics)
+// plus child runs on more outage seeds (the tether's pay-off as an average).
 // Run: node web/test/utilities.mjs
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { CAMPAIGN } from '../js/config.js';
 import { operatingCosts } from '../js/economy.js';
 import { utilityCosts, planOutage, outageStatus, wifiCardLoss } from '../js/utilities.js';
@@ -59,7 +61,8 @@ const cs = () => ({ width: 0, height: 0, getContext: () => anyProxy(), style: {}
 globalThis.document = { getElementById: id => { if (!reg.has(id)) reg.set(id, el()); return reg.get(id); }, createElement: t => t === 'canvas' ? cs() : el(), createElementNS: () => cs(), querySelectorAll: () => [], body: el() };
 globalThis.window = globalThis; globalThis.__headless = true;
 globalThis.innerWidth = 1600; globalThis.innerHeight = 900; globalThis.devicePixelRatio = 1;
-globalThis.location = { search: '?speed=1200' }; globalThis.addEventListener = () => {};
+const SEED = Number(process.env.GRUNDS_UTIL_SEED ?? 7);
+globalThis.location = { search: `?speed=1200&seed=${SEED}` }; globalThis.addEventListener = () => {};
 let rafCb = null; globalThis.requestAnimationFrame = cb => { rafCb = cb; };
 globalThis.fetch = () => Promise.resolve({ json: () => Promise.resolve(schedule) });
 const _w = console.warn; console.warn = (...a) => { if (!String(a[0]).startsWith('THREE.')) _w(...a); };
@@ -86,8 +89,8 @@ await import('../js/main.js');
 await tick(40);
 const G = globalThis.__grunds;
 
-const OUT_DAY = [2, 3, 4, 5].find(d => planOutage(7, d));
-check(!!OUT_DAY, `default seed 7 has an outage day (day ${OUT_DAY})`);
+const OUT_DAY = [2, 3, 4, 5].find(d => planOutage(SEED, d));
+check(!!OUT_DAY, `seed ${SEED} has an outage day (day ${OUT_DAY})`);
 
 // Play days 1..OUT_DAY-1 identically, then the outage day with `onDrop`.
 async function runToOutage(onDrop) {
@@ -115,7 +118,7 @@ async function runToOutage(onDrop) {
 }
 
 const ignore = await runToOutage(() => {});
-check(ignore.plan && ignore.plan.start === planOutage(7, OUT_DAY).start, 'the dawn plan carries the seeded outage');
+check(ignore.plan && ignore.plan.start === planOutage(SEED, OUT_DAY).start, 'the dawn plan carries the seeded outage');
 check(ignore.snap.rowDown && ignore.snap.rowDown.tone === 'bad' && ignore.snap.rowDown.action?.act === 'tether', 'the panel flags the drop and offers the tether');
 
 const teth = await runToOutage(s => { s.tethered = G.tetherWifi(); s.again = G.tetherWifi(); s.after = G.patrons.staffMul; s.row = G.vitals().find(r => r.id === 'utilities'); });
@@ -125,7 +128,19 @@ check(teth.snap.row.tone === 'warn' && !teth.snap.row.action, 'the row goes ambe
 check(teth.snap.restored && Math.abs(teth.snap.restored.staffMul - teth.snap.down.staffMul) < 1e-9, 'bar speed comes back when the line does');
 console.log(`  outage day ${OUT_DAY}: ignore till £${ignore.stats.till.toFixed(0)} balked ${ignore.stats.balked} · tether till £${teth.stats.till.toFixed(0)} balked ${teth.stats.balked}`);
 check(teth.stats.balked < ignore.stats.balked, 'ignoring the drop loses more sales at the till');
-check(teth.stats.till > ignore.stats.till, 'tethering pays for itself on the default seed');
+if (process.env.GRUNDS_UTIL_SEED) { console.log(`DIFF ${teth.stats.till - ignore.stats.till}`); process.exit(0); }
+// The per-seed till swing is coin-flip variance in the patron stream, so the
+// design claim — a tethered hotspot pays for itself — is tested as an average
+// across seeded outages, not pinned to one lucky draw.
+const diffs = [teth.stats.till - ignore.stats.till];
+for (const s of [13, 27, 29]) {
+  const out = execFileSync(process.execPath, ['--experimental-vm-modules', fileURLToPath(import.meta.url)],
+    { env: { ...process.env, GRUNDS_UTIL_SEED: String(s) }, encoding: 'utf8' });
+  const m = out.match(/^DIFF (-?[\d.]+)/m);
+  diffs.push(m ? parseFloat(m[1]) : NaN);
+}
+const avg = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+check(diffs.every(Number.isFinite) && avg > 100, `tethering pays for itself across seeds 7/13/27/29 (avg £${avg.toFixed(0)})`);
 
 if (fails.length) { console.error('\nFAIL:\n - ' + fails.join('\n - ')); process.exit(1); }
 console.log('\nPASS — utilities itemised, outages seeded, tether trades a fee for the till');
