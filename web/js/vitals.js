@@ -46,7 +46,8 @@ function beanRow(s) {
     : `roast ${age}d old · stale after ${STALE_AFTER}d`;
   return { id: 'beans', icon: '🫘', label: 'Beans', value: `${name} · ${(s.houseStock ?? 0).toLocaleString('en-GB')} cups`,
     // The meter is the roast clock (freshness), not the sack — sack sizes vary.
-    meter: clamp01(1 - age / (STALE_AFTER + 1)), tone, note };
+    meter: clamp01(1 - age / (STALE_AFTER + 1)), tone, note,
+    hint: name === 'Huila' ? 'Huila is the house coffee — a balanced Colombian sack the cellar opens on.' : (entry && entry.blurb) || '' };
 }
 
 function milkRow(s) {
@@ -92,6 +93,7 @@ function nutRow(s) {
   const tone = s.phase !== 'trading' ? 'dim' : covered >= 1 || !late ? 'ok' : covered < 0.8 ? 'bad' : 'warn';
   return { id: 'nut', icon: '🏠', label: 'The nut', value: covered >= 1 ? `${money(nut)} · covered ✓` : `${money(nut)} · ${Math.round(covered * 100)}% covered`,
     meter: covered, tone,
+    hint: 'The nut is the daily bill — wages, the pitch, and the bills — due at closing before a cup is poured.',
     note: `staff ${money(ops.staff)} · rent ${money(ops.pitch)} · supplies ${money(ops.supplies)} · bills ${money((ops.power || 0) + (ops.wifi || 0) + ops.sundries)}` };
 }
 
@@ -150,11 +152,12 @@ export function renderVitals(listEl, rows) {
     seen.add(r.id);
     let row = cache.get(r.id);
     if (!row) { row = makeRow(r.id); cache.set(r.id, row); listEl.appendChild(row.li); }
-    const sig = [r.value, r.tone, r.note, r.meter == null ? '' : Math.round(r.meter * 100), r.action ? r.action.act + r.action.label : ''].join('|');
+    const sig = [r.value, r.tone, r.note, r.hint || '', r.meter == null ? '' : Math.round(r.meter * 100), r.action ? r.action.act + r.action.label : ''].join('|');
     if (row.sig === sig) continue;
     row.sig = sig;
     const p = row.parts;
     row.li.className = 'v-' + r.tone + (r.inverse ? ' v-inv' : '');
+    row.li.title = r.hint || '';
     p.vi.textContent = r.icon;
     p.vl.textContent = r.label;
     p.vv.textContent = r.value;

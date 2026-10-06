@@ -2,6 +2,84 @@
 
 How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
 
+## Current verification — October 6, 2026: empty pastry case softened
+
+Same 80-run grid (`web/test/balance-policies.mjs`: seeds 7, 42, 101, 202, 555, 13, 77, 150, 314, 431 × eight policies). Competent policies restock and settle. Passive and reckless stay naive. Verdict thresholds were not moved. Source hash `8b07b336a31e990610e82e1133c370f9b4eba154b1cb75fecf84c2441e76b84d`. The walk-out grid below is `0df597d0`.
+
+The rule, in `web/js/menu.js`: while the dawn croissant case has stock, retail still buys a croissant. When it is empty, the croissant sale is lost. Three in four buy the drink they came for. One in four leaves (`EMPTY_CASE_WALK` 0.25). The first time that happens in a day, every regular's opinion drops by 0.04 (`EMPTY_CASE_MOOD`) and the brief, the toast, and the receipt say so. The "every drink can walk" patience rule is unchanged.
+
+Means rounded to the pound. The middle column is the walk-out grid from earlier today. The left column is the full grid at `757229b`, the parent of the 4 Oct commit that added the case.
+
+| Policy | `757229b` | 6 Oct walk-out | Empty case softened |
+|---|---:|---:|---:|
+| Passive | −£935 | −£615 | −£494 |
+| Queue | £3,292 | £2,075 | £2,099 |
+| Growth | £2,909 | £1,695 | £1,701 |
+| Conservative | £3,915 | £2,757 | £2,792 |
+| Aggressive | £3,879 | £1,665 | £1,723 |
+| Forecaster | £3,888 | £2,582 | £2,536 |
+| Engaged | £3,486 | £2,965 | £3,025 |
+| Reckless | −£1,085 | −£1,167 | −£1,018 |
+
+Verdicts on the softened grid: passive 8 lost · 2 scarped; queue, growth, conservative, aggressive, and forecaster 10 scarped; engaged 9 scarped · 1 held; reckless 9 lost · 1 scarped. **1 held, 0 good, 0 star** out of 80. The held run was engaged, seed 150, £4,512, reputation 54. Best runs otherwise stayed under £4,500 (forecaster £3,857, conservative £3,821). Passive mean −£494 (max £1,961) and reckless mean −£1,018 (max £591) stayed unprofitable.
+
+`757229b` had 5 held and 1 good. The walk-out grid had none. Softening the empty case put one run over the held line. Competent means moved by less than £60 (forecaster fell £46). Passive and reckless improved and stayed negative. Queue walk-outs fell from 2,223 to 2,076 a week, so the total walk-out was only a small slice of current balks. While the case still has croissants, retail buys those instead of a drink, and patience is unchanged. That is why the means did not return to the `757229b` band. Reputation for the competent policies sits around 45, under the held gate of 50, except engaged at 54. No threshold was changed.
+
+## Current verification — October 6, 2026: restock-and-settle harness on the walk-out rule
+
+Same 80-run grid as the October 1 diagnostic (`web/test/balance-policies.mjs`: seeds 7, 42, 101, 202, 555, 13, 77, 150, 314, 431 × eight policies). Competent policies restock the cellar each morning and settle an open tab before borrowing again. Passive and reckless stay naive. No identity perk, fixed 100ms frames, offers and incidents declined except `engaged`, which accepts them. A replay of seed 7 / passive matched. Source hash `0df597d0c2f9880b500eba03764dac023fee0e8e31525d749c132416c91d76e3`. The supplier tab in this run is the live cap, **£3,500** (`CAMPAIGN.creditLimit` in `web/js/config.js`). The £1,500 figure further down is the September 28 cap only.
+
+| Policy | Mean net worth | Min | Max | Verdicts (10 seeds) | Hedge after fees |
+|---|---:|---:|---:|---|---:|
+| Passive (no restock, no queue work) | −£615 | −£3,024 | £1,946 | 8 lost · 2 scarped | — |
+| Queue | £2,075 | £1,195 | £3,021 | 10 scarped | — |
+| Growth | £1,695 | £730 | £2,780 | 10 scarped | — |
+| Conservative | £2,757 | £904 | £3,946 | 10 scarped | −£83 |
+| Aggressive | £1,665 | £695 | £2,020 | 10 scarped | −£229 |
+| Forecaster | £2,582 | £2,059 | £4,285 | 10 scarped | +£92 |
+| Engaged | £2,965 | £1,401 | £4,313 | 10 scarped | +£80 |
+| Reckless (no restock) | −£1,167 | −£2,443 | £597 | 9 lost · 1 scarped | −£467 |
+
+Every competent policy stayed in the black on every seed (lowest single run +£695, aggressive). None of the 80 runs reached **held** (net > £4,500 and reputation ≥ 50). The best run was engaged at £4,313. **Good** (> £5,500 and reputation ≥ 60) and **star** (> £8,000 and reputation ≥ 70) were not reached. Mean reputation for engaged was 55; the other competent policies sat just under 50.
+
+`campaignVerdict` was not moved. The best scripted week sits just under the held line, so a small cut would stamp "held" on one outlier and leave every policy mean in scarped. Good and star are well above every run. Why the October 1 grid reached held and this one did not is the next section. The ladder is still the owner's call.
+
+## Why held disappeared — bisect, 6 Oct 2026
+
+The harness file is unchanged from `c94b822` (the 1 Oct grid) to this branch: `git diff c94b822 HEAD -- web/test/balance-policies.mjs` is empty. Same ten seeds, same eight policies, same restock-and-settle rule for the competent policies. This is a game change, not a measurement change.
+
+The step that removes held is `e4d2ad0` ("Sim: patience, pastry case, usuals, full room, rival walk-back", 4 Oct). Full 80-run grids with this harness, means rounded to the pound:
+
+| Policy | `757229b` before | `e4d2ad0` after | Change |
+|---|---:|---:|---:|
+| Passive | −£935 | −£207 | +£728 |
+| Queue | £3,292 | £1,826 | −£1,466 |
+| Growth | £2,909 | £1,912 | −£997 |
+| Conservative | £3,915 | £2,453 | −£1,462 |
+| Aggressive | £3,879 | £1,378 | −£2,501 |
+| Forecaster | £3,888 | £2,075 | −£1,813 |
+| Engaged | £3,486 | £2,810 | −£676 |
+| Reckless | −£1,085 | −£1,005 | +£80 |
+
+Before that commit: 5 held and 1 good (conservative 2, aggressive 1, forecaster 2, engaged 1 good). Best run £5,935. After it: 0 held, 0 good, 0 star. Best run £4,421, under the £4,500 line, so the later reputation gate on held (`d1f33fa`, net > £4,500 **and** reputation ≥ 50) is not what zeroed the count. The money was already short.
+
+What changed inside `e4d2ad0`: the retail shelf stopped selling drinks. A dawn croissant case is armed (`pastryPar`: half the scaled retail sheet, then yesterday's sales + 10%), paid as croissant COGS, and once it is empty every further retail customer walks out instead of buying a drink (`patrons.js`, `ctx.pastryStock <= 0` → `_balk`). The same commit also lets every drink walk, not only unbatched matcha: wait limit is `balkAfter * (4 / prep points)` and the chance scales with those points (espresso 1, flat white 2, filter 3, matcha 4).
+
+Two-seed probes (7 and 42; queue / conservative / forecaster / engaged) split those two rules:
+
+- Parent `757229b`: queue mean £3,082.
+- `e4d2ad0` as committed: queue mean £1,663.
+- Same commit with the case never armed, so retail still buys drinks: queue mean £2,854. Almost the whole drop comes back.
+- Same commit with walk-outs restored to unbatched matcha only, case still armed: queue mean £1,873. The wider patience rule is real and smaller.
+
+Walk-outs roughly doubled across the full grid (queue mean balks 980 → 1,829; served 11,812 → 11,366). The pounds are the missing drink tickets: a £2.80 croissant, then a walk, where the shelf used to ring a drink.
+
+This matches the commit message ("Retail sells one dawn croissant case that composts at close. Anyone waiting can leave, and the costlier pour walks sooner."). It is a design change, not an accidental constant. A later pass (`e274e3c`) stopped charging the empty case twice; it kept the walk-out. The 6 Oct grid on this branch is still in that band (queue £2,075, best run £4,313). A two-seed check of `c58b7dc` against this branch moved queue by £31 and left engaged identical, so the player-experience commits are not the regression.
+
+Earlier, and smaller: `b7351fa` (utilities split out of the £64 sundries, plus a wifi drop the scripted policies never tether) lowered the same two-seed means by about £300–£550. The full grid at `757229b`, which already includes that and the satisfaction work, still reached held. No verdict threshold and no economy constant was changed in this investigation.
+
+Means are rounded to the pound from the 80-run grids at those two commits. The empty-case walk-out described here was softened later the same day; that grid is the first section.
+
 ## Current verification — October 1, 2026: economy incentives pass (`c94b822`; deployed to dev)
 
 - Baseline on the then-current code (80 runs, 10 seeds × 8 scripted policies): every policy averaged a loss (−£1,188 to −£287), none reached "held", and about 28–30 of 50 player-days per policy were negative. Causes found by reading the per-day ledgers: (1) the supplier tab capped at £1,500 was smaller than one day of beans (~£3.3k at full service), so from day 3 the cellar ran dry and every cup billed the till at 1.5× spot (revenue per cup fell from £3.55 to £1.70); (2) the hedge and `settle` share one slot, so hedging meant not settling, which meant a capped tab; (3) the Brief's "restock" bought yesterday's pour +25% regardless of stock on hand, so a larger tab alone would have composted the surplus.
@@ -187,7 +265,7 @@ node web/test/balance-policies.mjs
 
 ### Historical balance diagnostic — September 28, 2026
 
-The following table and capture describe the September 28 model, not the September 30 gameplay changes. The full 80-run comparison has not been rerun for the current code.
+The following table and capture describe the September 28 model, not later gameplay. The supplier tab in that model was £1,500. The current tab is £3,500, and the October 6 section above is the rerun on today's constants.
 
 `balance-policies.mjs` is a measurement harness, not a balance gate. It
 played eight policies across ten seeds (7, 42, 101, 202, 555, 13, 77, 150,

@@ -23,59 +23,44 @@ import assert from 'node:assert/strict';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 
-// ---- 1) the staged card + its place in the flow --------------------------------
+// ---- 1) one confirm, then play ------------------------------------------------
 {
   const html = read('web/index.html');
-  for (const id of ['licence', 'lic-name', 'lic-stand', 'lic-roles', 'lic-bgs', 'lic-sign',
-    'lic-step', 'lic-step-0', 'lic-step-1', 'lic-step-2', 'lic-next', 'lic-dots'])
+  for (const id of ['licence', 'lic-name', 'lic-stand', 'lic-roles', 'lic-bgs', 'lic-sign', 'lic-step', 'lic-step-0'])
     assert.ok(html.includes(`id="${id}"`), `index.html has #${id}`);
-  assert.ok(!html.includes('lic-more'), 'the licence details fold is gone');
-  const dotsSeg = html.slice(html.indexOf('id="lic-dots"'));
-  const dotsRow = dotsSeg.slice(0, dotsSeg.indexOf('</div>'));
-  assert.equal((dotsRow.match(/<span/g) || []).length, 3, 'three progress dots');
-  // the three steps: fields → backgrounds (all four, no fold) → role + sign
-  const s0 = html.indexOf('id="lic-step-0"'), s1 = html.indexOf('id="lic-step-1"'), s2 = html.indexOf('id="lic-step-2"');
-  assert.ok(s0 < s1 && s1 < s2, 'steps 0-2 render in order');
-  assert.ok(s0 < html.indexOf('id="lic-name"') && html.indexOf('id="lic-stand"') < s1,
-    'name/stand fields live on step 0');
-  assert.ok(s1 < html.indexOf('id="lic-bgs"') && html.indexOf('id="lic-bgs"') < s2,
-    'the background pills live on step 1 — flat, no fold');
-  assert.ok(s2 < html.indexOf('id="lic-roles"') && html.indexOf('id="lic-sign"') > s2,
-    'role pills + Sign land on the last step');
-  assert.ok(html.includes('the name on the lease · the name on the sign'), 'step-0 helper line');
-  assert.ok(html.includes('before this') && html.includes('signed as')
-    && html.includes('blank is fine — the district decides'), 'step labels + signing hint');
+  assert.ok(!html.includes('lic-more'), 'the old licence fold id is gone');
+  assert.ok(!html.includes('id="lic-next"'), 'no Next step — one confirm');
+  assert.ok(html.includes('value="Sam"') && html.includes('value="THE CORNER CUP"'), 'name and stand are pre-filled');
+  assert.ok(html.includes('role and background — optional'), 'role and background are optional');
+  assert.ok(html.includes('<details id="lic-streets"'), 'street links are tucked away');
+  assert.ok(html.includes('the name on the lease · the name on the sign'), 'helper line');
+  assert.ok(html.includes('blank is fine — the district decides'), 'signing hint');
   assert.ok(html.includes('SIGN THE WEEK →'), 'the sign button keeps its copy');
-  // same staged-card look as #softintro: fade-and-rise, off under reduced motion
-  assert.ok(html.includes('#lic-step.si-in') && html.includes('#lic-dots'), 'si-in animation + dots styled');
+  assert.ok(html.includes('#lic-step.si-in'), 'si-in animation stays');
   assert.ok(/prefers-reduced-motion[^}]*#lic-step\.si-in[^}]*animation: none/.test(html),
     'reduced motion disables the step fade');
   const main = read('web/js/main.js');
   assert.ok(main.includes('function showLicence()') && main.includes('function signLicence()'),
     'licence show/sign functions exist');
-  assert.ok(main.includes('const LIC_STEPS = 3') && /licStep\s*=\s*0/.test(main)
-    && main.includes('function paintLicenceStep()'), 'the step machine exists');
-  assert.ok(main.includes("licStep >= LIC_STEPS - 1 ? $('lic-sign') : $('lic-next')"),
-    'the step primary swaps Next → Sign on the last step');
+  assert.ok(main.includes('function licPrimary() { return $(\'lic-sign\'); }') || main.includes("function licPrimary() { return $('lic-sign'); }"),
+    'the only primary is Sign');
+  assert.ok(!main.includes('LIC_STEPS'), 'the three-step machine is gone');
   assert.ok(main.includes('if (!skipLicence) { showLicence(); return; }'),
     'licence is the first beat after the title — before the tutorial');
   assert.ok(main.includes('openTutorial()'), 'signing routes into the tutorial');
-  // Enter = the step's primary — on the card and inside the step-0 inputs.
-  // The Sign only lands on the last step (licPrimary resolves to lic-sign
-  // there); Escape stays inert because the licence is gated.
   assert.ok(/t === 'licence'\) \{\s*if \(e\.key === 'Enter'\) \{ const b = licPrimary\(\)/.test(main),
-    'Enter on the card activates the step primary');
+    'Enter on the card signs');
   assert.ok(main.includes("e.key === 'Enter' && modals.top() === 'licence'")
-    && /tagName === 'INPUT'/.test(main), 'Enter inside the fields advances the card');
+    && /tagName === 'INPUT'/.test(main), 'Enter inside the fields signs');
   assert.ok(main.includes('.onclick = signLicence'), 'the Sign button activates signLicence');
-  assert.ok(main.includes("$('lic-next')"), 'the Next button is wired');
   assert.ok(!main.includes('paintLicMore') && !main.includes('lic-more'), 'the old fold is gone from the code');
+  assert.ok(main.includes("nameEl.value = playerName || 'Sam'"), 'defaults stay filled');
   const escBlock = main.slice(main.indexOf('onEscape:'), main.indexOf('onShortcut:'));
   assert.ok(!escBlock.includes('licence'), 'Escape stays inert on the licence');
   assert.ok(main.includes("const skipLicence = headless"), 'licence is headless-gated');
   assert.ok(main.includes("urlParams.has('skipLicence')") && main.includes('!wantTutorial'),
     '?skipLicence and ?skipTutorial both bypass');
-  console.log('LICENCE staged card: 3 steps · Enter advances · Sign on the last step');
+  console.log('LICENCE one confirm · pre-filled · Enter signs');
 }
 
 // ---- 2) identity threads the fiction --------------------------------------------

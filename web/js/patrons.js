@@ -5,7 +5,7 @@ import { COHORTS, LAYOUT, ECON, CAMPAIGN, counterSlot, registerSlot, rivalSlot, 
 import { salePrice } from './economy.js';
 import { rivalChoiceProbability, rivalWalkbackChance, FULL_ROOM_PULL } from './rival.js';
 import { memoryLine, shouldBringCompanion } from './identity.js';
-import { DRINKS, rollDrink, balkLimit, balkChanceFor, preferredOnBoard, PASTRY, eightySixedShare, menuPrice } from './menu.js';
+import { DRINKS, rollDrink, balkLimit, balkChanceFor, preferredOnBoard, PASTRY, EMPTY_CASE_WALK, eightySixedShare, menuPrice } from './menu.js';
 import { gaitFor, moodFor, samplePose, propSway } from './poses.js';
 import { floorSeatBudget, isInsidePatron, planVisualSitters, spreadSeats } from './floorSeats.js';
 import { axesFor } from './impact.js';
@@ -527,21 +527,23 @@ export class PatronSystem {
       const p = this.registerQ[i];
       if (p.state !== 'inRegisterQ') { i++; continue; }
       if (p.waitMin >= 1) {
-        // Retail is the dawn pastry. Stock is counted only once the day
-        // bought a case (ctx.pastryStock set). An empty case is a walk-out,
-        // not a drink ticket. Headless ticks without a case keep the drink path.
-        if (ctx.pastryStock != null) {
-          if (ctx.pastryStock <= 0) {
-            this.registerQ.splice(i, 1);
-            this._balk(p, ev, { pastry: true });
-            continue;
-          }
+        // Retail is the dawn pastry while the case still has one. Stock is
+        // counted only once the day bought a case (ctx.pastryStock set).
+        // An empty case loses the croissant: one in four leaves, and the
+        // rest buy the drink they came for. No case keeps the drink path.
+        if (ctx.pastryStock > 0) {
           ctx.pastryStock--;
           this.registerQ.splice(i, 1); regN++;
           ev.push({ type: 'served', p, isMatcha: false, price: PASTRY.price, viaRegister: true, pastry: true, beanCost: 0, spotCost: 0, hedged: false });
           if (Math.random() < 0.12) this._afterServe(p); else this._leave(p);
           continue;
         }
+        if (ctx.pastryStock != null && ctx.pastryStock <= 0 && Math.random() < EMPTY_CASE_WALK) {
+          this.registerQ.splice(i, 1);
+          this._balk(p, ev, { pastry: true });
+          continue;
+        }
+        const missedPastry = ctx.pastryStock != null && ctx.pastryStock <= 0;
         // Phase 3 — register honors the drink: matcha pours powder at the
         // board price, the rest pour the house lot at menu prices. Milky
         // orders need milk stock, same as the bar.
@@ -561,7 +563,7 @@ export class PatronSystem {
         const regPrice = (regMatcha
           ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull)
           : (ctx.menuPrices?.[rdk] ?? ECON.other)) * (ctx.priceMult || 1);
-        ev.push({ type: 'served', p, isMatcha: regMatcha, price: regPrice, viaRegister: true, ...cup });
+        ev.push({ type: 'served', p, isMatcha: regMatcha, price: regPrice, viaRegister: true, ...cup, ...(missedPastry ? { pastryMiss: true } : {}) });
         if (Math.random() < 0.12) this._afterServe(p); else this._leave(p);
       } else i++;
     }
@@ -616,7 +618,7 @@ export class PatronSystem {
   }
 
   // The existing walk-out: grumble, maybe cross, otherwise leave. Board
-  // turnaways and an empty pastry case use this same path.
+  // turnaways and the share who leave an empty case use this same path.
   _balk(p, ev, extra) {
     p.flash = 1; p.colorDirty = true;
     p.reactKind = 'grumble'; p.reactT = 0.9;

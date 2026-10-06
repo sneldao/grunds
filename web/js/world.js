@@ -102,6 +102,15 @@ export function buildWorld(scene, renderer, lite) {
   function place(parent, url, opts = {}) {
     const p = glb.loadGLB(url, opts).then((g) => { parent.add(g); applyDistrictFogTree(g); return g; });
     pending.push(p);
+    p.then(() => {
+      W._loaded = (W._loaded || 0) + 1;
+      const cb = globalThis.__grundsLoadProgress;
+      if (typeof cb === 'function') cb(W._loaded, pending.length);
+    }, () => {
+      W._loaded = (W._loaded || 0) + 1;
+      const cb = globalThis.__grundsLoadProgress;
+      if (typeof cb === 'function') cb(W._loaded, pending.length);
+    });
     return p;
   }
   W._glbLoader = glb;                       // exposed for tests / disposal

@@ -2,7 +2,8 @@
 //   1. Anyone in line can walk. Patience follows prep cost.
 //      Unbatched matcha stays the least patient.
 //   2. One dawn pastry case. Retail service decrements it.
-//      Leftovers compost at close the way a matcha batch does.
+//      An empty case loses the croissant: one in four leaves,
+//      the rest buy their drink. Leftovers compost at close.
 //   3. A preferred drink that is on the board is the order.
 //      An 86'd usual is the existing walk-out, not a substitute.
 //   4. A full room adds high-dwell cohorts to the rival-choice roll.
@@ -13,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { ECON } from '../js/config.js';
-import { balkLimit, balkChanceFor, preferredOnBoard, pastryPar, PASTRY } from '../js/menu.js';
+import { balkLimit, balkChanceFor, preferredOnBoard, pastryPar, PASTRY, EMPTY_CASE_WALK, EMPTY_CASE_MOOD } from '../js/menu.js';
 import { ATTACH_ITEMS } from '../js/behavioral.js';
 import { rivalChoiceProbability, rivalWalkbackChance, FULL_ROOM_PULL } from '../js/rival.js';
 import { PatronSystem } from '../js/patrons.js';
@@ -113,8 +114,20 @@ console.log('PATIENCE  prep-weighted walk-outs verified');
   ok(stock.pastryStock === 0, `second serve empties the case, stock=${stock.pastryStock}`);
   s.registerQ = [c];
   const ev3 = s.tick(702, stock);
-  ok(ev3.some(e => e.type === 'balked' && e.p === c && e.pastry) && !ev3.some(e => e.type === 'served' && e.p === c), 'an empty case walks them out');
-  ok(stock.pastryStock === 0 && calls.n === 0, 'an empty case does not pour a drink');
+  const stayed = ev3.find(e => e.type === 'served' && e.p === c);
+  ok(!!stayed && stayed.pastryMiss === true && stayed.pastry !== true && stayed.price !== PASTRY.price, 'a roll above one in four still buys the drink');
+  ok(stock.pastryStock === 0 && calls.n === 1, `the drink pours once, stock=${stock.pastryStock} cups=${calls.n}`);
+  Math.random = () => 0.1;
+  const walked = sys(noSeats, () => 0.99);
+  let walkedCups = 0;
+  walked.exchange = { matchaPrice: 4.80, day: 1, purchaseCup() { walkedCups++; return { beanCost: 1.3, spotCost: 1.3, hedged: false }; } };
+  const w = walked.spawn('tourists', 'retail', true);
+  w.state = 'inRegisterQ'; w.waitMin = 1;
+  walked.counterQ = []; walked.registerQ = [w];
+  const evW = walked.tick(703, { pastryStock: 0, milkStock: 20 });
+  ok(evW.some(e => e.type === 'balked' && e.p === w && e.pastry) && !evW.some(e => e.type === 'served'), 'a roll under one in four leaves without buying');
+  ok(walkedCups === 0, 'a walk-out does not pour the drink');
+  ok(EMPTY_CASE_WALK === 0.25 && EMPTY_CASE_MOOD === -0.04, 'the empty case is one in four, and the room drops a little');
   Math.random = hold;
 
   const bare = sys(noSeats, () => 0.99);
@@ -126,7 +139,7 @@ console.log('PATIENCE  prep-weighted walk-outs verified');
   const evD = bare.tick(700, { milkStock: 20 });
   ok(cups === 1 && evD.some(e => e.type === 'served' && !e.pastry), 'no case keeps the old drink ticket');
 }
-console.log('PASTRY    one case, decrement, empty walk-out verified');
+console.log('PASTRY    one case, decrement, empty-case drink verified');
 
 // ----------------------------------------------------------------
 // 3. Preferred drink, or the board turnaway
@@ -265,6 +278,9 @@ console.log('RIVAL     walk-back vs speed verified');
   ok(patrons.includes('preferredDrink: null'), 'the patron literal still starts without a usual');
   ok(!patrons.includes('wantsMatcha && !hasBatch'), 'the walk-out is no longer matcha-only');
   ok(patrons.includes('balkLimit(') && patrons.includes('balkChanceFor('), 'the walk-out reads prep');
+  ok(patrons.includes('EMPTY_CASE_WALK') && !patrons.includes('ctx.pastryStock <= 0) {\n            this.registerQ.splice'), 'an empty case no longer walks everyone');
+  ok(main.includes('EMPTY_CASE_MOOD') && main.includes('the case is empty — most still buy a drink'), 'a sold-out case tells the room once');
+  ok(main.includes('An empty case still sells the drink. One in four leaves, and the room notices.'), 'the brief states the rule');
   ok(main.includes('pastryPar(') && main.includes('till -= pastryWasteCost') && !main.includes('till -= pastrySpend'), 'close charges the unsold case, dawn does not prepay it');
   ok(main.includes('if (e.pastry)') && main.includes('PASTRY.cogs'), 'a sold croissant pays the same wholesale at the register');
   ok(main.includes('pastryWaste = Math.max(0, ctx.pastryStock | 0)'), 'leftovers are counted at close');
