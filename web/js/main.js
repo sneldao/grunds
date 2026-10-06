@@ -28,6 +28,9 @@ import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, 
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD } from './consequences.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
+import { rushSpeed } from './paceNotice.js';
+import { touchPrimary } from './gestures.js';
+import { saveWeek, loadWeek, clearWeek, resumeLabel } from './weekSave.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, starredDelivery } from './menu.js';
@@ -67,10 +70,23 @@ const $ = id => document.getElementById(id);
 // ---- three.js core -----------------------------------------------------------
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 220);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+} catch (err) {
+  try { globalThis.grundsBootFail && globalThis.grundsBootFail('This browser couldn’t draw the street. Reload to try again.'); } catch { /* title script owns the message */ }
+  throw err;
+}
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(lite ? 1 : Math.min(devicePixelRatio, 2));
+renderer.domElement.id = 'view';
 document.body.appendChild(renderer.domElement);
+function paintLoad(done, total) {
+  const b = document.getElementById('open');
+  if (!b || !b.disabled) return;
+  b.textContent = total ? `loading the street… ${done}/${total}` : 'loading the street…';
+}
+globalThis.__grundsLoadProgress = paintLoad;
 
 const world = buildWorld(scene, renderer, lite);
 const sky = buildSky(scene);                          // shader sky dome owns the backdrop
@@ -325,6 +341,36 @@ billing.configure(sync.owner).then(() => { try { applyPaywallPlacements(); } cat
 const DAY_START = 360, DAY_END = 1260;
 let schedule = null, waveIdx = 0, chapterIdx = 0;
 let day = 0, dayMin = DAY_START, speed = [60, 300, 1200].includes(urlSpeed) ? urlSpeed : 60, started = false, closed = false, paused = false;
+let chosenSpeed = speed;
+let hudPressAt = 0;
+function noteHudPress() { hudPressAt = typeof performance !== 'undefined' ? performance.now() : 0; }
+function handsFree() { return headless || (typeof performance === 'undefined') || (performance.now() - hudPressAt) > 420; }
+function whenHandsFree(fn) {
+  if (handsFree()) { fn(); return; }
+  setTimeout(() => whenHandsFree(fn), 70);
+}
+function bindPress(el, fn) {
+  if (!el) return;
+  // -Infinity so a click in the first moments after load still counts.
+  // A following click (the pointerdown's partner) inside 350ms does not.
+  let at = -Infinity;
+  const go = (e) => {
+    if (el.disabled) return;
+    const now = typeof performance !== 'undefined' ? performance.now() : 0;
+    if (now - at < 350) return;
+    at = now;
+    noteHudPress();
+    fn(e);
+  };
+  el.onclick = go;
+  if (el.addEventListener) el.addEventListener('pointerdown', (e) => {
+    if (el.disabled) return;
+    if (e && e.button != null && e.button !== 0) return;
+    if (e && e.stopPropagation) e.stopPropagation();
+    go(e);
+    if (e && e.preventDefault) e.preventDefault();
+  });
+}
 let phase = 'onboarding';
 let runGen = 0;
 function scheduleRun(cb, delay) {
@@ -721,17 +767,26 @@ function tick() {
   if (dayMin >= (softDay ? 1020 : DAY_END)) { closeDay(); return; }
   dayMin++;
   // Drop 20× when the rush starts — the cup countdown has to be readable.
-  if (!headless && speed >= 1200 && dayMin === 840) {
-    speed = 300;
-    document.querySelectorAll('#speeds button').forEach(x => {
-      x.classList.toggle('on', x.dataset.s === '300');
-    });
-    fx.toast('slowed to 5× for the rush', 'warn');
-  }
-  if (!headless) {
-    document.querySelectorAll('#speeds button').forEach(x => {
-      if (x.dataset.s === '1200') x.disabled = phase === 'trading' && dayMin >= 840 && dayMin < 1020;
-    });
+  // The chosen speed comes back at 17:00. The 20× button stays clickable
+  // so a press explains the wait instead of looking dead.
+  {
+    const cap = rushSpeed(dayMin, chosenSpeed, headless);
+    if (cap.notice && (dayMin === 840 || dayMin === 1020)) {
+      speed = cap.speed;
+      document.querySelectorAll('#speeds button').forEach(x => {
+        x.classList.toggle('on', x.dataset.s === String(speed));
+      });
+      fx.toast(cap.notice, cap.dropped ? 'warn' : '');
+    }
+    if (!headless) {
+      document.querySelectorAll('#speeds button').forEach(x => {
+        if (x.dataset.s === '1200') {
+          const blocked = cap.blocked;
+          x.classList.toggle('wait', blocked);
+          x.title = blocked ? '20× returns after 17:00 — the rush stays readable at 5×' : '';
+        }
+      });
+    }
   }
   // spawn the wave — day-1 mornings are half-demand so newcomers can read the floor.
   // Reach enlarges the street and, on the patron, weights the rival split.
@@ -1913,6 +1968,8 @@ function commitDayPlan() {
     const fail = (why) => {
       phase = 'planning';
       briefSyncError('Could not save the plan. Retry or start a local-only week.', true);
+      try { fx.toast('Could not save the plan. Retry or start a local-only week.', 'warn'); } catch {}
+      try { if (!modals.top()) modals.open('brief'); } catch {}
       if (ob) ob.disabled = false; if (mb) mb.disabled = false;
       return { ok: false, why };
     };
@@ -2278,7 +2335,7 @@ function renderFranchiseRow() {
       const fresh = document.createElement('button');
       fresh.id = 'brief-row-fresh';
       fresh.textContent = 'open a fresh district →';
-      fresh.onclick = () => { location.href = newStreetUrl(); };
+      fresh.onclick = () => { openAway(newStreetUrl()); };
       done.appendChild(fresh);
     }
     host.appendChild(done);
@@ -2651,6 +2708,26 @@ function renderLotSection() {
   clearEl(wrap);
   if (!TT.visible.has('coffee')) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
+  {
+    const houseNow = lotState.entry(selectedLot);
+    const suggest = restockQty(lastPour, houseNow?.stock ?? 0);
+    if (suggest > 0 && topUpCups === 0) {
+      const call = document.createElement('button');
+      call.id = 'brief-restock';
+      call.type = 'button';
+      const nm = LOT_CATALOG[selectedLot]?.name || 'the house coffee';
+      call.textContent = `Restock the cellar — ${suggest} cups of ${nm}`;
+      call.title = 'Tops the sack up to yesterday’s pour plus a little extra, minus what’s already on hand. The tab pays for it at dawn.';
+      bindPress(call, () => { topUpCups = suggest; renderLotSection(); renderPlanQuote(); fx.toast(`restock staged — ${suggest} cups on the morning tab`, ''); });
+      wrap.appendChild(call);
+    } else if (topUpCups > 0) {
+      const call = document.createElement('div');
+      call.id = 'brief-restock';
+      call.className = 'bn-note';
+      call.textContent = `Restocking ${topUpCups} cups — on the tab when you open.`;
+      wrap.appendChild(call);
+    }
+  }
   if (TT.essentialNew.includes('coffee')) {
     const note = document.createElement('div');
     note.className = 'bn-note';
@@ -3698,31 +3775,29 @@ function stageWeekHire(which) {
   return true;
 }
 
-function showSoftIntro(step = 0) {
+function showSoftIntro() {
   const el = $('softintro'); if (!el) return;
   const wrap = $('softintro-step');
   const head = $('softintro-heading'), port = $('softintro-portrait');
   const line = $('softintro-line'), prim = $('softintro-primary'), skip = $('softintro-skip');
   const dots = $('softintro-dots');
-  if (dots) [...dots.children].forEach((d, i) => d.classList.toggle('on', i === step));
+  if (dots) [...dots.children].forEach((d, i) => d.classList.toggle('on', i === 0));
   head.textContent = standName;
-  port.style.display = step === 1 ? '' : 'none';
-  if (step === 1) {
-    clearEl(port);
-    try { port.appendChild(portraitCanvas('ruth', 'commuters', 72)); } catch {}
-  }
-  line.textContent = step === 0
-    ? 'Your café — before anyone knows it’s here.'
-    : 'Ruth makes every drink. You watch the room and make the calls.';
-  prim.textContent = step === 0 ? 'Step inside' : 'Open the doors';
+  port.style.display = '';
+  clearEl(port);
+  try { port.appendChild(portraitCanvas('ruth', 'commuters', 72)); } catch {}
+  line.textContent = 'Your café — before anyone knows it’s here. Ruth makes every drink. You watch the room and make the calls.';
+  prim.disabled = false;
+  prim.textContent = 'Open the doors';
   prim.onclick = () => {
-    if (step === 0) { showSoftIntro(1); return; }
+    prim.disabled = true;
+    prim.textContent = 'opening…';
     try { modals.close('softintro'); } catch {}
     stagedPrep.batch = false; stagedPrep.reprice = false;
     firstPrepChosen = true;
     Promise.resolve(commitDayPlan()).then(res => { if (res && res.ok) updateHUD(); }).catch(() => {});
   };
-  skip.style.display = step === 0 ? '' : 'none';
+  skip.style.display = '';
   skip.onclick = () => { try { modals.close('softintro'); } catch {} beginWeek(); };
   if (wrap) { wrap.classList.remove('si-in'); void wrap.offsetWidth; wrap.classList.add('si-in'); }
   modals.open('softintro');
@@ -3748,10 +3823,134 @@ if ($('brief-offline')) $('brief-offline').onclick = () => { if (sync.disableRun
 if ($('brief-softskip')) $('brief-softskip').onclick = () => beginWeek();
 
 // ---- dawns -------------------------------------------------------------------
+function capturePreDawn(enteringDay) {
+  if (headless) return;
+  try {
+    saveWeek(localStorage, {
+      seed: seedNow(),
+      day: enteringDay,
+      playerName, standName, playerRole, perkBg,
+      softWeekDone: !!softWeekDone,
+      rngState: exchange.rng && exchange.rng.state ? exchange.rng.state() : null,
+      exchange: {
+        beanIndex: exchange.beanIndex, day: exchange.day, debt: exchange.debt,
+        contract: exchange.contract, event: exchange.event, history: exchange.history,
+        matchaPrice: exchange.matchaPrice, lastTier: exchange.lastTier, lastEventId: exchange.lastEventId,
+      },
+      regulars: regulars.regulars.map(r => ({
+        name: r.name, op: r.op, visits: r.visits, stage: r.stage, drink: r.drink,
+        events: r.events, absence: r.absence, absentReason: r.absentReason,
+        seen: r.seen, served: r.served, balked: r.balked,
+      })),
+      walkins: (walkins.heads || []).map(h => ({ ...h })),
+      lots: { lots: lotState.lots, house: lotState.house, pending: lotState.pending },
+      awareness: demand.awareness, satisfaction: demand.satisfaction,
+      lastMilky, lastPour, lastRetail, pastryCut,
+      campaign: { cRev, cCost, cOps, cBalked, cServed, cDef, cRivalServed, cRivalChoices, settledPaid },
+      staff: {
+        baristaCondition, weekHire, hireLocked, ruthSkill, samTruce, quietCarry,
+        ruthNoticed, ruthAsked, ruthRestDay, ruthReturned,
+        contractsTaken, settledCount, ignoredAdvice,
+      },
+    });
+  } catch { /* private mode — the week still plays */ }
+}
+function applySavedWeek(save) {
+  if (save.playerName) playerName = save.playerName;
+  if (save.standName) standName = save.standName;
+  if (save.playerRole) playerRole = save.playerRole;
+  if (save.perkBg) perkBg = save.perkBg;
+  try { applyPerk(); } catch {}
+  if (save.seed != null) SEED_OVERRIDE = save.seed;
+  const ex = save.exchange || {};
+  exchange.beanIndex = ex.beanIndex ?? 1;
+  exchange.day = ex.day ?? Math.max(0, save.day - 1);
+  exchange.debt = ex.debt || 0;
+  exchange.contract = ex.contract || null;
+  exchange.event = ex.event || null;
+  exchange.history = Array.isArray(ex.history) ? ex.history : [];
+  if (ex.matchaPrice != null) exchange.matchaPrice = ex.matchaPrice;
+  exchange.lastTier = ex.lastTier ?? null;
+  exchange.lastEventId = ex.lastEventId ?? null;
+  if (save.rngState != null) exchange.rng = seeded(save.seed || seedNow(), save.rngState);
+  if (Array.isArray(save.regulars)) {
+    for (const r of regulars.regulars) {
+      const k = save.regulars.find(x => x.name === r.name);
+      if (!k) continue;
+      r.op = k.op; r.visits = k.visits; r.stage = k.stage; r.drink = k.drink;
+      r.events = k.events || []; r.absence = k.absence || 'present';
+      r.absentReason = k.absentReason || null; r.seen = !!k.seen;
+      r.served = k.served || 0; r.balked = k.balked || 0;
+    }
+  }
+  if (save.lots && save.lots.lots) {
+    lotState.lots = save.lots.lots;
+    lotState.house = save.lots.house || lotState.house;
+    lotState.pending = save.lots.pending || [];
+  }
+  if (save.awareness != null) demand.awareness = save.awareness;
+  if (save.satisfaction != null) demand.satisfaction = save.satisfaction;
+  if (save.lastMilky != null) lastMilky = save.lastMilky;
+  if (save.lastPour != null) lastPour = save.lastPour;
+  if (save.lastRetail != null) lastRetail = save.lastRetail;
+  if (save.pastryCut != null) pastryCut = save.pastryCut;
+  const c = save.campaign || {};
+  cRev = c.cRev || 0; cCost = c.cCost || 0; cOps = c.cOps || 0;
+  cBalked = c.cBalked || 0; cServed = c.cServed || 0; cDef = c.cDef || 0;
+  cRivalServed = c.cRivalServed || 0; cRivalChoices = c.cRivalChoices || 0;
+  settledPaid = c.settledPaid || 0;
+  const st = save.staff || {};
+  if (st.baristaCondition != null) baristaCondition = st.baristaCondition;
+  if (st.weekHire) weekHire = st.weekHire;
+  hireLocked = !!st.hireLocked;
+  if (st.ruthSkill != null) ruthSkill = st.ruthSkill;
+  samTruce = !!st.samTruce;
+  if (st.quietCarry != null) quietCarry = st.quietCarry;
+  ruthNoticed = !!st.ruthNoticed; ruthAsked = !!st.ruthAsked;
+  ruthRestDay = st.ruthRestDay || 0; ruthReturned = !!st.ruthReturned;
+  contractsTaken = st.contractsTaken || 0; settledCount = st.settledCount || 0;
+  ignoredAdvice = st.ignoredAdvice || 0;
+  softWeekDone = !!save.softWeekDone;
+  if (Array.isArray(save.walkins) && save.walkins.length && walkins) {
+    walkins.heads = save.walkins;
+    if (walkins.byPid && walkins.byPid.clear) {
+      walkins.byPid.clear();
+      for (const h of save.walkins) if (h && h.pid) walkins.byPid.set(h.pid, h);
+    }
+  }
+}
+function resumeWeek() {
+  const save = loadWeek(localStorage);
+  if (!save || !schedule) return false;
+  started = true;
+  try { audio.start(); } catch {}
+  try { modals.close('title'); } catch {}
+  try { $('title').classList.add('gone'); } catch {}
+  applySavedWeek(save);
+  phase = (save.day === 1 && !save.softWeekDone) ? 'onboarding' : 'review';
+  if (exchange.day !== save.day - 1) exchange.day = Math.max(0, save.day - 1);
+  const ok = prepareDay(save.day);
+  if (!ok) {
+    try { fx.toast('couldn’t resume that morning — starting day 1', 'warn'); } catch {}
+    reset(false);
+    return false;
+  }
+  try { rig.crane(); } catch {}
+  return true;
+}
+function paintResume() {
+  const b = $('resume'); if (!b) return;
+  const save = headless ? null : loadWeek(localStorage);
+  if (!save) { b.hidden = true; return; }
+  b.hidden = false;
+  b.textContent = resumeLabel(save);
+}
+
 function prepareDay(d) {
   if (phase !== 'onboarding' && phase !== 'review') return false;
   if (d === 1 && phase === 'onboarding' && !softWeekDone) softDay = softTest !== null ? softTest : wantsSoftDay();
   if (d !== exchange.day + 1 || d < 1 || d > CAMPAIGN.days) return false;
+  capturePreDawn(d);
   phase = 'planning';
   day = d;
   if (shockPulledFlat) { menuOffered.flatwhite = true; shockPulledFlat = false; patrons.menuOffered = menuOffered; }
@@ -4070,6 +4269,7 @@ function campaignClose(insolvent = false) {
   if (!insolvent && (day < CAMPAIGN.days || exchange.day < CAMPAIGN.days)) return;
   closed = true;
   campaignDone = true;
+  try { clearWeek(localStorage); } catch {}
   for (const t of TOOL_IDS) introducedSet().add(t);
   persistIntroduced();
   phase = 'finale';
@@ -4325,9 +4525,18 @@ function updateHUD() {
   const h = String(Math.floor(dayMin / 60)).padStart(2, '0'), m = String(dayMin % 60).padStart(2, '0');
   $('clock').textContent = (paused ? '❚❚ ' : '') + `${h}:${m}`;
   world.setRivalHeat(patrons.rivalQ.length);   // their sign burns as their line grows
-  if ($('daytag')) $('daytag').textContent = softDay ? 'SOFT OPENING · regulars ' + regulars.reputation
-    : 'DAY ' + day + '/' + CAMPAIGN.days + '  ·  regulars ' + regulars.reputation;
+  if ($('daytag')) {
+    const full = softDay ? 'SOFT OPENING · regulars ' + regulars.reputation
+      : 'DAY ' + day + '/' + CAMPAIGN.days + '  ·  regulars ' + regulars.reputation;
+    $('daytag').textContent = (inPlay && !softDay) ? ('DAY ' + day + '/' + CAMPAIGN.days) : full;
+    $('daytag').title = full;
+  }
   $('till').textContent = fmt(till);
+  if ($('tillhint')) {
+    const stockCost = till < 0 && (batchSpend > 0 || prebatched);
+    $('tillhint').hidden = !stockCost;
+    $('tillhint').textContent = stockCost ? ' · cup stock, paid back as they sell' : '';
+  }
   $('balk').textContent = balked;
   if ($('poured')) $('poured').textContent = String(served + servedRetail);
   if (day >= 2 && defections) {
@@ -4651,9 +4860,14 @@ function presentBeat(o, kicker, incident) {
       }).catch(() => {});
     }
   }
-  offerWasPaused = paused; paused = true; if ($('pause')) $('pause').textContent = 'resume';
-  try { audio.card(); } catch {}
-  modals.open('offer');
+  whenHandsFree(() => {
+    if (activeBeat !== o) return;
+    offerWasPaused = paused; paused = true;
+    if ($('pause')) $('pause').textContent = 'answer y / n';
+    if (!headless) fx.toast('a question is open — answer Y or N. Space won’t skip it.', '');
+    try { audio.card(); } catch {}
+    modals.open('offer');
+  });
 }
 
 function resolveOffer(said) {
@@ -4677,8 +4891,11 @@ if ($('skiprush')) $('skiprush').onclick = () => skipToRush();
 $('tape').onclick = () => { if (marketIntel) desk.open(marketIntel); };
 
 function reset(coreOnly = false) {
-  // full campaign restart: the market and the regulars rewind to their start state
+  // full campaign restart: the market and the regulars rewind to their start state.
+  // Only an explicit `true` skips the new day — a click event used to land
+  // here and bail out after abandoning the run, leaving the floor dead.
   const wasFinale = campaignDone;   // restarting from the verdict gets a send-off
+  try { clearWeek(localStorage); } catch {}
   runGen++;
   guidedOpening = wantTutorial; firstPrepChosen = false;
   softWeekDone = false; coachedOpening = false;
@@ -4746,7 +4963,7 @@ function reset(coreOnly = false) {
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
   companionsYesterday = [];
   if ($('pause')) $('pause').textContent = 'pause';
-  if (coreOnly) return wasFinale;
+  if (coreOnly === true) return wasFinale;
   prepareDay(1);
   if (wasFinale) {
     rig.crane();   // swoop home from the sold street into the new week
@@ -4830,7 +5047,9 @@ function showHover(p, x, y) {
   ) : null;
   const feel = view ? view.feeling : (op != null ? feeling(op) : null);
   const friends = view && view.friends ? view.friends.replace(/^friends here: /, '') : '';
-  el.innerHTML = `<b>${name}</b>${view ? ` · ${view.stage}` : ''}${quirk ? ` — ${quirk}` : ''}${feel ? `<br>${feel}` : ''}${friends ? `<br><span style="opacity:.7">friends: ${friends}</span>` : ''}<br><span style="opacity:.6">${view ? 'click to meet them' : 'click to wave'}</span>`;
+  // Mouse: "click to meet them". Touch: "tap to meet them".
+  const verb = touchPrimary() ? 'tap' : 'click';
+  el.innerHTML = `<b>${name}</b>${view ? ` · ${view.stage}` : ''}${quirk ? ` — ${quirk}` : ''}${feel ? `<br>${feel}` : ''}${friends ? `<br><span style="opacity:.7">friends: ${friends}</span>` : ''}<br><span style="opacity:.6">${view ? `${verb} to meet them` : `${verb} to wave`}</span>`;
   el.style.left = Math.min(innerWidth - 230, x + 14) + 'px';
   el.style.top = Math.min(innerHeight - 80, y + 14) + 'px';
   el.classList.add('show');
@@ -4845,9 +5064,17 @@ renderer.domElement.addEventListener('pointermove', e => {
   });
 });
 renderer.domElement.addEventListener('pointerleave', hideHover);
+let controlsHintShown = false;
 renderer.domElement.addEventListener('click', e => {
+  if (rig.suppressClick) { rig.suppressClick = false; return; }
   const p = nearestPatronAt(e.clientX, e.clientY);
-  if (!p) return;
+  if (!p) {
+    if (!controlsHintShown) {
+      controlsHintShown = true;
+      fx.toast('drag to look around · scroll or pinch to zoom', '');
+    } else fx.toast('the pavement — drag to look around', '');
+    return;
+  }
   if (p.regularIdx >= 0 || p.pid) { openDossier(p); return; }
   fx.bubble(p, 'hey — welcome', 'good');
   try { if (navigator.vibrate) navigator.vibrate(20); } catch {}
@@ -4978,15 +5205,29 @@ function togglePause() {
   updateHUD();
   return paused;
 }
-$('prebatch').onclick = doPrebatch;
-$('reprice').onclick = doReprice;
+function askRestart() {
+  const box = $('restart-ask');
+  if (!box) { reset(false); return; }
+  box.hidden = false;
+  box.classList.add('show');
+}
+function closeRestart() {
+  const box = $('restart-ask');
+  if (!box) return;
+  box.hidden = true;
+  box.classList.remove('show');
+}
+bindPress($('prebatch'), () => doPrebatch());
+bindPress($('reprice'), () => doReprice());
 // Phase 1 — dossiers close, the board opens fresh every time.
 $('dossier-close').onclick = () => modals.close('dossier');
 $('board-close').onclick = () => modals.close('regulars');
 $('regularsbtn').onclick = () => renderBoard();
-$('pause').onclick = () => togglePause();
-$('reset').onclick = reset;
-$('again').onclick = reset;
+bindPress($('pause'), () => togglePause());
+bindPress($('reset'), () => askRestart());
+bindPress($('again'), () => askRestart());
+bindPress($('restart-yes'), () => { closeRestart(); reset(false); });
+bindPress($('restart-no'), () => closeRestart());
 // PR-4b — founder replay: a fresh-seed restart, gated on the founder entitlement
 const fReplayBtn = $('founder-replay');
 if (fReplayBtn) fReplayBtn.onclick = () => { try { founderReplay(); } catch {} };
@@ -5016,19 +5257,25 @@ if ($('photoBtn')) $('photoBtn').onclick = () => { try { doPhoto(); } catch {} }
 const defaultSpeedBtn = headless ? '300' : '60';
 document.querySelectorAll('#speeds button').forEach(b => {
   if (b.dataset.s === defaultSpeedBtn) b.classList.add('on');
-  b.onclick = () => {
+  bindPress(b, () => {
     const want = +b.dataset.s;
     // 20× skips the cup countdown — keep it out of the rush (headless exempt).
     if (!headless && want >= 1200 && dayMin >= 840 && dayMin < 1020 && phase === 'trading') {
-      fx.toast('20× waits until the evening call', 'warn');
+      fx.toast('20× waits until 17:00 — the rush stays at 5× so the cups stay readable', 'warn');
       return;
     }
+    chosenSpeed = want;
     speed = want;
     document.querySelectorAll('#speeds button').forEach(x => x.classList.remove('on'));
     b.classList.add('on');
-  };
+    if (!headless) fx.toast(want >= 1200 ? '20× — quiet stretches still run faster' : want >= 300 ? '5×' : '1×', '');
+  });
 });
 addEventListener('keydown', e => {
+  if ($('restart-ask') && $('restart-ask').classList.contains('show')) {
+    if (e.key === 'Escape') { e.preventDefault(); closeRestart(); return; }
+    if (e.key === 'Enter') { e.preventDefault(); closeRestart(); reset(false); return; }
+  }
   if (modals.top() === 'evening') {
     const pick = { '1': 'topup', '2': 'hold', '3': 'close' }[e.key];
     if (pick) { e.preventDefault(); resolveEvening(pick); return; }
@@ -5037,6 +5284,19 @@ addEventListener('keydown', e => {
     const t = e.target;
     if (t && t.tagName === 'INPUT') { e.preventDefault(); const p = licPrimary(); if (p && !p.disabled) p.click(); return; }
   }
+  if (e.key === ' ' && started && !closed && !campaignDone && !(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'))) {
+    const top = modals.top();
+    if (top === 'offer' || top === 'evening' || top === 'brief' || top === 'softintro' || top === 'licence') {
+      e.preventDefault();
+      const say = top === 'offer' ? 'a question is open — answer Y or N'
+        : top === 'evening' ? 'the evening call is open — pick 1, 2, or 3'
+        : top === 'brief' ? 'the morning brief is open — commit it, or close it'
+        : 'finish this card first';
+      fx.toast(say, 'warn');
+      if ($('pause')) $('pause').textContent = top === 'offer' ? 'answer y / n' : 'paused';
+      return;
+    }
+  }
   if (modals.handleKey(e)) return;
   // typing belongs to the field — never let an email fire game keys
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
@@ -5044,7 +5304,7 @@ addEventListener('keydown', e => {
   if (e.key === '1') doPrebatch();
   else if (e.key === '2') doReprice();
   else if (e.key === ' ' && started && !closed) { e.preventDefault(); togglePause(); }
-  else if (e.key === 'r' || e.key === 'R') reset();
+  else if ((e.key === 'r' || e.key === 'R') && !$('restart-ask')?.classList.contains('show')) askRestart();
   else if (e.key === 'm' || e.key === 'M') $('mute').click();
   else if (e.key === 'c' || e.key === 'C') rig.resetView();
   else if (e.key === 'p' || e.key === 'P') { try { doPhoto(); } catch {} }
@@ -5166,7 +5426,10 @@ function layoutMobile() {
 layoutMobile();
 
 // ---- boot -------------------------------------------------------------------------
-fetch('./api/schedule.json').then(r => r.json()).then(s => {
+fetch('./api/schedule.json', { signal: AbortSignal.timeout(12000) }).then(r => {
+  if (r && r.ok === false) throw new Error('schedule');
+  return r.json();
+}).then(s => {
   schedule = s;
   // Wait for the Kenney GLBs to be placed before enabling Open. If a GLB
   // fails, the loader's graceful fallback returns a placeholder so the user
@@ -5174,9 +5437,18 @@ fetch('./api/schedule.json').then(r => r.json()).then(s => {
   Promise.resolve(world.ready).then(() => {
     $('open').disabled = false;
     $('open').textContent = COPY.open;
+    paintResume();
   });
 }).catch(() => {
-  $('open').textContent = 'schedule missing — run: python3 -m grunds spatial';
+  try { globalThis.grundsBootFail && globalThis.grundsBootFail('Couldn’t load today’s street. Reload to try again.'); }
+  catch { $('open').textContent = 'Couldn’t load today’s street. Reload to try again.'; }
+});
+addEventListener('beforeunload', e => {
+  if (headless || !started || campaignDone) return;
+  if (phase === 'planning' || phase === 'trading' || phase === 'review' || phase === 'committing') {
+    e.preventDefault();
+    e.returnValue = '';
+  }
 });
 // ---- the pitch licence: sign yourself into the week ---------------------------
 const LIC_ROLES = ['the new owner', 'the manager', 'the name on the lease'];
@@ -5186,20 +5458,8 @@ const LIC_BGS = [
   { id: 'newcomer',      label: 'new to the trade', perk: 'a fresh face — the regulars warm quicker' },
   { id: 'circuit',       label: 'a market regular', perk: 'you know the circuit — the wire names its lean' },
 ];
-const LIC_STEPS = 3;
-let licRole = 0, licBg = 0, licStep = 0;
-function licPrimary() { return licStep >= LIC_STEPS - 1 ? $('lic-sign') : $('lic-next'); }
-function paintLicenceStep() {
-  licStep = Math.max(0, Math.min(LIC_STEPS - 1, licStep));
-  for (let i = 0; i < LIC_STEPS; i++) { const s = $(`lic-step-${i}`); if (s) s.hidden = i !== licStep; }
-  const next = $('lic-next'), sign = $('lic-sign');
-  if (next) next.hidden = licStep >= LIC_STEPS - 1;
-  if (sign) sign.hidden = licStep < LIC_STEPS - 1;
-  const dots = $('lic-dots');
-  if (dots) [...dots.children].forEach((d, i) => d.classList.toggle('on', i === licStep));
-  const wrap = $('lic-step');
-  if (wrap) { wrap.classList.remove('si-in'); void wrap.offsetWidth; wrap.classList.add('si-in'); }
-}
+let licRole = 0, licBg = 0;
+function licPrimary() { return $('lic-sign'); }
 function showLicence() {
   const el = $('licence'); if (!el) return;
   // a returning signature pre-fills — the district office remembers
@@ -5212,8 +5472,8 @@ function showLicence() {
     }
   } catch {}
   const nameEl = $('lic-name'), standEl = $('lic-stand');
-  if (nameEl) nameEl.value = playerName === 'Sam' ? '' : playerName;
-  if (standEl) standEl.value = standName === 'THE CORNER CUP' ? '' : standName;
+  if (nameEl) nameEl.value = playerName || 'Sam';
+  if (standEl) standEl.value = standName || 'THE CORNER CUP';
   const roles = $('lic-roles');
   roles.textContent = '';
   LIC_ROLES.forEach((r, i) => {
@@ -5231,8 +5491,8 @@ function showLicence() {
     b.onclick = () => { licBg = i; [...bgs.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
     bgs.appendChild(b);
   });
-  licStep = 0;
-  paintLicenceStep();
+  const wrap = $('lic-step');
+  if (wrap) { wrap.classList.remove('si-in'); void wrap.offsetWidth; wrap.classList.add('si-in'); }
   modals.open('licence');
   setTimeout(() => { try { (nameEl.value ? standEl : nameEl).focus(); } catch {} }, 350);
   try { analytics.track('licence_shown'); } catch {}
@@ -5273,18 +5533,20 @@ function signLicence() {
 // (seed 99), or roll a fresh district where the leases are still yours
 // to take. Both keep the link's other params; neither touches the seed
 // the player arrived on until they choose.
+function openAway(url) {
+  try {
+    const w = window.open(url, '_blank', 'noopener');
+    if (w) return;
+  } catch { /* popup blocked — stay on the week */ }
+  fx.toast('the street link is ready in a new tab — allow popups if it didn’t open', '');
+}
 if ($('lic-see-street')) $('lic-see-street').onclick = () => {
   const u = new URL(location.href);
   u.searchParams.set('seed', '99');
-  location.href = u.toString();
+  openAway(u.toString());
 };
-if ($('lic-new-street')) $('lic-new-street').onclick = () => { location.href = newStreetUrl(); };
+if ($('lic-new-street')) $('lic-new-street').onclick = () => { openAway(newStreetUrl()); };
 if ($('lic-sign')) $('lic-sign').onclick = signLicence;
-if ($('lic-next')) $('lic-next').onclick = () => {
-  licStep = Math.min(LIC_STEPS - 1, licStep + 1);
-  paintLicenceStep();
-  try { const p = licPrimary(); if (p && p.focus) p.focus(); } catch {}
-};
 
 // ---- tutorial: 3 steps, then the floor runs. Headless + ?skipTutorial bypass it.
 const TUT_STEPS = [
@@ -5317,14 +5579,16 @@ function coachShow(html, actions) {
     clearEl(row);
     for (const [label, fn] of actions) {
       const b = document.createElement('button');
+      b.type = 'button';
       b.textContent = label;
-      b.onclick = fn;
+      bindPress(b, fn);
       row.appendChild(b);
     }
     const sk = document.createElement('button');
+    sk.type = 'button';
     sk.className = 'dim';
     sk.textContent = 'skip guidance';
-    sk.onclick = coachSkip;
+    bindPress(sk, coachSkip);
     row.appendChild(sk);
   }
   card.hidden = false;
@@ -5332,7 +5596,12 @@ function coachShow(html, actions) {
   layoutMobile();
 }
 function coachHide() { const c = $('coach'); if (c) c.hidden = true; document.body?.classList.remove('coach-live'); layoutMobile(); }
-function coachPause() { coachHold = true; paused = true; if ($('pause')) $('pause').textContent = 'resume'; lastHudText = 0; updateHUD(); }
+function coachPause() {
+  coachHold = true; paused = true;
+  if ($('pause')) $('pause').textContent = 'paused — space';
+  if (!headless) fx.toast('paused for the rush — space resumes', '');
+  lastHudText = 0; updateHUD();
+}
 function coachResume() {
   if (coachHold && !modals.top()) { coachHold = false; paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
   else coachHold = false;
@@ -5362,6 +5631,21 @@ function coachIntro() {
     ]
   );
 }
+function showCoachWave() {
+  coachPause();
+  try { analytics.track('coach_wave', { day, dayMin, lever: prebatched ? 'batch' : repriced ? 'deal' : 'hold' }); } catch {}
+  if (prebatched) {
+    coachShow(`<b>14:00 — they’re here.</b> Your ${ctx.batchUnits} reserved cups are live — a batch cup uses less bar time than a made-to-order pour.`, [['watch my plan', coachResume]]);
+  } else if (repriced) {
+    coachShow(`<b>14:00 — they’re here.</b> The ${fmt(ECON.matchaDeal)} deal lowers queue-abandonment odds — it doesn’t speed the bar, and it can’t stop every walk.`, [['watch my plan', coachResume]]);
+  } else {
+    coachShow(`<b>14:00 — they’re here.</b> Made-to-order is four minutes a cup — you can still buy in at the late-switch price.`, [
+      [`buy ${ECON.batchUnits} cups · ${fmt(ECON.batchCost + LEVER_OVERRIDE_PRICE)}`, () => { const u = ctx.batchUnits; doPrebatch(); if (ctx.batchUnits > u) coachResume(); }],
+      [`cut to ${fmt(ECON.matchaDeal)} · ${fmt(LEVER_OVERRIDE_PRICE)} + the room hears it`, () => { doReprice(); if (repriced) coachResume(); }],
+      ['ride it out', coachResume],
+    ]);
+  }
+}
 function coachTick() {
   if (!coach) return;
   if (day !== 1 || closed || dayMin >= 960) {
@@ -5388,19 +5672,10 @@ function coachTick() {
   }
   if (!coach.wave && dayMin >= 840) {
     coach.wave = true;
-    coachPause();
-    try { analytics.track('coach_wave', { day, dayMin, lever: prebatched ? 'batch' : repriced ? 'deal' : 'hold' }); } catch {}
-    if (prebatched) {
-      coachShow(`<b>14:00 — they’re here.</b> Your ${ctx.batchUnits} reserved cups are live — a batch cup uses less bar time than a made-to-order pour.`, [['watch my plan', coachResume]]);
-    } else if (repriced) {
-      coachShow(`<b>14:00 — they’re here.</b> The ${fmt(ECON.matchaDeal)} deal lowers queue-abandonment odds — it doesn’t speed the bar, and it can’t stop every walk.`, [['watch my plan', coachResume]]);
-    } else {
-      coachShow(`<b>14:00 — they’re here.</b> Made-to-order is four minutes a cup — you can still buy in at the late-switch price.`, [
-        [`buy ${ECON.batchUnits} cups · ${fmt(ECON.batchCost + LEVER_OVERRIDE_PRICE)}`, () => { const u = ctx.batchUnits; doPrebatch(); if (ctx.batchUnits > u) coachResume(); }],
-        [`cut to ${fmt(ECON.matchaDeal)} · ${fmt(LEVER_OVERRIDE_PRICE)} + the room hears it`, () => { doReprice(); if (repriced) coachResume(); }],
-        ['ride it out', coachResume],
-      ]);
-    }
+    whenHandsFree(() => {
+      if (!coach || coach.skipped) return;
+      showCoachWave();
+    });
     return;
   }
   if (coach.wave && !coach.lowStock && prebatched && dayMin >= 840 && dayMin < 960 && ctx.batchUnits <= 8) {
@@ -5420,7 +5695,7 @@ function coachTick() {
       : repriced
         ? `${waveServed} served · ${waveBalked} walked — the deal lowers queue-abandonment odds, it doesn’t prevent every walk`
         : `${waveServed} served · ${waveBalked} walked — made-to-order is four minutes a cup`;
-    coachShow(`<b>the wave read.</b> ${seen}. The evening card at 17:00 sums it up.`, [['got it', coachHide]]);
+    coachShow(`<b>the wave read</b> — what the 14:00 rush did. ${seen}. The evening card at 17:00 sums it up.`, [['got it', coachHide]]);
     return;
   }
 }
@@ -5461,8 +5736,9 @@ $('tnext').onclick = () => {
 $('tskip').onclick = () => dismissTutorialAndStart(true);
 $('tclose').onclick = () => dismissTutorialAndStart(true);
 
-$('open').onclick = () => {
+bindPress($('open'), () => {
   if (!schedule) return;
+  try { clearWeek(localStorage); } catch {}
   modals.close('title');
   $('title').classList.add('gone');
   setTimeout(() => { try { if ($('title')) $('title').remove(); } catch {} }, 1400);
@@ -5471,7 +5747,8 @@ $('open').onclick = () => {
   if (!skipLicence) { showLicence(); return; }
   if (wantTutorial) openTutorial();
   else { started = true; audio.start(); openDay(1); rig.crane(); }
-};
+});
+bindPress($('resume'), () => resumeWeek());
 
 const MOMENT_TTL = 45;
 const MOMENT_PRIO = { plan: -1, returning: 0, sam: 1, line: 2, counter: 3 };
@@ -5483,7 +5760,8 @@ function momentEnqueue(type, key, data = {}) {
 }
 function momentBtn(label, fn) {
   const b = document.createElement('button');
-  b.type = 'button'; b.textContent = label; b.onclick = fn;
+  b.type = 'button'; b.textContent = label;
+  bindPress(b, fn);
   return b;
 }
 function momentAct(m) {
