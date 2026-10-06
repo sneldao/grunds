@@ -1,5 +1,6 @@
 // Cinematic camera — title orbit, crane-in, drag-orbit, beat push-ins, handheld breath.
 import * as THREE from '../vendor/three.module.js';
+import { dragExceeded, pinchRadius, pointerDistance } from './gestures.js';
 
 // Idle/home framing. 24 is close enough that a person at the bar and the
 // chalkboard read, and the far curb of the road still sits in frame.
@@ -32,16 +33,63 @@ export class CameraRig {
     this.lastUser = 0;
     this.craneT = 0;
     this._drag = null;
-    dom.addEventListener('pointerdown', e => { this._drag = { x: e.clientX, y: e.clientY }; this.lastUser = performance.now(); });
+    this._pinch = null;
+    this.pointers = new Map();
+    this.suppressClick = false;
+    const endPointer = (e) => {
+      if (!e || e.pointerId == null) { this.pointers.clear(); this._drag = null; this._pinch = null; return; }
+      this.pointers.delete(e.pointerId);
+      if (this.pointers.size < 2) this._pinch = null;
+      if (this.pointers.size === 0) {
+        this.suppressClick = !!(this._drag && this._drag.active);
+        this._drag = null;
+        return;
+      }
+      if (this.pointers.size === 1) {
+        const p = this.pointers.values().next().value;
+        this._drag = { x: p.x, y: p.y, ox: p.x, oy: p.y, active: false };
+      }
+    };
+    dom.addEventListener('pointerdown', e => {
+      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      this.lastUser = performance.now();
+      if (this.pointers.size === 1) {
+        this._pinch = null;
+        this._drag = { x: e.clientX, y: e.clientY, ox: e.clientX, oy: e.clientY, active: false };
+        this.suppressClick = false;
+      } else if (this.pointers.size >= 2) {
+        const [a, b] = [...this.pointers.values()];
+        this._pinch = { dist: Math.max(1, pointerDistance(a, b)), r: this.r };
+        this._drag = null;
+      }
+    });
     addEventListener('pointermove', e => {
+      if (!this.pointers.has(e.pointerId)) return;
+      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.pointers.size >= 2 && this._pinch) {
+        const [a, b] = [...this.pointers.values()];
+        const dist = pointerDistance(a, b);
+        this.r = pinchRadius(this._pinch.dist, dist, this._pinch.r);
+        this.lastUser = performance.now();
+        if (this.beat) this.beat = null;
+        return;
+      }
       if (!this._drag) return;
+      if (!this._drag.active) {
+        if (!dragExceeded(e.clientX - this._drag.ox, e.clientY - this._drag.oy)) return;
+        this._drag.active = true;
+        this._drag.x = e.clientX;
+        this._drag.y = e.clientY;
+        return;
+      }
       const dx = e.clientX - this._drag.x, dy = e.clientY - this._drag.y;
-      this._drag = { x: e.clientX, y: e.clientY };
+      this._drag.x = e.clientX; this._drag.y = e.clientY;
       this.theta -= dx * 0.005; this.phi = THREE.MathUtils.clamp(this.phi - dy * 0.004, 0.5, 1.32);
       this.lastUser = performance.now();
       if (this.beat) this.beat = null; // user takes the camera back
     });
-    addEventListener('pointerup', () => this._drag = null);
+    addEventListener('pointerup', endPointer);
+    addEventListener('pointercancel', endPointer);
     dom.addEventListener('wheel', e => {
       this.r = THREE.MathUtils.clamp(this.r * (1 + e.deltaY * 0.0009), 10, 34);
       this.lastUser = performance.now();
