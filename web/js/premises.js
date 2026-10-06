@@ -54,8 +54,10 @@ function labelMaterial(text, sub) {
 function roomBoard(env, text, sub, x, y, z) {
   const material = labelMaterial(text, sub);
   if (!material) return;
-  // Tipped toward the street camera, which sits high and in front.
-  env.plane(env.interior, 1.7, 0.56, material, x, y, z, { rx: -0.55, ry: Math.PI, cast: false, recv: false });
+  // The play camera is high and in front. rx positive tips the card up
+  // toward it; the parent's half-turn already aims the face at the street.
+  const w = Math.min(2.2, Math.max(1.45, (env.w || 2.6) * 0.62));
+  env.plane(env.interior, w, w * 0.34, material, x, y, z, { rx: 0.62, ry: Math.PI, cast: false, recv: false });
 }
 
 // The play camera looks down into the lot. A dark floor inside plaster
