@@ -671,7 +671,7 @@ tells the story in chronological order; this block is the field guide.
   `web/test/clamp-asymmetry.mjs`.
 - **Perk nerfs.** `ex-accountant` 0.85 → 0.90, `newcomer` opWarm 0.25 →
   0.18. Real measured spread across the four perks is **£132** — well below
-  the £1,500 "game-wrecking" threshold. `web/test/perk-balance.mjs`.
+  the £1,500 perk-spread ceiling (not the supplier tab — that cap is £3,500). `web/test/perk-balance.mjs`.
 - **Time-locked levers (revised Sept 30).** The pre-batch bought in the Morning
   Brief is **reserved for 14:00** — 40 sealed cups that go live the moment the
   student wave lands, not an instant queue fix. During the wave a routine press
