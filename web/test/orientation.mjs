@@ -780,38 +780,28 @@ G.renderBrief();
   check("both 'what's the difference?' folds still stand", (mainSrc.match(/what’s the difference\?/g) || []).length >= 2);
 }
 
-// ---- the licence card: three staged steps, Enter walks them ---------------------
+// ---- the licence card: one pre-filled confirm ------------------------------------
 G.showLicence();
 check('the licence opens as the top modal', G.modals.top() === 'licence', G.modals.top());
 {
-  const licStepOn = () => [0, 1, 2].find(i => byId(`lic-step-${i}`) && !byId(`lic-step-${i}`).hidden);
   const licText = () => visibleText(byId('licence'));
-  const dotsOn = () => [...byId('lic-dots').children].map(d => d.classList.contains('on')).join(',');
-  check('step 0 carries the two fields + the lease/sign line',
-    licStepOn() === 0 && /the name on the lease · the name on the sign/.test(licText())
-    && dotsOn() === 'true,false,false', `${licStepOn()} ${dotsOn()} :: ${licText().slice(0, 200)}`);
+  check('the card carries the two fields + the lease/sign line',
+    /the name on the lease/.test(licText()) && byId('lic-name').value === 'Sam' && byId('lic-stand').value === 'THE CORNER CUP',
+    licText().slice(0, 240));
   writeFileSync(join(LOGS, 'licence-step-0.txt'), licText());
+  const bgs = deepText(byId('lic-bgs'));
+  check('all four backgrounds are present, tucked in an optional fold',
+    byId('lic-bgs').children.filter(c => c.tagName === 'BUTTON').length === 4
+    && collect(byId('licence'), c => c.tagName === 'DETAILS').length >= 1, bgs.slice(0, 200));
+  check('every background keeps its perk line',
+    /8% faster/.test(bgs) && /fees & payouts/.test(bgs) && /regulars warm quicker/.test(bgs) && /names its lean/.test(bgs), bgs.slice(0, 300));
+  check('role pills sit on the same card', byId('lic-roles').children.filter(c => c.tagName === 'BUTTON').length === 3);
+  key('Escape');
+  check('Escape stays inert on the licence � it is gated', G.modals.top() === 'licence', G.modals.top());
   byId('lic-name').focus();
   key('Enter');
-  check('Enter inside a field advances to the background step', licStepOn() === 1, `step=${licStepOn()}`);
-  const bgs = deepText(byId('lic-bgs'));
-  check('all four backgrounds sit flat on step 1 — no fold',
-    byId('lic-bgs').children.filter(c => c.tagName === 'BUTTON').length === 4
-    && collect(byId('licence'), c => c.tagName === 'DETAILS').length === 0, bgs.slice(0, 200));
-  check('every background keeps its perk line',
-    /8% faster/.test(bgs) && /fees & payouts −10%/.test(bgs) && /regulars warm quicker/.test(bgs) && /names its lean/.test(bgs), bgs.slice(0, 300));
-  writeFileSync(join(LOGS, 'licence-step-1.txt'), licText());
-  key('Enter', byId('lic-step-1'));
-  check('Enter on the card advances to signing', licStepOn() === 2, `step=${licStepOn()}`);
-  check('the last step carries role pills + the blank-is-fine hint',
-    /signed as/.test(licText()) && /blank is fine — the district decides/.test(licText())
-    && dotsOn() === 'false,false,true', `${dotsOn()} :: ${licText().slice(0, 300)}`);
-  writeFileSync(join(LOGS, 'licence-step-2.txt'), licText());
-  key('Escape');
-  check('Escape stays inert on the licence — it is gated', G.modals.top() === 'licence', G.modals.top());
-  key('Enter', byId('lic-step-2'));
   await new Promise(r => setTimeout(r, 20));
-  check('Enter on the last step signs and closes the card', G.modals.top() !== 'licence', G.modals.top());
+  check('Enter signs and closes the card', G.modals.top() !== 'licence', G.modals.top());
   const sig = globalThis.localStorage.getItem('grunds.identity') || '';
   check('the signature persists to localStorage', /"playerName":"Sam"/.test(sig) && /"standName":"THE CORNER CUP"/.test(sig), sig);
 }

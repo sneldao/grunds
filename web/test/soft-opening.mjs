@@ -325,25 +325,17 @@ G.patrons.spawn = (cohort, zone, quick, via) => {
 G.renderBrief();
 check('soft day opens #softintro, not the brief',
   byId('softintro').classList.contains('show') && !byId('brief').classList.contains('show'));
-const sHead = byId('softintro-heading'), sLine = byId('softintro-line'), sPrim = byId('softintro-primary'), sSkip = byId('softintro-skip'), sDots = byId('softintro-dots');
+const sHead = byId('softintro-heading'), sLine = byId('softintro-line'), sPrim = byId('softintro-primary'), sSkip = byId('softintro-skip');
 check('step 1 heading is the stand name', sHead.textContent.length > 0, sHead.textContent);
-check('step 1 line', sLine.textContent === 'Your café — before anyone knows it’s here.', sLine.textContent);
-check('step 1 primary', sPrim.textContent === 'Step inside', sPrim.textContent);
-check('step 1 skip button visible', sSkip.style.display !== 'none' && sSkip.textContent === 'Skip the soft opening', sSkip.textContent);
-check('two dots, first current', sDots.children.length === 2 && sDots.children[0].classList.contains('on') && !sDots.children[1].classList.contains('on'));
+check('one card carries both lines', sLine.textContent === 'Your café — before anyone knows it’s here. Ruth makes every drink. You watch the room and make the calls.', sLine.textContent);
+check('primary opens the doors', sPrim.textContent === 'Open the doors', sPrim.textContent);
+check('skip button visible', sSkip.style.display !== 'none' && sSkip.textContent === 'Skip the soft opening', sSkip.textContent);
+check('Ruth is on the card', byId('softintro-portrait').children.length > 0 && byId('softintro-portrait').style.display !== 'none');
 check('no 14:00 plan spoiler on the soft morning', !/14:00|Students/.test(deepText(byId('softintro'))), deepText(byId('softintro')));
 writeFileSync(join(LOGS, 'softintro-step1.txt'), visibleText(byId('softintro')));
 key('Escape');
-check('Escape does not advance or skip', sLine.textContent === 'Your café — before anyone knows it’s here.' && G.phase === 'planning' && G.softDay === true);
-sPrim.click();
-check('step 2 line', sLine.textContent === 'Ruth makes every drink. You watch the room and make the calls.', sLine.textContent);
-check('step 2 primary', sPrim.textContent === 'Open the doors', sPrim.textContent);
-check('step 2 shows the Ruth portrait', byId('softintro-portrait').children.length > 0 && byId('softintro-portrait').style.display !== 'none');
-check('step 2 dots advance', sDots.children[1].classList.contains('on') && !sDots.children[0].classList.contains('on'));
+check('Escape does not open the doors', G.phase === 'planning' && G.softDay === true && byId('softintro').classList.contains('show'));
 check('reduced-motion rule exists', readFileSync(join(ROOT, 'web/index.html'), 'utf8').includes('@media (prefers-reduced-motion: reduce) { #softintro-step.si-in, #lic-step.si-in { animation: none; } }'));
-writeFileSync(join(LOGS, 'softintro-step2.txt'), visibleText(byId('softintro')));
-key('Escape');
-check('Escape on step 2 does not open the doors', G.phase === 'planning' && byId('softintro').classList.contains('show'));
 sPrim.click();
 check('Open the doors commits and starts trading', G.phase === 'trading' && byId('softintro').classList.contains('show') === false, `phase=${G.phase}`);
 check('the soft commit staged no prep', G.stats().batchUnits === 0 && G.stats().batchSpend === 0, `units=${G.stats().batchUnits}`);
@@ -422,7 +414,7 @@ G.reset();
 await new Promise(r => setTimeout(r, 10));
 check('reset re-arms the soft day', G.softDay === true);
 G.renderBrief();
-check('skip run shows the softintro step 1', byId('softintro').classList.contains('show') && byId('softintro-primary').textContent === 'Step inside', byId('softintro-primary').textContent);
+check('skip run shows the softintro', byId('softintro').classList.contains('show') && byId('softintro-primary').textContent === 'Open the doors', byId('softintro-primary').textContent);
 byId('softintro-skip').click();
 check('skip jumps straight into the week brief', G.phase === 'planning' && G.softDay === false && G.softWeekDone === true, `phase=${G.phase}`);
 const skipStart = { index: G.exc.beanIndex, debt: G.exc.debt, history: G.exc.history.length, cRev: G.stats().cRev, cCost: G.stats().cCost, cOps: G.stats().cOps, settledPaid: G.stats().settledPaid, staff: G.stats().staffCondition, awareness: G.stats().awareness,
@@ -493,7 +485,6 @@ async function softAcceptRun(clickText) {
   G.reset();
   await new Promise(r => setTimeout(r, 10));
   G.renderBrief();
-  byId('softintro-primary').click();
   byId('softintro-primary').click();
   if (G.phase !== 'trading') return { ok: false };
   G.coach.skip();
