@@ -103,12 +103,14 @@
     host.textContent = '';
     for (const seed of seeds) {
       const stands = bySeed.get(seed) || [];
+      const full = stands.length >= 3;
       const card = document.createElement('section');
       card.className = 'street';
       card.innerHTML = `
         <h2><span class="n">district №${esc(seed)}</span>
-          <span class="tags">${stands.length ? `${stands.length} stand${stands.length > 1 ? 's' : ''} on the Row` : 'leases open'}</span>
-          <span class="play"><a href="/?seed=${esc(seed)}">play this street →</a></span></h2>
+          <span class="tags">${full ? 'Row is full' : stands.length ? `${stands.length} stand${stands.length > 1 ? 's' : ''} on the Row` : 'leases open · first lease day 3'}</span>
+          <span class="play"><a href="/?seed=${esc(seed)}" target="_blank" rel="noopener">${full ? 'walk this full Row →' : 'play this street →'}</a></span></h2>
+        ${full ? '<p class="ph">every lease on this Row is signed — you can still walk the street</p>' : ''}
         <div class="strip"><span class="ph">reading the kit…</span></div>
         <div class="stands"></div>`;
       host.appendChild(card);
@@ -129,11 +131,15 @@
       get(`${BASE}/district/kit?seed=${seed}`).then((kit) => {
         const strip = card.querySelector('.strip');
         if (!strip) return;
-        const slots = Object.entries(kit?.slots || {}).filter(([, s]) => s.status === 'success' && s.previewUrl);
+        if (!kit) throw new Error('kit');
+        const slots = Object.entries(kit.slots || {}).filter(([, s]) => s.status === 'success' && s.previewUrl);
         strip.innerHTML = slots.length
           ? slots.map(([k, s]) => `<span><img src="${esc(s.previewUrl)}" alt="${esc(k)}" loading="lazy"><span class="slot">${esc(k)}</span></span>`).join('')
           : '<span class="ph">the classic street — nothing grown yet</span>';
-      }).catch(() => {});
+      }).catch(() => {
+        const strip = card.querySelector('.strip');
+        if (strip) strip.innerHTML = '<span class="ph">couldn’t read this street’s kit. <a href="" onclick="location.reload();return false;">reload</a></span>';
+      });
     }
   }
   main().catch(() => {
