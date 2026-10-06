@@ -47,7 +47,19 @@ function copyTree(src, dst, skip = () => false) {
   }
 }
 
-export function stageSite({ outDir, root = ROOT } = {}) {
+async function minifyThree(out) {
+  const p = path.join(out, 'vendor', 'three.module.js');
+  if (!fs.existsSync(p)) return false;
+  let terser;
+  try { terser = await import('terser'); } catch { return false; }
+  const src = fs.readFileSync(p, 'utf8');
+  const res = await terser.minify(src, { module: true, mangle: false, compress: { passes: 1 } });
+  if (!res || !res.code || res.code.length >= src.length) return false;
+  fs.writeFileSync(p, res.code);
+  return true;
+}
+
+export async function stageSite({ outDir, root = ROOT } = {}) {
   if (!outDir) throw new Error('--out <dir> is required');
   const out = path.resolve(outDir);
   if (out === root || out.startsWith(root + path.sep)) throw new Error(`refusing to stage inside the repo: ${out}`);
@@ -59,6 +71,8 @@ export function stageSite({ outDir, root = ROOT } = {}) {
   copyTree(path.join(web, 'vendor'), path.join(out, 'vendor'));
   if (fs.existsSync(path.join(web, 'assets'))) copyTree(path.join(web, 'assets'), path.join(out, 'assets'));
   fs.copyFileSync(path.join(web, 'index.html'), path.join(out, 'index.html'));
+  const streets = path.join(web, 'streets.html');
+  if (fs.existsSync(streets)) fs.copyFileSync(streets, path.join(out, 'streets.html'));
   for (const extra of ['favicon.ico', 'favicon.svg', 'manifest.json']) {
     const p = path.join(web, extra);
     if (fs.existsSync(p)) fs.copyFileSync(p, path.join(out, extra));
@@ -71,6 +85,7 @@ export function stageSite({ outDir, root = ROOT } = {}) {
   if (!fs.existsSync(schedSrc)) throw new Error('no schedule source found');
   fs.mkdirSync(path.join(out, 'api'), { recursive: true });
   fs.copyFileSync(schedSrc, path.join(out, 'api', 'schedule.json'));
+  const minifiedThree = await minifyThree(out);
 
   const git = (cmd) => execSync(cmd, { cwd: root, encoding: 'utf8' }).trim();
   const head = git('git rev-parse --short HEAD');
@@ -109,7 +124,7 @@ export function stageSite({ outDir, root = ROOT } = {}) {
     throw new Error(`${problems.length} problem(s) in staged artifact`);
   }
 
-  const manifest = { version, 'source commit': head, scheduleSource, files: finalFiles };
+  const manifest = { version, 'source commit': head, scheduleSource, minifiedThree, files: finalFiles };
   fs.writeFileSync(path.join(out, 'release.json'), JSON.stringify(manifest, null, 2) + '\n');
   return manifest;
 }
@@ -119,7 +134,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const outIdx = args.indexOf('--out');
   try {
     if (outIdx < 0 || !args[outIdx + 1]) throw new Error('usage: node tools/stage-site.mjs --out <dir>');
-    const manifest = stageSite({ outDir: args[outIdx + 1] });
+    const manifest = await stageSite({ outDir: args[outIdx + 1] });
     const n = Object.keys(manifest.files).length;
     console.log(`staged ${n} files · version ${manifest.version} · schedule ${manifest.scheduleSource}`);
     console.log(`out: ${path.resolve(args[outIdx + 1])}`);
