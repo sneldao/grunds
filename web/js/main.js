@@ -33,7 +33,7 @@ import { touchPrimary } from './gestures.js';
 import { saveWeek, loadWeek, clearWeek, resumeLabel } from './weekSave.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
-import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, starredDelivery } from './menu.js';
+import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, EMPTY_CASE_MOOD, starredDelivery } from './menu.js';
 import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity } from './demand.js';
 import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu, shockOnDay } from './shocks.js';
 import { composeLetter } from './letter.js';
@@ -533,6 +533,9 @@ let pastryWaste = 0; // dawn case still in the cabinet at close
 let pastryWasteCost = 0; // close charge: unsold × PASTRY.cogs. Not prepaid at dawn.
 let pastrySpend = 0; // wholesale of croissants that left the case at the register
 let pastryOnOrder = 0;
+let pastryMissDrinks = 0; // empty case, they still bought the drink
+let pastryMissWalks = 0;  // empty case, the one-in-four who left
+let pastryMissNoted = false;
 let lastRetail = 0; // yesterday's register, sizes tomorrow's case
 let softDay = false, softWeekDone = false, coachedOpening = false, softTest = null, softRng = null;
 const SOFT_MUL = 0.005, SOFT_CAST = new Set(['Mara', 'Pip', 'Olu']), SOFT_EARLY = new Set(['Mara', 'Olu']);
@@ -868,6 +871,7 @@ function tick() {
         continue;
       }
       till += e.price; cogs += e.lotId ? 0 : e.beanCost ?? 0; sales++;   // Phase 2 cash-basis: lot cups were expensed at the dawn top-up
+      if (e.pastryMiss) { pastryMissDrinks++; noteEmptyCase(); }
       // The gratuity rides inside the ticket. A warm Ruth week forgoes
       // none of it. A robot week, and the quieter room it leaves, keeps less.
       const forgone = tipForgone(e.price, regulars.tipMul, { robot: onRobotHire(), quiet: quietCarry });
@@ -954,6 +958,7 @@ function tick() {
           fx.toast(`no ${DRINKS[e.turnaway]?.name || e.turnaway} today — they read the board and left`, 'warn');
         }
       } else {
+        if (e.pastry) { pastryMissWalks++; noteEmptyCase(); }
         if (e.milkOut) milkBalked++;
         // Phase 1 — a walk-out sours a walk-in (roster balks already flow
         // through resolveDay's served/balked counters).
@@ -979,7 +984,7 @@ function tick() {
         const gossipChance = calmWindow ? 0.10 : (speed >= 1200 ? 0.14 : 0.35);
         if (Math.random() < gossipChance) fx.bubble(e.p, COPY.gossipBad[(Math.random() * COPY.gossipBad.length) | 0], 'bad');
         // first walk-out names the remedy, not just the failure
-        if (!nudgedBalk) {
+        if (!e.pastry && !nudgedBalk) {
           nudgedBalk = true;
           fx.toast('they walked — press 1 to prep cups, or 2 to cut the price', 'warn');
         }
@@ -1556,6 +1561,7 @@ function closeDay() {
     }
   }
   for (const c of (patrons.companionsToday || [])) lessons.push(`${c.name} brought ${c.friend}.`);
+  if (pastryMissDrinks + pastryMissWalks > 0) lessons.push('The case sold out. Most still bought a drink. One in four left, and the room noticed.');
   if ($('receipt-heading')) $('receipt-heading').textContent = softDay ? 'SOFT OPENING' : 'GRUNDS';
   if ($('receipt-sub')) $('receipt-sub').textContent = softDay ? 'soft opening · practice ledger' : 'end of day · Z-read';
   const receiptData = softDay ? {
@@ -1568,6 +1574,7 @@ function closeDay() {
       ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
       ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
       ...(pastryWasteCost > 0 ? [['unsold croissants', `${pastryWaste} · ${fmt(pastryWasteCost)}`]] : []),
+      ...(pastryMissDrinks + pastryMissWalks > 0 ? [['the case sold out', `${pastryMissDrinks} took a drink · ${pastryMissWalks} left · the room noticed`]] : []),
       ...(party && !party.declined ? [[party.name + '’s group', `${party.served} stayed · ${party.walked} walked`]] : []),
       ...(party && party.declined ? [[party.name, 'stayed away']] : []),
     ],
@@ -1595,6 +1602,7 @@ function closeDay() {
       ...(batchSpend > 0 ? [['matcha batch bought', `−${fmt(batchSpend)}`]] : []),
       ...(batchWaste > 0 ? [['matcha wasted', `${batchWaste} · ${fmt(wasteCost)}`]] : []),
       ...(pastryWasteCost > 0 ? [['unsold croissants', `${pastryWaste} · ${fmt(pastryWasteCost)}`]] : []),
+      ...(pastryMissDrinks + pastryMissWalks > 0 ? [['the case sold out', `${pastryMissDrinks} took a drink · ${pastryMissWalks} left · the room noticed`]] : []),
       ...(beanSpend > 0 ? [['beans stocked', `−${fmt(beanSpend)}${sackSpend > 0 ? ` (${fmt(sackSpend)} on the tab)` : ''}`]] : []),
       ...(compostToday > 0 ? [['stale composted', `${compostToday} cups`]] : []),
       ...(milkTipped > 0 ? [['milk tipped', `${milkTipped} units`]] : []),
@@ -2601,6 +2609,10 @@ function renderPastryCut(wrap) {
   lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
   lab.textContent = 'tomorrow’s croissant case';
   row.appendChild(lab);
+  const rule = document.createElement('div');
+  rule.style.cssText = 'font-size:11px;line-height:1.35;margin-bottom:4px';
+  rule.textContent = 'An empty case still sells the drink. One in four leaves, and the room notices.';
+  row.appendChild(rule);
   if (day >= CAMPAIGN.days) {
     const note = document.createElement('div');
     note.style.cssText = 'font-size:10px;opacity:.55;font-style:italic';
@@ -3104,6 +3116,15 @@ function stagePastryCut(share) {
   if (!Number.isFinite(n) || n < 0 || n > 1) return false;
   pastryCut = n;
   return true;
+}
+
+// Once, the first time today's case is found empty. The croissant sale is
+// already lost; this is the room noticing.
+function noteEmptyCase() {
+  if (pastryMissNoted) return;
+  pastryMissNoted = true;
+  regulars.adjustOpinions(EMPTY_CASE_MOOD);
+  fx.toast('the case is empty — most still buy a drink; one in four leaves, and the room notices', 'warn');
 }
 
 // PR-B2 — Sam's reactive answer to a player move. Toast + nudge.
@@ -4053,6 +4074,9 @@ function prepareDay(d) {
   pastrySpend = 0;
   pastryWaste = 0;
   pastryWasteCost = 0;
+  pastryMissDrinks = 0;
+  pastryMissWalks = 0;
+  pastryMissNoted = false;
   applySeizureBoard();
   patrons.skillPts = ruthSkill;
   patrons.menuOffered = menuOffered;
@@ -4904,7 +4928,7 @@ function reset(coreOnly = false) {
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   rushFast = false;
-  party = null; batchWaste = 0; batchSpend = 0; pastryWaste = 0; pastryWasteCost = 0; pastrySpend = 0; pastryOnOrder = 0; lastRetail = 0; ctx.pastryStock = null;
+  party = null; batchWaste = 0; batchSpend = 0; pastryWaste = 0; pastryWasteCost = 0; pastrySpend = 0; pastryOnOrder = 0; pastryMissDrinks = 0; pastryMissWalks = 0; pastryMissNoted = false; lastRetail = 0; ctx.pastryStock = null;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; solicitorCharge = 140; cOps = 0;
   wifiOutage = null;
   rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day

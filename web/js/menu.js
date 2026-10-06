@@ -135,6 +135,11 @@ export function preferredOnBoard(name, offered = null) {
 // half never gets a body — the room holds 260 and the register is four a
 // minute — so the case matches who can reach the till. Leftovers compost.
 export const PASTRY = ATTACH_ITEMS.croissant;
+// An empty case is not a closed shop. The croissant sale is lost.
+// Three in four still buy the drink they came for. One in four leaves.
+// The first time it happens that day, the room's mood drops by this much.
+export const EMPTY_CASE_WALK = 0.25;
+export const EMPTY_CASE_MOOD = -0.04;
 export function pastryPar(dayWaves, spawnScale = 1, spawnMul = 1, lastRetail = 0, cut = 0) {
   let n;
   if (lastRetail > 0) n = Math.max(4, Math.round(lastRetail * 1.1));

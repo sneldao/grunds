@@ -598,7 +598,7 @@ while (G.phase === 'trading' && guard++ < 80) {
   if (G.paused && !byId('brief').classList.contains('show')) G.togglePause();
 }
 check('day 2 closes into review', G.phase === 'review', 'phase=' + G.phase);
-check('the skipped case opened empty — retail walked instead of selling', G.stats().pastryStock === 0 && G.stats().servedRetail === 0, `stock=${G.stats().pastryStock} retail=${G.stats().servedRetail}`);
+check('the skipped case opened empty — retail still bought drinks', G.stats().pastryStock === 0 && G.stats().servedRetail > 0, `stock=${G.stats().pastryStock} retail=${G.stats().servedRetail}`);
 {
   const receipt = G.lastDayReceipt;
   const lessons = receipt && receipt.lessons || [];
