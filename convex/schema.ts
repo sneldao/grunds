@@ -268,6 +268,7 @@ export default defineSchema({
     updatedAt: v.number(),
     source: v.optional(v.string()),    // "webhook" | "manual"
     eventId: v.optional(v.string()),   // RevenueCat event id — idempotency
+    occurredAt: v.optional(v.number()),// event ms from the payload — rejects stale redeliveries
   }).index("by_user", ["appUserId"]),
 
   // External-API response cache — token/cost efficiency. Firecrawl news

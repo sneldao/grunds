@@ -47,6 +47,7 @@ export const applyEntitlements = internalMutation({
     founder: v.boolean(),
     source: v.string(),
     eventId: v.optional(v.string()),
+    occurredAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     if (!args.appUserId) throw new Error("appUserId required");
@@ -62,6 +63,15 @@ export const applyEntitlements = internalMutation({
       .query("entitlements")
       .withIndex("by_user", (q) => q.eq("appUserId", args.appUserId))
       .first();
+    // ordering: a redelivered event older than what we already stored must
+    // not revive a since-expired (or since-changed) entitlement state.
+    if (
+      existing?.occurredAt != null &&
+      args.occurredAt != null &&
+      args.occurredAt < existing.occurredAt
+    ) {
+      return { stale: true };
+    }
     const row = {
       appUserId: args.appUserId.slice(0, 120),
       insider: args.insider,
@@ -69,6 +79,7 @@ export const applyEntitlements = internalMutation({
       updatedAt: Date.now(),
       source: args.source,
       eventId: args.eventId,
+      occurredAt: args.occurredAt,
     };
     if (existing) {
       await ctx.db.patch(existing._id, row);
@@ -79,14 +90,16 @@ export const applyEntitlements = internalMutation({
   },
 });
 
-// Public mutation — used by /sync/snapshot and the manual upsert path
-// (the front-end can write entitlements directly via this mutation when
-// the Web Test Store's localStorage state needs to propagate to Convex).
-// Logic is inlined (rather than calling the internal mutation) so the
-// public surface doesn't depend on the internal module's resolved types —
-// Convex compiles each module in isolation, and a self-referential call
-// makes the handler's return type implicit-any, which then cascades into
-// any caller.
+// Public mutation — manual upsert for the Web Test Store demo (localStorage
+// state propagating to Convex so a second device can restore it). This is a
+// self-grant path by construction: it MUST vanish the moment real billing is
+// live, so it hard-refuses when REVENUECAT_WEBHOOK_SECRET is configured —
+// that secret only exists on deployments wired to take money, where the
+// webhook is the sole writer. Logic is inlined (rather than calling the
+// internal mutation) so the public surface doesn't depend on the internal
+// module's resolved types — Convex compiles each module in isolation, and a
+// self-referential call makes the handler's return type implicit-any, which
+// then cascades into any caller.
 export const setEntitlement = mutation({
   args: {
     appUserId: v.string(),
@@ -94,6 +107,8 @@ export const setEntitlement = mutation({
     founder: v.boolean(),
   },
   handler: async (ctx, args): Promise<{ updated: boolean; inserted: boolean }> => {
+    if (process.env.REVENUECAT_WEBHOOK_SECRET)
+      throw new Error("manual entitlement grants are disabled while RevenueCat webhooks are configured");
     const appUserId = args.appUserId.slice(0, 120);
     const existing = await ctx.db
       .query("entitlements")
@@ -105,6 +120,7 @@ export const setEntitlement = mutation({
       founder: args.founder,
       updatedAt: Date.now(),
       source: "manual",
+      occurredAt: Date.now(),
     };
     if (existing) {
       await ctx.db.patch(existing._id, row);

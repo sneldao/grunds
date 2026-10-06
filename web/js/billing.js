@@ -11,6 +11,8 @@
 // PR-4 — multi-tier catalog: a monthly pass, a yearly pass (≈33% off per
 // month), and a one-time Founder's pass (non-consumable — buys you the day-5
 // replay-with-new-seed CTA + brass stamp on the share card forever).
+import { baseUrl } from "./convexSync.js";
+
 export const ENTITLEMENT_ID = "commodity_insider";
 export const ENTITLEMENTS = {
   insider: "commodity_insider",          // the Wire desk tilt + ad-free Wire
@@ -90,16 +92,6 @@ class BillingManager {
     for (const fn of this.listeners) fn(snap);
   }
 
-  setSubscribed(v) {
-    this.subscribed = !!v;
-    this.insider = !!v || this.insider;
-    try {
-      store()?.setItem("grunds_subscribed", String(this.subscribed));
-      store()?.setItem("grunds_insider", String(this.insider));
-    } catch {}
-    this.notify();
-  }
-
   setEntitlement(entId, v) {
     if (entId === ENTITLEMENTS.founder) {
       this.founder = !!v;
@@ -136,7 +128,48 @@ class BillingManager {
       console.warn("RevenueCat init failed — Web Test Store stays active:", err);
       this.purchases = null;
     }
+    this.reconcileFromMirror();
     return this.mode;
+  }
+
+  // PR-4e — the Convex mirror (/sync/entitlements) is the cross-device
+  // record: webhook events and Test Store pushes land there. On boot we
+  // adopt any grants the mirror holds; we never revoke off it — revocation
+  // rides the SDK's customerInfo on devices with a live key. With no mirror
+  // row yet, push local grants so a second device can restore them.
+  _mirrorBase() {
+    const u = baseUrl();
+    return u ? String(u).replace(/\/$/, "") : null;
+  }
+
+  async reconcileFromMirror() {
+    const u = this._mirrorBase();
+    if (!u || !this.appUserId) return;
+    try {
+      const r = await fetch(`${u}/sync/entitlements?appUserId=${encodeURIComponent(this.appUserId)}`);
+      if (!r.ok) return;
+      const j = await r.json();
+      const e = j?.entitlements;
+      if (e?.insider) this.setEntitlement(ENTITLEMENTS.insider, true);
+      if (e?.founder) this.setEntitlement(ENTITLEMENTS.founder, true);
+      if (e && !e.updatedAt && (this.insider || this.founder)) this.pushToMirror();
+    } catch {
+      /* offline or unconfigured — localStorage state stands */
+    }
+  }
+
+  pushToMirror() {
+    const u = this._mirrorBase();
+    if (!u || !this.appUserId) return;
+    try {
+      fetch(`${u}/sync/setEntitlement`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ appUserId: this.appUserId, insider: this.insider, founder: this.founder }),
+      }).catch(() => {});
+    } catch {
+      /* fire and forget */
+    }
   }
 
   // Live price from the configured offering for the requested tier, or the
@@ -206,6 +239,7 @@ class BillingManager {
     await new Promise((r) => setTimeout(r, 400));
     if (tier === 'founder') this.setEntitlement(ENTITLEMENTS.founder, true);
     else                    this.setEntitlement(ENTITLEMENTS.insider, true);
+    this.pushToMirror();
     return { success: true, tier, entitlement: tier === 'founder' ? ENTITLEMENTS.founder : ENTITLEMENTS.insider };
   }
 
@@ -231,12 +265,10 @@ class BillingManager {
 
   cancelPass() {
     // Test-store convenience only — real Web Billing subs cancel through the
-    // RevenueCat customer portal, not client SDK calls.
-    this.setSubscribed(false);
-    try {
-      store()?.removeItem("grunds_subscribed");
-      store()?.removeItem("grunds_insider");
-    } catch {}
+    // RevenueCat customer portal, not client SDK calls. The founder pass is
+    // one-time and does not cancel.
+    this.setEntitlement(ENTITLEMENTS.insider, false);
+    this.pushToMirror();
     return { success: true };
   }
 }

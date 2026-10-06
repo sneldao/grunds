@@ -523,6 +523,7 @@ export const revenuecatWebhook = httpAction(async (ctx, req) => {
     event?: {
       type?: string;
       id?: string;
+      date?: string;
       app_user_id?: string;
       entitlements?: Record<string, { expires_date_ms?: number } | undefined>;
     };
@@ -536,6 +537,7 @@ export const revenuecatWebhook = httpAction(async (ctx, req) => {
   const userId = event.app_user_id;
   if (!userId) return json({ error: "app_user_id required" }, 400);
   const flag = readEntitlements(event);
+  const occurred = event.date ? Date.parse(event.date) : Number.NaN;
   try {
     const result = await ctx.runMutation(internal.revenuecat.applyEntitlements, {
       appUserId: userId,
@@ -543,6 +545,7 @@ export const revenuecatWebhook = httpAction(async (ctx, req) => {
       founder: flag.founder,
       source: "webhook",
       eventId: event.id,
+      occurredAt: Number.isFinite(occurred) ? occurred : undefined,
     });
     return json({ received: event.type ?? "unknown", result });
   } catch (e) {
@@ -564,9 +567,13 @@ export const syncEntitlements = httpAction(async (ctx, req) => {
 });
 
 // PR-4e — manual upsert. Used when the Web Test Store's local state needs
-// to propagate to Convex (e.g. a purchase made off-line).
+// to propagate to Convex (e.g. a purchase made off-line). Self-granting by
+// design, so it closes itself: once REVENUECAT_WEBHOOK_SECRET is configured
+// (real billing), the webhook is the only writer and this returns 403.
 export const syncSetEntitlement = httpAction(async (ctx, req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  if (process.env.REVENUECAT_WEBHOOK_SECRET)
+    return json({ error: "manual grants disabled while webhooks are configured" }, 403);
   let payload: { appUserId?: string; insider?: boolean; founder?: boolean };
   try {
     payload = (await req.json()) as typeof payload;

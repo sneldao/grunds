@@ -102,3 +102,35 @@ test('http.ts · syncEntitlements reads by appUserId', () => {
 test('http.ts · syncSetEntitlement accepts POST json and forwards', () => {
   assert.match(httpSrc, /syncSetEntitlement[\s\S]{0,1500}api\.revenuecat\.setEntitlement/s);
 });
+
+// ---- billing foundation (pre-money hardening) --------------------------------
+
+test('revenuecat.ts · manual grants self-close once the webhook is configured', () => {
+  assert.match(rc, /setEntitlement[\s\S]{0,1200}process\.env\.REVENUECAT_WEBHOOK_SECRET[\s\S]{0,200}manual entitlement grants are disabled/s,
+    'the public setEntitlement mutation must refuse when webhooks are live');
+  assert.match(httpSrc, /syncSetEntitlement[\s\S]{0,700}REVENUECAT_WEBHOOK_SECRET[\s\S]{0,300}403/s,
+    'the manual HTTP route must 403 under the same condition');
+});
+
+test('revenuecat.ts · stale webhook redeliveries cannot overwrite newer state', () => {
+  assert.match(rc, /occurredAt:\s*v\.optional\(v\.number\(\)\)/);
+  assert.match(rc, /args\.occurredAt\s*<\s*existing\.occurredAt/);
+  assert.match(rc, /stale:\s*true/);
+  assert.match(httpSrc, /Date\.parse\(event\.date\)/,
+    'the webhook must derive the event timestamp from the payload');
+});
+
+test('schema.ts · entitlements row carries occurredAt', () => {
+  assert.match(schema, /occurredAt:\s*v\.optional\(v\.number\(\)\)/);
+});
+
+test('billing.js · boots against the mirror and cancel clears in-memory state', () => {
+  const billingSrc = readFileSync(resolve(root, 'web/js/billing.js'), 'utf8');
+  assert.match(billingSrc, /reconcileFromMirror\(\)/,
+    'configure() must reconcile against /sync/entitlements (the documented boot poll)');
+  assert.match(billingSrc, /\/sync\/entitlements\?appUserId=/);
+  assert.match(billingSrc, /pushToMirror\(\)/,
+    'Test Store grants must propagate to the mirror for cross-device restore');
+  assert.match(billingSrc, /cancelPass\(\)[\s\S]{0,500}setEntitlement\(ENTITLEMENTS\.insider,\s*false\)/,
+    'cancelPass must reset the in-memory insider flag, not just localStorage');
+});
