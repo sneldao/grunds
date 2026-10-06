@@ -365,6 +365,9 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   reply's arrival — server `handleInbound` remains the only applier.
 - Hosting: `@convex-dev/static-hosting` serves the floor from
   `https://striped-anaconda-746.convex.site` (43 files Sept 13, SPA fallback — adds `desk.js` + rebuilt `dist`);
+  public domain: `grunds.trustfall.xyz` — GoDaddy CNAME → Vercel `grunds-proxy`
+  (`deploy/vercel-proxy/vercel.json`, one catch-all rewrite, GET+POST), TLS
+  auto-minted, `_vercel` TXT + `grunds` CNAME both required at GoDaddy;
   performance: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms, shadow budget at `queue>40`, GLB cross-fade, `tabular-nums` till + staggered/typewriter receipt, `P` photo + `GRUNDS` secret, **bounce hemi 0.22 lifts the bar**;
   delight wiring: `world.setPlantHealth`/`setGodRay`/`setMotes`/`spawnCat`/`updateCat`/`popTillDrawer`/`_updateDelight(now, dt)`/`jeerRival`, `audio.tick`/`waveFanfare`/`waveRain`/`chalkScreech`/`purr`/`meow`/`shutter`, `fx.chalkDust`/`coinRain`/`victoryBurst` + receipt stagger, `main` reactive `#goal` + nudges + haptics + hover card + Idris quips + rival jeer + desk/billing + `requestAnimationFrame(loop)` re-arm discipline;
   app routes stay at root (`/sync/*`, `/ai/*`, `/agentmail/*`). On managed

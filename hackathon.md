@@ -3,7 +3,8 @@
 - **Project:** Grunds
 - **Event:** Convex All Gas Hackathon
 - **What it does:** A live 3D coffee-district economy game where players run café stands and AI patrons with persistent memory buy based on cohorts, commodity events, and gossip.
-- **Live app:** https://striped-anaconda-746.convex.site
+- **Live app:** https://grunds.trustfall.xyz (public domain; Vercel `grunds-proxy`
+  rewrites all paths to https://striped-anaconda-746.convex.site, still live itself)
 - **Repo:** https://github.com/sneldao/grunds
 - **Frontend:** Convex static hosting
 - **Convex deployment:** https://striped-anaconda-746.convex.cloud

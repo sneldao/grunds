@@ -338,7 +338,7 @@ is effectively free until a task succeeds.
       franchise letter → dawn reveal → photo mode → share seed
 - [ ] Oct 4: **visual asset board** — prompt → Tripo render preview → in-game
       frame, 8–12 rows; screenshot pass for every UI surface
-- [ ] Oct 4: submission form: playable URL (convex.site, hero seed default),
+- [ ] Oct 4: submission form: playable URL (grunds.trustfall.xyz, hero seed default),
       walkthrough link, asset board link, build-log links, tracks =
       Game + Tripo
 - [ ] Oct 5 morning: submit. Screenshot confirmation. Post #4 ("submitted —
@@ -352,7 +352,8 @@ unlock). Travel is optional for the global pool; decide on Wk 3 strength.
 
 ## 6. The submission kit (rubric-mapped)
 
-1. **Playable demo** — the live convex.site URL. Hero seed default so the
+1. **Playable demo** — the live URL `https://grunds.trustfall.xyz` (Vercel
+   proxy → convex.site). Hero seed default so the
    first impression is the best district; classic fallback guarantees play.
    Fresh-browser 5-minute-to-fun is the acceptance test.
 2. **Walkthrough** — extend the `videos/grunds-demo` HyperFrames + Playwright

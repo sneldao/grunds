@@ -3,7 +3,8 @@
 - **Project:** Grunds — The District (the Generative District)
 - **Event:** Tripothon S1 · Build a world as a Gift (developers.tripo3d.ai)
 - **Tracks:** Game (direction) + Tripo (tool)
-- **Live app:** https://striped-anaconda-746.convex.site
+- **Live app:** https://grunds.trustfall.xyz (Vercel proxy `grunds-proxy` →
+  `striped-anaconda-746.convex.site`; config in `deploy/vercel-proxy/`)
 - **Repo:** https://github.com/sneldao/grunds
 - **War plan:** `TRIPOTHON.md`
 - **Started:** 2026-09-15
@@ -13,6 +14,22 @@
 > event rules), and the social pool needs ≥1,000 likes on a post by Oct 20.
 
 ## Log
+
+### 2026-10-05 — Public domain: `grunds.trustfall.xyz` live
+- **Vercel `grunds-proxy`** (config now versioned in `deploy/vercel-proxy/`):
+  one catch-all rewrite → `striped-anaconda-746.convex.site`, GET + POST.
+  DNS at GoDaddy: `CNAME grunds → cname.vercel-dns.com` + `_vercel` TXT
+  verify; cert auto-minted. Convex custom-domain route was the first choice
+  but isn't exposed on this plan; Cloudflare was out (zone isn't on our
+  account) — proxy won over redirect because the URL must stay put and the
+  API routes (`/district/*`, `/franchise/*`, `/sync/*`) must proxy same-origin.
+- **Frontend auto-detect** (`convexSync.baseUrl` + `streets.html`) now treats
+  `grunds.trustfall.xyz` as backend origin like `*.convex.site` — without it
+  the site would have loaded local-only with no LIVE badge or Row.
+- **Verified end-to-end:** `/`, `/streets.html`, `/asset-board.html` 200;
+  `/franchise/streets` registry + `/district/kit?seed=7` live JSON; POSTs
+  (`/sync/snapshot`, `/franchise/describe`) proxy correctly. Old convex.site
+  URL unaffected — both live in parallel.
 
 ### 2026-10-05 — Tripo goes live: credits landed, provider routing shipped, first Tripo-grown districts
 - **The blocker cleared:** a funded `TRIPO_API_KEY` (25,000 credits) replaced the empty key on the deployment. `tripo:balance` verifies live — `fallback: false`, 25k in.

@@ -93,7 +93,8 @@ Same world, multiplayer and persistent:
 - **OpenAI**: `gpt-4o-mini` writes the Wire's "why this matters" line —
   crawls become a one-line analyst read a player can act on
 - Deployed on `convex.site`, public repo, `hackathon.md` build log from day one
-  — **live since Sept 12** at https://striped-anaconda-746.convex.site
+  — **live since Sept 12** at https://grunds.trustfall.xyz
+  (Vercel proxy → `striped-anaconda-746.convex.site`, which also serves directly)
 
 Prior work disclosed honestly in the build log: "a deterministic café dataset engine
 and briefing design (prototype); this build: a live, real-time product on Convex."
@@ -329,7 +330,7 @@ grunds/
 │   │   ├── modals.js            # shared modal controller: focus trap, inert stack, top-layer keys
 │   │   ├── decision.js          # pure resolveDecision(snapshot, plan) — local + managed commit path
 │   │   ├── districtGen.js       # seed → generated 3D kit cross-fade (?classicDistrict / failure → procedural)
-│   │   ├── convexSync.js        # optional connected mode (auto on *.convex.site, ?convex= override): managed plan queue + Linkup intel + inbox poll
+│   │   ├── convexSync.js        # optional connected mode (auto on *.convex.site + grunds.trustfall.xyz, ?convex= override): managed plan queue + Linkup intel + inbox poll
 │   │   ├── analytics.js         # local playtest analytics (tutorial/lever/balk/debrief/forecast) + localStorage + console
 │   │   ├── desk.js + billing.js # The Wire research desk (headlines free, tilt on District Insider) + RevenueCat Web Billing
 │   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist, scaffolds) + chalkboard flash

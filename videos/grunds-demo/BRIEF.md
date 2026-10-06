@@ -31,7 +31,8 @@ Full sponsor loop — every sponsor visibly doing work:
 
 ## Assets
 
-- https://striped-anaconda-746.convex.site — the live game; capture brand + title shot
+- https://grunds.trustfall.xyz — the live game (public domain proxying
+  striped-anaconda-746.convex.site); capture brand + title shot
 - Gameplay screen recordings — produced by scripted Playwright runs against the live site (see Notes)
 
 ## Customizations
