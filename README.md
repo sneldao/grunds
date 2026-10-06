@@ -716,8 +716,11 @@ tells the story in chronological order; this block is the field guide.
 - **Convex backend sync.** `convex/revenuecat.ts` + new `entitlements` table
   (indexed by `appUserId`). `POST /revenuecat/webhook` (bearer-auth, returns
   503 when `REVENUECAT_WEBHOOK_SECRET` is unconfigured) accepts the dashboard's
-  event stream; `GET /sync/entitlements?appUserId=…` lets the client poll for
-  reconciliation. Idempotent by `event.id`. `web/test/revenuecat-sync.mjs`.
+  event stream; `billing.configure()` polls `GET /sync/entitlements?appUserId=…`
+  on boot to carry a pass across devices, and Test Store grants push back via
+  `POST /sync/setEntitlement`. Idempotent by `event.id`, stale-guarded by the
+  event date — and the manual grant path closes itself the moment the webhook
+  secret is configured. `web/test/revenuecat-sync.mjs`.
 
 ### The rivalry (Sept 27) — Sam across the street plays back
 

@@ -156,9 +156,15 @@ state. The shape:
 dashboard event:
 
 - `applyEntitlements` (internal mutation) — upserts one row in
-  `entitlements` keyed by `appUserId`, idempotent by `event.id`.
+  `entitlements` keyed by `appUserId`, idempotent by `event.id` and
+  stale-guarded by `occurredAt` (parsed from `event.date`): a redelivered
+  event older than the stored one is dropped, so a delayed webhook can't
+  revive a since-expired pass.
 - `setEntitlement` (public mutation) — manual upsert for the Web Test
-  Store path; inlined to avoid Convex's circular-type cascade.
+  Store path; inlined to avoid Convex's circular-type cascade. It is a
+  self-grant path by construction, so it hard-refuses whenever
+  `REVENUECAT_WEBHOOK_SECRET` is configured — real billing turns the
+  webhook into the only writer.
 - `getEntitlements` (query) — read by the client's `/sync/entitlements`
   boot poll.
 - `readEntitlements` (exported helper) — converts a RevenueCat payload
@@ -172,12 +178,18 @@ Three HTTP routes (`convex/http.ts`):
 - `POST /revenuecat/webhook` — bearer-auth (`REVENUECAT_WEBHOOK_SECRET`),
   returns 503 when unconfigured, 401 on bad bearer, applies the payload.
 - `GET /sync/entitlements?appUserId=…` — read for the client.
-- `POST /sync/setEntitlement` — manual upsert (used by `convexSync.js`
-  when the Web Test Store's local state needs to propagate to Convex).
+- `POST /sync/setEntitlement` — manual upsert (used by `billing.js`
+  `pushToMirror()` when the Web Test Store's local state needs to
+  propagate to Convex); 403 once the webhook secret is configured.
 
 The route is wired but the secret isn't configured — until a real
 `REVENUECAT_WEBHOOK_SECRET` lands, the webhook returns 503 by design and
-the manual upsert path stays usable for the Web Test Store demo.
+the manual upsert path stays usable for the Web Test Store demo; setting
+the secret closes the free-grant path on both surfaces with no code
+change. On boot, `billing.configure()` reconciles against the mirror
+(adopts mirror grants, never revokes off it — revocation rides the SDK's
+`customerInfo`) and pushes Test Store grants so a pass follows the stand
+across devices.
 
 **The pitch licence.** Before the floor opens, `#licence` (z-33 paper card over the diorama) signs the player in: name + stand name (pen-line inputs, activate the Sign button; Escape never signs or advances — Sam, THE CORNER CUP), a cosmetic role, and one of four backgrounds carrying a single small perk — `ex-barista` (`perkStaffMul 1.08`), `ex-accountant` (`perkCostMul 0.90` on card fees + every incident payout), `new to the trade` (regulars open at op 0.18), `a market regular` (the Brief whispers the wire's *direction* — the × stays insider). Identity threads `composeLetter` (`Dear Ada,` / `…do, Ada?`), the Morning Brief, nightly + finale receipts, and the Convex owner — `convexSync` reads `ownerName()` live so the district board lists the stand name at the next dawn. Persists via `localStorage` `grunds.identity`; `?skipLicence`/`?skipTutorial`/headless bypass.
 

@@ -354,3 +354,47 @@ discoverable and their builders are named.
 
 **Credit ledger**: ~3,120 of 25,000 used — one more generation for the
 signed demo stand.
+
+## Before the money — billing foundation + street repairs (2026-10-06)
+
+PR #29 (first-session fixes) merged and deployed; the tests and the
+billing surface got the follow-up pass.
+
+- **Deployed #29 + the domain work.** Merged the twelve first-session
+  fixes (squash, branch deleted), pulled in the trustfall.xyz backend
+  origin commits, ran the whole suite green, then `deploy:site` to
+  striped-anaconda-746. Live smoke: site 200, `/sync/entitlements`
+  answers, `/revenuecat/webhook` 503s by design (no secret yet).
+- **The tether pays on average, not by luck.** `utilities.mjs` pinned
+  "tethering pays for itself" to the default seed; #29's empty-case
+  softening re-drew the seeded stream and seed 7 flipped tails. Measured
+  across 25 outage seeds: 20 positive, mean ≈ +£180. Mechanics still
+  proven on seed 7; the economics now average over seeds 7/13/27/29
+  (£344 avg) via child runs. Balance numbers untouched.
+- **Street tests follow the Row.** `construction` / `construction-left`
+  still demanded the pre-Row `world.setConstruction(d)` call shape; the
+  regexes now accept the `rowClaimed` second argument.
+- **Free grants close themselves.** `setEntitlement` (mutation + POST
+  `/sync/setEntitlement`) is a self-grant path by construction — it now
+  hard-refuses the moment `REVENUECAT_WEBHOOK_SECRET` is configured, so
+  turning on money retires the bypass without a code change.
+- **Stale webhooks can't resurrect passes.** The mirror rows carry
+  `occurredAt` from `event.date`; a redelivered event older than the
+  stored one is dropped (`{stale: true}`) alongside the `event.id`
+  idempotency.
+- **The boot poll is no longer fiction.** The docs always claimed the
+  client polls `/sync/entitlements` on boot — now it does:
+  `billing.configure()` adopts mirror grants (never revokes off it) and
+  Test Store purchases push back via `pushToMirror()`, so a pass follows
+  the stand across devices. `cancelPass` resets the in-memory insider
+  flag too (was localStorage-only — perks survived until reload).
+- Suite: 327/327 green pre-deploy, then the billing files + typecheck
+  re-verified on the merged tree; 4 new anchors in
+  `revenuecat-sync.mjs` pin the self-closing path, the stale guard, the
+  schema field, and the client reconcile.
+
+**Still open before money**: no server-side capability actually gates on
+the entitlement yet (perks are cosmetic), and the RC SDK rides the
+jsdelivr CDN without SRI.
+
+**Credit ledger**: unchanged — no generations this session.
