@@ -19,9 +19,43 @@ Same 80-run grid as the October 1 diagnostic (`web/test/balance-policies.mjs`: s
 
 Every competent policy stayed in the black on every seed (lowest single run +£695, aggressive). None of the 80 runs reached **held** (net > £4,500 and reputation ≥ 50). The best run was engaged at £4,313. **Good** (> £5,500 and reputation ≥ 60) and **star** (> £8,000 and reputation ≥ 70) were not reached. Mean reputation for engaged was 55; the other competent policies sat just under 50.
 
-`campaignVerdict` was not moved. The best scripted week sits just under the held line, so a small cut would stamp "held" on one outlier and leave every policy mean in scarped. Good and star are well above every run. The October 1 grid, on an earlier build, did reach held (conservative 5/10, forecaster 3/10, engaged 3/10 plus one good), so this ladder is not a proven mistake of the formula — outcomes on the current constants are simply lower, and this pass did not bisect why. The call is left to the owner.
+`campaignVerdict` was not moved. The best scripted week sits just under the held line, so a small cut would stamp "held" on one outlier and leave every policy mean in scarped. Good and star are well above every run. Why the October 1 grid reached held and this one did not is the next section. The ladder is still the owner's call.
 
-Means are rounded to the pound. The unrounded summary is the harness stdout from this run.
+## Why held disappeared — bisect, 6 Oct 2026
+
+The harness file is unchanged from `c94b822` (the 1 Oct grid) to this branch: `git diff c94b822 HEAD -- web/test/balance-policies.mjs` is empty. Same ten seeds, same eight policies, same restock-and-settle rule for the competent policies. This is a game change, not a measurement change.
+
+The step that removes held is `e4d2ad0` ("Sim: patience, pastry case, usuals, full room, rival walk-back", 4 Oct). Full 80-run grids with this harness, means rounded to the pound:
+
+| Policy | `757229b` before | `e4d2ad0` after | Change |
+|---|---:|---:|---:|
+| Passive | −£935 | −£207 | +£728 |
+| Queue | £3,292 | £1,826 | −£1,466 |
+| Growth | £2,909 | £1,912 | −£997 |
+| Conservative | £3,915 | £2,453 | −£1,462 |
+| Aggressive | £3,879 | £1,378 | −£2,501 |
+| Forecaster | £3,888 | £2,075 | −£1,813 |
+| Engaged | £3,486 | £2,810 | −£676 |
+| Reckless | −£1,085 | −£1,005 | +£80 |
+
+Before that commit: 5 held and 1 good (conservative 2, aggressive 1, forecaster 2, engaged 1 good). Best run £5,935. After it: 0 held, 0 good, 0 star. Best run £4,421, under the £4,500 line, so the later reputation gate on held (`d1f33fa`, net > £4,500 **and** reputation ≥ 50) is not what zeroed the count. The money was already short.
+
+What changed inside `e4d2ad0`: the retail shelf stopped selling drinks. A dawn croissant case is armed (`pastryPar`: half the scaled retail sheet, then yesterday's sales + 10%), paid as croissant COGS, and once it is empty every further retail customer walks out instead of buying a drink (`patrons.js`, `ctx.pastryStock <= 0` → `_balk`). The same commit also lets every drink walk, not only unbatched matcha: wait limit is `balkAfter * (4 / prep points)` and the chance scales with those points (espresso 1, flat white 2, filter 3, matcha 4).
+
+Two-seed probes (7 and 42; queue / conservative / forecaster / engaged) split those two rules:
+
+- Parent `757229b`: queue mean £3,082.
+- `e4d2ad0` as committed: queue mean £1,663.
+- Same commit with the case never armed, so retail still buys drinks: queue mean £2,854. Almost the whole drop comes back.
+- Same commit with walk-outs restored to unbatched matcha only, case still armed: queue mean £1,873. The wider patience rule is real and smaller.
+
+Walk-outs roughly doubled across the full grid (queue mean balks 980 → 1,829; served 11,812 → 11,366). The pounds are the missing drink tickets: a £2.80 croissant, then a walk, where the shelf used to ring a drink.
+
+This matches the commit message ("Retail sells one dawn croissant case that composts at close. Anyone waiting can leave, and the costlier pour walks sooner."). It is a design change, not an accidental constant. A later pass (`e274e3c`) stopped charging the empty case twice; it kept the walk-out. The 6 Oct grid on this branch is still in that band (queue £2,075, best run £4,313). A two-seed check of `c58b7dc` against this branch moved queue by £31 and left engaged identical, so the player-experience commits are not the regression.
+
+Earlier, and smaller: `b7351fa` (utilities split out of the £64 sundries, plus a wifi drop the scripted policies never tether) lowered the same two-seed means by about £300–£550. The full grid at `757229b`, which already includes that and the satisfaction work, still reached held. No verdict threshold and no economy constant was changed in this investigation.
+
+Means are rounded to the pound from the 80-run grids at those two commits.
 
 ## Current verification — October 1, 2026: economy incentives pass (`c94b822`; deployed to dev)
 
