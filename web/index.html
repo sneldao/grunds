@@ -486,6 +486,7 @@
   #levers button { text-align: left; }
   #prebatch:not(:disabled) { border-color: var(--matcha); box-shadow: 0 0 18px rgba(134,168,96,.25); }
   #sys { position: fixed; bottom: 18px; right: 18px; z-index: 24; display: flex; gap: 6px; align-items: center; }
+  #roofpeek[aria-pressed="true"] { background: rgba(201,162,39,.5); border-color: var(--brass); }
   #speeds { display: flex; gap: 4px; }
   #speeds button { padding: 10px 11px; }
   #speeds button.on { background: rgba(201,162,39,.5); border-color: var(--brass); }
@@ -938,6 +939,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
     <button id="pause">pause</button>
     <button id="camreset">camera <kbd>C</kbd></button>
     <button id="photoBtn" title="Photo mode (P)">📷</button>
+    <button id="roofpeek" type="button" aria-pressed="false" title="Open the neighbour roofs and look inside. Click a shop to peek at just that one.">see inside</button>
     <button id="mute">sound on</button>
   </div>
 

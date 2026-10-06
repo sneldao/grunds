@@ -4,6 +4,7 @@ import { PAL, LAYOUT, COPY } from './config.js';
 import { woodFloor, pavement, road, awning, menuBoard, softSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction } from './textures.js';
 import { GLBLoader } from './loader.js';
 import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
+import { PREMISES, dressInterior, createCutawayRig } from './premises.js';
 
 const M = {}; // shared materials
 function mat(color, o = {}) {
@@ -1128,35 +1129,78 @@ export function buildWorld(scene, renderer, lite) {
     plane(parent, w, len, am, x, y, z, { rx: -Math.PI / 2 + 0.34 });
   }
 
+  // Hollow shells. The street face and the lid are their own groups so a
+  // peek can lift the roof without moving the lot. Door anchors used by
+  // street life sit in front of these fronts (z ≈ 5.7); keep the x and the
+  // front at 3.6.
+  const cutaways = createCutawayRig({ lite });
+  W.premises = cutaways.premises;
+  W.setNeighborRoofs = cutaways.setRoofs;
+  W.peekPremise = cutaways.peek;
+  W.pickPremise = cutaways.pick;
+  W.updateNeighborPeeks = cutaways.update;
+  function skirt(parent, w, h, d, color, y, o = {}) {
+    const t = 0.1;
+    const opt = { cast: false, ...o };
+    box(parent, w, h, t, color, 0, y, d / 2 - t / 2, opt);
+    box(parent, w, h, t, color, 0, y, -d / 2 + t / 2, opt);
+    box(parent, t, h, d - 2 * t, color, -w / 2 + t / 2, y, 0, opt);
+    box(parent, t, h, d - 2 * t, color, w / 2 - t / 2, y, 0, opt);
+  }
+  function openShop(g, w, h, d, color) {
+    const t = 0.14;
+    const shell = new THREE.Group(); g.add(shell);
+    const face = new THREE.Group(); g.add(face);
+    const roof = new THREE.Group(); g.add(roof);
+    const interior = new THREE.Group(); interior.visible = false; g.add(interior);
+    const wall = { cast: true, recv: true };
+    box(shell, w - t * 2 - 0.02, 0.05, d - t * 2 - 0.02, PAL.walnutDark, 0, 0.03, 0, { cast: false, rough: 0.72 });
+    box(shell, w, h, t, color, 0, h / 2, d / 2 - t / 2, wall);
+    box(shell, t, h, d - t * 2, color, -w / 2 + t / 2, h / 2, 0, wall);
+    box(shell, t, h, d - t * 2, color, w / 2 - t / 2, h / 2, 0, wall);
+    box(face, w, h, t, color, 0, h / 2, -d / 2 + t / 2, wall);
+    return { shell, face, roof, interior };
+  }
+  function mountInterior(id, parts, w, h, d) {
+    const meta = PREMISES.find((p) => p.id === id);
+    const detail = new THREE.Group();
+    detail.userData.cutawayDetail = true;
+    parts.interior.add(detail);
+    cutaways.trackDetail(detail);
+    dressInterior(id, { interior: parts.interior, detail, w, h, d, box, cyl, plane, THREE, PAL });
+    cutaways.add({ id, name: meta.name, line: meta.line, shell: parts.shell, face: parts.face, roof: parts.roof, interior: parts.interior });
+  }
+
   // THE QUILL — tall and narrow, stepped ink parapet, a bay window.
   (function quill() {
     const w = 3.05, h = 3.85, d = 2.2;
     const g = shopGroup(-10.55, d, 3.6, true);
     const fz = -d / 2;
-    box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
-    box(g, w + 0.06, 0.85, d + 0.04, PAL.ink, 0, 0.42, 0);
-    box(g, w + 0.16, 0.18, d + 0.12, PAL.ink, 0, h + 0.06, 0, { cast: false });
-    box(g, w * 0.68, 0.28, d * 0.62, PAL.ink, 0, h + 0.28, 0);
-    box(g, w * 0.36, 0.34, d * 0.36, PAL.brass, 0, h + 0.56, 0, { metal: 0.5, rough: 0.38 });
-    cyl(g, 0.025, 0.008, 0.62, PAL.brass, 0, h + 1.02, 0, { metal: 0.55, rough: 0.35 });
-    box(g, 1.15, 1.35, 0.28, PAL.cream, 0, 0.85, fz - 0.1);
+    const parts = openShop(g, w, h, d, PAL.plaster);
+    skirt(parts.shell, w + 0.06, 0.85, d + 0.04, PAL.ink, 0.42);
+    box(parts.roof, w + 0.16, 0.18, d + 0.12, PAL.ink, 0, h + 0.06, 0, { cast: false });
+    box(parts.roof, w * 0.68, 0.28, d * 0.62, PAL.ink, 0, h + 0.28, 0);
+    box(parts.roof, w * 0.36, 0.34, d * 0.36, PAL.brass, 0, h + 0.56, 0, { metal: 0.5, rough: 0.38 });
+    cyl(parts.roof, 0.025, 0.008, 0.62, PAL.brass, 0, h + 1.02, 0, { metal: 0.55, rough: 0.35 });
+    box(parts.face, 1.15, 1.35, 0.28, PAL.cream, 0, 0.85, fz - 0.1);
     // The door sits in the middle of the bay, so the lit glass is the two cheeks.
-    pane(g, 0.2, 0.62, -0.44, 1.02, fz - 0.24, (p, d) => {
+    pane(parts.face, 0.2, 0.62, -0.44, 1.02, fz - 0.24, (p, d) => {
       bookStack(p, d.x, d.sill, d.z, [PAL.walnutDark, PAL.ink, PAL.walnut]);
     });
-    pane(g, 0.2, 0.62, 0.44, 1.02, fz - 0.24, (p, d) => {
+    pane(parts.face, 0.2, 0.62, 0.44, 1.02, fz - 0.24, (p, d) => {
       inkwell(p, d.x, d.sill, d.z);
     });
-    pane(g, 0.62, 1.15, -0.62, 2.55, fz, (p, d) => {
+    pane(parts.face, 0.62, 1.15, -0.62, 2.55, fz, (p, d) => {
       bookShelf(p, d.x, d.sill, d.z, [PAL.ink, PAL.walnut, PAL.cream, PAL.walnutDark], 0.36);
       bookShelf(p, d.x, d.sill + 0.46, d.z, [PAL.brass, PAL.ink, PAL.walnut, PAL.cream], 0.34);
     });
-    pane(g, 0.62, 1.15, 0.62, 2.55, fz, (p, d) => {
+    pane(parts.face, 0.62, 1.15, 0.62, 2.55, fz, (p, d) => {
       bookShelf(p, d.x - 0.06, d.sill, d.z, [PAL.walnut, PAL.ink, PAL.walnutDark], 0.32);
       hangingLamp(p, d.x + 0.16, d.y + d.h / 2 - 0.06, d.z);
     });
-    box(g, 0.62, 1.55, 0.08, PAL.walnut, 0, 0.78, fz - 0.28);
+    box(parts.face, 0.62, 1.55, 0.08, PAL.walnut, 0, 0.78, fz - 0.28);
     shopSignFace(g, 'THE QUILL', 2.7, 0.7, 0, 3.35, fz - 0.08, '#f6efe0', '#171310', '600 72px Georgia, serif');
+    mountInterior('quill', parts, w, h, d);
   })();
 
   // HEARTH & RYE — street-facing gable, chimney, cream-and-walnut awning.
@@ -1164,9 +1208,10 @@ export function buildWorld(scene, renderer, lite) {
     const w = 4.6, h = 3.15, d = 2.35;
     const g = shopGroup(3.55, d, 3.6, true);
     const fz = -d / 2;
-    box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
-    box(g, w + 0.06, 0.7, d + 0.04, PAL.walnut, 0, 0.35, 0);
-    box(g, w + 0.08, 0.05, d + 0.06, PAL.brass, 0, 0.72, 0, { metal: 0.5, rough: 0.4, cast: false });
+    const parts = openShop(g, w, h, d, PAL.plaster);
+    skirt(parts.shell, w + 0.06, 0.7, d + 0.04, PAL.walnut, 0.35);
+    // A rim, not a slab — the old brass rule ran around the solid box.
+    skirt(parts.shell, w + 0.08, 0.05, d + 0.06, PAL.brass, 0.72, { metal: 0.5, rough: 0.4 });
     const roofShape = new THREE.Shape();
     roofShape.moveTo(-w / 2 - 0.18, 0);
     roofShape.lineTo(0, 1.08);
@@ -1175,23 +1220,24 @@ export function buildWorld(scene, renderer, lite) {
     const roofLen = d + 0.4;
     const roofGeo = new THREE.ExtrudeGeometry(roofShape, { depth: roofLen, bevelEnabled: false });
     roofGeo.translate(0, 0, -roofLen / 2);
-    const roof = new THREE.Mesh(roofGeo, mat(PAL.walnutDark, { rough: 0.86 }));
-    roof.position.set(0, h, 0); roof.castShadow = true; roof.receiveShadow = true; g.add(roof);
-    box(g, 0.42, 1.05, 0.42, PAL.walnut, 1.25, h + 0.72, 0.28);
-    box(g, 0.54, 0.1, 0.54, PAL.ink, 1.25, h + 1.26, 0.28, { cast: false });
-    stripedAwning(g, w + 0.15, 1.35, 0, 1.72, fz - 0.12, '#4a3423', '#efe6d3');
-    pane(g, 0.82, 0.72, -1.4, 1.15, fz, (p, d) => {
-      tinStack(p, d.x - 0.2, d.sill, d.z, 3, [PAL.brass, PAL.teal, PAL.brass]);
-      loaf(p, d.x + 0.2, d.sill, d.z);
-      hangingLamp(p, d.x, d.y + d.h / 2 - 0.02, d.z);
+    const gable = new THREE.Mesh(roofGeo, mat(PAL.walnutDark, { rough: 0.86 }));
+    gable.position.set(0, h, 0); gable.castShadow = true; gable.receiveShadow = true; parts.roof.add(gable);
+    box(parts.roof, 0.42, 1.05, 0.42, PAL.walnut, 1.25, h + 0.72, 0.28);
+    box(parts.roof, 0.54, 0.1, 0.54, PAL.ink, 1.25, h + 1.26, 0.28, { cast: false });
+    stripedAwning(parts.face, w + 0.15, 1.35, 0, 1.72, fz - 0.12, '#4a3423', '#efe6d3');
+    pane(parts.face, 0.82, 0.72, -1.4, 1.15, fz, (p, room) => {
+      tinStack(p, room.x - 0.2, room.sill, room.z, 3, [PAL.brass, PAL.teal, PAL.brass]);
+      loaf(p, room.x + 0.2, room.sill, room.z);
+      hangingLamp(p, room.x, room.y + room.h / 2 - 0.02, room.z);
     });
-    pane(g, 0.82, 0.72, 1.4, 1.15, fz, (p, d) => {
-      hangingLamp(p, d.x + 0.16, d.y + d.h / 2 - 0.04, d.z);
-      loaf(p, d.x - 0.16, d.sill, d.z);
+    pane(parts.face, 0.82, 0.72, 1.4, 1.15, fz, (p, room) => {
+      hangingLamp(p, room.x + 0.16, room.y + room.h / 2 - 0.04, room.z);
+      loaf(p, room.x - 0.16, room.sill, room.z);
     });
-    box(g, 0.78, 1.55, 0.08, PAL.walnutDark, 0, 0.78, fz - 0.02);
-    cyl(g, 0.02, 0.02, 0.32, PAL.brass, 0.24, 0.82, fz - 0.1, { metal: 0.6, rough: 0.35, cast: false });
+    box(parts.face, 0.78, 1.55, 0.08, PAL.walnutDark, 0, 0.78, fz - 0.02);
+    cyl(parts.face, 0.02, 0.02, 0.32, PAL.brass, 0.24, 0.82, fz - 0.1, { metal: 0.6, rough: 0.35, cast: false });
     shopSignFace(g, 'HEARTH & RYE', 3.7, 0.72, 0, 2.42, fz - 0.08, '#f6efe0', '#4a3423', '600 58px Georgia, serif');
+    mountInterior('hearth', parts, w, h, d);
   })();
 
   // BELL & BRASS — square cream front, round clock, brass cupola.
@@ -1199,26 +1245,27 @@ export function buildWorld(scene, renderer, lite) {
     const w = 3.2, h = 3.05, d = 2.2;
     const g = shopGroup(7.9, d, 3.6, true);
     const fz = -d / 2;
-    box(g, w, h, d, PAL.cream, 0, h / 2, 0);
-    box(g, w + 0.05, 0.55, d + 0.03, PAL.walnut, 0, 0.28, 0);
-    box(g, w + 0.14, 0.12, d + 0.1, PAL.brass, 0, h + 0.02, 0, { metal: 0.55, rough: 0.35, cast: false });
-    cyl(g, 0.4, 0.4, 0.1, PAL.brass, 0, 2.62, fz + 0.02, { rx: Math.PI / 2, metal: 0.6, rough: 0.35 });
-    cyl(g, 0.31, 0.31, 0.08, PAL.cream, 0, 2.62, fz - 0.04, { rx: Math.PI / 2, cast: false });
-    box(g, 0.03, 0.22, 0.02, PAL.ink, 0.015, 2.68, fz - 0.1, { cast: false });
-    box(g, 0.16, 0.028, 0.02, PAL.ink, 0.06, 2.6, fz - 0.1, { cast: false });
+    const parts = openShop(g, w, h, d, PAL.cream);
+    skirt(parts.shell, w + 0.05, 0.55, d + 0.03, PAL.walnut, 0.28);
+    box(parts.roof, w + 0.14, 0.12, d + 0.1, PAL.brass, 0, h + 0.02, 0, { metal: 0.55, rough: 0.35, cast: false });
+    cyl(parts.face, 0.4, 0.4, 0.1, PAL.brass, 0, 2.62, fz + 0.02, { rx: Math.PI / 2, metal: 0.6, rough: 0.35 });
+    cyl(parts.face, 0.31, 0.31, 0.08, PAL.cream, 0, 2.62, fz - 0.04, { rx: Math.PI / 2, cast: false });
+    box(parts.face, 0.03, 0.22, 0.02, PAL.ink, 0.015, 2.68, fz - 0.1, { cast: false });
+    box(parts.face, 0.16, 0.028, 0.02, PAL.ink, 0.06, 2.6, fz - 0.1, { cast: false });
     const cup = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.5, 10), mat(PAL.brass, { metal: 0.5, rough: 0.4 }));
-    cup.position.set(0, h + 0.62, 0.15); cup.castShadow = true; g.add(cup);
-    cyl(g, 0.2, 0.32, 0.36, PAL.walnutDark, 0, h + 0.2, 0.15);
-    pane(g, 0.62, 0.72, -0.9, 1.15, fz, (p, d) => {
-      hangingLamp(p, d.x + 0.12, d.y + d.h / 2 - 0.04, d.z);
-      brassBell(p, d.x - 0.12, d.sill, d.z);
+    cup.position.set(0, h + 0.62, 0.15); cup.castShadow = true; parts.roof.add(cup);
+    cyl(parts.roof, 0.2, 0.32, 0.36, PAL.walnutDark, 0, h + 0.2, 0.15);
+    pane(parts.face, 0.62, 0.72, -0.9, 1.15, fz, (p, room) => {
+      hangingLamp(p, room.x + 0.12, room.y + room.h / 2 - 0.04, room.z);
+      brassBell(p, room.x - 0.12, room.sill, room.z);
     });
-    pane(g, 0.62, 0.72, 0.9, 1.15, fz, (p, d) => {
-      mantelClock(p, d.x - 0.1, d.sill, d.z);
-      tinStack(p, d.x + 0.14, d.sill, d.z, 2, [PAL.brass, PAL.cream]);
+    pane(parts.face, 0.62, 0.72, 0.9, 1.15, fz, (p, room) => {
+      mantelClock(p, room.x - 0.1, room.sill, room.z);
+      tinStack(p, room.x + 0.14, room.sill, room.z, 2, [PAL.brass, PAL.cream]);
     });
-    box(g, 0.64, 1.45, 0.08, PAL.walnut, 0, 0.72, fz - 0.02);
+    box(parts.face, 0.64, 1.45, 0.08, PAL.walnut, 0, 0.72, fz - 0.02);
     shopSignFace(g, 'BELL & BRASS', 2.9, 0.62, 0, 1.78, fz - 0.08, '#f6efe0', '#1d2a24', '600 52px Georgia, serif');
+    mountInterior('bell', parts, w, h, d);
   })();
 
   // MARROW LANE — low and wide, deep matcha awning, crates on the pavement.
@@ -1226,16 +1273,16 @@ export function buildWorld(scene, renderer, lite) {
     const w = 3.7, h = 2.7, d = 2.3;
     const g = shopGroup(11.7, d, 3.6, true);
     const fz = -d / 2;
-    box(g, w, h, d, PAL.plaster, 0, h / 2, 0);
-    box(g, w + 0.08, 0.16, d + 0.06, PAL.matcha, 0, h + 0.05, 0, { cast: false });
-    box(g, w + 0.04, 0.42, d + 0.02, PAL.walnut, 0, 0.21, 0);
-    stripedAwning(g, w + 0.25, 1.55, 0, 1.7, fz - 0.18, '#86a860', '#f6efe0');
+    const parts = openShop(g, w, h, d, PAL.plaster);
+    box(parts.roof, w + 0.08, 0.16, d + 0.06, PAL.matcha, 0, h + 0.05, 0, { cast: false });
+    skirt(parts.shell, w + 0.04, 0.42, d + 0.02, PAL.walnut, 0.21);
+    stripedAwning(parts.face, w + 0.25, 1.55, 0, 1.7, fz - 0.18, '#86a860', '#f6efe0');
     shopSignFace(g, 'MARROW LANE', 3.25, 0.66, 0, 2.28, fz - 0.08, '#171310', '#efe6d3', '600 56px Georgia, serif');
-    pane(g, 1.15, 0.62, 0.85, 1.15, fz, (p, d) => {
-      shopPlant(p, d.x - 0.28, d.sill, d.z, 1.35);
-      tinStack(p, d.x + 0.22, d.sill, d.z, 3, [PAL.matcha, PAL.cream, PAL.brass]);
+    pane(parts.face, 1.15, 0.62, 0.85, 1.15, fz, (p, room) => {
+      shopPlant(p, room.x - 0.28, room.sill, room.z, 1.35);
+      tinStack(p, room.x + 0.22, room.sill, room.z, 3, [PAL.matcha, PAL.cream, PAL.brass]);
     });
-    box(g, 1.7, 0.85, 0.32, PAL.walnut, -0.7, 0.48, fz - 0.12);
+    box(parts.face, 1.7, 0.85, 0.32, PAL.walnut, -0.7, 0.48, fz - 0.12);
     box(g, 0.4, 0.34, 0.4, PAL.walnutDark, -1.45, 0.17, fz - 0.55);
     box(g, 0.36, 0.3, 0.36, PAL.walnut, -1.05, 0.15, fz - 0.62);
     const fruit = (color, x, y, z, r) => {
@@ -1246,6 +1293,7 @@ export function buildWorld(scene, renderer, lite) {
     fruit(PAL.neg, -1.22, 0.44, fz - 0.68, 0.09);
     fruit(PAL.brass, -1.05, 0.42, fz - 0.5, 0.1);
     fruit(PAL.cream, 0.15, 0.98, fz - 0.18, 0.1);
+    mountInterior('marrow', parts, w, h, d);
   })();
 
   // GLASSHOUSE keeps its glowing panes and the staff behind them. The
@@ -1578,6 +1626,8 @@ export function buildWorld(scene, renderer, lite) {
   W._rivalHeat = 0;
   W.setRivalHeat = (n) => { W._rivalHeat = Math.max(0, n || 0); };
   W.setLite = (enabled) => { W.lite = enabled; for (const wl of W.windowLights) wl.visible = !enabled; };
+  const _setLiteShell = W.setLite;
+  W.setLite = (enabled) => { _setLiteShell(enabled); cutaways.applyLite(enabled); };
 
   // ---- time-of-day director ---------------------------------------------------
   // t = minutes since midnight. Light tells the story of the day.
