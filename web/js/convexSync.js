@@ -42,7 +42,7 @@ export function initSync() {
   async function mirror(state) {
     if (!live || runDisabled) return { live: false };
     try {
-      const r = await fetch(url + '/sync/snapshot', {
+      const r = await timed(url + '/sync/snapshot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // ownerName() reads localStorage live — the pitch licence can rename
@@ -65,7 +65,7 @@ export function initSync() {
   async function poll() {
     if (!live || runDisabled || !campaignId) return null;
     try {
-      const r = await fetch(url + '/sync/state?campaignId=' + encodeURIComponent(campaignId));
+      const r = await timed(url + '/sync/state?campaignId=' + encodeURIComponent(campaignId));
       const data = await r.json();
       if (data && data.campaign && typeof data.campaign.day === 'number') {
         paint(`● LIVE · ${ownerName()}`);
@@ -82,7 +82,7 @@ export function initSync() {
   async function stands() {
     if (!live || runDisabled || !campaignId) return null;
     try {
-      const r = await fetch(url + '/sync/stands?campaignId=' + encodeURIComponent(campaignId));
+      const r = await timed(url + '/sync/stands?campaignId=' + encodeURIComponent(campaignId));
       const data = await r.json();
       return data && Array.isArray(data.stands) ? data.stands : null;
     } catch {
@@ -95,7 +95,7 @@ export function initSync() {
   async function intel() {
     if (!live) return null;
     try {
-      const r = await fetch(url + '/ai/research');
+      const r = await timed(url + '/ai/research');
       const data = await r.json();
       return data && !data.fallback ? data : null;
     } catch {
@@ -109,7 +109,7 @@ export function initSync() {
   async function inbox(after) {
     if (!live || runDisabled || !campaignId) return null;
     try {
-      const r = await fetch(url + '/agentmail/inbox?campaignId=' + encodeURIComponent(campaignId)
+      const r = await timed(url + '/agentmail/inbox?campaignId=' + encodeURIComponent(campaignId)
         + '&after=' + encodeURIComponent(String(after || 0)));
       if (!r.ok) return null;
       const data = await r.json();
@@ -139,9 +139,14 @@ export function initSync() {
     run.queue = p.catch(() => {});
     return p;
   }
+  const SYNC_MS = 12000;
+  function timed(resource, opts = {}) {
+    const signal = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(SYNC_MS) : undefined;
+    return fetch(resource, signal ? { ...opts, signal } : opts);
+  }
   async function post(run, op, body) {
     if (run !== activeRun || run.cancelled) throw new Error('run reset');
-    const r = await fetch(url + '/sync/plan', {
+    const r = await timed(url + '/sync/plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ op, token: run.token, ...body }),

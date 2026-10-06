@@ -60,7 +60,7 @@ export function createModalController({ document: doc = globalThis.document, onE
   }
 
   function applyA11y() {
-    const t = top();
+    const t = top({ silent: true });
     for (const id of OWNED) {
       const e = el(id); if (!e) continue;
       const isTop = id === t;
@@ -157,13 +157,17 @@ export function createModalController({ document: doc = globalThis.document, onE
     applyA11y();
   }
 
-  function top() {
+  function top(opts = {}) {
+    let popped = false;
     while (stack.length) {
       const id = stack[stack.length - 1];
       const e = el(id);
       if (e && e.isConnected !== false && shown(id)) return id;
       stack.pop();
+      popped = true;
     }
+    // A card that lost .show without close() used to leave the HUD inert.
+    if (popped && !opts.silent) applyA11y();
     return null;
   }
 
