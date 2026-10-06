@@ -9,7 +9,7 @@ export function baseUrl() {
   try {
     const q = new URLSearchParams(location.search).get('convex');
     if (q) { try { localStorage.setItem('grunds.convexUrl', q); } catch { /* private mode */ } return q; }
-    if (typeof location !== 'undefined' && /\.convex\.site$/.test(location.hostname)) return location.origin;
+    if (typeof location !== 'undefined' && (/\.convex\.site$/.test(location.hostname) || location.hostname === 'grunds.trustfall.xyz')) return location.origin;
     return localStorage.getItem('grunds.convexUrl');
   } catch {
     return null;

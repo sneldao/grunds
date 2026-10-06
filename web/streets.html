@@ -79,8 +79,8 @@
 </footer>
 <script type="module">
   // Same-origin on the deployment; file:// previews hit the live site.
-  const BASE = location.origin.endsWith('convex.site') ? location.origin
-    : 'https://striped-anaconda-746.convex.site';
+  const BASE = (location.origin.endsWith('convex.site') || location.hostname === 'grunds.trustfall.xyz')
+    ? location.origin : 'https://striped-anaconda-746.convex.site';
   // Districts we've grown and want on show — the registry adds any seed
   // a player builds a stand on, so the page can't go stale.
   const KNOWN_SEEDS = [5, 7, 11, 13, 17, 19, 21, 23, 27, 31, 42, 99];
