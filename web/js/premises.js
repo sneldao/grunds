@@ -32,25 +32,45 @@ export function ambientPremiseIndex(elapsedSec, count, timing = {}) {
 
 const NO = { cast: false, recv: false };
 
-function roomBoard(env, text, sub, x, y, z) {
-  if (typeof document === 'undefined' || !document.createElement) return;
+function labelMaterial(text, sub) {
+  if (typeof document === 'undefined' || !document.createElement) return null;
   let canvas;
-  try { canvas = document.createElement('canvas'); } catch { return; }
-  if (!canvas || !canvas.getContext) return;
+  try { canvas = document.createElement('canvas'); } catch { return null; }
+  if (!canvas || !canvas.getContext) return null;
   canvas.width = 512; canvas.height = 168;
   const g = canvas.getContext('2d');
-  if (!g || !g.fillRect) return;
-  g.fillStyle = '#efe6d3'; g.fillRect(0, 0, 512, 168);
-  g.strokeStyle = '#c9a227'; g.lineWidth = 10; g.strokeRect(10, 10, 492, 148);
+  if (!g || !g.fillRect) return null;
+  g.fillStyle = '#fff8ee'; g.fillRect(0, 0, 512, 168);
+  g.strokeStyle = '#c9a227'; g.lineWidth = 14; g.strokeRect(12, 12, 488, 144);
   g.fillStyle = '#171310'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = '600 72px Georgia, serif'; g.fillText(text, 256, 68);
-  g.fillStyle = '#4a3423'; g.font = 'italic 28px Georgia, serif'; g.fillText(sub, 256, 122);
+  g.font = '700 84px Georgia, serif'; g.fillText(text, 256, sub ? 64 : 84);
+  if (sub) { g.fillStyle = '#4a3423'; g.font = 'italic 30px Georgia, serif'; g.fillText(sub, 256, 122); }
   const tex = new THREE.CanvasTexture(canvas);
   if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
-  const material = new THREE.MeshStandardMaterial({
-    map: tex, roughness: 0.86, emissive: 0xfff2d8, emissiveMap: tex, emissiveIntensity: 0.22,
+  // Unlit, so a peek stays readable in wall shadow and at night.
+  return new THREE.MeshBasicMaterial({ map: tex });
+}
+
+function roomBoard(env, text, sub, x, y, z) {
+  const material = labelMaterial(text, sub);
+  if (!material) return;
+  // Tipped toward the street camera, which sits high and in front.
+  env.plane(env.interior, 1.7, 0.56, material, x, y, z, { rx: -0.55, ry: Math.PI, cast: false, recv: false });
+}
+
+// The play camera looks down into the lot. A dark floor inside plaster
+// walls reads as a closed roof, so the cavity itself has to be bright.
+function washRoom(env) {
+  const { box, interior, w, h, d } = env;
+  const floorW = Math.max(0.9, w - 0.42);
+  const floorD = Math.max(0.8, d - 0.46);
+  box(interior, floorW, 0.03, floorD, 0xfff6e4, 0, 0.075, 0.02, {
+    cast: false, recv: false, em: 0xfff1d0, emi: 0.85, rough: 1,
   });
-  env.plane(env.interior, 1.15, 0.38, material, x, y, z, { ry: Math.PI, cast: false, recv: false });
+  const linerH = Math.min(Math.max(1.2, h * 0.55), 2.4);
+  box(interior, Math.max(0.7, w - 0.46), linerH, 0.04, 0xfff8ee, 0, 0.28 + linerH / 2, d / 2 - 0.2, {
+    cast: false, recv: false, em: 0xfff4e2, emi: 0.55, rough: 1,
+  });
 }
 
 function counter(env, x, z, w) {
@@ -95,7 +115,7 @@ function dressQuill(env) {
   box(interior, 0.2, 0.05, 0.15, PAL.ink, -0.26, 1.05, -0.16, NO);
   lamp(env, interior, 0.28, 0.95, -0.16);
   chair(env, interior, 0, 0, 0.28);
-  roomBoard(env, 'BOOKS', 'the room above is let', 0, 1.28, -0.62);
+  roomBoard(env, 'BOOKS', 'the room above is let', 0, 1.72, -0.35);
   const loftY = 2.12;
   const loftZ = 0.46;
   box(detail, 2.2, 0.08, 0.82, PAL.walnut, 0, loftY, loftZ, NO);
@@ -119,7 +139,7 @@ function dressHearth(env) {
   loaf(-0.1, -0.16, 1.2);
   box(interior, 0.72, 0.85, 0.48, PAL.ink, 1.45, 0.72, d / 2 - 0.5, { ...NO, em: 0x2a1812, emi: 0.2 });
   box(interior, 0.4, 0.28, 0.06, 0xff9a4a, 1.45, 0.7, d / 2 - 0.74, { ...NO, em: 0xff8a3a, emi: 0.95 });
-  roomBoard(env, 'BAKERY', 'hearth & rye', -0.35, 1.32, -0.55);
+  roomBoard(env, 'BAKERY', 'hearth & rye', -0.15, 1.85, -0.28);
   lamp(env, interior, 0.35, 0.95, -0.1);
   const tinCols = [PAL.brass, PAL.teal, PAL.cream];
   for (let i = 0; i < 3; i++) {
@@ -143,7 +163,7 @@ function dressBell(env) {
   cyl(interior, 0.1, 0.1, 0.06, PAL.brass, 0.55, 0.88, d / 2 - 0.48, { ...NO, rx: Math.PI / 2, metal: 0.6, em: PAL.brass, emi: 0.35 });
   cyl(interior, 0.07, 0.07, 0.04, PAL.cream, 0.55, 0.88, d / 2 - 0.56, { ...NO, rx: Math.PI / 2, em: PAL.cream, emi: 0.3 });
   box(interior, 0.16, 0.12, 0.12, PAL.brass, 1.15, 0.9, d / 2 - 0.46, { ...NO, metal: 0.55, em: PAL.brass, emi: 0.3 });
-  roomBoard(env, 'OFFICE', 'bell & brass', -0.45, 1.28, -0.55);
+  roomBoard(env, 'OFFICE', 'bell & brass', -0.15, 1.7, -0.22);
   const loftY = 1.78;
   box(detail, 2.4, 0.07, 0.85, PAL.walnut, 0, loftY, 0.42, NO);
   box(detail, 0.85, 0.5, 0.4, PAL.walnutDark, -0.55, loftY + 0.32, 0.45, NO);
@@ -172,7 +192,7 @@ function dressMarrow(env) {
   box(interior, 0.22, 0.18, 0.22, PAL.matcha, -0.15, 1.05, -0.32, { ...NO, em: PAL.matcha, emi: 0.18 });
   box(interior, 0.16, 0.14, 0.16, PAL.neg, 0.15, 1.04, -0.28, { ...NO, em: PAL.neg, emi: 0.15 });
   box(interior, 0.18, 0.16, 0.18, PAL.brass, 0.4, 1.04, -0.34, { ...NO, em: PAL.brass, emi: 0.18 });
-  roomBoard(env, 'GROCER', 'marrow lane', 0.15, 1.28, -0.62);
+  roomBoard(env, 'GROCER', 'marrow lane', 0.15, 1.62, -0.28);
   shelf(detail, 0.95);
   box(detail, 0.2, 0.16, 0.2, PAL.matcha, 0.7, 1.05, -0.3, { ...NO, em: PAL.awning, emi: 0.15 });
 }
@@ -180,6 +200,7 @@ function dressMarrow(env) {
 const DRESS = { quill: dressQuill, hearth: dressHearth, bell: dressBell, marrow: dressMarrow };
 
 export function dressInterior(id, env) {
+  washRoom(env);
   const fn = DRESS[id];
   if (fn) fn(env);
 }
