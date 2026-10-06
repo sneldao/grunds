@@ -2,6 +2,27 @@
 
 How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
 
+## Current verification — October 6, 2026: restock-and-settle harness on the current constants
+
+Same 80-run grid as the October 1 diagnostic (`web/test/balance-policies.mjs`: seeds 7, 42, 101, 202, 555, 13, 77, 150, 314, 431 × eight policies). Competent policies restock the cellar each morning and settle an open tab before borrowing again. Passive and reckless stay naive. No identity perk, fixed 100ms frames, offers and incidents declined except `engaged`, which accepts them. A replay of seed 7 / passive matched. Source hash `0df597d0c2f9880b500eba03764dac023fee0e8e31525d749c132416c91d76e3`. The supplier tab in this run is the live cap, **£3,500** (`CAMPAIGN.creditLimit` in `web/js/config.js`). The £1,500 figure further down is the September 28 cap only.
+
+| Policy | Mean net worth | Min | Max | Verdicts (10 seeds) | Hedge after fees |
+|---|---:|---:|---:|---|---:|
+| Passive (no restock, no queue work) | −£615 | −£3,024 | £1,946 | 8 lost · 2 scarped | — |
+| Queue | £2,075 | £1,195 | £3,021 | 10 scarped | — |
+| Growth | £1,695 | £730 | £2,780 | 10 scarped | — |
+| Conservative | £2,757 | £904 | £3,946 | 10 scarped | −£83 |
+| Aggressive | £1,665 | £695 | £2,020 | 10 scarped | −£229 |
+| Forecaster | £2,582 | £2,059 | £4,285 | 10 scarped | +£92 |
+| Engaged | £2,965 | £1,401 | £4,313 | 10 scarped | +£80 |
+| Reckless (no restock) | −£1,167 | −£2,443 | £597 | 9 lost · 1 scarped | −£467 |
+
+Every competent policy stayed in the black on every seed (lowest single run +£695, aggressive). None of the 80 runs reached **held** (net > £4,500 and reputation ≥ 50). The best run was engaged at £4,313. **Good** (> £5,500 and reputation ≥ 60) and **star** (> £8,000 and reputation ≥ 70) were not reached. Mean reputation for engaged was 55; the other competent policies sat just under 50.
+
+`campaignVerdict` was not moved. The best scripted week sits just under the held line, so a small cut would stamp "held" on one outlier and leave every policy mean in scarped. Good and star are well above every run. The October 1 grid, on an earlier build, did reach held (conservative 5/10, forecaster 3/10, engaged 3/10 plus one good), so this ladder is not a proven mistake of the formula — outcomes on the current constants are simply lower, and this pass did not bisect why. The call is left to the owner.
+
+Means are rounded to the pound. The unrounded summary is the harness stdout from this run.
+
 ## Current verification — October 1, 2026: economy incentives pass (`c94b822`; deployed to dev)
 
 - Baseline on the then-current code (80 runs, 10 seeds × 8 scripted policies): every policy averaged a loss (−£1,188 to −£287), none reached "held", and about 28–30 of 50 player-days per policy were negative. Causes found by reading the per-day ledgers: (1) the supplier tab capped at £1,500 was smaller than one day of beans (~£3.3k at full service), so from day 3 the cellar ran dry and every cup billed the till at 1.5× spot (revenue per cup fell from £3.55 to £1.70); (2) the hedge and `settle` share one slot, so hedging meant not settling, which meant a capped tab; (3) the Brief's "restock" bought yesterday's pour +25% regardless of stock on hand, so a larger tab alone would have composted the surplus.
@@ -187,7 +208,7 @@ node web/test/balance-policies.mjs
 
 ### Historical balance diagnostic — September 28, 2026
 
-The following table and capture describe the September 28 model, not the September 30 gameplay changes. The full 80-run comparison has not been rerun for the current code.
+The following table and capture describe the September 28 model, not later gameplay. The supplier tab in that model was £1,500. The current tab is £3,500, and the October 6 section above is the rerun on today's constants.
 
 `balance-policies.mjs` is a measurement harness, not a balance gate. It
 played eight policies across ten seeds (7, 42, 101, 202, 555, 13, 77, 150,
