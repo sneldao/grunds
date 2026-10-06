@@ -5461,7 +5461,8 @@ function readRoofPref() {
 function applyRoofPref(pref) {
   const open = pref === 'open';
   try { world.setNeighborRoofs(open, pref === 'shut'); } catch {}
-  if (!roofBtn) return;
+  // Headless day stubs return a button-shaped object with no DOM methods.
+  if (!roofBtn || typeof roofBtn.setAttribute !== 'function') return;
   roofBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
   roofBtn.textContent = open ? 'roofs open' : 'see inside';
   roofBtn.title = open
@@ -5469,7 +5470,7 @@ function applyRoofPref(pref) {
     : 'Open the neighbour roofs and look inside. Click a shop to peek at just that one.';
 }
 applyRoofPref(readRoofPref());
-if (roofBtn) roofBtn.onclick = () => {
+if (roofBtn && typeof roofBtn.setAttribute === 'function') roofBtn.onclick = () => {
   const open = roofBtn.getAttribute('aria-pressed') === 'true';
   const next = open ? 'shut' : 'open';
   try { localStorage.setItem(ROOF_KEY, next); } catch {}
