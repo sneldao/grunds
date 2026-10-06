@@ -553,7 +553,7 @@ ledger lines, not people.
    thing between you, friends — from the floor (queue or table) or the regulars
    board. One small gesture per person per day with its real effect; the
    uncapped wave exploit is removed.
-2. **Consequences through people (shipped `fb787d3`; absence pacing being tuned; empty seats and visible street events not yet built).** Surface the existing
+2. **Consequences through people (shipped `fb787d3`; absence pacing being tuned; empty regular seats still to be surfaced).** Ambient street life — pavement walkers, neighbour door peeks, the bench, park sitters, and Row hub/draw visitors — is on the floor and off the till (`streetLife.js`). Surface the existing
    opinion/footfall model as people: who isn't coming today and why, empty
    regular seats, lost regulars seen at Glasshouse, happy regulars bringing
    named friends, a bad review thinning tomorrow's crowd, street events you

@@ -38,6 +38,7 @@ export const LAYOUT = {
   pavementZ: 7.8, roadZ0: 9.6, roadZ1: 13.8,
   rival: { x: 1.5, z: 16.6 },                       // GLASSHOUSE across the road
   crossX: -2.2,                                     // pedestrian crossing
+  farSideZ: 14.6,                                   // far pavement, just past the zebra
   spawnL: { x: -16, z: 7.8 }, spawnR: { x: 16, z: 7.8 },
 };
 

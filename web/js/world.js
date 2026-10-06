@@ -25,6 +25,15 @@ function cyl(parent, r0, r1, h, color, x, y, z, o = {}) {
   m.castShadow = o.cast ?? true; m.receiveShadow = o.recv ?? true;
   parent.add(m); return m;
 }
+// Object3D ids draw Math.random. Cosmetic meshes (rival crowd, heat ribbon)
+// must not advance the café's seeded stream.
+function quietRandom(fn) {
+  const saved = Math.random;
+  let a = 0x51EE7;
+  Math.random = () => { a = (Math.imul(a, 1664525) + 1013904223) >>> 0; return a / 4294967296; };
+  try { return fn(); }
+  finally { Math.random = saved; }
+}
 function plane(parent, w, h, material, x, y, z, o = {}) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
   m.position.set(x, y, z);
@@ -834,7 +843,33 @@ export function buildWorld(scene, renderer, lite) {
       rvBarista.position.z = -0.8;
       rvBarista.rotation.z = lean;
     }
+    // Extra bodies behind the glass as Sam's line grows. The queue itself
+    // is still the real patrons; these only thicken the shop.
+    const heat = W._rivalHeat || 0;
+    const marks = W._rivalCrowd || [];
+    const gates = [2, 6, 12];
+    for (let i = 0; i < marks.length; i++) {
+      marks[i].visible = heat >= gates[i];
+      marks[i].position.y = Math.sin(t * 0.7 + i) * 0.015;
+    }
+    if (W.rivalHeatMat) W.rivalHeatMat.opacity = heat > 0 ? Math.min(0.38, 0.18 + heat * 0.02) : 0;
   };
+
+  const crowd = quietRandom(() => {
+    const crowdSpots = [[0.2, -0.72], [0.85, -0.66], [-1.2, -0.7]];
+    const marks = [];
+    for (const [x, z] of crowdSpots) {
+      const g = new THREE.Group();
+      g.position.set(x, 0, z);
+      g.visible = false;
+      box(g, 0.28, 0.58, 0.2, 0x14181c, 0, 0.8, 0, { cast: false, recv: false, mat: rvSilMat });
+      box(g, 0.18, 0.2, 0.18, 0x14181c, 0, 1.18, 0, { cast: false, recv: false, mat: rvSilMat });
+      rv.add(g);
+      marks.push(g);
+    }
+    return marks;
+  });
+  W._rivalCrowd = crowd;
 
   // ---- the rent-pressure sign: gentrification drift made physical ------------
   // A two-post signboard on the right side of the street, in front of the
@@ -1574,9 +1609,30 @@ export function buildWorld(scene, renderer, lite) {
 
   // Rival heat: how busy GLASSHOUSE looks. main.js feeds the rival queue
   // length every HUD update; the sign burns brighter as their line grows —
-  // winning, visibly, when your regulars cross the road.
+  // winning, visibly, when your regulars cross the road. The ribbon is the
+  // zebra itself lighting up, so the walk-over reads even when the line is
+  // already standing at the door.
   W._rivalHeat = 0;
   W.setRivalHeat = (n) => { W._rivalHeat = Math.max(0, n || 0); };
+  quietRandom(() => {
+    // Normal alpha, not additive: the zebra is already near-white, so adding
+    // light just clips to white and the wash disappears.
+    W.rivalHeatMat = new THREE.MeshBasicMaterial({
+      color: 0xff7a2a, transparent: true, opacity: 0, depthWrite: false, fog: false,
+      side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+    });
+    // Sit on the zebra stripes (centred z 11.7), just above the paint.
+    const heatRibbon = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.15, 3.6),
+      W.rivalHeatMat,
+    );
+    heatRibbon.rotation.x = -Math.PI / 2;
+    heatRibbon.position.set(LAYOUT.crossX + 0.2, 0.055, 11.7);
+    heatRibbon.renderOrder = 3;
+    heatRibbon.frustumCulled = false;
+    scene.add(heatRibbon);
+  });
   W.setLite = (enabled) => { W.lite = enabled; for (const wl of W.windowLights) wl.visible = !enabled; };
 
   // ---- time-of-day director ---------------------------------------------------
