@@ -2,7 +2,30 @@
 
 How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
 
-## Current verification — October 6, 2026: restock-and-settle harness on the current constants
+## Current verification — October 6, 2026: empty pastry case softened
+
+Same 80-run grid (`web/test/balance-policies.mjs`: seeds 7, 42, 101, 202, 555, 13, 77, 150, 314, 431 × eight policies). Competent policies restock and settle. Passive and reckless stay naive. Verdict thresholds were not moved. Source hash `8b07b336a31e990610e82e1133c370f9b4eba154b1cb75fecf84c2441e76b84d`. The walk-out grid below is `0df597d0`.
+
+The rule, in `web/js/menu.js`: while the dawn croissant case has stock, retail still buys a croissant. When it is empty, the croissant sale is lost. Three in four buy the drink they came for. One in four leaves (`EMPTY_CASE_WALK` 0.25). The first time that happens in a day, every regular's opinion drops by 0.04 (`EMPTY_CASE_MOOD`) and the brief, the toast, and the receipt say so. The "every drink can walk" patience rule is unchanged.
+
+Means rounded to the pound. The middle column is the walk-out grid from earlier today. The left column is the full grid at `757229b`, the parent of the 4 Oct commit that added the case.
+
+| Policy | `757229b` | 6 Oct walk-out | Empty case softened |
+|---|---:|---:|---:|
+| Passive | −£935 | −£615 | −£494 |
+| Queue | £3,292 | £2,075 | £2,099 |
+| Growth | £2,909 | £1,695 | £1,701 |
+| Conservative | £3,915 | £2,757 | £2,792 |
+| Aggressive | £3,879 | £1,665 | £1,723 |
+| Forecaster | £3,888 | £2,582 | £2,536 |
+| Engaged | £3,486 | £2,965 | £3,025 |
+| Reckless | −£1,085 | −£1,167 | −£1,018 |
+
+Verdicts on the softened grid: passive 8 lost · 2 scarped; queue, growth, conservative, aggressive, and forecaster 10 scarped; engaged 9 scarped · 1 held; reckless 9 lost · 1 scarped. **1 held, 0 good, 0 star** out of 80. The held run was engaged, seed 150, £4,512, reputation 54. Best runs otherwise stayed under £4,500 (forecaster £3,857, conservative £3,821). Passive mean −£494 (max £1,961) and reckless mean −£1,018 (max £591) stayed unprofitable.
+
+`757229b` had 5 held and 1 good. The walk-out grid had none. Softening the empty case put one run over the held line. Competent means moved by less than £60 (forecaster fell £46). Passive and reckless improved and stayed negative. Queue walk-outs fell from 2,223 to 2,076 a week, so the total walk-out was only a small slice of current balks. While the case still has croissants, retail buys those instead of a drink, and patience is unchanged. That is why the means did not return to the `757229b` band. Reputation for the competent policies sits around 45, under the held gate of 50, except engaged at 54. No threshold was changed.
+
+## Current verification — October 6, 2026: restock-and-settle harness on the walk-out rule
 
 Same 80-run grid as the October 1 diagnostic (`web/test/balance-policies.mjs`: seeds 7, 42, 101, 202, 555, 13, 77, 150, 314, 431 × eight policies). Competent policies restock the cellar each morning and settle an open tab before borrowing again. Passive and reckless stay naive. No identity perk, fixed 100ms frames, offers and incidents declined except `engaged`, which accepts them. A replay of seed 7 / passive matched. Source hash `0df597d0c2f9880b500eba03764dac023fee0e8e31525d749c132416c91d76e3`. The supplier tab in this run is the live cap, **£3,500** (`CAMPAIGN.creditLimit` in `web/js/config.js`). The £1,500 figure further down is the September 28 cap only.
 
@@ -55,7 +78,7 @@ This matches the commit message ("Retail sells one dawn croissant case that comp
 
 Earlier, and smaller: `b7351fa` (utilities split out of the £64 sundries, plus a wifi drop the scripted policies never tether) lowered the same two-seed means by about £300–£550. The full grid at `757229b`, which already includes that and the satisfaction work, still reached held. No verdict threshold and no economy constant was changed in this investigation.
 
-Means are rounded to the pound from the 80-run grids at those two commits.
+Means are rounded to the pound from the 80-run grids at those two commits. The empty-case walk-out described here was softened later the same day; that grid is the first section.
 
 ## Current verification — October 1, 2026: economy incentives pass (`c94b822`; deployed to dev)
 
