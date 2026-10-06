@@ -8,12 +8,15 @@ import { EMERGENCY_MUL } from './lots.js';
 
 // A tiny seeded PRNG so a campaign is reproducible per seed (per EVAL.md
 // "same seed → same run").
-export function seeded(seed) {
-  let s = (seed >>> 0) || 1;
-  return () => {
+export function seeded(seed, state) {
+  let s = state != null ? (state >>> 0) : ((seed >>> 0) || 1);
+  if (s === 0) s = 1;
+  const fn = () => {
     s = (s * 1664525 + 1013904223) >>> 0;
     return s / 4294967296;
   };
+  fn.state = () => s;
+  return fn;
 }
 
 export class Exchange {
