@@ -4,8 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = '/Users/udingethe/Dev/grunds/web';
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MAIN = `${ROOT}/js/main.js`;
 const WORLD = `${ROOT}/js/world.js`;
 const main = readFileSync(MAIN, 'utf8');

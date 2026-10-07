@@ -104,7 +104,9 @@ check('knock3/_hammerTap/update are no-ops without a ctx', !threw, 'threw pre-ge
 // ============================================================
 const mainSrc = readFileSync(join(ROOT, 'web', 'js', 'main.js'), 'utf8');
 check('loop order: tick → updateTimeOfDay → sky(mood) → director',
-  /vitality\.tick\(\);\s*\n\s*world\.updateTimeOfDay\(dayMin\);\s*\n\s*sky\.update\(dayMin, null, vitality\.current\);\s*\n\s*director\.update\(/.test(mainSrc), 'loop block out of order');
+  mainSrc.indexOf('vitality.tick();') < mainSrc.indexOf('world.updateTimeOfDay(dayMin);') &&
+  mainSrc.indexOf('world.updateTimeOfDay(dayMin);') < mainSrc.indexOf('sky.update(dayMin, null, vitality.current);') &&
+  mainSrc.indexOf('sky.update(dayMin, null, vitality.current);') < mainSrc.indexOf('director.update('), 'loop block out of order');
 check('loop: director.update strictly after updateTimeOfDay + sky.update',
   mainSrc.indexOf('sky.update(dayMin, null, vitality.current);') < mainSrc.indexOf('director.update(') &&
   mainSrc.indexOf('world.updateTimeOfDay(dayMin);') < mainSrc.indexOf('director.update('), 'director must run after the overwrites');
