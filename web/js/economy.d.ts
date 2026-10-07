@@ -31,4 +31,29 @@ export function operatingCosts(input?: {
   till?: number; served?: number; staffing?: string; marketing?: number;
   training?: number; sampling?: number; perkCostMul?: number; modifiers?: Partial<DayModifiers>;
 }): Record<string, number> & { total: number };
+export const VERDICT_GATES: {
+  star: { netAbove: number; repAtLeast: number };
+  good: { netAbove: number; repAtLeast: number };
+  held: { netAbove: number; repAtLeast: number };
+};
 export function campaignVerdict(net: number, rep: number): 'star' | 'good' | 'held' | 'scarped' | 'lost';
+export interface WeekStanding {
+  tone: 'ok' | 'warn' | 'bad';
+  insolvent: boolean;
+  underNut: boolean;
+  repShort: boolean;
+  asOf: string;
+  books: boolean;
+  heldNet: number;
+  heldRep: number;
+  rep: number;
+  cashLine: string;
+  repLine: string;
+  heldLine: string;
+  lines: string[];
+}
+export function weekStanding(input?: {
+  net?: number; rep?: number; day?: number; days?: number;
+  asOf?: 'opening' | 'last-close' | 'close'; nut?: number | null; countToday?: boolean;
+}): WeekStanding;
+export function standingNudge(stand: WeekStanding | null, day?: number): { tone: 'warn' | 'bad'; text: string } | null;

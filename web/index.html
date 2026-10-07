@@ -428,6 +428,31 @@
   .fm-role .fm-line { font-size: 13.5px; line-height: 1.5; }
   #brief-learning { font-size: 11.5px; line-height: 1.5; margin: 6px 0; padding: 7px 10px; border-radius: 3px;
     border-left: 3px solid var(--brass); background: rgba(201,162,39,.06); }
+  #brief-standing { font-family: var(--serif); font-size: 13px; line-height: 1.45; letter-spacing: 0;
+    text-transform: none; text-align: left; margin: 0 0 8px; padding: 8px 10px; border-radius: 3px;
+    border-left: 3px solid var(--brass); background: rgba(201,162,39,.10); color: #2a241c;
+    white-space: normal; overflow-wrap: anywhere; }
+  #brief-standing p { margin: 0 0 6px; }
+  #brief-standing p:last-child { margin: 0; }
+  #brief-standing.bs-warn { border-left-color: #a0522d; background: rgba(160,82,45,.12); }
+  #brief-standing.bs-bad { border-left-color: #8f2d22; background: rgba(143,45,34,.14); }
+  #brief-standing[hidden] { display: none; }
+  #daytag { white-space: normal; overflow-wrap: anywhere; }
+  /* Evening card: stack and wrap. A pre, or a nowrap button, was painting a horizontal scrollbar. */
+  #evening.modal { overflow-x: hidden; }
+  #evening .modal-panel, #evening .modal-body, #evening .modal-footer, #evening .l-actions { min-width: 0; max-width: 100%; }
+  #evening .modal-body { overflow-x: hidden; overflow-y: auto; }
+  #evening-read, #evening-left, #evening-morrow {
+    display: block; max-width: 100%; margin: 0 0 8px;
+    white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+    font-family: var(--serif); font-size: var(--modal-body-size); line-height: var(--modal-leading);
+  }
+  #evening .l-actions button, #evening .l-actions button small {
+    white-space: normal; overflow-wrap: anywhere; max-width: 100%;
+  }
+  #evening .l-actions button {
+    width: 100%; min-width: 0; box-sizing: border-box;
+  }
   #brief-row { font-family: var(--serif); color: #2a241c; }
   #brief-row .row-teaser { font-size: 15px; font-style: italic; color: #3a3226; margin: 8px 0; padding: 8px 10px; background: rgba(201,162,39,.16); border-left: 3px solid var(--brass); }
   #brief-row .row-bonus { font-size: 14.5px; line-height: 1.45; margin: 8px 0; padding: 8px 10px; background: rgba(134,168,96,.16); border-left: 3px solid var(--matcha); color: #243018; }
@@ -782,6 +807,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <div class="l-head" id="brief-heading">THE MORNING BRIEF</div>
         <div class="l-kicker" id="brief-kicker">Day 1/5 · plan before opening</div>
         <div class="l-kicker" id="brief-objective" style="display:none; font-style: normal; letter-spacing: .02em;"></div>
+        <div id="brief-standing" hidden></div>
         <div class="beat-powered" id="brief-powered"></div>
       </header>
 
@@ -893,7 +919,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <div class="beat-powered" id="evening-powered" style="color: rgba(58,50,38,.85)"></div>
       </header>
       <div class="modal-body">
-        <pre id="evening-read"></pre>
+        <div id="evening-read"></div>
         <div id="evening-left"></div>
         <p id="evening-morrow" hidden></p>
       </div>
