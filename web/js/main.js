@@ -5091,12 +5091,23 @@ function showHover(p, x, y) {
   el.classList.add('show');
 }
 function hideHover() { const el = $('hovercard'); if (el) el.classList.remove('show'); }
+function showPremiseHover(p, x, y) {
+  const el = $('hovercard'); if (!el || !p) return;
+  const verb = touchPrimary() ? 'tap' : 'click';
+  const open = p.open > 0.5;
+  el.innerHTML = `<b>${p.name}</b><br>${p.line}<br><span style="opacity:.6">${open ? 'roof open' : `${verb} to look inside`}</span>`;
+  el.style.left = Math.min(innerWidth - 240, x + 14) + 'px';
+  el.style.top = Math.min(innerHeight - 96, y + 14) + 'px';
+  el.classList.add('show');
+}
 renderer.domElement.addEventListener('pointermove', e => {
   if (_hoverRaf) return;
   _hoverRaf = requestAnimationFrame(() => {
     _hoverRaf = 0;
     const p = nearestPatronAt(e.clientX, e.clientY);
-    if (p) showHover(p, e.clientX, e.clientY); else hideHover();
+    if (p) { showHover(p, e.clientX, e.clientY); return; }
+    const shop = world.pickPremise?.(e.clientX, e.clientY, camera, innerWidth, innerHeight);
+    if (shop) showPremiseHover(shop, e.clientX, e.clientY); else hideHover();
   });
 });
 renderer.domElement.addEventListener('pointerleave', hideHover);
@@ -5105,6 +5116,12 @@ renderer.domElement.addEventListener('click', e => {
   if (rig.suppressClick) { rig.suppressClick = false; return; }
   const p = nearestPatronAt(e.clientX, e.clientY);
   if (!p) {
+    const shop = world.pickPremise?.(e.clientX, e.clientY, camera, innerWidth, innerHeight);
+    if (shop) {
+      world.peekPremise(shop.id);
+      fx.toast(`${shop.name} — ${shop.line}`, '');
+      return;
+    }
     if (!controlsHintShown) {
       controlsHintShown = true;
       fx.toast('drag to look around · scroll or pinch to zoom', '');
@@ -5445,6 +5462,35 @@ if (sysBar) {
   moreBtn.onclick = () => { sysBar.classList.toggle('more-open'); layoutMobile(); };
   sysBar.appendChild(moreBtn);
 }
+const roofBtn = $('roofpeek');
+const ROOF_KEY = 'grunds.roofs';
+function readRoofPref() {
+  const q = urlParams.get('roofs');
+  if (q === '1' || q === 'open') return 'open';
+  if (q === '0' || q === 'shut' || q === 'off') return 'shut';
+  try { return localStorage.getItem(ROOF_KEY); } catch { return null; }
+}
+function applyRoofPref(pref) {
+  const open = pref === 'open';
+  try { world.setNeighborRoofs(open, pref === 'shut'); } catch {}
+  // Headless day stubs return a button-shaped object with no DOM methods.
+  if (!roofBtn || typeof roofBtn.setAttribute !== 'function') return;
+  roofBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
+  roofBtn.textContent = open ? 'roofs open' : 'see inside';
+  roofBtn.title = open
+    ? 'Neighbour roofs are open. Press again to close them.'
+    : 'Open the neighbour roofs and look inside. Click a shop to peek at just that one.';
+}
+applyRoofPref(readRoofPref());
+if (roofBtn && typeof roofBtn.setAttribute === 'function') roofBtn.onclick = () => {
+  const open = roofBtn.getAttribute('aria-pressed') === 'true';
+  const next = open ? 'shut' : 'open';
+  try { localStorage.setItem(ROOF_KEY, next); } catch {}
+  applyRoofPref(next);
+  fx.toast(next === 'open'
+    ? 'roofs open — The Quill, Hearth & Rye, Bell & Brass, Marrow Lane'
+    : 'roofs closed', '');
+};
 function layoutMobile() {
   if (innerWidth > 640 || !document.documentElement) return;
   const root = document.documentElement.style;
@@ -5897,6 +5943,7 @@ function momentScan() {
 // ---- loop ---------------------------------------------------------------------------
 let acc = 0, last = performance.now();
 let frameNow = 0;
+let roofAmbientNoted = false;
 let _slowFrames = 0, _liteSwitched = false;
 // Serves and balks squash the cup or torso only — they never hold the
 // clock or punch FOV. Chalkboard presses and the wave verdict opt in
@@ -5975,6 +6022,15 @@ function loop(now) {
   kitBeat.update(dt, now);
   mailT.update(dt, now);
   try { world.manageCutaway?.(camera.position, document.body.classList.contains('photo') ? 'photo' : rig.mode); } catch {}
+  try {
+    const ambient = started && phase === 'trading' && !paused && !tutorialActive && !modals.top()
+      && !lite && !_liteSwitched && rig.mode !== 'title';
+    const peeked = world.updateNeighborPeeks(dt, now, { ambient });
+    if (peeked && !roofAmbientNoted) {
+      roofAmbientNoted = true;
+      fx.toast(`${peeked.name} — ${peeked.line}`, '');
+    }
+  } catch {}
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
   if (impact.dtScale(nowSec) === 0) {
     patrons.update(0, WALK_MUL[speed] || 2, now, reducedMotion);
