@@ -257,12 +257,12 @@ if (G.reg.regulars[0].absence !== 'returning') fails.push(`Mara should be return
       if (!G.patrons.counterQ.includes(samP)) G.patrons.counterQ.push(samP);
       // the mass stall can fill Sam's queue to the defect cap — keep some room
       while (G.patrons.rivalQ.length > 38) G.patrons.rivalQ.splice(0, 8);
-      const oldCap = G.patrons.capacityMult, realRand = Math.random;
+      const oldCap = G.patrons.capacityMult, oldRand = G.patrons.random, realRand = Math.random;
       try {
-        G.patrons.capacityMult = 0; Math.random = () => 0.01;
+        G.patrons.capacityMult = 0; Math.random = () => 0.01; G.patrons.random = () => 0.01;
         runFrames(1);
       } finally {
-        G.patrons.capacityMult = oldCap; Math.random = realRand;
+        G.patrons.capacityMult = oldCap; Math.random = realRand; G.patrons.random = oldRand;
       }
       tries = 0;
       while (G.phase === 'trading' && !hasPend('sam', retAt - 1) && tries++ < 30) runFrames(1);

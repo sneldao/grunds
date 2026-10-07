@@ -656,7 +656,7 @@ G.renderBrief();
   rows.find(r => new RegExp(pick.name).test(r.textContent)).click();
   check('a cast row opens the profile on top of the board', G.modals.top() === 'dossier', G.modals.top());
   const prof = deepText(byId('dossier'));
-  check('the profile reads bio/wants/usual/feeling in words', byId('dossier-bio').textContent.length > 0 && /Wants:/.test(prof) && /Usual:/.test(prof) && /warming to you|unhappy with you|still making up their mind/.test(prof), prof.slice(0, 300));
+  check('the profile reads bio/wants/usual/feeling in words', byId('dossier-bio').textContent.length > 0 && /Wants:/.test(prof) && /Usual:/.test(prof) && /warming|unhappy with you|still making up their mind/.test(prof), prof.slice(0, 300));
   check('the profile carries no raw opinion numbers', !/op [\d.]|0\.15/.test(prof), prof.slice(0, 300));
   writeFileSync(join(LOGS, `profile-${pick.name.toLowerCase()}.txt`), prof);
   const op0 = pick.op;

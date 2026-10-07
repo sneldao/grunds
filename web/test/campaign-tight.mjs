@@ -41,7 +41,7 @@ const cs = () => ({ width: 0, height: 0, getContext: () => anyProxy(), style: {}
 globalThis.document = { getElementById: id => { if (!reg.has(id)) reg.set(id, el()); return reg.get(id); }, createElement: t => t === 'canvas' ? cs() : el(), createElementNS: () => cs(), querySelectorAll: () => [], body: el() };
 globalThis.window = globalThis; globalThis.__headless = true;
 globalThis.innerWidth = 1600; globalThis.innerHeight = 900; globalThis.devicePixelRatio = 1;
-globalThis.location = { search: '?speed=1200' }; globalThis.addEventListener = () => {};
+globalThis.location = { search: '?speed=1200&seed=23' }; globalThis.addEventListener = () => {};
 let rafCb = null; globalThis.requestAnimationFrame = cb => { rafCb = cb; };
 globalThis.fetch = () => Promise.resolve({ json: () => Promise.resolve(schedule) });
 const _w = console.warn; console.warn = (...a) => { if (!String(a[0]).startsWith('THREE.')) _w(...a); };

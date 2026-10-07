@@ -66,6 +66,7 @@ const ctxBase = () => ({ batchUnits: 0, batchReservedUntil: 0, milkStock: 50, mi
     const p = s.spawn('commuters', 'counter', true);
     p.drink = drink; p.wantsMatcha = drink === 'matcha'; p.state = 'inQueue'; p.waitMin = wait;
     s.counterQ = [p];
+    s.random = Math.random;
     return s.tick(900, { ...ctxBase(), ...extra }).some(e => e.type === 'balked' && e.p === p);
   };
   Math.random = () => 0.02;
@@ -124,6 +125,7 @@ console.log('PATIENCE  prep-weighted walk-outs verified');
   const w = walked.spawn('tourists', 'retail', true);
   w.state = 'inRegisterQ'; w.waitMin = 1;
   walked.counterQ = []; walked.registerQ = [w];
+  walked.random = Math.random;
   const evW = walked.tick(703, { pastryStock: 0, milkStock: 20 });
   ok(evW.some(e => e.type === 'balked' && e.p === w && e.pastry) && !evW.some(e => e.type === 'served'), 'a roll under one in four leaves without buying');
   ok(walkedCups === 0, 'a walk-out does not pour the drink');
@@ -200,7 +202,7 @@ console.log('REGULAR   preferred order and board turnaway verified');
   // full-room judgment reuses it. A second draw of 0 would cross; the stored
   // 0.5 does not — so any extra roll in _campDivert fails this.
   {
-    let i = 0; const draws = [0.99, 0.5];
+    let i = 0; const draws = [...Array(11).fill(0.99), 0.5];   // choiceRoll is draw 11 (side, drink, cosmetics first)
     const s = sys(fullRoom, () => (i < draws.length ? draws[i++] : 0));
     const p = s.spawn('creatives', 'counter', true);
     ok(p && p.choiceRoll === 0.5 && p.queueRef === 'counter' && !s.rivalQ.includes(p),
@@ -236,6 +238,7 @@ console.log('ROOM      full-room camp pull verified');
     }
     s.counterQ = [];
     s.rivalQ = s.patrons.filter(p => p.state === 'inRivalQ');
+    s.random = Math.random;
     return s;
   };
   const hold = Math.random; Math.random = () => 0;

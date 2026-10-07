@@ -49,7 +49,7 @@ test('Phase 4 · ceasefire stops crossings and quiets Saturday', () => {
   assert.match(main, /samTruce && day === 5 \? 0\.92 : 1/);
   assert.match(patrons, /truceCeasefire = false/);
   assert.match(patrons, /!this\.truceCeasefire && this\.rivalQ\.length < 42/);
-  assert.match(patrons, /!this\.truceCeasefire && Math\.random\(\) < 0\.7/);
+  assert.match(patrons, /!this\.truceCeasefire && this\.random\(\) < 0\.7/);
 });
 
 // (6) Finale: grudge row, truce row, snubbed Sam breaks DEUCE ties

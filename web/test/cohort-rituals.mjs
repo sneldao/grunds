@@ -112,7 +112,7 @@ test('PR-6 · patrons.js · _afterServe prefers ritualSeat before random seat', 
   assert.match(body, /p\.ritualSeat\s*!=\s*null/);
   assert.match(body, /this\.world\.seats\[p\.ritualSeat\]/);
   // Falls through to random seat if ritualSeat is taken.
-  assert.match(body, /freeSeats\[\(Math\.random\(\) \* freeSeats\.length\) \| 0\]/);
+  assert.match(body, /freeSeats\[\(this\.random\(\) \* freeSeats\.length\) \| 0\]/);
 });
 
 // (9) patron object carries ritualProps/Seat/Dwell forward

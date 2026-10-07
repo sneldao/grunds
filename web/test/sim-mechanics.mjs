@@ -185,7 +185,7 @@ const exchange = { matchaPrice: 4.80, day: 1, purchaseCup: () => ({ beanCost: 0,
   const stale = rivalChoiceProbability({ strategy: 'DEFAULT', cohort: 'commuters', ourPrice: 4.80, cupQuality: 0.6 });
   ok(stale > plain, `a tired cup pushes people across, ${stale} > ${plain}`);
 
-  const seq = (first, rest) => { let i = 0; return () => i++ === 0 ? first : rest; };
+  const seq = (first, rest) => { let i = 0; return () => i++ === 1 ? first : rest; };   // draw 1 is the drink roll (side roll leads)
   const cross = (reach, quality, roll) => {
     const sys = new PatronSystem(scene, world, null, exchange, null, { random: seq(0.99, roll) });
     // High roll lands creatives on matcha — priced at the day's board, so the

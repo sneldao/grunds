@@ -142,7 +142,7 @@ export class PatronSystem {
     const only = this.markSeenOnly || null;
     const cands = reg.regulars.filter(r => r && !r.seen && !r._spawned && r.coh === cohort && r.absence !== 'away' && r.absence !== 'lost' && (!only || only.has(r.name)));
     if (!cands.length) return null;
-    return cands[(Math.random() * cands.length) | 0];
+    return cands[(this.random() * cands.length) | 0];
   }
 
   _attachRegular(p, r) {
@@ -215,7 +215,7 @@ export class PatronSystem {
     if (quick) {
       const fromX = p.pos.x, fromZ = p.pos.z;
       p.state = 'inRivalQ';
-      p.pos.set(p.goal.x + (Math.random() - 0.5), 0, p.goal.z + 0.6 + Math.random() * 0.4);
+      p.pos.set(p.goal.x + (this.random() - 0.5), 0, p.goal.z + 0.6 + this.random() * 0.4);
       this._noteCross(fromX, fromZ);
     } else {
       p.state = 'defecting';
@@ -233,7 +233,7 @@ export class PatronSystem {
   spawn(cohort, zone, quick = false, viaCompanion = false) {
     if (!this.free.length) return null;
     const idx = this.free.pop();
-    const fromLeft = Math.random() < 0.5;
+    const fromLeft = this.random() < 0.5;
     const s = fromLeft ? LAYOUT.spawnL : LAYOUT.spawnR;
     const torso = new THREE.Color(COHORTS[cohort]?.color ?? 0xaaaaaa).lerp(new THREE.Color(0x888888), 0.12);
     // PR-6 — cohort rituals: walk pace + which prop they carry + which
@@ -269,15 +269,15 @@ export class PatronSystem {
     const p = {
       idx, active: true, cohort, zone,
       drink, wantsMatcha: drink === 'matcha',
-      pos: V3(s.x, 0, s.z + (Math.random() - 0.5) * 1.4), face: fromLeft ? Math.PI / 2 : -Math.PI / 2,
+      pos: V3(s.x, 0, s.z + (this.random() - 0.5) * 1.4), face: fromLeft ? Math.PI / 2 : -Math.PI / 2,
       path: [], state: 'walking', waitMin: 0, dwell: 0,
-      speed: ritualSpeed + (Math.random() - 0.5) * 0.3, phase: Math.random() * 6.28,
-      jx: (Math.random() - 0.5) * 0.24, jz: (Math.random() - 0.5) * 0.2,
-      seat: null, hasCup: false, cupGreen: false, hasHat: Math.random() < 0.45,
-      torso, skin: new THREE.Color(SKIN[(Math.random() * SKIN.length) | 0]),
-      legs: new THREE.Color(LEGS[(Math.random() * LEGS.length) | 0]),
+      speed: ritualSpeed + (this.random() - 0.5) * 0.3, phase: this.random() * 6.28,
+      jx: (this.random() - 0.5) * 0.24, jz: (this.random() - 0.5) * 0.2,
+      seat: null, hasCup: false, cupGreen: false, hasHat: this.random() < 0.45,
+      torso, skin: new THREE.Color(SKIN[(this.random() * SKIN.length) | 0]),
+      legs: new THREE.Color(LEGS[(this.random() * LEGS.length) | 0]),
       flash: 0, colorDirty: true, queueRef: null, slotI: -1, walking: true,
-      scale: 0.84 + Math.random() * 0.32,
+      scale: 0.84 + this.random() * 0.32,
       regularName: null, regularIdx: -1, greeted: false,
       regularFriends: null,   // Set<string> of friend names, populated if named
       // Phase 1 — identity: roster regulars fill canon fields below;
@@ -391,7 +391,7 @@ export class PatronSystem {
       this.party.left--;
     }
     this.patrons.push(p);
-    const door = V3(LAYOUT.door.x + (Math.random() - 0.5) * 2.2, 0, LAYOUT.door.z + 0.5);
+    const door = V3(LAYOUT.door.x + (this.random() - 0.5) * 2.2, 0, LAYOUT.door.z + 0.5);
     if (boardWalk || (zone === 'counter' && p.boardTurnaway)) {
       // Read the board, leave the room: counted at spawn (the tick loop must
       // stay clean — it iterates the whole patron list every sim-minute, so a
@@ -419,7 +419,7 @@ export class PatronSystem {
       if (quick) {
         const fromX = p.pos.x, fromZ = p.pos.z;
         p.state = 'inRivalQ';
-        p.pos.set(p.goal.x + (Math.random() - 0.5), 0, p.goal.z + 0.6 + Math.random() * 0.4);
+        p.pos.set(p.goal.x + (this.random() - 0.5), 0, p.goal.z + 0.6 + this.random() * 0.4);
         this._noteCross(fromX, fromZ);
       } else {
         p.state = 'defecting';
@@ -435,12 +435,12 @@ export class PatronSystem {
         p.goal = this._slotPos(counterSlot, this.counterQ.length - 1, p);
         if (quick) {  // at speed the crowd is just there — step out of it, keep arrival = spawn rate
           p.state = 'toQueue';
-          p.pos.set(p.goal.x + (Math.random() - 0.5), 0, p.goal.z + 1.4 + Math.random());
+          p.pos.set(p.goal.x + (this.random() - 0.5), 0, p.goal.z + 1.4 + this.random());
         } else { p.state = 'walkingIn'; p.path = [door]; }
       }
     } else {
       p.state = 'toBrowse';
-      const shelf = V3(LAYOUT.retail.x + 1.3 + Math.random(), 0, LAYOUT.retail.z + (Math.random() - 0.5) * 4.4);
+      const shelf = V3(LAYOUT.retail.x + 1.3 + this.random(), 0, LAYOUT.retail.z + (this.random() - 0.5) * 4.4);
       if (quick) { p.pos.set(door.x, 0, door.z); p.path = [shelf]; } else p.path = [door, shelf];
     }
     this._paint(p);
@@ -528,7 +528,7 @@ export class PatronSystem {
       const dk = p.drink || (p.wantsMatcha ? 'matcha' : 'flatwhite');
       const batched = dk === 'matcha' && (ctx.batchUnits || 0) > 0 && dayMin >= (ctx.batchReservedUntil || 0);
       const chance = balkChanceFor(dk, batched, { repriced: !!this.repriced }) * (this.balkMul || 1);
-      if (p.waitMin > balkLimit(dk, batched) && Math.random() < chance) {
+      if (p.waitMin > balkLimit(dk, batched) && this.random() < chance) {
         this.counterQ.splice(i, 1);
         this._balk(p, ev);
       }
@@ -549,10 +549,10 @@ export class PatronSystem {
           ctx.pastryStock--;
           this.registerQ.splice(i, 1); regN++;
           ev.push({ type: 'served', p, isMatcha: false, price: PASTRY.price, viaRegister: true, pastry: true, beanCost: 0, spotCost: 0, hedged: false });
-          if (Math.random() < 0.12) this._afterServe(p); else this._leave(p);
+          if (this.random() < 0.12) this._afterServe(p); else this._leave(p);
           continue;
         }
-        if (ctx.pastryStock != null && ctx.pastryStock <= 0 && Math.random() < EMPTY_CASE_WALK) {
+        if (ctx.pastryStock != null && ctx.pastryStock <= 0 && this.random() < EMPTY_CASE_WALK) {
           this.registerQ.splice(i, 1);
           this._balk(p, ev, { pastry: true });
           continue;
@@ -578,7 +578,7 @@ export class PatronSystem {
           ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull)
           : (ctx.menuPrices?.[rdk] ?? ECON.other)) * (ctx.priceMult || 1);
         ev.push({ type: 'served', p, isMatcha: regMatcha, price: regPrice, viaRegister: true, ...cup, ...(missedPastry ? { pastryMiss: true } : {}) });
-        if (Math.random() < 0.12) this._afterServe(p); else this._leave(p);
+        if (this.random() < 0.12) this._afterServe(p); else this._leave(p);
       } else i++;
     }
     this._layoutQ(this.registerQ, registerSlot);
@@ -617,7 +617,7 @@ export class PatronSystem {
       const p = this.rivalQ[i];
       if (p.state !== 'inRivalQ') continue;
       const back = rivalWalkbackChance(p.waitMin, speedMul);
-      if (back > 0 && Math.random() < back) {
+      if (back > 0 && this.random() < back) {
         this.rivalQ.splice(i, 1);
         p.state = 'toQueue'; p.queueRef = 'counter'; p.rivalOrigin = 'walkback'; p.waitMin = 0;
         this.counterQ.push(p);
@@ -639,7 +639,7 @@ export class PatronSystem {
     p.op = (Number.isFinite(p.op) ? p.op : 0) - 0.08;
     ev.push({ type: 'balked', p, ...(extra || {}) });
     // Phase 4 — ceasefire Saturday: walk-outs walk, they don't defect.
-    if (!this.truceCeasefire && Math.random() < 0.7 && this.rivalQ.length < 42) {
+    if (!this.truceCeasefire && this.random() < 0.7 && this.rivalQ.length < 42) {
       p.state = 'defecting'; p.queueRef = 'rival'; p.rivalOrigin = 'defection'; this.rivalQ.push(p);
       p.goal = this._slotPos(rivalSlot, this.rivalQ.length - 1, p);
       p.path = [
@@ -656,14 +656,14 @@ export class PatronSystem {
 
   _afterServe(p) {
     const freeSeats = this.world.seats.filter(s => !s.taken);
-    if (Math.random() < ECON.sitChance && freeSeats.length) {
+    if (this.random() < ECON.sitChance && freeSeats.length) {
       // PR-6 — cohort ritual: prefer the table the cohort claims first.
       // Falls through to a random free seat if their table is taken.
       let seat = null;
       if (p.ritualSeat != null && this.world.seats[p.ritualSeat] && !this.world.seats[p.ritualSeat].taken) {
         seat = this.world.seats[p.ritualSeat];
       } else {
-        seat = freeSeats[(Math.random() * freeSeats.length) | 0];
+        seat = freeSeats[(this.random() * freeSeats.length) | 0];
       }
       seat.taken = p; p.seat = seat; p.state = 'toSeat';
       p.path = [V3(seat.x, 0, seat.z)];
@@ -684,12 +684,12 @@ export class PatronSystem {
   _leave(p) {
     p.state = 'leaving'; p.queueRef = null; p.leaveT = 0;
     const out = [];
-    if (p.pos.z < LAYOUT.door.z - 0.15) out.push(V3(LAYOUT.door.x + (Math.random() - 0.5) * 2, 0, LAYOUT.door.z + 0.5)); // still inside — head for the door
+    if (p.pos.z < LAYOUT.door.z - 0.15) out.push(V3(LAYOUT.door.x + (this.random() - 0.5) * 2, 0, LAYOUT.door.z + 0.5)); // still inside — head for the door
     if (this.walkMul > 1.5) {
-      out.push(V3(LAYOUT.door.x + (Math.random() - 0.5) * 6, 0, LAYOUT.pavementZ + 0.6)); // step off-camera, bow out
+      out.push(V3(LAYOUT.door.x + (this.random() - 0.5) * 6, 0, LAYOUT.pavementZ + 0.6)); // step off-camera, bow out
     } else {
-      const exitL = Math.random() < 0.5;
-      out.push(V3(exitL ? LAYOUT.spawnL.x : LAYOUT.spawnR.x, 0, LAYOUT.pavementZ + (Math.random() - 0.5)));
+      const exitL = this.random() < 0.5;
+      out.push(V3(exitL ? LAYOUT.spawnL.x : LAYOUT.spawnR.x, 0, LAYOUT.pavementZ + (this.random() - 0.5)));
     }
     p.path = out;
   }
@@ -700,8 +700,8 @@ export class PatronSystem {
         if (this._campDivert(p)) this._leaveForRival(p, false);
         else p.state = 'toQueue';
         break;
-      case 'toBrowse': p.state = 'browse'; p.dwell = 2 + (Math.random() * 4 | 0); break;
-      case 'toSeat': p.state = 'sit'; p.dwell = Math.round((8 + (Math.random() * 14 | 0)) * this.dwellMul); p.face = p.seat.face; p.sipAt = Math.max(1, p.dwell - 4); break;
+      case 'toBrowse': p.state = 'browse'; p.dwell = 2 + (this.random() * 4 | 0); break;
+      case 'toSeat': p.state = 'sit'; p.dwell = Math.round((8 + (this.random() * 14 | 0)) * this.dwellMul); p.face = p.seat.face; p.sipAt = Math.max(1, p.dwell - 4); break;
       case 'defecting': p.state = 'inRivalQ'; this._paint(p); break;
       case 'leaving': this._despawn(p); break;
     }
@@ -1051,7 +1051,7 @@ export class PatronSystem {
         // Phase 5 — one verb per prop: camera flash, laptop glow, cup
         // steam, cane tap. Rare by design (reads as event, not noise).
         try {
-          const verbR = Math.random();
+          const verbR = this.random();
           if (this.fx && propKey === 'camera' && sitting && verbR < 0.025) {
             this.fx.flash(d.position.x, d.position.y + 0.1, d.position.z);
           } else if (this.fx && propKey === 'laptop' && sitting && verbR < 0.045) {
