@@ -30,7 +30,7 @@ check('sprite masks stay linear and cover the quad corner', () => {
   assert.match(streakFn, /maskTexture/);
 });
 
-const weather = world.slice(world.indexOf('const puff = softSprite()'), world.indexOf('// ---- sky extras'));
+const weather = world.slice(world.indexOf('const puff = quietRandom(() => softSprite())'), world.indexOf('// ---- sky extras'));
 check('mist, motes, and rain are masked and stay under the camera', () => {
   assert.match(weather, /streakSprite\(\)/);
   assert.match(weather, /alphaMap: puff, alphaTest: 0\.05/);

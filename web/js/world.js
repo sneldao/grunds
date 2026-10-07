@@ -1713,8 +1713,8 @@ export function buildWorld(scene, renderer, lite) {
   // and the orbit makes it look like it is drifting over the roofs. Masks
   // clip the quad to a disc (or a streak), and the volumes stay on the
   // street, under the camera. Hidden until a weather call asks for them.
-  const puff = softSprite();
-  const rainStreak = streakSprite();
+  const puff = quietRandom(() => softSprite());
+  const rainStreak = quietRandom(() => streakSprite());
   const puffMat = (color, size, extra = {}) => new THREE.PointsMaterial({
     color, size, map: puff, alphaMap: puff, alphaTest: 0.05,
     transparent: true, opacity: 0, depthWrite: false, fog: false, sizeAttenuation: true,
