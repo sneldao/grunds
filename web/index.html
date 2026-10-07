@@ -32,7 +32,11 @@
   #hud { position: fixed; top: 18px; left: 20px; z-index: 10; text-shadow: 0 1px 8px rgba(0,0,0,.6); max-width: 380px;
     background: rgba(23,19,16,.58); border: 1px solid rgba(239,230,211,.14); border-radius: 8px; padding: 10px 14px 12px; backdrop-filter: blur(3px); }
   /* open day: the plate drops so the street reads. Planning keeps the morning brief. */
-  body.in-play #hud { background: rgba(23,19,16,.72); border: 1px solid rgba(239,230,211,.22); }
+  /* The plate thins while the day is open so the street reads. The goal
+     strip keeps its own chip. Empty lines (no price yet, no status) must
+     not reserve a row. */
+  body.in-play #hud { background: rgba(23,19,16,.34); border-color: transparent; backdrop-filter: none; }
+  #pressure:empty, #status:empty, #district:empty, #tape:empty { display: none; }
   body.in-play #syncbadge,
   body.in-play #district,
   body.in-play #floorstats,

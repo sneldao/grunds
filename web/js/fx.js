@@ -12,7 +12,14 @@ class Pool {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
     g.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
-    this.mat = new THREE.PointsMaterial({ size, map: softSprite(), transparent: true, depthWrite: false, blending, vertexColors: true, sizeAttenuation: true });
+    const sprite = softSprite();
+    // alphaMap samples green, so a lost alpha channel still clips the quad.
+    // fog off: the district haze was painting the whole square grey.
+    this.mat = new THREE.PointsMaterial({
+      size, map: sprite, alphaMap: sprite, alphaTest: 0.05,
+      transparent: true, depthWrite: false, fog: false,
+      blending, vertexColors: true, sizeAttenuation: true,
+    });
     this.points = new THREE.Points(g, this.mat);
     this.points.frustumCulled = false;
     this.baseColor = new THREE.Color(tint);
