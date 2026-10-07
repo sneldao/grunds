@@ -327,7 +327,7 @@
   .lic-pills button { font-size: 11.5px; }
   .lic-pills button.on { border-color: #7a2a18; background: #7a2a18; }
   .lic-bgs button { flex: 1 1 46%; text-align: left; }
-  .lic-bgs button small { display: block; opacity: .62; font-size: 10px; margin-top: 2px; }
+  .lic-perk { font-size: 11px; font-style: italic; color: #7a2a18; opacity: .85; margin: 8px 0 2px; min-height: 1.2em; }
   #lic-sign, #lic-next { width: 100%; margin-top: 0; letter-spacing: .16em; border-color: var(--brass); }
   .lic-hint { text-align: center; font-size: 10px; opacity: .5; margin-top: 8px; font-style: italic; }
   #lic-dots { display: flex; justify-content: center; gap: 6px; margin-top: 14px; }
@@ -921,13 +921,11 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
             <label class="lic-field">name<input id="lic-name" maxlength="16" value="Sam" placeholder="Sam" autocomplete="off"></label>
             <label class="lic-field">stand<input id="lic-stand" maxlength="22" value="THE CORNER CUP" placeholder="THE CORNER CUP" autocomplete="off"></label>
             <div class="lic-hint">the name on the lease · the name on the sign. blank is fine — the district decides</div>
-            <details id="lic-optional">
-              <summary>role and background — optional</summary>
-              <div class="lic-label">signed as</div>
-              <div id="lic-roles" class="lic-pills"></div>
-              <div class="lic-label">before this</div>
-              <div id="lic-bgs" class="lic-pills lic-bgs"></div>
-            </details>
+            <div class="lic-label">signed as</div>
+            <div id="lic-roles" class="lic-pills"></div>
+            <div class="lic-label">before this</div>
+            <div id="lic-bgs" class="lic-pills lic-bgs"></div>
+            <div id="lic-bg-perk" class="lic-perk"></div>
             <details id="lic-streets">
               <summary>other streets</summary>
               <p class="lic-hint">a built street opens with its Row already standing · your own street opens its leases on day 3</p>

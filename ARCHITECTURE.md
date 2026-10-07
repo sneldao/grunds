@@ -62,6 +62,21 @@ Baseline bean drift is an increasing daily increment: 0.025 + 0.008 × (day − 
 
 **Managed decisions (connected mode).** When `?convex=` is live, `convexSync.js` runs the week through a per-run serialized queue — `begin → prepare → stage → commit → finish` on `POST /sync/plan`, authenticated by a 32-byte run token the HTTP layer SHA-256s before the internal mutations see it. `convex/decisions.ts` keeps one `dayDecisions` row per campaign-day: `prepare` pins the snapshot, `stage` updates the still-pending plan, `commit` (browser) and `handleInbound` (email, via a thread→`{campaignId, decisionId, day, recipient, postedPlan}` mapping) both funnel into `commitRecord` — first writer wins, every retry or loser re-reads the same committed result. `finish` validates and stores the closing state once (conflicting retries rejected, identical ones idempotent) and upserts the player's `stands` row; `abandon`/reset invalidates the session so delayed writes die. Legacy public mutations (`openDay`, `contractBeans`, `settleDebt`, `mirrorState`, `recordStand`) reject any campaign that has a `planSessions` row. If the endpoint is unreachable the Brief stays in planning with a retryable error; `start a local-only week` (`#brief-offline`) is the explicit opt-out — it disables managed sync and mail for the run rather than silently degrading. Scope note: the simulation stays client-side; the commit record arbitrates *intent*, it is not server-authoritative anti-cheat.
 
+## Choice surfaces — visible options, inline consequence
+
+Every modal that asks a question shows the options *and* their stakes without
+a click. Two layouts share one grammar — **option → consequence** — picked by
+the weight of the decision: heavyweight calls (≤3, blocking the day) get
+full-width buttons each carrying a `<small>` subtitle (the evening card,
+offers, signing); lightweight selections (≥3) get a pill row with a single
+caption line that swaps to the selected option's consequence (`#lic-bg-perk`
+on the licence, the Brief's hedge pills). `<details>` folds are for reference
+only — the wire letter, the nut math, the rest of the people list — **never
+for choices: a choice behind a fold is a bug.** Defaults are still choices:
+the licence always applies a background, so the pills stay visible and the
+sign toast names the perk ("an ex-barista opens THE CORNER CUP") rather than
+letting a hidden default stand in for a decision the player never saw.
+
 ## Exchange — event deck + bias + pity (Sept 27 tune)
 
 `exchange.openDay()` rolls one event from the seeded deck per dawn. The bias

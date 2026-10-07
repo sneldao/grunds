@@ -5786,15 +5786,16 @@ function showLicence() {
     b.onclick = () => { licRole = i; [...roles.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
     roles.appendChild(b);
   });
-  const bgs = $('lic-bgs');
+  const bgs = $('lic-bgs'), bgPerk = $('lic-bg-perk');
   bgs.textContent = '';
   LIC_BGS.forEach((g, i) => {
     const b = document.createElement('button');
-    b.innerHTML = g.label + '<small>' + g.perk + '</small>';
+    b.textContent = g.label;
     b.className = i === licBg ? 'on' : '';
-    b.onclick = () => { licBg = i; [...bgs.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
+    b.onclick = () => { licBg = i; if (bgPerk) bgPerk.textContent = g.perk; [...bgs.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
     bgs.appendChild(b);
   });
+  if (bgPerk) bgPerk.textContent = LIC_BGS[licBg].perk;
   const wrap = $('lic-step');
   if (wrap) { wrap.classList.remove('si-in'); void wrap.offsetWidth; wrap.classList.add('si-in'); }
   modals.open('licence');
@@ -5829,7 +5830,7 @@ function signLicence() {
   try { applyPaywallPlacements(); } catch {}
   modals.close('licence');
   try { analytics.track('licence_signed', { role: playerRole, bg: perkBg, defaults: playerName === 'Sam' && standName === 'THE CORNER CUP' }); } catch {}
-  fx.toast('licence signed — ' + standName + ' opens Monday', 'good');
+  fx.toast('licence signed — ' + LIC_BGS[licBg].label + ' opens ' + standName + ' Monday', 'good');
   if (wantTutorial) openTutorial();
   else { started = true; audio.start(); openDay(1); rig.crane(); }
 }

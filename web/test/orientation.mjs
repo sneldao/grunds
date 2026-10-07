@@ -790,11 +790,14 @@ check('the licence opens as the top modal', G.modals.top() === 'licence', G.moda
     licText().slice(0, 240));
   writeFileSync(join(LOGS, 'licence-step-0.txt'), licText());
   const bgs = deepText(byId('lic-bgs'));
-  check('all four backgrounds are present, tucked in an optional fold',
-    byId('lic-bgs').children.filter(c => c.tagName === 'BUTTON').length === 4
-    && collect(byId('licence'), c => c.tagName === 'DETAILS').length >= 1, bgs.slice(0, 200));
-  check('every background keeps its perk line',
-    /8% faster/.test(bgs) && /fees & payouts/.test(bgs) && /regulars warm quicker/.test(bgs) && /names its lean/.test(bgs), bgs.slice(0, 300));
+  const bgPills = () => byId('lic-bgs').children.filter(c => c.tagName === 'BUTTON');
+  check('all four backgrounds are visible, not folded',
+    bgPills().length === 4 && !byId('lic-bgs').closest('details'), bgs.slice(0, 200));
+  check('the selected background echoes its perk',
+    /8% faster/.test(byId('lic-bg-perk').textContent), byId('lic-bg-perk').textContent);
+  bgPills()[1].click();
+  check('picking a background swaps the perk caption',
+    /fees & payouts/.test(byId('lic-bg-perk').textContent), byId('lic-bg-perk').textContent);
   check('role pills sit on the same card', byId('lic-roles').children.filter(c => c.tagName === 'BUTTON').length === 3);
   key('Escape');
   check('Escape stays inert on the licence — it is gated', G.modals.top() === 'licence', G.modals.top());
