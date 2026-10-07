@@ -49,6 +49,30 @@ ok(standingNudge(bust, 3)?.tone === 'bad', 'insolvency nudges before the morning
 const safe = weekStanding({ net: 5000, rep: 55, day: 4, asOf: 'close', nut: 2000 });
 ok(safe.tone === 'ok' && campaignVerdict(5000, 55) === 'held', 'a held week does not wear a warning');
 ok(safe.repLine.includes('you’re there'), safe.repLine);
+ok(!safe.sliding && safe.slideLine == null, 'a quiet week has no slide line');
+
+// Still solvent, still over today’s bills, but one more day like the last
+// close would cross £0. Copy only — the verdict and the tab do not move.
+const slide = weekStanding({ net: 900, rep: 62, day: 3, asOf: 'last-close', nut: 400, recent: [220, -1100] });
+ok(slide.sliding && slide.tone === 'warn' && !slide.insolvent && !slide.underNut, 'a mid-week slide warns without calling the tab');
+ok(campaignVerdict(900, 62) === 'scarped', 'the slide does not change the verdict');
+ok(slide.cashLine.includes('Solvent') && slide.slideLine.includes('−£1,100.00') && slide.slideLine.includes('crosses £0') && slide.slideLine.includes('Not there yet'), slide.slideLine);
+ok(slide.lines.includes(slide.slideLine), 'the brief carries the slide');
+ok(standingNudge(slide, 3)?.text === slide.slideLine, 'the mid-morning tip is the slide');
+const early = weekStanding({ net: 900, rep: 62, day: 2, asOf: 'last-close', nut: 400, recent: [-1100] });
+ok(!early.sliding && standingNudge(early, 2) === null, 'day 2 does not nag about a slide');
+const cushion = weekStanding({ net: 3000, rep: 62, day: 4, asOf: 'close', nut: 400, recent: [-200] });
+ok(!cushion.sliding && cushion.tone === 'ok', 'a loss the books can absorb is not a slide');
+const streak = weekStanding({ net: 400, rep: 55, day: 4, asOf: 'close', recent: [80, -300, -500] });
+ok(streak.slideLine.includes('2 closes running') && streak.slideLine.includes('today −£500.00'), streak.slideLine);
+const both = weekStanding({ net: 300, rep: 40, day: 3, asOf: 'last-close', nut: 200, recent: [-400] });
+ok(both.repShort && both.sliding && standingNudge(both, 3)?.text === both.slideLine, 'when cash is sliding, the toast says that before the room');
+const bustSlide = weekStanding({ net: -40, rep: 55, day: 3, asOf: 'close', recent: [-400] });
+ok(bustSlide.insolvent && !bustSlide.sliding && bustSlide.slideLine == null, 'below £0 keeps the hard line');
+const finale = weekStanding({ net: 400, rep: 55, day: 5, asOf: 'close', days: 5, recent: [-500] });
+ok(!finale.sliding && finale.slideLine == null, 'Saturday’s close does not promise another morning');
+const lastMorning = weekStanding({ net: 400, rep: 55, day: 5, asOf: 'last-close', days: 5, recent: [-500] });
+ok(lastMorning.sliding && lastMorning.slideLine.includes('last close'), 'the last morning can still hear the slide');
 
 const letter = composeLetter({
   day: 3, index: 1, indexPrev: 1, cost: 1.3, sold: 40, balked: 20, defections: 4,
@@ -69,6 +93,7 @@ ok(/#evening-read[\s\S]*white-space:\s*pre-wrap/.test(html), 'evening read wraps
 ok(/#evening\.modal\s*\{\s*overflow-x:\s*hidden/.test(html), 'evening overlay does not scroll sideways');
 ok(/#evening \.l-actions button \{[^}]*width:\s*100%[^}]*min-width:\s*0/.test(html), 'evening actions shrink and wrap instead of overflowing');
 ok(main.includes('standingNudge(standingSnapshot()') && main.includes('renderWeekStanding'), 'brief and mid-morning use the standing');
+ok(main.includes('recent: recentTakeHome()'), 'closed-day take-home is what the slide reads');
 ok(main.includes("the supplier calls the tab →"), 'an insolvent receipt does not offer another morning');
 ok(main.includes('...stand.lines'), 'evening card carries the standing lines');
 

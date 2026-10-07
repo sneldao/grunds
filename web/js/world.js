@@ -854,7 +854,9 @@ export function buildWorld(scene, renderer, lite) {
       marks[i].visible = heat >= gates[i];
       marks[i].position.y = Math.sin(t * 0.7 + i) * 0.015;
     }
-    if (W.rivalHeatMat) W.rivalHeatMat.opacity = heat > 0 ? Math.min(0.38, 0.18 + heat * 0.02) : 0;
+    // A short queue used to wash the zebra at ~0.2 and disappear into the
+    // paint. Steeper, and capped, so two or three people read from the café.
+    if (W.rivalHeatMat) W.rivalHeatMat.opacity = heat > 0 ? Math.min(0.58, 0.28 + heat * 0.05) : 0;
   };
 
   const crowd = quietRandom(() => {
@@ -1777,7 +1779,7 @@ export function buildWorld(scene, renderer, lite) {
     // Normal alpha, not additive: the zebra is already near-white, so adding
     // light just clips to white and the wash disappears.
     W.rivalHeatMat = new THREE.MeshBasicMaterial({
-      color: 0xff7a2a, transparent: true, opacity: 0, depthWrite: false, fog: false,
+      color: 0xd4481a, transparent: true, opacity: 0, depthWrite: false, fog: false,
       side: THREE.DoubleSide,
       polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
     });
@@ -1937,6 +1939,10 @@ export function buildWorld(scene, renderer, lite) {
     // Their glass follows the streetlights: pale reflective panes by day,
     // lamplit amber after dark. The silhouettes read against both.
     rvWinMat.color.lerpColors(RV_DAY, RV_NIGHT, THREE.MathUtils.clamp(street, 0.12, 1));
+    // Noon panes are pale. Pull them toward the night amber while Glasshouse
+    // has a queue, so the shop reads warm from across the road.
+    const heatGlow = Math.min(0.48, (W._rivalHeat || 0) * 0.06);
+    if (heatGlow > 0) rvWinMat.color.lerp(RV_NIGHT, heatGlow);
     const night = THREE.MathUtils.clamp((t - 1150) / 80, 0, 1);
     const duskish = THREE.MathUtils.clamp(1 - Math.abs((t - 720) / 480), 0, 1) * 0.4; // a little window-glow at golden hour too
     if (!W.useSky) {

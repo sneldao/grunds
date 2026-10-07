@@ -50,3 +50,12 @@ export function planAttendance(roster, { day } = {}) {
 export function incidentCost(base, share, till) {
   return Math.max(base, Math.round((share * till) / 5) * 5);
 }
+
+// What the floor says when someone crosses to the rival. A named regular
+// is named. A walk-in is only announced the first time that day, so a
+// rush of strangers does not fill the feed.
+export function rivalCrossNotice({ name = null, defections = 0, rivalName = 'Glasshouse' } = {}) {
+  if (name) return `${name} crossed to ${rivalName}.`;
+  if (defections === 1) return `they’re crossing the road to ${rivalName}…`;
+  return null;
+}

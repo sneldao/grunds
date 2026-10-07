@@ -1,6 +1,6 @@
 // Pure tests for web/js/consequences.js — attendance state machine and
 // till-scaled incident pricing. No DOM, no imports of main.js.
-import { planAttendance, incidentCost, ABSENCE_WORD } from '../js/consequences.js';
+import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from '../js/consequences.js';
 
 let pass = 0, fails = [];
 function t(name, fn) { try { fn(); pass++; } catch (e) { fails.push(`${name}: ${e.message}`); } }
@@ -124,6 +124,15 @@ t('ABSENCE_WORD covers all states', () => {
   eq(ABSENCE_WORD.away, 'Stayed away today.');
   eq(ABSENCE_WORD.returning, 'Giving you another chance.');
   eq(ABSENCE_WORD.lost, 'Now goes to Glasshouse.');
+});
+
+t('a named regular is named when they cross', () => {
+  eq(rivalCrossNotice({ name: 'Esther', defections: 3, rivalName: 'Glasshouse' }), 'Esther crossed to Glasshouse.');
+});
+
+t('the first anonymous cross is said once, later ones stay quiet', () => {
+  eq(rivalCrossNotice({ defections: 1, rivalName: 'Glasshouse' }), 'they’re crossing the road to Glasshouse…');
+  eq(rivalCrossNotice({ defections: 2, rivalName: 'Glasshouse' }), null);
 });
 
 console.log(`consequences: ${pass} pass, ${fails.length} fail`);

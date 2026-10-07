@@ -42,6 +42,7 @@ export interface WeekStanding {
   insolvent: boolean;
   underNut: boolean;
   repShort: boolean;
+  sliding: boolean;
   asOf: string;
   books: boolean;
   heldNet: number;
@@ -50,10 +51,12 @@ export interface WeekStanding {
   cashLine: string;
   repLine: string;
   heldLine: string;
+  slideLine: string | null;
   lines: string[];
 }
 export function weekStanding(input?: {
   net?: number; rep?: number; day?: number; days?: number;
   asOf?: 'opening' | 'last-close' | 'close'; nut?: number | null; countToday?: boolean;
+  recent?: number[] | null;
 }): WeekStanding;
 export function standingNudge(stand: WeekStanding | null, day?: number): { tone: 'warn' | 'bad'; text: string } | null;
