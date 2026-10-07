@@ -112,7 +112,8 @@ ok(html.includes('class="brief-call"'), 'the brief marks decision sections');
 ok(html.includes('.bs-chip'), 'the ledger strip has its own style');
 ok(main.includes('recent: recentTakeHome()'), 'closed-day take-home is what the slide reads');
 ok(main.includes("the supplier calls the tab →"), 'an insolvent receipt does not offer another morning');
-ok(main.includes('...stand.lines'), 'evening card carries the standing lines');
+ok(/chunks\.push\('', stand\.chip, \.\.\.stand\.warns\)/.test(main), 'the evening card carries the ledger, not the syllabus');
+ok(/lessons\.unshift\(stand\.chip, \.\.\.stand\.warns\)/.test(main), 'the receipt carries the ledger, not the syllabus');
 
 if (fails.length) {
   console.error(fails.join('\n'));

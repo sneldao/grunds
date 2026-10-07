@@ -268,7 +268,12 @@ function leverSnapshot() {
 function currentAction() {
   return computeNextAction({ day, guidedOpening, dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending, offerShown, eveningFast, rushFast, closed, phase, leversTimeLocked });
 }
-const patrons = new PatronSystem(scene, world, regulars, exchange, fx);
+// Seeded floor streams (V0): café decisions + mid-day coin-tosses must not
+// use bare Math.random, or the same seed will not replay. Separate from
+// exchange.rng so patron rolls never steal market draws.
+let patronsRng = seeded(seedNow() + 17);
+let floorRng = seeded(seedNow() + 19);
+const patrons = new PatronSystem(scene, world, regulars, exchange, fx, { random: patronsRng });
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
 // Cosmetic street life. Own meshes, own random stream — never a café wave.
 const street = new StreetLife(scene, { lite });
@@ -881,7 +886,7 @@ function tick() {
       // cash-only day: a share of sales die at the till — no card, no sale
       // the dead-reader incident and a wifi drop share one cash-only path
       const cardLoss = Math.max(cashOnly, wifiCardLoss(wifiOutage, dayMin));
-      if (cardLoss && Math.random() < cardLoss) {
+      if (cardLoss && floorRng() < cardLoss) {
         cogs += e.lotId ? 0 : e.beanCost ?? 0;   // Phase 2 cash-basis (see below)
         if (e.hedged) { hedgedCups++; realizedHedgeSavings += e.spotCost - e.beanCost; }
         balked++; balks++;
@@ -1001,7 +1006,7 @@ function tick() {
         // gossip is throttled early: settled openings are unreadable when everyone talks
         const calmWindow = day === 1 && dayMin < CALM_UNTIL_MIN;
         const gossipChance = calmWindow ? 0.10 : (speed >= 1200 ? 0.14 : 0.35);
-        if (Math.random() < gossipChance) fx.bubble(e.p, COPY.gossipBad[(Math.random() * COPY.gossipBad.length) | 0], 'bad');
+        if (floorRng() < gossipChance) fx.bubble(e.p, COPY.gossipBad[(floorRng() * COPY.gossipBad.length) | 0], 'bad');
         // first walk-out names the remedy, not just the failure
         if (!e.pastry && !nudgedBalk) {
           nudgedBalk = true;
@@ -1025,7 +1030,7 @@ function tick() {
       if (crossNote) fx.toast(crossNote, 'bad');
       if (defections === 1 && speed <= 300) rig.queueFocus(world.focus.rival, 13, 4, 12, Math.PI);
       if (defections === 5) {
-        const taunt = COPY.rivalTaunts ? COPY.rivalTaunts[(Math.random() * COPY.rivalTaunts.length) | 0] : null;
+        const taunt = COPY.rivalTaunts ? COPY.rivalTaunts[(floorRng() * COPY.rivalTaunts.length) | 0] : null;
         if (taunt) fx.toast(taunt, 'bad');
         try { world.jeerRival(); } catch {}
       }
@@ -1151,10 +1156,10 @@ function beats() {
   }
   // Idris mid-day quips at 60/80 rep checkpoints (once/day)
   if (dayMin === 600 && regulars.reputation >= 80) {
-    const line = COPY.idrisQuips?.praise ? COPY.idrisQuips.praise[(Math.random() * COPY.idrisQuips.praise.length) | 0] : null;
+    const line = COPY.idrisQuips?.praise ? COPY.idrisQuips.praise[(floorRng() * COPY.idrisQuips.praise.length) | 0] : null;
     if (line) fx.toast(line, 'good');
   } else if (dayMin === 720 && regulars.reputation < 62) {
-    const line = COPY.idrisQuips?.warn ? COPY.idrisQuips.warn[(Math.random() * COPY.idrisQuips.warn.length) | 0] : null;
+    const line = COPY.idrisQuips?.warn ? COPY.idrisQuips.warn[(floorRng() * COPY.idrisQuips.warn.length) | 0] : null;
     if (line) fx.toast(line, 'warn');
   }
   // cat once/day around 09:30
@@ -1217,7 +1222,7 @@ function beats() {
   // the scald claim resolves at 16:30 — contesting was a coin toss
   if (solicitorAt && dayMin >= solicitorAt) {
     solicitorAt = 0;
-    if (Math.random() < 0.5) {
+    if (floorRng() < 0.5) {
       till -= solicitorCharge * perkCostMul; regulars.adjustOpinions(-0.1);
       fx.toast(`the scald claim stuck — −£${solicitorCharge} and the story did the rounds`, 'bad');
     } else fx.toast('the scald claim went away — their solicitor stopped calling', 'good');
@@ -1226,7 +1231,7 @@ function beats() {
   // she fails on the floor: asleep at the counter or sharp with a regular.
   if (canHaveStaffCrisis({ day, staffing: onRobotHire() ? 'robot' : baristaHomeToday ? 'home' : apprenticeHiredToday ? 'apprentice' : 'work', condition: baristaCondition, crisis: baristaCrisis, dayMin })) {
     baristaCrisis = true;
-    if (Math.random() < 0.5) { patrons.staffMul = 0.5; fx.toast('Ruth’s gone quiet — she’s asleep on the back counter. The bar crawls.', 'bad'); }
+    if (floorRng() < 0.5) { patrons.staffMul = 0.5; fx.toast('Ruth’s gone quiet — she’s asleep on the back counter. The bar crawls.', 'bad'); }
     else { regulars.adjustOpinions(-0.2); fx.toast('Ruth snapped at a regular — the room went cold.', 'bad'); }
     try { analytics.track('staff_crisis', { day, condition: Math.round(baristaCondition * 100) / 100 }); } catch {}
   }
@@ -1323,7 +1328,7 @@ function showEveningCall(read) {
   if (body) {
     const chunks = [read.sub, ...read.lines];
     if (partyLine) chunks.push('', partyLine);
-    if (stand) chunks.push('', ...stand.lines);
+    if (stand) chunks.push('', stand.chip, ...stand.warns);
     body.textContent = chunks.join('\n');
   }
   const residual = residualEveningCups();
@@ -1640,7 +1645,7 @@ function closeDay() {
   if (day === 1 && !softDay) {
     lessons.push(`Running the café today cost ${fmt(ops.total)} — ${(ops.marketing || ops.training || ops.sampling) ? 'including ' : ''}staff, pitch rent, milk and cups, card fees, power, wifi and insurance — paid at closing.`);
   }
-  if (stand) lessons.unshift(...stand.lines);
+  if (stand) lessons.unshift(stand.chip, ...stand.warns);
   const menuVisible = introducedSet().has('menu') || toolsIntroducedToday.includes('menu');
   const menuServedLine = () => {
     const off = DRINK_IDS.filter(id => menuOffered[id] === false);
@@ -4050,6 +4055,11 @@ function applySavedWeek(save) {
   exchange.lastTier = ex.lastTier ?? null;
   exchange.lastEventId = ex.lastEventId ?? null;
   if (save.rngState != null) exchange.rng = seeded(save.seed || seedNow(), save.rngState);
+  // Floor streams restart from the resumed seed (week saves store exchange
+  // rngState only; patron/floor cosmetic+decision streams reseed cleanly).
+  patronsRng = seeded((save.seed || seedNow()) + 17);
+  floorRng = seeded((save.seed || seedNow()) + 19);
+  patrons.random = patronsRng;
   if (Array.isArray(save.regulars)) {
     for (const r of regulars.regulars) {
       const k = save.regulars.find(x => x.name === r.name);
@@ -5128,6 +5138,9 @@ function reset(coreOnly = false) {
   guidedOpening = wantTutorial; firstPrepChosen = false;
   softWeekDone = false; coachedOpening = false;
   exchange.rng = seeded(seedNow());
+  patronsRng = seeded(seedNow() + 17);
+  floorRng = seeded(seedNow() + 19);
+  patrons.random = patronsRng;
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
