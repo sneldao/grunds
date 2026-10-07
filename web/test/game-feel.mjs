@@ -180,7 +180,11 @@ ok(/else \{[\s\S]*?if \(speed <= 300\) rig\.focus\(world\.focus\.counter, 11, 3\
 ok(/else \{[\s\S]*?world\.setPlantHealth\(12\)/.test(block), 'loss does not wilt the plant to 12');
 ok(/queueMicrotask\(\(\) => \{ try \{ world\.setPlantHealth\(12\)/.test(block), 'loss wilt does not survive the same-tick HUD paint');
 ok(/rig\.shake\(0\.3\)/.test(main), '14:00 wave-start shake is no longer 0.3');
-ok(/No cups bought — the wave ate you\./.test(main), 'flop verdict copy changed');
+ok(/No pre-batch — the wave ate you\./.test(main), 'flop verdict copy changed');
+ok(/!waveBalked\s*\?[\s\S]*?'The wave passed quietly\.'[\s\S]*?ratio <= 0\.06[\s\S]*?'The raw bar held/.test(main),
+  'no-lever verdict ignores how bad the wave actually was');
+ok(/close now · forfeit ~\$\{residual\}/.test(main) && /still coming/.test(main),
+  'evening buttons no longer carry the residual stake');
 ok(!/fx\.debriefCard\(/.test(main), 'unused debriefCard banner was revived');
 ok(/queue <= 10 \? 0\.55 : 0\.18/.test(world), 'plant brown band is no longer queue > 10');
 console.log('FLOP    loss shakes 0.55, holds the counter, wilts to 12, buzzes [40, 50, 80]');
