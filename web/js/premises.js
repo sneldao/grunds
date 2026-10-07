@@ -311,6 +311,14 @@ export function createCutawayRig({ lite = false } = {}) {
     for (const g of details) g.visible = !enabled;
   }
 
+  function openIds() {
+    const ids = [];
+    for (const p of premises) {
+      if (p.open > 0.45 && p.interior && p.interior.visible) ids.push(p.id);
+    }
+    return ids;
+  }
+
   return {
     premises,
     get roofsOpen() { return roofsOpen; },
@@ -322,6 +330,7 @@ export function createCutawayRig({ lite = false } = {}) {
     pick,
     update,
     applyLite,
+    openIds,
   };
 }
 

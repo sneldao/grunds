@@ -83,6 +83,26 @@ test('a rare ambient peek opens one named shop and then closes it', () => {
   assert.ok(built.every((g) => !g.interior.visible), 'peek should close after its short window');
 });
 
+test('open roofs and a single peek report which rooms are visible', () => {
+  const rig = createCutawayRig({ lite: false });
+  const built = PREMISES.map((meta) => {
+    const g = groups();
+    rig.add({ ...meta, ...g });
+    return g;
+  });
+  assert.deepEqual(rig.openIds(), []);
+  rig.setRoofs(true);
+  rig.update(1, 1000, { ambient: false });
+  assert.deepEqual(rig.openIds(), PREMISES.map((p) => p.id));
+  rig.setRoofs(false, true);
+  rig.update(1, 2000, { ambient: false });
+  assert.deepEqual(rig.openIds(), []);
+  rig.peek('bell', 8000);
+  rig.update(1, performance.now(), { ambient: false });
+  assert.deepEqual(rig.openIds(), ['bell']);
+  assert.equal(built[2].interior.visible, true);
+});
+
 test('lite mode does not run ambient peeks', () => {
   const rig = createCutawayRig({ lite: true });
   const g = groups();

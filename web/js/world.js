@@ -5,6 +5,7 @@ import { woodFloor, pavement, road, awning, menuBoard, softSprite, shopSign, ren
 import { GLBLoader } from './loader.js';
 import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
 import { PREMISES, dressInterior, createCutawayRig } from './premises.js';
+import { BACKDROP_FACADES, vacantRowFronts } from './farSide.js';
 
 const M = {}; // shared materials
 function mat(color, o = {}) {
@@ -904,6 +905,7 @@ export function buildWorld(scene, renderer, lite) {
   };
 
   // ---- the day-5 construction prop: scaffold + tarp on the sold storefront --
+  // The blocks these comments name are built later (BACKDROP_FACADES).
   // Lives in front of the big right-side facade block (x: 11, z: 19.5, w: 8,
   // h: 11, d: 6). The block's nearest face is at z = 19.5 - 3 = 16.5. We sit
   // the prop at (x: 11, z: 16.4) — just in front of the face, ~5m to the
@@ -1174,6 +1176,7 @@ export function buildWorld(scene, renderer, lite) {
   W.peekPremise = cutaways.peek;
   W.pickPremise = cutaways.pick;
   W.updateNeighborPeeks = cutaways.update;
+  W.openPremiseIds = () => cutaways.openIds();
   function skirt(parent, w, h, d, color, y, o = {}) {
     const t = 0.1;
     const opt = { cast: false, ...o };
@@ -1206,6 +1209,22 @@ export function buildWorld(scene, renderer, lite) {
     cutaways.add({ id, name: meta.name, line: meta.line, shell: parts.shell, face: parts.face, roof: parts.roof, interior: parts.interior });
   }
 
+  // A head and shoulders in one pane, the same dark read as Glasshouse.
+  // The face group hides with the roof, so an open shop shows the room
+  // instead of this shape.
+  const shopSilMat = new THREE.MeshBasicMaterial({ color: 0x14181c });
+  W._shopSils = [];
+  function windowFigure(parent, x, y, z) {
+    const g = new THREE.Group();
+    g.position.set(x, y, z);
+    g.userData.homeX = x;
+    box(g, 0.15, 0.32, 0.07, 0x14181c, 0, 0.16, 0, { cast: false, recv: false, mat: shopSilMat });
+    box(g, 0.1, 0.11, 0.07, 0x14181c, 0, 0.38, 0, { cast: false, recv: false, mat: shopSilMat });
+    parent.add(g);
+    W._shopSils.push(g);
+    return g;
+  }
+
   // THE QUILL — tall and narrow, stepped ink parapet, a bay window.
   (function quill() {
     const w = 3.05, h = 3.85, d = 2.2;
@@ -1235,6 +1254,7 @@ export function buildWorld(scene, renderer, lite) {
     });
     box(parts.face, 0.62, 1.55, 0.08, PAL.walnut, 0, 0.78, fz - 0.28);
     shopSignFace(g, 'THE QUILL', 2.7, 0.7, 0, 3.35, fz - 0.08, '#f6efe0', '#171310', '600 72px Georgia, serif');
+    windowFigure(parts.face, -0.78, 2.35, fz - 0.05);
     mountInterior('quill', parts, w, h, d);
   })();
 
@@ -1272,6 +1292,7 @@ export function buildWorld(scene, renderer, lite) {
     box(parts.face, 0.78, 1.55, 0.08, PAL.walnutDark, 0, 0.78, fz - 0.02);
     cyl(parts.face, 0.02, 0.02, 0.32, PAL.brass, 0.24, 0.82, fz - 0.1, { metal: 0.6, rough: 0.35, cast: false });
     shopSignFace(g, 'HEARTH & RYE', 3.7, 0.72, 0, 2.42, fz - 0.08, '#f6efe0', '#4a3423', '600 58px Georgia, serif');
+    windowFigure(parts.face, 1.7, 1.12, fz - 0.05);
     mountInterior('hearth', parts, w, h, d);
   })();
 
@@ -1300,6 +1321,7 @@ export function buildWorld(scene, renderer, lite) {
     });
     box(parts.face, 0.64, 1.45, 0.08, PAL.walnut, 0, 0.72, fz - 0.02);
     shopSignFace(g, 'BELL & BRASS', 2.9, 0.62, 0, 1.78, fz - 0.08, '#f6efe0', '#1d2a24', '600 52px Georgia, serif');
+    windowFigure(parts.face, 1.12, 1.12, fz - 0.05);
     mountInterior('bell', parts, w, h, d);
   })();
 
@@ -1328,6 +1350,7 @@ export function buildWorld(scene, renderer, lite) {
     fruit(PAL.neg, -1.22, 0.44, fz - 0.68, 0.09);
     fruit(PAL.brass, -1.05, 0.42, fz - 0.5, 0.1);
     fruit(PAL.cream, 0.15, 0.98, fz - 0.18, 0.1);
+    windowFigure(parts.face, 1.28, 1.1, fz - 0.05);
     mountInterior('marrow', parts, w, h, d);
   })();
 
@@ -1336,6 +1359,75 @@ export function buildWorld(scene, renderer, lite) {
   // cups and a lamp on the right, each under a faint reflection.
   dressGlasshouseWindow(rv, -1.32, 'left');
   dressGlasshouseWindow(rv, 1.32, 'right');
+
+  // ---- far-side massing: the facade blocks the scaffolds were written for --
+  // Backdrop only. Glasshouse, the park, and the Row stay the opposite
+  // street. Windows face both ways: the lease camera looks up from the café,
+  // the play camera sits behind these blocks and sees the park side.
+  {
+    const massing = new THREE.Group(); scene.add(massing);
+    const brick = 0x6e4036;
+    const facadeWinMat = new THREE.MeshStandardMaterial({ color: 0xfff2d8, emissive: 0xffd089, emissiveIntensity: 0, roughness: 0.9 });
+    W.winMats.push(facadeWinMat);
+    const paperWin = new THREE.MeshStandardMaterial({ color: 0x2c2824, roughness: 0.92, emissive: 0x1a1612, emissiveIntensity: 0.2 });
+    function facadeFace(g, spec, side) {
+      const zFace = side * (spec.d / 2);
+      const nudge = side * 0.05;
+      const ry = side < 0 ? Math.PI : 0;
+      const cols = spec.w >= 7.5 ? 3 : 2;
+      const rows = spec.h >= 10 ? 3 : 2;
+      box(g, spec.w * 0.94, 2.15, 0.1, PAL.plaster, 0, 1.35, zFace + nudge * 0.6, { cast: false });
+      box(g, spec.w * 0.22, 1.7, 0.08, PAL.walnutDark, -spec.w * 0.22, 0.9, zFace + nudge, { cast: false });
+      box(g, spec.w * 0.72, 0.06, 0.04, PAL.brass, 0, 2.5, zFace + nudge, { metal: 0.45, cast: false });
+      const winW = Math.min(0.72, spec.w * 0.16);
+      const winH = 0.95;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = (c - (cols - 1) / 2) * (spec.w * 0.28);
+          const y = 3.55 + r * 1.85;
+          if (y + winH / 2 > spec.h - 0.35) continue;
+          box(g, winW + 0.1, winH + 0.1, 0.06, PAL.cream, x, y, zFace + nudge * 0.7, { cast: false });
+          plane(g, winW, winH, facadeWinMat, x, y, zFace + nudge, { ry, recv: false, cast: false });
+        }
+      }
+    }
+    for (const spec of BACKDROP_FACADES) {
+      const g = new THREE.Group();
+      g.position.set(spec.x, 0, spec.z);
+      g.name = `facade-${spec.id}`;
+      box(g, spec.w, spec.h, spec.d, brick, 0, spec.h / 2, 0, { cast: true, recv: true });
+      box(g, spec.w + 0.16, 0.22, spec.d + 0.12, PAL.walnutDark, 0, spec.h + 0.08, 0, { cast: false });
+      box(g, spec.w + 0.06, 0.08, spec.d + 0.04, PAL.brass, 0, spec.h - 0.02, 0, { metal: 0.4, cast: false });
+      facadeFace(g, spec, -1);
+      facadeFace(g, spec, 1);
+      massing.add(g);
+    }
+    const rowFronts = new Map();
+    for (const spec of vacantRowFronts()) {
+      const g = new THREE.Group();
+      g.position.set(spec.x, 0, spec.z);
+      g.name = `row-front-${spec.id}`;
+      box(g, spec.w, spec.h, spec.d, PAL.plaster, 0, spec.h / 2, 0, { cast: true, recv: true });
+      box(g, spec.w + 0.08, 0.14, spec.d + 0.08, PAL.walnutDark, 0, spec.h + 0.04, 0, { cast: false });
+      const tex = shopSign(String(spec.name).toUpperCase(), '#171310', '#efe6d3', '600 40px Georgia, serif');
+      const sm = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.82, emissive: 0xfff2d8, emissiveMap: tex, emissiveIntensity: 0.14 });
+      for (const side of [-1, 1]) {
+        const z = side * (spec.d / 2 + 0.02);
+        const ry = side < 0 ? Math.PI : 0;
+        box(g, 0.48, 1.4, 0.06, PAL.walnut, side * -0.62, 0.75, z, { cast: false });
+        plane(g, 0.78, 0.7, paperWin, side * 0.42, 1.22, z, { ry, recv: false, cast: false });
+        box(g, 0.045, 0.62, 0.03, PAL.cream, side * 0.42, 1.22, z + side * 0.03, { rz: 0.7, cast: false });
+        box(g, 0.045, 0.62, 0.03, PAL.cream, side * 0.42, 1.22, z + side * 0.03, { rz: -0.7, cast: false });
+        plane(g, spec.w * 0.82, 0.38, sm, 0, 2.28, z + side * 0.015, { ry, recv: false, cast: false });
+      }
+      massing.add(g);
+      rowFronts.set(spec.id, g);
+    }
+    W.setRowFront = (id, on) => {
+      const g = rowFronts.get(String(id));
+      if (g) g.visible = !!on;
+    };
+  }
 
   // ---- closed gardens behind the neighbour houses ----------------------------
   // The pavement behind The Quill and behind the right-hand row is a walled
@@ -1481,7 +1573,8 @@ export function buildWorld(scene, renderer, lite) {
     m.scale.set(sx, sy, sz); m.position.set(x, sy * 0.28, z);
     m.receiveShadow = true; park.add(m);
   }
-  [-28, -20, -12, -4, 4, 12, 20, 28].forEach((x, i) => mound(x, 23.2 + (i % 2) * 0.7, 5.4, 0.52 + (i % 3) * 0.08, 2.6));
+  // Behind the facade blocks (their backs reach z ≈ 23), not through them.
+  [-28, -20, -12, -4, 4, 12, 20, 28].forEach((x, i) => mound(x, 26.0 + (i % 2) * 0.7, 5.4, 0.52 + (i % 3) * 0.08, 2.6));
   function parkTree(x, z, h, lean) {
     cyl(park, 0.07, 0.11, h * 0.5, PAL.walnut, x, h * 0.25, z);
     const crown = new THREE.Mesh(new THREE.SphereGeometry(h * 0.36, 9, 7), shrubMat);
@@ -1708,6 +1801,13 @@ export function buildWorld(scene, renderer, lite) {
   scene.add(W._tillShadow);
   W._updateDelight = (now, dt) => {
     const d = typeof dt === 'number' && isFinite(dt) ? dt : 0.016;
+    if (W._shopSils) {
+      const swayT = now * 0.001;
+      for (let i = 0; i < W._shopSils.length; i++) {
+        const fig = W._shopSils[i];
+        fig.position.x = fig.userData.homeX + Math.sin(swayT * 0.6 + i * 1.4) * 0.035;
+      }
+    }
     // chalkboard strike — same clock as the till. Peaks on the press,
     // wobbles home, and is back at rest inside CHALK_HIT_MS.
     if (W._chalkT0 && W.menuMat) {
