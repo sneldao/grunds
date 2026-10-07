@@ -78,6 +78,7 @@
   on the seed — no copies, no resets. District grown by the seed · stands grown by players.
 </footer>
 <script type="module">
+  import { deedQuote } from './js/deeds.js';
   // Same-origin on the deployment; file:// previews hit the live site.
   const BASE = (location.origin.endsWith('convex.site') || location.hostname === 'grunds.trustfall.xyz')
     ? location.origin : 'https://striped-anaconda-746.convex.site';
@@ -120,7 +121,7 @@
         sd.innerHTML = stands.map((s) => `
           <div class="stand">
             ${s.previewUrl ? `<img src="${esc(s.previewUrl)}" alt="" loading="lazy">` : '<span class="ph">on the<br>drawing board</span>'}
-            <span class="deed"><span class="lot">${esc(s.lot)} The Row</span><span class="who">“${esc(s.prompt || '')}”</span>
+            <span class="deed"><span class="lot">${esc(s.lot)} The Row</span><span class="who">${esc(deedQuote(s.prompt))}</span>
               <span class="meta">${esc(PURPOSE_LABEL[s.purpose] || 'a stand')}${s.byline ? ` · signed ${esc(s.byline)}` : ''} · day ${esc(s.day)}</span>
               <span class="st ${esc(s.status)}">${esc(s.status)}</span></span>
           </div>`).join('');

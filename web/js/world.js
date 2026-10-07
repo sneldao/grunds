@@ -1,7 +1,7 @@
 // The District — a dollhouse diorama. All primitives + canvas textures, no assets.
 import * as THREE from '../vendor/three.module.js';
 import { PAL, LAYOUT, COPY } from './config.js';
-import { woodFloor, pavement, road, awning, menuBoard, softSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction } from './textures.js';
+import { woodFloor, pavement, road, awning, menuBoard, softSprite, streakSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction } from './textures.js';
 import { GLBLoader } from './loader.js';
 import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
 import { PREMISES, dressInterior, createCutawayRig } from './premises.js';
@@ -1708,28 +1708,43 @@ export function buildWorld(scene, renderer, lite) {
   W.setMail = (up) => { W.mailFlag.rotation.z = up ? W.mailUp : W.mailDown; };
 
   // ---- weather: low mist that thickens after a frost + warm dust motes -----
-  W.mistMat = new THREE.PointsMaterial({ color: 0x9a9ea6, size: 0.5, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true, fog: true });
+  // Points without a mask are hardware squares. The home camera sits near
+  // z≈19, so a point spawned up there size-attenuates into a big grey quad
+  // and the orbit makes it look like it is drifting over the roofs. Masks
+  // clip the quad to a disc (or a streak), and the volumes stay on the
+  // street, under the camera. Hidden until a weather call asks for them.
+  const puff = softSprite();
+  const rainStreak = streakSprite();
+  const puffMat = (color, size, extra = {}) => new THREE.PointsMaterial({
+    color, size, map: puff, alphaMap: puff, alphaTest: 0.05,
+    transparent: true, opacity: 0, depthWrite: false, fog: false, sizeAttenuation: true,
+    ...extra,
+  });
+  W.mistMat = puffMat(0x9a9ea6, 0.42);
   const mistN = 120, mp = new Float32Array(mistN * 3);
-  for (let i = 0; i < mistN; i++) { mp[i*3] = -14 + Math.random()*34; mp[i*3+1] = 0.2 + Math.random()*1.6; mp[i*3+2] = 8 + Math.random()*14; }
+  for (let i = 0; i < mistN; i++) { mp[i*3] = -14 + Math.random()*34; mp[i*3+1] = 0.25 + Math.random()*1.2; mp[i*3+2] = 5.5 + Math.random()*8; }
   const mistGeo = new THREE.BufferGeometry(); mistGeo.setAttribute('position', new THREE.BufferAttribute(mp, 3));
-  W.mist = new THREE.Points(mistGeo, W.mistMat); scene.add(W.mist);
-  W.setMist = (a) => { W.mistMat.opacity = Math.max(0, a) * 0.42; };
+  W.mist = new THREE.Points(mistGeo, W.mistMat); W.mist.visible = false; scene.add(W.mist);
+  W.setMist = (a) => { const o = Math.max(0, a) * 0.42; W.mistMat.opacity = o; W.mist.visible = o > 0.01; };
   // dust motes — warm, slow, only visible in shafts
-  W.moteMat = new THREE.PointsMaterial({ color: 0xffe9a0, size: 0.065, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true, fog: true, blending: THREE.AdditiveBlending });
+  W.moteMat = puffMat(0xffe9a0, 0.065, { blending: THREE.AdditiveBlending });
   const moteN = 180, moteP = new Float32Array(moteN * 3);
   for (let i = 0; i < moteN; i++) { moteP[i*3] = -10 + Math.random()*20; moteP[i*3+1] = 0.6 + Math.random()*3.2; moteP[i*3+2] = -2 + Math.random()*10; }
   const moteGeo = new THREE.BufferGeometry(); moteGeo.setAttribute('position', new THREE.BufferAttribute(moteP, 3));
-  W.motes = new THREE.Points(moteGeo, W.moteMat); scene.add(W.motes);
+  W.motes = new THREE.Points(moteGeo, W.moteMat); W.motes.visible = false; scene.add(W.motes);
   W._motePhase = 0;
   W._moteTarget = 0;
   W.setMotes = (a) => { W._moteTarget = Math.max(0, Math.min(0.42, a * 0.95)); };
   // Phase 5 — rain: one Points layer over the street, ink-grey streaks.
   // setRain(a) drives opacity; prepareDay branches on the rain event.
-  W.rainMat = new THREE.PointsMaterial({ color: 0x8a9aa8, size: 0.35, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true, fog: true });
+  W.rainMat = new THREE.PointsMaterial({
+    color: 0x8a9aa8, size: 0.28, map: rainStreak, alphaMap: rainStreak, alphaTest: 0.05,
+    transparent: true, opacity: 0, depthWrite: false, fog: false, sizeAttenuation: true,
+  });
   const rainN = 220, rainP = new Float32Array(rainN * 3);
-  for (let i = 0; i < rainN; i++) { rainP[i*3] = -14 + Math.random()*34; rainP[i*3+1] = Math.random()*6; rainP[i*3+2] = -6 + Math.random()*22; }
+  for (let i = 0; i < rainN; i++) { rainP[i*3] = -14 + Math.random()*34; rainP[i*3+1] = 0.4 + Math.random()*4.6; rainP[i*3+2] = -4 + Math.random()*14; }
   const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainP, 3));
-  W.rain = new THREE.Points(rainGeo, W.rainMat); scene.add(W.rain);
+  W.rain = new THREE.Points(rainGeo, W.rainMat); W.rain.visible = false; scene.add(W.rain);
   W._rainTarget = 0;
   W.setRain = (a) => { W._rainTarget = Math.max(0, Math.min(1, a)); };
 
@@ -1742,8 +1757,11 @@ export function buildWorld(scene, renderer, lite) {
     sp[i * 3] = Math.cos(a) * Math.cos(e) * r; sp[i * 3 + 1] = Math.sin(e) * r; sp[i * 3 + 2] = Math.sin(a) * Math.cos(e) * r;
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-  W.starMat = new THREE.PointsMaterial({ color: 0xdfe6ff, size: 0.55, transparent: true, opacity: 0, sizeAttenuation: false, fog: false });
-  scene.add(new THREE.Points(starGeo, W.starMat));
+  W.starMat = new THREE.PointsMaterial({
+    color: 0xdfe6ff, size: 1.6, map: puff, alphaMap: puff, alphaTest: 0.05,
+    transparent: true, opacity: 0, sizeAttenuation: false, fog: false,
+  });
+  W.stars = new THREE.Points(starGeo, W.starMat); W.stars.visible = false; scene.add(W.stars);
   W.moonMat = new THREE.MeshStandardMaterial({ color: 0xdfe6ff, emissive: 0xcdd8f8, emissiveIntensity: 0, transparent: true, opacity: 0 });
   const moon = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 12), W.moonMat); moon.position.set(-20, 17, -10); scene.add(moon);
 
@@ -1837,6 +1855,7 @@ export function buildWorld(scene, renderer, lite) {
     // motes drift + fade toward target (driven by godRay/weather)
     if (W.moteMat) {
       W.moteMat.opacity += (W._moteTarget - W.moteMat.opacity) * Math.min(1, d * 1.2);
+      if (W.motes) W.motes.visible = W.moteMat.opacity > 0.008;
       if (W.moteMat.opacity > 0.008 && W.motes && W.motes.geometry) {
         W._motePhase += d * 0.18;
         const attr = W.motes.geometry.attributes.position;
@@ -1852,6 +1871,7 @@ export function buildWorld(scene, renderer, lite) {
     // Phase 5 — rain falls toward target, streaks recycle top-down.
     if (W.rainMat) {
       W.rainMat.opacity += ((W._rainTarget * 0.55) - W.rainMat.opacity) * Math.min(1, d * 1.5);
+      if (W.rain) W.rain.visible = W.rainMat.opacity > 0.01;
       if (W.rainMat.opacity > 0.01 && W.rain && W.rain.geometry) {
         const attr = W.rain.geometry.attributes.position;
         const arr = attr.array;
@@ -1919,7 +1939,11 @@ export function buildWorld(scene, renderer, lite) {
     rvWinMat.color.lerpColors(RV_DAY, RV_NIGHT, THREE.MathUtils.clamp(street, 0.12, 1));
     const night = THREE.MathUtils.clamp((t - 1150) / 80, 0, 1);
     const duskish = THREE.MathUtils.clamp(1 - Math.abs((t - 720) / 480), 0, 1) * 0.4; // a little window-glow at golden hour too
-    if (!W.useSky) { W.starMat.opacity = night * 0.9; W.moonMat.opacity = night; W.moonMat.emissiveIntensity = night * 0.9; }
+    if (!W.useSky) {
+      W.starMat.opacity = night * 0.9;
+      if (W.stars) W.stars.visible = W.starMat.opacity > 0.02;
+      W.moonMat.opacity = night; W.moonMat.emissiveIntensity = night * 0.9;
+    }
     // Warm enough to read as lit glass after dark, dim enough that the
     // books and tins in front of it stay separate from the glow.
     for (const wm of W.winMats) wm.emissiveIntensity = Math.max(night * 0.42, duskish * 0.55);
