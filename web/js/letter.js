@@ -3,7 +3,7 @@
 // contract beans, ride the spot, or pay the debt. The reply mutates the exchange
 // — the Gamble clock turns. No LLM; every line templated from state.
 import { LETTER, CAMPAIGN } from './config.js';
-import { hedgeTerms, debtInterestFor } from './economy.js';
+import { hedgeTerms, debtInterestFor, VERDICT_GATES } from './economy.js';
 
 const gbp = n => '£' + Math.max(0, n).toFixed(2);
 
@@ -38,10 +38,12 @@ function rumourLine(s) {
   return 'That rumour hasn’t gone away — today’s deck leans cold. A contract is cheap insurance while it’s still talk.';
 }
 function reputationLine(s) {
-  if (s.reputation >= 80) return 'The regulars are telling their friends. Word of mouth is doing my job for me.';
-  if (s.reputation >= 65) return 'The regulars are steady. Steady won’t survive a bad bean year alone.';
-  if (s.reputation >= 45) return 'The regulars are cool. A cold market and a cool room is a bad combination.';
-  return 'The regulars have given up on you. I’d move fast.';
+  const rep = Math.round(s.reputation ?? 0);
+  const need = VERDICT_GATES.held.repAtLeast;
+  if (rep >= 80) return 'The regulars are telling their friends. Word of mouth is doing my job for me.';
+  if (rep >= 65) return 'The regulars are steady. Steady won’t survive a bad bean year alone.';
+  if (rep >= need) return `The regulars sit at ${rep}. A held week needs ${need} — you’re on that line. Walk-outs are what pull it under.`;
+  return `The regulars are at ${rep}. A held week needs ${need}. Walk-outs are cooling this room — cash alone won’t hold it.`;
 }
 function driftLine(s) {
   // The district is gentrifying. The board creeps regardless of today's

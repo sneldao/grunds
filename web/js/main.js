@@ -23,7 +23,7 @@ import { CameraRig } from './camera.js';
 import { createImpact } from './impact.js';
 import { AudioEngine } from './audio.js';
 import { Exchange, seeded } from './exchange.js';
-import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict } from './economy.js';
+import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict, weekStanding, standingNudge, VERDICT_GATES } from './economy.js';
 import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
@@ -518,7 +518,7 @@ let coach = null, coachHold = false;
 let coached = false;   // day-1 lever hint, once per campaign
 // just-in-time nudges: each fires once per campaign, only when its
 // condition is on screen — teach at the moment of need, not at boot
-let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false;
+let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false, nudgedStanding = false;
 
 let eveningCallShown = false, eveningFast = false, rushFast = false;
 let paceTest = false, momentsTest = false, moveTickTest = false;
@@ -1043,6 +1043,44 @@ function tick() {
   updateHUD();
 }
 
+// Books the player can read: yesterday until the receipt, then the close.
+// `nut` is today's pre-cup bill when a plan exists — not a new cash rule.
+function standingSnapshot() {
+  if (softDay) return null;
+  const asOf = (phase === 'review' || phase === 'finale') ? 'close' : (day > 1 ? 'last-close' : 'opening');
+  const net = cRev - cCost - cOps - settledPaid - exchange.debt;
+  let nut = null;
+  try {
+    const q = quoteDayPlan({
+      day,
+      hedge: planDraft?.hedge || 'hold',
+      staffing: onRobotHire() ? 'robot' : (planDraft?.staffing || 'work'),
+      marketing: planDraft?.marketing || {},
+      debt: exchange.debt,
+      extraFee: contractFeeExtra,
+      perkCostMul,
+      modifiers: modifiersForDay(day),
+    });
+    nut = q.fixedMinimum;
+  } catch { nut = null; }
+  return weekStanding({ net, rep: regulars.reputation, day, days: CAMPAIGN.days, asOf, nut, countToday: phase === 'planning' });
+}
+
+function renderWeekStanding() {
+  const el = $('brief-standing');
+  if (!el) return;
+  const stand = standingSnapshot();
+  clearEl(el);
+  if (!stand) { el.hidden = true; return; }
+  el.hidden = false;
+  el.className = 'bs-' + stand.tone;
+  for (const line of stand.lines) {
+    const p = document.createElement('p');
+    p.textContent = line;
+    el.appendChild(p);
+  }
+}
+
 // ---- story beats ----------------------------------------------------------------
 function beats() {
   while (chapterIdx < CHAPTERS.length && dayMin >= CHAPTERS[chapterIdx].t) {
@@ -1072,6 +1110,13 @@ function beats() {
       : 'Forecast Day 2: matcha £' + nextPrice + ' on the curve · the board rolls at dawn — the contract choice comes at closing.';
     fx.toast(fore, 'warn');
     try { analytics.track('forecast_shown', { day, dayMin, event: exchange.event?.id || null, nextPrice, nextIdx }); } catch {}
+  }
+  // Once the morning is underway, say the held / tab miss out loud if the
+  // brief's numbers are easy to play past. Day 2 under the nut stays quiet.
+  if (!nudgedStanding && !softDay && dayMin >= 600 && !closed) {
+    nudgedStanding = true;
+    const nudge = standingNudge(standingSnapshot(), day);
+    if (nudge && !headless) fx.toast(nudge.text, nudge.tone);
   }
   // Idris mid-day quips at 60/80 rep checkpoints (once/day)
   if (dayMin === 600 && regulars.reputation >= 80) {
@@ -1237,7 +1282,14 @@ function showEveningCall(read) {
   setBeatPower('evening', BEAT_POWERED.evening);
   const body = $('evening-read');
   const partyLine = partyLineText();
-  if (body) body.textContent = (partyLine ? partyLine + '\n\n' : '') + read.sub + '\n' + read.lines.join('\n');
+  const stand = softDay ? null : standingSnapshot();
+  if (body) {
+    const chunks = [];
+    if (partyLine) chunks.push(partyLine);
+    chunks.push(read.sub, ...read.lines);
+    if (stand) chunks.push(...stand.lines);
+    body.textContent = chunks.join('\n');
+  }
   const left = $('evening-left');
   if (left) {
     const residual = residualEveningCups();
@@ -1504,10 +1556,15 @@ function closeDay() {
   if (batchWaste >= 12) verdict += ' You bought matcha the wave didn’t drink.';
   if (netToday < 0) verdict += ' The till went backward — the nut came due anyway.';
   // The tab has a fuse: warn when the week's position can't cover tomorrow's
-  // committed costs — the supplier calls it at zero.
+  // committed costs — the supplier calls it at zero. Held is a second bar
+  // (cash and regulars); the standing lines name both.
   const worthNow = cRev - cCost - cOps - settledPaid - exchange.debt;
-  if (worthNow < 0) verdict += ' You owe more than the week is worth — Idris calls the tab.';
+  const stand = softDay ? null : weekStanding({
+    net: worthNow, rep: regulars.reputation, day, days: CAMPAIGN.days, asOf: 'close',
+  });
+  if (stand && stand.insolvent) verdict += ' ' + stand.cashLine;
   else if (worthNow < ops.total) verdict += ` The week so far is ${fmt(worthNow)} — today’s operating costs were ${fmt(ops.total)}.`;
+  if (stand && stand.repShort) verdict += ' ' + stand.repLine;
   if (prebatchHelped && waveBalked < 80) verdict += ' The notebook paid off.';
   // the street talks back: coasting shows up as a sentence, not just a number
   if (dtrace.after < 0.35) verdict += ' The street is forgetting you — work it at dawn.';
@@ -1537,6 +1594,7 @@ function closeDay() {
   if (day === 1 && !softDay) {
     lessons.push(`Running the café today cost ${fmt(ops.total)} — ${(ops.marketing || ops.training || ops.sampling) ? 'including ' : ''}staff, pitch rent, milk and cups, card fees, power, wifi and insurance — paid at closing.`);
   }
+  if (stand) lessons.unshift(...stand.lines);
   const menuVisible = introducedSet().has('menu') || toolsIntroducedToday.includes('menu');
   const menuServedLine = () => {
     const off = DRINK_IDS.filter(id => menuOffered[id] === false);
@@ -1661,7 +1719,10 @@ function closeDay() {
   fx.receipt(receiptData);
   if ($('review-continue')) {
     $('review-continue').style.display = '';
-    $('review-continue').textContent = softDay ? 'open the week →' : day >= CAMPAIGN.days ? 'the week’s verdict →' : 'open day ' + (day + 1) + ' →';
+    $('review-continue').textContent = softDay ? 'open the week →'
+      : worthNow < 0 ? 'the supplier calls the tab →'
+      : day >= CAMPAIGN.days ? 'the week’s verdict →'
+      : 'open day ' + (day + 1) + ' →';
   }
   if ($('review-letter')) $('review-letter').style.display = softDay ? 'none' : '';
   if ($('receipt-back')) $('receipt-back').style.display = 'none';
@@ -2142,6 +2203,7 @@ function renderPlanQuote() {
     sumEl.textContent = `closing bills ${fmt(committed)}${q.settlement ? ` · settle ${fmt(q.settlement)}` : ''}${showPos ? ` · ${pos}` : ''}`;
     sumEl.title = full;
   }
+  renderWeekStanding();
   if (day === 1) updateBriefFooter();
 }
 
@@ -3290,7 +3352,7 @@ function showMorningBrief() {
         if (!softDay) renderHireLine();
       }
       else {
-        obj.textContent = 'Keep the café going for five days. The rival across the road counts cups too; regulars remember who made them welcome.';
+        obj.textContent = 'Keep the café going through Saturday. Cash, regulars, and what held needs are under this.';
         obj.style.display = '';
       }
     }
@@ -3781,6 +3843,7 @@ function showMorningBrief() {
   paused = true; if ($('pause')) $('pause').textContent = 'resume';
   // PR-3 — Convex caption fires every dawn the Brief opens
   setBeatPower('brief', BEAT_POWERED.brief);
+  renderWeekStanding();
   modals.open('brief');
   try { analytics.track('brief_shown', { day, event: exchange.event ? exchange.event.id : null, index: exchange.beanIndex, hasWire: !!marketIntel }); } catch {}
 }
@@ -4116,6 +4179,7 @@ function prepareDay(d) {
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false;
+  nudgedStanding = false;
   turnaways = 0; turnawayToastDone = false;
   leversTimeLocked = false; leverOverrideCount = 0;
   waveBatchServed = 0; waveStockoutAt = 0;
@@ -4341,7 +4405,10 @@ function campaignClose(insolvent = false) {
   const rep = regulars.reputation;
   const verdictId = campaignVerdict(net, rep);
   starCarry = verdictId === 'star';
-  const v = VERDICTS[verdictId];
+  const stand = weekStanding({ net, rep, day: Math.min(day, CAMPAIGN.days), days: CAMPAIGN.days, asOf: 'close' });
+  const v = (verdictId === 'star' || verdictId === 'good' || verdictId === 'held')
+    ? VERDICTS[verdictId]
+    : `${VERDICTS[verdictId]} ${stand.heldLine} ${stand.cashLine} ${stand.repLine}`;
   // PR-B3 — the weekly winner is who served more cups this week
   const yourWeekTotal = cServed;
   const samWeekTotal = (cRivalServed || 0) + (cRivalChoices || 0);
@@ -4362,6 +4429,8 @@ function campaignClose(insolvent = false) {
     // Saturday held.
     [`${COPY.rivalBarista} remembers`, `${samGrudge.cuts} cuts · ${samGrudge.preps} prep-days · ${samGrudge.snubs} snubs`],
     ...(samTruce ? [['Saturday ceasefire', 'held — no bleeding, no feast']] : []),
+    ['regulars', `${rep}/100 · held needs ${VERDICT_GATES.held.repAtLeast}`],
+    ['held needs', `over ${fmt(VERDICT_GATES.held.netAbove)} · rep ${VERDICT_GATES.held.repAtLeast}`],
     ['NET WORTH', fmt(net)],
     // Phase 6 — week autopsy: traceable failure reads as fair, not cruel.
     // The week's cause rows render under "lost because:" + continuation lines.
@@ -4581,9 +4650,15 @@ function updateHUD() {
   $('clock').textContent = (paused ? '❚❚ ' : '') + `${h}:${m}`;
   world.setRivalHeat(patrons.rivalQ.length);   // their sign burns as their line grows
   if ($('daytag')) {
-    const full = softDay ? 'SOFT OPENING · regulars ' + regulars.reputation
-      : 'DAY ' + day + '/' + CAMPAIGN.days + '  ·  regulars ' + regulars.reputation;
-    $('daytag').textContent = (inPlay && !softDay) ? ('DAY ' + day + '/' + CAMPAIGN.days) : full;
+    const heldRep = VERDICT_GATES.held.repAtLeast;
+    const repNow = regulars.reputation;
+    const repBit = repNow < heldRep ? `regulars ${repNow} · held needs ${heldRep}` : `regulars ${repNow}`;
+    const full = softDay ? 'SOFT OPENING · regulars ' + repNow
+      : 'DAY ' + day + '/' + CAMPAIGN.days + '  ·  ' + repBit;
+    const live = (inPlay && !softDay)
+      ? ('DAY ' + day + '/' + CAMPAIGN.days + (repNow < heldRep ? ` · ${repBit}` : ''))
+      : full;
+    $('daytag').textContent = live;
     $('daytag').title = full;
   }
   $('till').textContent = fmt(till);
