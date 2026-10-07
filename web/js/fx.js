@@ -50,9 +50,13 @@ class Pool {
 }
 
 export class FX {
-  constructor(scene, patrons, lite) {
+  // `random` is FX's own cosmetic stream (main.js passes fxRng). Particle
+  // jitter and gossip-hop picks draw here so they never consume the patron,
+  // floor or exchange streams, nor bare Math.random.
+  constructor(scene, patrons, lite, { random = Math.random } = {}) {
     this.patrons = patrons;
     this.lite = !!lite;
+    this.random = random;
     // Phase 5 budget: full 160+120+60+90+80+120+70 = 700 slots, ~560 live
     // at once (motes are ambient, site is gated); lite 60+120+60+0+80+120+70
     // = 510 slots, ~200 live. _guarded() caps every verb in lite mode.
@@ -64,7 +68,7 @@ export class FX {
     this.steamAcc = 0;
     if (!lite) {
       this.dust = new Pool(scene, 90, { size: 0.05, blending: THREE.AdditiveBlending, tint: 0xffe9c0 });
-      for (let i = 0; i < 90; i++) this.dust.spawn(-11 + Math.random() * 22, 0.3 + Math.random() * 3.2, -7.5 + Math.random() * 13, 0, 0, 0, 1e9, 0.35 + Math.random() * 0.3);
+      for (let i = 0; i < 90; i++) this.dust.spawn(-11 + this.random() * 22, 0.3 + this.random() * 3.2, -7.5 + this.random() * 13, 0, 0, 0, 1e9, 0.35 + this.random() * 0.3);
       // dust drifts forever: life is huge, update only wanders
       this.dust.mat.opacity = 0.5;
     }
@@ -106,10 +110,10 @@ export class FX {
     this.steamAcc = 0;
     for (const p of this.patrons.patrons) {
       if (!p.hasCup || p.walking) continue;
-      if (Math.random() < 0.3) {
+      if (this.random() < 0.3) {
         const fx = Math.sin(p.face), fz = Math.cos(p.face), rx = Math.cos(p.face), rz = -Math.sin(p.face);
         this.steam.spawn(p.pos.x + fx * 0.24 + rx * 0.14, 1.05, p.pos.z + fz * 0.24 + rz * 0.14,
-          (Math.random() - 0.5) * 0.08, 0.3 + Math.random() * 0.15, (Math.random() - 0.5) * 0.08, 1.4 + Math.random(), 0.5);
+          (this.random() - 0.5) * 0.08, 0.3 + this.random() * 0.15, (this.random() - 0.5) * 0.08, 1.4 + this.random(), 0.5);
       }
     }
   }
@@ -122,13 +126,13 @@ export class FX {
   }
   coinBurst(x, y, z, n = 7) {
     for (let i = 0; i < n; i++)
-      this.coins.spawn(x + (Math.random() - 0.5) * 0.3, y, z + (Math.random() - 0.5) * 0.3,
-        (Math.random() - 0.5) * 1.4, 1.6 + Math.random() * 1.2, (Math.random() - 0.5) * 1.4, 0.7 + Math.random() * 0.4);
+      this.coins.spawn(x + (this.random() - 0.5) * 0.3, y, z + (this.random() - 0.5) * 0.3,
+        (this.random() - 0.5) * 1.4, 1.6 + this.random() * 1.2, (this.random() - 0.5) * 1.4, 0.7 + this.random() * 0.4);
   }
   huff(x, y, z) {
     for (let i = 0; i < 5; i++)
-      this.huffs.spawn(x + (Math.random() - 0.5) * 0.2, y + Math.random() * 0.2, z + (Math.random() - 0.5) * 0.2,
-        (Math.random() - 0.5) * 0.5, 0.5 + Math.random() * 0.4, (Math.random() - 0.5) * 0.5, 0.55 + Math.random() * 0.3, 0.8);
+      this.huffs.spawn(x + (this.random() - 0.5) * 0.2, y + this.random() * 0.2, z + (this.random() - 0.5) * 0.2,
+        (this.random() - 0.5) * 0.5, 0.5 + this.random() * 0.4, (this.random() - 0.5) * 0.5, 0.55 + this.random() * 0.3, 0.8);
   }
   dustDrift(now) {
     if (!this.dust) return;
@@ -149,19 +153,19 @@ export class FX {
     this.dustSiteAcc += dt;
     if (this.dustSiteAcc < 0.12) return;
     this.dustSiteAcc = 0;
-    const n = 1 + (Math.random() < 0.4 ? 1 : 0);
+    const n = 1 + (this.random() < 0.4 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       // x ∈ [-12, 12] covers both scaffolds; y ∈ [0.5, 3.5] is mid-height;
       // z ∈ [15.5, 17] is in front of the facade block faces.
       this.dustSite.spawn(
-        -12 + Math.random() * 24,
-        0.5 + Math.random() * 3.0,
-        15.5 + Math.random() * 1.5,
-        (Math.random() - 0.5) * 0.18,         // horizontal wander
-        0.05 + Math.random() * 0.15,           // gentle upward
-        (Math.random() - 0.5) * 0.10,
-        1.5 + Math.random() * 1.0,             // 1.5 - 2.5s life
-        0.4 + Math.random() * 0.4              // 0.4 - 0.8 brightness
+        -12 + this.random() * 24,
+        0.5 + this.random() * 3.0,
+        15.5 + this.random() * 1.5,
+        (this.random() - 0.5) * 0.18,         // horizontal wander
+        0.05 + this.random() * 0.15,           // gentle upward
+        (this.random() - 0.5) * 0.10,
+        1.5 + this.random() * 1.0,             // 1.5 - 2.5s life
+        0.4 + this.random() * 0.4              // 0.4 - 0.8 brightness
       );
     }
   }
@@ -222,7 +226,7 @@ export class FX {
       }
     }
     if (cands.length === 0) return null;
-    return cands[(Math.random() * cands.length) | 0];
+    return cands[(this.random() * cands.length) | 0];
   }
 
   // ---- 3D conversation lines ----------------------------------------------------
@@ -327,9 +331,9 @@ export class FX {
       if (b.t >= 1) {
         b.el.remove(); this.bubbles.splice(i, 1);
         // word of mouth: a bad review travels ≥2 hops
-        if (!b.chained && Math.random() < 0.5) {
+        if (!b.chained && this.random() < 0.5) {
           const lines = b.kind === 'bad' ? COPY.gossipBad : COPY.gossipGood;
-          this.bubble(b.to, lines[(Math.random() * lines.length) | 0], b.kind, true);
+          this.bubble(b.to, lines[(this.random() * lines.length) | 0], b.kind, true);
         }
       }
     }
@@ -353,17 +357,17 @@ export class FX {
   steam(x, y, z, o = {}) {
     const n = this._guarded(o.n ?? 1, 1);
     for (let i = 0; i < n; i++)
-      this.puffs.spawn(x + (Math.random() - 0.5) * 0.1, y, z + (Math.random() - 0.5) * 0.1,
-        (Math.random() - 0.5) * 0.1, 0.35 + Math.random() * 0.2, (Math.random() - 0.5) * 0.1,
-        1.2 + Math.random() * 0.6, o.shade ?? 0.6);
+      this.puffs.spawn(x + (this.random() - 0.5) * 0.1, y, z + (this.random() - 0.5) * 0.1,
+        (this.random() - 0.5) * 0.1, 0.35 + this.random() * 0.2, (this.random() - 0.5) * 0.1,
+        1.2 + this.random() * 0.6, o.shade ?? 0.6);
   }
   // chalk/grumble/cane-tap huff
   puff(x, y, z, o = {}) {
     const n = this._guarded(o.n ?? 5, 3);
     for (let i = 0; i < n; i++)
-      this.huffs.spawn(x + (Math.random() - 0.5) * 0.3, y + Math.random() * 0.15, z + (Math.random() - 0.5) * 0.3,
-        (Math.random() - 0.5) * 0.6, 0.4 + Math.random() * 0.4, (Math.random() - 0.5) * 0.6,
-        0.6 + Math.random() * 0.4, o.shade ?? 0.8);
+      this.huffs.spawn(x + (this.random() - 0.5) * 0.3, y + this.random() * 0.15, z + (this.random() - 0.5) * 0.3,
+        (this.random() - 0.5) * 0.6, 0.4 + this.random() * 0.4, (this.random() - 0.5) * 0.6,
+        0.6 + this.random() * 0.4, o.shade ?? 0.8);
   }
   // till coins: {rain:true} for the long debrief fall, else the serve burst
   coin(x, y, z, o = {}) {
@@ -376,42 +380,42 @@ export class FX {
     const n = this._guarded(o.n ?? 8, 6);
     const pool = this.spark || this.coins;
     for (let i = 0; i < n; i++)
-      pool.spawn(x, y, z, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.2,
-        (Math.random() - 0.5) * 1.2, 0.25 + Math.random() * 0.2, 1);
+      pool.spawn(x, y, z, (this.random() - 0.5) * 1.2, (this.random() - 0.5) * 1.2,
+        (this.random() - 0.5) * 1.2, 0.25 + this.random() * 0.2, 1);
   }
   // laptop glow / till sparkle — warm rise at the prop tip
   sparkle(x, y, z, o = {}) {
     const n = this._guarded(o.n ?? 6, 3);
     for (let i = 0; i < n; i++)
-      this.till.spawn(x + (Math.random() - 0.5) * 0.2, y, z + (Math.random() - 0.5) * 0.2,
-        (Math.random() - 0.5) * 0.3, 0.5 + Math.random() * 0.5, (Math.random() - 0.5) * 0.3,
-        0.7 + Math.random() * 0.4, o.shade ?? 1);
+      this.till.spawn(x + (this.random() - 0.5) * 0.2, y, z + (this.random() - 0.5) * 0.2,
+        (this.random() - 0.5) * 0.3, 0.5 + this.random() * 0.5, (this.random() - 0.5) * 0.3,
+        0.7 + this.random() * 0.4, o.shade ?? 1);
   }
   // rain streaks / construction haze — routes to the site pool
   rain(x, y, z, o = {}) {
     const n = this._guarded(o.n ?? 2, 1);
     for (let i = 0; i < n; i++)
-      this.dustSite.spawn(x + (Math.random() - 0.5) * (o.spread ?? 24), y, z,
-        (Math.random() - 0.5) * 0.2, o.vy ?? -1.2, (Math.random() - 0.5) * 0.2,
-        0.8 + Math.random() * 0.5, o.shade ?? 0.5);
+      this.dustSite.spawn(x + (this.random() - 0.5) * (o.spread ?? 24), y, z,
+        (this.random() - 0.5) * 0.2, o.vy ?? -1.2, (this.random() - 0.5) * 0.2,
+        0.8 + this.random() * 0.5, o.shade ?? 0.5);
   }
   spark(x, y, z, n = 10) { this.sparkle(x, y, z, { n }); }
 
   // chalk dust puff on reprice — 10 particles from the board
   chalkDust(x, y, z) {
     for (let i = 0; i < 10; i++)
-      this.huffs.spawn(x + (Math.random() - 0.5) * 0.6, y + Math.random() * 0.2, z + (Math.random() - 0.5) * 0.4,
-        (Math.random() - 0.5) * 0.7, 0.18 + Math.random() * 0.35, (Math.random() - 0.5) * 0.5, 0.7 + Math.random() * 0.4, 1);
+      this.huffs.spawn(x + (this.random() - 0.5) * 0.6, y + this.random() * 0.2, z + (this.random() - 0.5) * 0.4,
+        (this.random() - 0.5) * 0.7, 0.18 + this.random() * 0.35, (this.random() - 0.5) * 0.5, 0.7 + this.random() * 0.4, 1);
   }
   // coin rain for a wave win — long fall from above the till
   coinRain(x, y, z, n = 18) {
     for (let i = 0; i < n; i++) {
-      const dx = (Math.random() - 0.5) * 1.6, dz = (Math.random() - 0.5) * 1.0;
+      const dx = (this.random() - 0.5) * 1.6, dz = (this.random() - 0.5) * 1.0;
       // arc with spin: coins feel physical, not particle confetti
-      const spin = (Math.random() < 0.5 ? 1 : -1) * (2 + Math.random() * 1.2);
+      const spin = (this.random() < 0.5 ? 1 : -1) * (2 + this.random() * 1.2);
       // encode spin in horizontal drift (cheap substitute for per-particle rotation)
-      this.coins.spawn(x + dx, y + 2.2 + Math.random() * 1.2, z + dz,
-        (Math.random() - 0.5) * 0.6 + spin * 0.08, 0.9 + Math.random() * 0.5, (Math.random() - 0.5) * 0.6, 1.1 + Math.random() * 0.5);
+      this.coins.spawn(x + dx, y + 2.2 + this.random() * 1.2, z + dz,
+        (this.random() - 0.5) * 0.6 + spin * 0.08, 0.9 + this.random() * 0.5, (this.random() - 0.5) * 0.6, 1.1 + this.random() * 0.5);
     }
   }
 

@@ -51,8 +51,8 @@ test('PR-A2 · _propKeyFor reads p.ritualProps[0], null when empty', () => {
 
 // (5) per-frame update calls _propKeyFor + _placeProp + setMatrixAt
 test('PR-A2 · per-frame update positions the prop instance', () => {
-  const idx = patrons.indexOf('update(dt, walkMul, now, reduced = false)');
-  assert.ok(idx > 0, 'update method must exist');
+  const idx = patrons.indexOf('render(dt, now, reduced = false)');
+  assert.ok(idx > 0, 'render method must exist');
   const body = patrons.slice(idx);
   assert.match(body, /this\._propKeyFor\(p\)/);
   assert.match(body, /this\._placeProp\(/);
@@ -61,7 +61,7 @@ test('PR-A2 · per-frame update positions the prop instance', () => {
 
 // (6) per-frame loop flushes all prop instances
 test('PR-A2 · per-frame loop flushes propMeshes via instanceMatrix.needsUpdate', () => {
-  const idx = patrons.indexOf('update(dt, walkMul, now, reduced = false)');
+  const idx = patrons.indexOf('render(dt, now, reduced = false)');
   const body = patrons.slice(idx);
   assert.match(body, /for \(const prop of Object\.values\(this\.propMeshes\)\) prop\.instanceMatrix\.needsUpdate = true/);
 });
@@ -138,8 +138,8 @@ test('PR-A2 · _placeProp takes propKey + sitting and branches chestFront on bot
 
 // (12) Per-frame call site passes propKey + sitting into _placeProp
 test('PR-A2 · per-frame call site threads propKey + sitting into _placeProp', () => {
-  const idx = patrons.indexOf('update(dt, walkMul, now, reduced = false)');
-  assert.ok(idx > 0, 'update method must exist');
+  const idx = patrons.indexOf('render(dt, now, reduced = false)');
+  assert.ok(idx > 0, 'render method must exist');
   const body = patrons.slice(idx);
   assert.match(body, /this\._placeProp\(d,\s*p,\s*anchor,\s*propKey,\s*sitting/);
 });

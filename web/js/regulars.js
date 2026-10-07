@@ -63,12 +63,14 @@ export class Regulars {
   // Pick a random friend of `idx`, excluding `excludeIdx`. Returns idx or
   // null if no eligible friend exists. Used by the gossip router to choose
   // a friend-of-friend target who is currently on the floor.
-  pickFriendFor(idx, excludeIdx = -1) {
+  // `rng` is the caller's seeded stream; nothing calls this today (Math.random
+  // default kept for the unseeded API only).
+  pickFriendFor(idx, excludeIdx = -1, rng = Math.random) {
     const friends = this.friendships.get(idx);
     if (!friends || friends.size === 0) return null;
     const cands = [...friends].filter(f => f !== excludeIdx);
     if (cands.length === 0) return null;
-    return cands[(Math.random() * cands.length) | 0];
+    return cands[(rng() * cands.length) | 0];
   }
 
   // BFS-walk the graph up to `maxHops` from `fromIdx`, returning a Set of
@@ -171,10 +173,13 @@ export class Regulars {
   // A chance to be a real, named regular (not just cohort colour) per cohort.
   // Phase 1: also returns visits/stage/drink so the floor greets returning
   // faces by history, not just by name.
-  markSeen(cohort, only = null, chosen = null) {
+  // `rng`: PatronSystem passes its seeded stream. The fallback roll only
+  // fires when no `chosen` was pre-picked, which PatronSystem never leaves
+  // with live candidates, so passing it adds no draws to the patron stream.
+  markSeen(cohort, only = null, chosen = null, rng = Math.random) {
     const cands = this.regulars.filter(r => !r.seen && !r._spawned && r.coh === cohort && r.absence !== 'away' && r.absence !== 'lost' && (!only || only.has(r.name)));
     if (!cands.length) return { found: false };
-    const r = chosen && cands.includes(chosen) ? chosen : cands[(Math.random() * cands.length) | 0];
+    const r = chosen && cands.includes(chosen) ? chosen : cands[(rng() * cands.length) | 0];
     r.seen = true; r._spawned = true;
     return { found: true, idx: r.i, name: r.name, coh: r.coh, visits: r.visits, stage: r.stage, drink: r.drink };
   }

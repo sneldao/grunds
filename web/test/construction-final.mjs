@@ -46,7 +46,7 @@ console.log('WORLD   third scaffold at x=17, W.setConstructionRight + cTarpMatR 
 // 3) audio.js: constructionHammer(on) with jittered rhythm
 if (!/constructionHammer\s*\(\s*on\s*\)/.test(audio))
   fails.push('audio.js: constructionHammer(on) not defined');
-if (!/0\.6\s*\+\s*Math\.random\(\)\s*\*\s*0\.3/.test(audio))
+if (!/0\.6\s*\+\s*cosmeticRandom\(\)\s*\*\s*0\.3/.test(audio))
   fails.push('audio.js: hammer rhythm not in 0.6-0.9s range');
 if (!/this\._hammerOn/.test(audio))
   fails.push('audio.js: _hammerOn state not used');

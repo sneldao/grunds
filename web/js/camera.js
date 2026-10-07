@@ -1,5 +1,6 @@
 // Cinematic camera — title orbit, crane-in, drag-orbit, beat push-ins, handheld breath.
 import * as THREE from '../vendor/three.module.js';
+import { cosmeticRandom } from './cosmetic.js';
 import { cameraGestureTarget, dragExceeded, mouseButtonsUp, pinchRadius, pointerDistance, stalePointerIds } from './gestures.js';
 
 // Idle/home framing. 24 is close enough that a person at the bar and the
@@ -227,7 +228,7 @@ export class CameraRig {
     if (this.shakeT > 0) {
       this.shakeT = Math.max(0, this.shakeT - dt * 1.4);
       const m = this.shakeMag * this.shakeT * this.shakeT;
-      sx = (Math.random() - 0.5) * m; sy = (Math.random() - 0.5) * m; sz = (Math.random() - 0.5) * m;
+      sx = (cosmeticRandom() - 0.5) * m; sy = (cosmeticRandom() - 0.5) * m; sz = (cosmeticRandom() - 0.5) * m;
     }
     this.cam.position.set(px + n1 + sx, py + n2 * 0.6 + sy, pz + n2 + sz);
     this.cam.lookAt(this.target.x + n1 * 0.4 + sx * 0.5, this.target.y + sy * 0.5, this.target.z + n2 * 0.4 + sz * 0.5);

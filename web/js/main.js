@@ -201,7 +201,10 @@ if (sync.live && sync.intel) sync.intel().then(r => {
 });
 if (sync.managed && sync.managed()) sync.beginRun(SEED).catch(() => {});
 
-const fx = new FX(scene, null, lite);   // patrons wired in just below
+// FX cosmetic stream (V0): particle jitter and gossip-hop picks. Own seed
+// offset so a burst of coins never consumes a patron, floor or market draw.
+let fxRng = seeded(seedNow() + 23);
+const fx = new FX(scene, null, lite, { random: fxRng });   // patrons wired in just below
 // ---- idle guidance ------------------------------------------------------------
 // halo.js points at the SAME answer the goal strip speaks (nextAction.js).
 // Any intent — pointer, lever, key — retires it; it only wakes after 4.5s.
@@ -535,7 +538,7 @@ let coached = false;   // day-1 lever hint, once per campaign
 let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false, nudgedStanding = false;
 
 let eveningCallShown = false, eveningFast = false, rushFast = false;
-let paceTest = false, momentsTest = false, moveTickTest = false;
+let paceTest = false, momentsTest = false;
 let momentPending = [], momentActive = null;
 const momentDone = new Set(), momentSeen = new Set();
 let offerResolved = false;   // the 11:00 ask has been answered — skip may jump to 14:00
@@ -788,6 +791,9 @@ let leverOverrideCount = 0;
 function tick() {
   if (phase !== 'trading' || paused || closed) return;
   if (dayMin >= (softDay ? 1020 : DAY_END)) { closeDay(); return; }
+  // Movement is a sim input (queue joins, seat arrivals, dwell): one fixed
+  // quantum per sim-minute so frame rate never steers who gets served.
+  patrons.step(300 / (speed / 60) / 1000, WALK_MUL[speed] || 2, frameNow, reducedMotion);
   dayMin++;
   // Drop 20× when the rush starts — the cup countdown has to be readable.
   // The chosen speed comes back at 17:00. The 20× button stays clickable
@@ -4059,7 +4065,9 @@ function applySavedWeek(save) {
   // rngState only; patron/floor cosmetic+decision streams reseed cleanly).
   patronsRng = seeded((save.seed || seedNow()) + 17);
   floorRng = seeded((save.seed || seedNow()) + 19);
+  fxRng = seeded((save.seed || seedNow()) + 23);
   patrons.random = patronsRng;
+  fx.random = fxRng;
   if (Array.isArray(save.regulars)) {
     for (const r of regulars.regulars) {
       const k = save.regulars.find(x => x.name === r.name);
@@ -5140,7 +5148,9 @@ function reset(coreOnly = false) {
   exchange.rng = seeded(seedNow());
   patronsRng = seeded(seedNow() + 17);
   floorRng = seeded(seedNow() + 19);
+  fxRng = seeded(seedNow() + 23);
   patrons.random = patronsRng;
+  fx.random = fxRng;
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
@@ -6375,20 +6385,12 @@ function loop(now) {
   });
   const pf = $('paceflag'); if (pf) pf.hidden = !quietNow;
   const effSpeed = quietNow ? Math.min(1200, speed * QUIET_MUL) : speed;
-  const movePerTick = quietNow || (headless && moveTickTest);
-  let ticked = 0;
   if (started && !closed && !paused && !tutorialActive && schedule && phase === 'trading') {
     acc += dt * 1000 * impact.dtScale(nowSec);
     const msPerMin = 300 / (effSpeed / 60);
     while (acc > msPerMin && phase === 'trading' && !paused && !closed && impact.dtScale(nowSec) > 0) {
       acc -= msPerMin;
-      if (movePerTick) {
-        const step = 300 / (speed / 60) / 1000;
-        const mul = WALK_MUL[speed] || 2;
-        patrons.update(step, mul, now, reducedMotion);
-        street.update(step, mul, reducedMotion);
-      }
-      tick(); ticked++;
+      tick();
     }
     // After the evening call the rest of the day resolves in a short burst
     // instead of another stretch of watching.
@@ -6431,13 +6433,10 @@ function loop(now) {
     }
   } catch {}
   postfx.setNight((world.night || 0) > 0.35 || dayMin < 420 || dayMin > 1180);
-  if (impact.dtScale(nowSec) === 0) {
-    patrons.update(0, WALK_MUL[speed] || 2, now, reducedMotion);
-    street.update(0, WALK_MUL[speed] || 2, reducedMotion);
-  } else if (!(movePerTick && ticked)) {
-    patrons.update(dt, WALK_MUL[speed] || 2, now, reducedMotion);
-    street.update(dt, WALK_MUL[speed] || 2, reducedMotion);
-  }
+  // Patron positions only advance inside tick() — per-frame is pose + matrices.
+  // Street life is ambient (streetLife.js:3) so it keeps the frame clock.
+  patrons.render(dt, now, reducedMotion);
+  street.update(impact.dtScale(nowSec) === 0 ? 0 : dt, WALK_MUL[speed] || 2, reducedMotion);
   barStaff.update(dt, reducedMotion);
   world.updateRival(dt, now);
   try { world.updateCat(dt, patrons.queueLength); world._updateDelight(now, dt); } catch {}
@@ -6562,14 +6561,13 @@ function loop(now) {
     }) : null;
   },
   get paused() { return paused; },
-  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci, pace: pc, moments: mo, moveTick: mt, softOpening: so, tutorial: tu, quietCarry: qc, loanCash: lc, closeTill: ct } = {}) => {
+  ...(headless ? { testState: ({ baristaCondition: c, openingGuidance: og, curriculum: cu, curriculumIntroduced: ci, pace: pc, moments: mo, softOpening: so, tutorial: tu, quietCarry: qc, loanCash: lc, closeTill: ct } = {}) => {
     if (typeof c === 'number') baristaCondition = c;
     if (typeof qc === 'number') quietCarry = qc;
     if (tu !== undefined) wantTutorial = !!tu;
     if (so !== undefined) { softTest = so === null ? null : !!so; if (phase === 'planning' && day === 1 && !softWeekDone) { softDay = softTest !== null ? softTest : wantsSoftDay(); patrons.markSeenOnly = softDay ? SOFT_CAST : null; if (softDay && !softRng) softRng = seeded(seedNow() + 101); } }
     if (pc !== undefined) paceTest = !!pc;
     if (mo !== undefined) momentsTest = !!mo;
-    if (mt !== undefined) moveTickTest = !!mt;
     if (og !== undefined) { guidedOpening = !!og; firstPrepChosen = !(og && day === 1); }
     if (cu !== undefined) {
       curriculumUnlockAll = !cu;

@@ -1,5 +1,6 @@
 // The District — a dollhouse diorama. All primitives + canvas textures, no assets.
 import * as THREE from '../vendor/three.module.js';
+import { cosmeticRandom } from './cosmetic.js';
 import { PAL, LAYOUT, COPY } from './config.js';
 import { woodFloor, pavement, road, awning, menuBoard, softSprite, streakSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction } from './textures.js';
 import { GLBLoader } from './loader.js';
@@ -595,9 +596,14 @@ export function buildWorld(scene, renderer, lite) {
   // unchanged. tableRound is roughly 1.0 m diameter in the kit, matching
   // the procedural 0.68 m radius we used.
   const seats = [];
+  // Seat angles set walk distances and seat order, so they are sim inputs:
+  // a fixed private LCG (not Math.random) keeps the layout identical every
+  // load, so the same seed replays the same floor.
+  let seatA = 0x5EA75;
+  const seatRoll = () => { seatA = (Math.imul(seatA, 1664525) + 1013904223) >>> 0; return seatA / 4294967296; };
   for (const t of LAYOUT.tables) {
     place(scene, 'tableRound.glb', { position: [t.x, 0, t.z], scale: 1.4, rotationY: 0 });
-    const n = 3, baseA = Math.random() * Math.PI * 2;
+    const n = 3, baseA = seatRoll() * Math.PI * 2;
     for (let s = 0; s < n; s++) {
       const a = baseA + (s / n) * Math.PI * 2, sx = t.x + Math.cos(a) * 1.05, sz = t.z + Math.sin(a) * 1.05;
       place(scene, 'chairModernCushion.glb', { position: [sx, 0, sz], scale: 1.0, rotationY: a + Math.PI });
@@ -810,7 +816,7 @@ export function buildWorld(scene, renderer, lite) {
   // GLASSHOUSE reads as *open* — two glowing front windows with a barista
   // and a customer swaying inside. Flat dark boxes against warm quads: a
   // silhouette, not a simulation. W.updateRival(dt, now) drifts them; the
-  // main loop calls it every frame next to patrons.update.
+  // main loop calls it every frame next to patrons.render.
   const rvWinMat = new THREE.MeshBasicMaterial({ color: 0xffb45e });
   W.rivalWinMat = rvWinMat;   // exposed for the day/night curve + tests
   const RV_DAY = new THREE.Color(0x9fb6bd), RV_NIGHT = new THREE.Color(0xffb45e);
@@ -1633,7 +1639,7 @@ export function buildWorld(scene, renderer, lite) {
       const g = c.getContext('2d'); g.clearRect(0, 0, 512, 320);
       g.fillStyle = '#0c0f14'; g.fillRect(0, 0, 512, 320);
       // linen grain
-      g.fillStyle = 'rgba(255,255,255,.015)'; for (let i = 0; i < 900; i++) g.fillRect(Math.random() * 512, Math.random() * 320, 1, 1);
+      g.fillStyle = 'rgba(255,255,255,.015)'; for (let i = 0; i < 900; i++) g.fillRect(cosmeticRandom() * 512, cosmeticRandom() * 320, 1, 1);
       // bias highlight — when Linkup tilts the deck, the market board glows
       if (s.bias && s.bias !== 1) {
         const col = s.bias > 1 ? 'rgba(208,96,59,.18)' : 'rgba(134,168,96,.14)';
@@ -1726,14 +1732,14 @@ export function buildWorld(scene, renderer, lite) {
   });
   W.mistMat = puffMat(0x9a9ea6, 0.42);
   const mistN = 120, mp = new Float32Array(mistN * 3);
-  for (let i = 0; i < mistN; i++) { mp[i*3] = -14 + Math.random()*34; mp[i*3+1] = 0.25 + Math.random()*1.2; mp[i*3+2] = 5.5 + Math.random()*8; }
+  for (let i = 0; i < mistN; i++) { mp[i*3] = -14 + cosmeticRandom()*34; mp[i*3+1] = 0.25 + cosmeticRandom()*1.2; mp[i*3+2] = 5.5 + cosmeticRandom()*8; }
   const mistGeo = new THREE.BufferGeometry(); mistGeo.setAttribute('position', new THREE.BufferAttribute(mp, 3));
   W.mist = new THREE.Points(mistGeo, W.mistMat); W.mist.visible = false; scene.add(W.mist);
   W.setMist = (a) => { const o = Math.max(0, a) * 0.42; W.mistMat.opacity = o; W.mist.visible = o > 0.01; };
   // dust motes — warm, slow, only visible in shafts
   W.moteMat = puffMat(0xffe9a0, 0.065, { blending: THREE.AdditiveBlending });
   const moteN = 180, moteP = new Float32Array(moteN * 3);
-  for (let i = 0; i < moteN; i++) { moteP[i*3] = -10 + Math.random()*20; moteP[i*3+1] = 0.6 + Math.random()*3.2; moteP[i*3+2] = -2 + Math.random()*10; }
+  for (let i = 0; i < moteN; i++) { moteP[i*3] = -10 + cosmeticRandom()*20; moteP[i*3+1] = 0.6 + cosmeticRandom()*3.2; moteP[i*3+2] = -2 + cosmeticRandom()*10; }
   const moteGeo = new THREE.BufferGeometry(); moteGeo.setAttribute('position', new THREE.BufferAttribute(moteP, 3));
   W.motes = new THREE.Points(moteGeo, W.moteMat); W.motes.visible = false; scene.add(W.motes);
   W._motePhase = 0;
@@ -1746,7 +1752,7 @@ export function buildWorld(scene, renderer, lite) {
     transparent: true, opacity: 0, depthWrite: false, fog: false, sizeAttenuation: true,
   });
   const rainN = 220, rainP = new Float32Array(rainN * 3);
-  for (let i = 0; i < rainN; i++) { rainP[i*3] = -14 + Math.random()*34; rainP[i*3+1] = 0.4 + Math.random()*4.6; rainP[i*3+2] = -4 + Math.random()*14; }
+  for (let i = 0; i < rainN; i++) { rainP[i*3] = -14 + cosmeticRandom()*34; rainP[i*3+1] = 0.4 + cosmeticRandom()*4.6; rainP[i*3+2] = -4 + cosmeticRandom()*14; }
   const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainP, 3));
   W.rain = new THREE.Points(rainGeo, W.rainMat); W.rain.visible = false; scene.add(W.rain);
   W._rainTarget = 0;
@@ -1757,7 +1763,7 @@ export function buildWorld(scene, renderer, lite) {
   const starGeo = new THREE.BufferGeometry();
   const sp = new Float32Array(140 * 3);
   for (let i = 0; i < 140; i++) {
-    const a = Math.random() * Math.PI * 2, e = 0.25 + Math.random() * 1.2, r = 70;
+    const a = cosmeticRandom() * Math.PI * 2, e = 0.25 + cosmeticRandom() * 1.2, r = 70;
     sp[i * 3] = Math.cos(a) * Math.cos(e) * r; sp[i * 3 + 1] = Math.sin(e) * r; sp[i * 3 + 2] = Math.sin(a) * Math.cos(e) * r;
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));

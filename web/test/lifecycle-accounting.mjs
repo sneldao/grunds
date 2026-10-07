@@ -529,14 +529,15 @@ await new Promise(r => setTimeout(r, 5400));
   if (!G.commitDayPlan().ok) fails.push('step2 day-4 commit failed');
   runFrames(3);
   {
-    const origRandom = G.patrons.random, opBefore = mara.op;
+    const origRandom = G.patrons.random, origPull = G.patrons._rivalPull, opBefore = mara.op;
     G.patrons.random = () => 0.001;
+    G.patrons._rivalPull = () => 0.9;   // pr can be 0 at high rep — pin the choice, not the odds
     let glimpse = null;
     for (let i = 0; i < 60 && !glimpse; i++) {
       const p = G.patrons.spawn('commuters', 'counter', true);
       if (p && p.lostGlimpse) glimpse = p;
     }
-    G.patrons.random = origRandom;
+    G.patrons.random = origRandom; G.patrons._rivalPull = origPull;
     if (!glimpse) fails.push('lost Mara never glimpsed crossing to Glasshouse');
     else {
       if (glimpse.regularName !== 'Mara' || !glimpse.hasHat || glimpse.pname !== 'Mara') fails.push('lost glimpse patron not tagged as Mara');

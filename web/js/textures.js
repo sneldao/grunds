@@ -2,6 +2,7 @@
 // All bakes run once at startup; canvases are 512–1024 and tiled via
 // RepeatWrapping. Every texture reads authored at 1× before any filter.
 import * as THREE from '../vendor/three.module.js';
+import { cosmeticRandom } from './cosmetic.js';
 
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
 function tex(c, repeat = [1, 1]) {
@@ -72,7 +73,7 @@ export function woodFloor() {
   sheen.addColorStop(0.55, 'rgba(255,245,220,0)'); sheen.addColorStop(1, 'rgba(0,0,0,.04)');
   g.fillStyle = sheen; g.fillRect(0, 0, 1024, 1024);
   // micro dust
-  g.fillStyle = 'rgba(0,0,0,.025)'; for (let i = 0; i < 2200; i++) g.fillRect(Math.random() * 1024, Math.random() * 1024, 1, 1);
+  g.fillStyle = 'rgba(0,0,0,.025)'; for (let i = 0; i < 2200; i++) g.fillRect(cosmeticRandom() * 1024, cosmeticRandom() * 1024, 1, 1);
   return tex(c, [2.2, 1.6]);
 }
 
@@ -92,15 +93,15 @@ export function pavement() {
     g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(x + 1, y + rh - 3, cw - 2, 2);
     // aggregate specks per slab
     for (let i = 0; i < 22; i++) {
-      const sx = x + 6 + Math.random() * (cw - 12), sy = y + 6 + Math.random() * (rh - 12);
-      const vv = 20 + Math.random() * 40 | 0;
-      g.fillStyle = `rgba(${vv},${vv - 2},${vv - 6},${0.10 + Math.random() * 0.16})`;
+      const sx = x + 6 + cosmeticRandom() * (cw - 12), sy = y + 6 + cosmeticRandom() * (rh - 12);
+      const vv = 20 + cosmeticRandom() * 40 | 0;
+      g.fillStyle = `rgba(${vv},${vv - 2},${vv - 6},${0.10 + cosmeticRandom() * 0.16})`;
       g.fillRect(sx, sy, 2, 2);
     }
     // occasional hairline crack
     if (((cx * 13 + cy * 29) % 100) < 9) {
       g.strokeStyle = 'rgba(32,28,26,.22)'; g.lineWidth = 0.9;
-      g.beginPath(); g.moveTo(x + 10 + Math.random() * 20, y + 14);
+      g.beginPath(); g.moveTo(x + 10 + cosmeticRandom() * 20, y + 14);
       g.bezierCurveTo(x + cw * 0.4, y + rh * 0.45, x + cw * 0.6, y + rh * 0.55, x + cw - 12, y + rh - 18); g.stroke();
     }
     // coffee-ring stain — rare
@@ -127,12 +128,12 @@ export function road() {
   g.fillStyle = '#2a2c30'; g.fillRect(0, 0, 512, 512);
   // asphalt aggregate — two layers, coarse + fine
   for (let i = 0; i < 1800; i++) {
-    const v = 38 + Math.random() * 26 | 0; g.fillStyle = `rgba(${v},${v},${v + 3},.34)`;
-    const s = Math.random() < 0.15 ? 2.2 : 1.3; g.fillRect(Math.random() * 512, Math.random() * 512, s, s);
+    const v = 38 + cosmeticRandom() * 26 | 0; g.fillStyle = `rgba(${v},${v},${v + 3},.34)`;
+    const s = cosmeticRandom() < 0.15 ? 2.2 : 1.3; g.fillRect(cosmeticRandom() * 512, cosmeticRandom() * 512, s, s);
   }
   for (let i = 0; i < 900; i++) {
-    const v = 52 + Math.random() * 18 | 0; g.fillStyle = `rgba(${v},${v},${v + 2},.18)`;
-    g.fillRect(Math.random() * 512, Math.random() * 512, 1, 1);
+    const v = 52 + cosmeticRandom() * 18 | 0; g.fillStyle = `rgba(${v},${v},${v + 2},.18)`;
+    g.fillRect(cosmeticRandom() * 512, cosmeticRandom() * 512, 1, 1);
   }
   // oil stain
   g.fillStyle = 'rgba(18,16,18,.22)'; g.beginPath(); g.ellipse(184, 188, 44, 22, 0.2, 0, Math.PI * 2); g.fill();
@@ -140,7 +141,7 @@ export function road() {
   // patch — slightly different asphalt
   g.fillStyle = 'rgba(42,44,48,.85)'; g.fillRect(320, 54, 96, 68);
   g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 1.5; g.strokeRect(320, 54, 96, 68);
-  for (let i = 0; i < 120; i++) { g.fillStyle = 'rgba(60,62,66,.35)'; g.fillRect(322 + Math.random() * 92, 56 + Math.random() * 64, 1.2, 1.2); }
+  for (let i = 0; i < 120; i++) { g.fillStyle = 'rgba(60,62,66,.35)'; g.fillRect(322 + cosmeticRandom() * 92, 56 + cosmeticRandom() * 64, 1.2, 1.2); }
   // manhole
   g.fillStyle = '#1e2024'; g.beginPath(); g.arc(402, 384, 22, 0, Math.PI * 2); g.fill();
   g.strokeStyle = 'rgba(255,255,255,.10)'; g.lineWidth = 1.2; g.stroke();
@@ -217,15 +218,15 @@ export function menuBoard() {
     // slate with subtle paper grain
     g.fillStyle = '#1e2520'; g.fillRect(0, 0, 1024, 768);
     for (let i = 0; i < 2200; i++) {
-      const a = Math.random() * 0.045; g.fillStyle = `rgba(${230 + Math.random() * 20 | 0},${232 + Math.random() * 16 | 0},${220 + Math.random() * 14 | 0},${a})`;
-      g.fillRect(Math.random() * 1024, Math.random() * 768, 1.2, 1.2);
+      const a = cosmeticRandom() * 0.045; g.fillStyle = `rgba(${230 + cosmeticRandom() * 20 | 0},${232 + cosmeticRandom() * 16 | 0},${220 + cosmeticRandom() * 14 | 0},${a})`;
+      g.fillRect(cosmeticRandom() * 1024, cosmeticRandom() * 768, 1.2, 1.2);
     }
     // outer brass frame
     g.strokeStyle = '#8a6f3f'; g.lineWidth = 18; g.strokeRect(10, 10, 1004, 748);
     g.strokeStyle = 'rgba(201,162,39,.35)'; g.lineWidth = 2; g.strokeRect(22, 22, 980, 724);
     // inner chalk dust specks
     g.strokeStyle = 'rgba(240,235,220,.13)'; g.lineWidth = 1;
-    for (let i = 0; i < 420; i++) g.strokeRect(Math.random() * 1024, Math.random() * 768, 1, 1);
+    for (let i = 0; i < 420; i++) g.strokeRect(cosmeticRandom() * 1024, cosmeticRandom() * 768, 1, 1);
     // header with double rule
     g.textAlign = 'center'; g.fillStyle = '#efe6d3';
     g.font = '600 56px Georgia, serif'; g.fillText('— TODAY AT GRUNDS —', 512, 118);
@@ -410,7 +411,7 @@ export function rentSign() {
     if (state === 'let') {
       g.fillStyle = '#efe6d3'; g.fillRect(0, 0, 1024, 768);
       // linen paper
-      g.fillStyle = 'rgba(0,0,0,.035)'; for (let i = 0; i < 1800; i++) g.fillRect(Math.random() * 1024, Math.random() * 768, 1, 1);
+      g.fillStyle = 'rgba(0,0,0,.035)'; for (let i = 0; i < 1800; i++) g.fillRect(cosmeticRandom() * 1024, cosmeticRandom() * 768, 1, 1);
       g.strokeStyle = 'rgba(74,52,35,.55)'; g.lineWidth = 7; g.strokeRect(14, 14, 996, 740);
       g.strokeStyle = 'rgba(74,52,35,.18)'; g.lineWidth = 1.5; g.strokeRect(22, 22, 980, 724);
       g.fillStyle = 'rgba(201,162,39,.62)';
@@ -425,7 +426,7 @@ export function rentSign() {
       g.fillStyle = 'rgba(74,52,35,.32)'; g.font = '18px ui-monospace, monospace'; g.fillText('—  Grund\'s  ·  The District  —', 512, 492);
     } else if (state === 'lease') {
       g.fillStyle = '#fbf7ee'; g.fillRect(0, 0, 1024, 768);
-      g.fillStyle = 'rgba(0,0,0,.025)'; for (let i = 0; i < 1600; i++) g.fillRect(Math.random() * 1024, Math.random() * 768, 1, 1);
+      g.fillStyle = 'rgba(0,0,0,.025)'; for (let i = 0; i < 1600; i++) g.fillRect(cosmeticRandom() * 1024, cosmeticRandom() * 768, 1, 1);
       g.fillStyle = '#d0403a'; g.fillRect(0, 0, 1024, 192);
       // banner sheen
       const sheen = g.createLinearGradient(0, 0, 0, 192);
@@ -440,7 +441,7 @@ export function rentSign() {
       g.strokeStyle = 'rgba(30,26,22,.14)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(280, 400); g.lineTo(744, 400); g.stroke();
     } else if (state === 'sold') {
       g.fillStyle = '#fbf7ee'; g.fillRect(0, 0, 1024, 768);
-      g.fillStyle = 'rgba(0,0,0,.025)'; for (let i = 0; i < 1600; i++) g.fillRect(Math.random() * 1024, Math.random() * 768, 1, 1);
+      g.fillStyle = 'rgba(0,0,0,.025)'; for (let i = 0; i < 1600; i++) g.fillRect(cosmeticRandom() * 1024, cosmeticRandom() * 768, 1, 1);
       g.fillStyle = '#1e1a16'; g.font = '600 52px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText('NEW TENANT', 512, 198);
       g.fillStyle = 'rgba(30,26,22,.55)'; g.font = 'italic 28px Georgia, serif'; g.fillText('opening sept 15', 512, 252);

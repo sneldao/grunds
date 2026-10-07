@@ -351,7 +351,7 @@ export class PatronSystem {
     if (!toRival && !boardWalk && this.regulars && zone === 'counter') {
       const r = pending
         ? this.regulars.markSeen(cohort, this.markSeenOnly || null, pending)
-        : this.regulars.markSeen(cohort, this.markSeenOnly || null);
+        : this.regulars.markSeen(cohort, this.markSeenOnly || null, null, this.random);
       this._attachRegular(p, r);
     }
     // Phase 1 — walk-in identity: draw a generated head from the day pool so
@@ -763,51 +763,52 @@ export class PatronSystem {
   // rig this is (so laptop/camera can fold into a seated pose); sitting is
   // p.state === 'sit' from the per-frame loop.
   _placeProp(d, p, anchor, propKey, sitting, shY, torsoY, headY, hipY, rx, rz, fx, fz, s, walking) {
+    const pp = p.vis || p.pos;
     d.rotation.set(0, p.face, 0);
     d.scale.setScalar(s);
     const sway = propSway(p.phase, gaitFor(p.cohort), walking);
     switch (anchor) {
       case 'rightHip':
         // briefcase — held at right hip, swinging slightly forward
-        d.position.set(p.pos.x + rx * 0.18 * s, hipY - 0.04, p.pos.z + rz * 0.18 * s);
+        d.position.set(pp.x + rx * 0.18 * s, hipY - 0.04, pp.z + rz * 0.18 * s);
         d.rotation.set(sway, p.face, 0);
         break;
       case 'chestFront':
         if (propKey === 'laptop' && sitting) {
           // laptop on the lap — tilted forward, dropped to lap height
-          d.position.set(p.pos.x + fx * 0.20 * s, hipY + 0.18, p.pos.z + fz * 0.20 * s);
+          d.position.set(pp.x + fx * 0.20 * s, hipY + 0.18, pp.z + fz * 0.20 * s);
           d.rotation.set(-0.55, p.face, 0);
         } else if (propKey === 'camera' && sitting) {
           // camera raised to the eye — held up to look through the viewfinder
-          d.position.set(p.pos.x + fx * 0.18 * s, headY - 0.02, p.pos.z + fz * 0.18 * s);
+          d.position.set(pp.x + fx * 0.18 * s, headY - 0.02, pp.z + fz * 0.18 * s);
           d.rotation.set(0.18, p.face, 0);
         } else {
           // standing — laptop/camera held in front of chest, slightly down
-          d.position.set(p.pos.x + fx * 0.22 * s, torsoY + 0.08, p.pos.z + fz * 0.22 * s);
+          d.position.set(pp.x + fx * 0.22 * s, torsoY + 0.08, pp.z + fz * 0.22 * s);
           d.rotation.set(-0.3, p.face, 0);
         }
         break;
       case 'upperBack':
         // backpack — on the back, behind torso
-        d.position.set(p.pos.x - fx * 0.12 * s, torsoY + 0.05, p.pos.z - fz * 0.12 * s);
+        d.position.set(pp.x - fx * 0.12 * s, torsoY + 0.05, pp.z - fz * 0.12 * s);
         d.rotation.set(0, p.face, 0);
         break;
       case 'rightHand':
         // mug / notebook — at the right-hand level, slightly forward
-        d.position.set(p.pos.x + fx * 0.20 * s + rx * 0.22 * s, shY - 0.04, p.pos.z + fz * 0.20 * s + rz * 0.22 * s);
+        d.position.set(pp.x + fx * 0.20 * s + rx * 0.22 * s, shY - 0.04, pp.z + fz * 0.20 * s + rz * 0.22 * s);
         d.rotation.set(-0.2 + sway * 0.5, p.face, 0);
         break;
       case 'leftHand':
-        d.position.set(p.pos.x + fx * 0.20 * s - rx * 0.22 * s, shY - 0.04, p.pos.z + fz * 0.20 * s - rz * 0.22 * s);
+        d.position.set(pp.x + fx * 0.20 * s - rx * 0.22 * s, shY - 0.04, pp.z + fz * 0.20 * s - rz * 0.22 * s);
         d.rotation.set(-0.2 - sway * 0.5, p.face, 0);
         break;
       case 'rightHandGround':
         // cane — extends from right hand down to the floor
-        d.position.set(p.pos.x + fx * 0.06 * s + rx * 0.18 * s, hipY - 0.10, p.pos.z + fz * 0.06 * s + rz * 0.18 * s);
+        d.position.set(pp.x + fx * 0.06 * s + rx * 0.18 * s, hipY - 0.10, pp.z + fz * 0.06 * s + rz * 0.18 * s);
         d.rotation.set(-0.08 + sway * 0.3, p.face, 0);
         break;
       default:
-        d.position.set(p.pos.x, hipY, p.pos.z);
+        d.position.set(pp.x, hipY, pp.z);
     }
   }
 
@@ -876,13 +877,12 @@ export class PatronSystem {
     });
   }
 
-  // ---- per-frame: movement, walk cycle, matrix composition --------------------
-  update(dt, walkMul, now, reduced = false) {
+  // ---- per sim-minute: positions, arrivals, seat assignment — the sim half.
+  // Stepped inside tick() so frame rate never steers queue joins or dwell. ----
+  step(dt, walkMul, now, reduced = false) {
     this.walkMul = walkMul;
     this._reduced = !!reduced;
     this._syncFloorSeats();
-    const d = this._d; d.rotation.order = 'YXZ';
-    const P = this.parts;
     for (const p of [...this.patrons]) {   // copy: arrivals can despawn mid-loop
       // movement: queue states slide toward their slot; everyone else walks waypoints.
       // The slide is speed-capped (no ice-skating) but 3x walk pace, so the line
@@ -959,7 +959,7 @@ export class PatronSystem {
         }
       }
       p.walking = walking;
-      // Phase 5 — reactions decay on the frame clock.
+      // Phase 5 — reactions decay on the sim clock.
       if (p.reactT > 0) p.reactT = Math.max(0, p.reactT - dt);
       if (p.state === 'leaving') {
         p.leaveT = (p.leaveT || 0) + dt;
@@ -967,6 +967,24 @@ export class PatronSystem {
         if (p.leaveT > ttl) { this._despawn(p); continue; }
       }
       p.phase += dt * (walking ? 7 * gaitFor(p.cohort).freqMul * Math.min(walkMul, 2.2) : 1.4);
+    }
+  }
+
+  // ---- per-frame: pose + matrix composition — reads sim state, never advances it.
+  // `vis` trails the tick-stepped position so 1× still glides. ----
+  render(dt, now, reduced = false) {
+    const d = this._d; d.rotation.order = 'YXZ';
+    const P = this.parts;
+    for (const p of [...this.patrons]) {
+      if (!p.active) continue;
+      if (!p.vis) p.vis = p.pos.clone();
+      if (p.vis.distanceToSquared(p.pos) > 4) p.vis.copy(p.pos);
+      else {
+        const k = Math.min(1, Math.max(0, dt || 0) * 9);
+        p.vis.x += (p.pos.x - p.vis.x) * k; p.vis.z += (p.pos.z - p.vis.z) * k;
+      }
+      const vx = p.vis.x, vz = p.vis.z;
+      const walking = p.walking;
       if (p.state === 'defecting') {
         // Teal while they cross, so a walk to Sam reads against the café crowd.
         // Queue join still happens at the end of the same path as before.
@@ -980,7 +998,7 @@ export class PatronSystem {
 
       // Phase 5 — pose clips: one sample carries walk/sit/sip/react.
       const sipping = p.sipping > 0;
-      const sitting = p.state === 'sit' || !!(seatHold && p._seatSettled);
+      const sitting = p.state === 'sit' || !!(p._floorSeat && p.state !== 'sit' && p.state !== 'toSeat' && p._seatSettled);
       const s = p.scale;
       const mood = moodFor(p.op);
       const pose = samplePose({
@@ -1004,36 +1022,36 @@ export class PatronSystem {
       const torsoAx = axesFor(p, 'torso', nowSec);
 
       d.rotation.set(0, p.face, 0);
-      d.position.set(p.pos.x, torsoY, p.pos.z);
+      d.position.set(vx, torsoY, vz);
       d.scale.set(s * torsoAx.x, s * torsoAx.y, s * torsoAx.z);
       d.rotation.x = lean; d.updateMatrix(); P.torso.setMatrixAt(p.idx, d.matrix);
       d.scale.setScalar(s);
 
       d.rotation.set(0, p.face + headRy, 0);
-      d.position.set(p.pos.x, headY, p.pos.z); d.updateMatrix(); P.head.setMatrixAt(p.idx, d.matrix);
+      d.position.set(vx, headY, vz); d.updateMatrix(); P.head.setMatrixAt(p.idx, d.matrix);
 
       const hipY = 0.36 + bob * 0.5;
-      d.position.set(p.pos.x - rx * 0.09 * s, hipY, p.pos.z - rz * 0.09 * s);
+      d.position.set(vx - rx * 0.09 * s, hipY, vz - rz * 0.09 * s);
       d.rotation.set(legSwing, p.face, 0); d.scale.set(s, sitting ? 0.001 : s, s); d.updateMatrix();
       P.legL.setMatrixAt(p.idx, d.matrix);
-      d.position.set(p.pos.x + rx * 0.09 * s, hipY, p.pos.z + rz * 0.09 * s);
+      d.position.set(vx + rx * 0.09 * s, hipY, vz + rz * 0.09 * s);
       d.rotation.set(-legSwing, p.face, 0); d.updateMatrix();
       P.legR.setMatrixAt(p.idx, d.matrix);
 
       const shY = torsoY + 0.22 * s;
       d.scale.setScalar(s);
-      d.position.set(p.pos.x - rx * 0.23 * s, shY, p.pos.z - rz * 0.23 * s);
+      d.position.set(vx - rx * 0.23 * s, shY, vz - rz * 0.23 * s);
       d.rotation.set(armSwing, p.face, 0); d.updateMatrix(); P.armL.setMatrixAt(p.idx, d.matrix);
-      d.position.set(p.pos.x + rx * 0.23 * s, shY, p.pos.z + rz * 0.23 * s);
+      d.position.set(vx + rx * 0.23 * s, shY, vz + rz * 0.23 * s);
       d.rotation.set(-armSwingR, p.face, 0); d.updateMatrix(); P.armR.setMatrixAt(p.idx, d.matrix);
 
-      d.position.set(p.pos.x, headY + 0.13 * s, p.pos.z);
+      d.position.set(vx, headY + 0.13 * s, vz);
       d.rotation.set(0, p.face, 0); d.scale.setScalar(p.hasHat ? s : 0.001); d.updateMatrix();
       P.hat.setMatrixAt(p.idx, d.matrix);
 
       if (p.hasCup) {
         const cupAx = axesFor(p, 'cup', nowSec);
-        d.position.set(p.pos.x + fx * 0.24 * s + rx * 0.14 * s, torsoY + 0.1, p.pos.z + fz * 0.24 * s + rz * 0.14 * s);
+        d.position.set(vx + fx * 0.24 * s + rx * 0.14 * s, torsoY + 0.1, vz + fz * 0.24 * s + rz * 0.14 * s);
         d.scale.set(s * cupAx.x, s * cupAx.y, s * cupAx.z); d.updateMatrix(); P.cup.setMatrixAt(p.idx, d.matrix);
       } else {
         d.position.set(0, -10, 0); d.scale.setScalar(0.001); d.updateMatrix(); P.cup.setMatrixAt(p.idx, d.matrix);
@@ -1051,15 +1069,17 @@ export class PatronSystem {
         // Phase 5 — one verb per prop: camera flash, laptop glow, cup
         // steam, cane tap. Rare by design (reads as event, not noise).
         try {
-          const verbR = this.random();
+          // cosmetic stream when FX carries one — a per-frame verb roll must
+          // never consume a patron decision draw
+          const verbR = (this.fx && this.fx.random) ? this.fx.random() : this.random();
           if (this.fx && propKey === 'camera' && sitting && verbR < 0.025) {
             this.fx.flash(d.position.x, d.position.y + 0.1, d.position.z);
           } else if (this.fx && propKey === 'laptop' && sitting && verbR < 0.045) {
             this.fx.sparkle(d.position.x, d.position.y + 0.1, d.position.z);
           } else if (this.fx && propKey === 'mug' && p.hasCup && verbR < 0.05) {
-            this.fx.steam(p.pos.x, torsoY + 0.15, p.pos.z);
+            this.fx.steam(vx, torsoY + 0.15, vz);
           } else if (this.fx && propKey === 'cane' && walking && verbR < 0.015) {
-            this.fx.puff(p.pos.x, 0.15, p.pos.z, { n: 2, shade: 0.5 });
+            this.fx.puff(vx, 0.15, vz, { n: 2, shade: 0.5 });
           }
         } catch { /* a verb never breaks the frame */ }
       }
@@ -1069,8 +1089,20 @@ export class PatronSystem {
     if (this.propMeshes) for (const prop of Object.values(this.propMeshes)) prop.instanceMatrix.needsUpdate = true;
   }
 
+  // Composite kept for harnesses and callers that drive both halves at once.
+  update(dt, walkMul, now, reduced = false) {
+    this.step(dt, walkMul, now, reduced);
+    this.render(dt, now, reduced);
+  }
+
   reset() {
     for (let i = this.patrons.length - 1; i >= 0; i--) this._despawn(this.patrons[i]);
+    // idx allocation order is sim-visible (the seat-plan tiebreak reads p.idx),
+    // so the free list rewinds to its constructor order — a replayed day must
+    // re-meet the same room, not the residue of the last despawn sweep.
+    this.free = [];
+    for (let i = MAXP - 1; i >= 0; i--) this.free.push(i);
+    this.walkMul = 1;
     this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.rivalClock = 0; this.rivalCredit = 0; this.rivalChoices = 0;
     this.staffMul = 1; this.capacityMult = 1; this.shockStaff = 0; this.reach = 1; this.cupQuality = 1;
     this.balkMul = 1; this.dwellMul = 1;

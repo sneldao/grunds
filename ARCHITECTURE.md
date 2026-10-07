@@ -812,6 +812,60 @@ campaign seed, masking the cases where jitter is the thing under test.
 `textures.js` may stay unseeded if procedural texture noise is generated once
 per load rather than per frame — verify before converting it.
 
+**Status (Oct 7).** Sim streams: `exchange.rng = seeded(seed)`, `patronsRng`
++17, `floorRng` +19, `fxRng` +23 (FX particle jitter + gossip-hop picks),
+soft-opening `softRng` +101; all reseed on `reset()` and week resume. Also
+seeded now: walk-in head picks (`WalkinPool.draw`, day-local
+`mulberry32(seed:day:draw)`), the regulars fallback roll (patron stream), and
+table seat angles (fixed private LCG in `world.js`: they set walk distances).
+Presentation-only draws (audio noise, canvas grain in `textures.js` / the
+ticker, ambient mist/motes/rain/stars, camera shake) go through
+`cosmeticRandom()` in `web/js/cosmetic.js`, which binds the platform RNG at
+import — a screenshot harness that seeds `Math.random` before boot gets
+deterministic textures too. Bare `Math.random()` left in `web/js`: 3 — the
+grain on the Brief's sparkline canvas (`drawBriefSparkline`), the
+`newStreetUrl` fallback when `crypto` is missing (it picks a *new* seed), and
+the `convexSync.js` stand-name suffix. None feeds the sim.
+
+**What `web/test/replay-campaign.mjs` guarantees.** It imports the real
+`main.js` headless in a fresh process and plays the full 5-day week with one
+fixed script (menu prices, pastry cut, restock, day-1 light contract,
+prep/reprice at fixed queue thresholds, offers declined). Two runs at seed 7
+are identical on every day's till, cogs, served, balked, defections, rival
+counts, ops lines, receipt `netToday` and the end-of-week ledger; seed 8
+differs. From the moment the day opens `Math.random` throws (and records the
+caller, since `main.js` swallows many throws); only three.js `generateUUID`
+is let through, on a stream that differs between the two runs, as does the
+boot-time cosmetic stream — so object ids and boot noise provably don't steer
+the sim. So: **same seed + same inputs + same frame clock → same campaign.**
+
+**Still nondeterministic, on purpose or out of scope:**
+- **Frame timing (now cosmetic for patrons).** `patrons.step()` runs inside
+  `tick()` at one fixed quantum per sim-minute — movement, arrivals, dwell
+  and `waitMin` are frame-rate independent. `patrons.render()` runs per
+  frame and only reads sim state (`p.vis` trails `p.pos` for glide; prop
+  verbs draw on `fx.random`, not the patron stream). `street.update` and
+  `barStaff.update` still run per frame but are ambient/pose-only — they
+  feed no decisions. `update(dt,…)` remains as the `step + render`
+  composite for harnesses. Two residual sharers to watch: spawn gating
+  reads `speed` (which `rushSpeed` mutates on the wall of the sim clock —
+  fine) and `patrons.reset()` re-canonicalises the `free` idx stack, since
+  `p.idx` order is sim-visible through the seat-plan tiebreak.
+- Tripo / GLB asset loads (arrival order and failures; visuals only, the
+  `seats[]` array is synchronous).
+- Network: Convex sync and managed-decision round-trips, mail replies,
+  Linkup / wire intel, RevenueCat. The replay runs with sync off.
+- Wall clock: founder replay picks its fresh seed from `Date.now()` (the run
+  is then a function of that seed); HUD throttles, intent/halo timers and
+  `impact` use `performance.now()` in the browser.
+- The Brief sparkline grain and the `newStreetUrl` seed fallback in
+  `main.js`, and everything behind `cosmeticRandom()` (presentation only).
+  The headless stub has no 2D canvas, so the sparkline is not drawn in the
+  replay run.
+- Save/resume reseeds the floor streams from `save.seed` rather than
+  restoring their positions, so a resumed week is deterministic but not the
+  same draws as an uninterrupted one.
+
 ### V1 — Bot playtest on real input (~1 day)
 
 We are closer than the borrowed pack's scaffold: `?demo=1` already resolves

@@ -195,15 +195,26 @@ export class WalkinPool {
     }
     return this.heads;
   }
-  draw(cohort, rng = Math.random) {
+  // Which stranger walks in is a sim outcome (their drink, visits, op), so
+  // the pick rides a day-local stream mulberry32(seed:day:draw) — never bare
+  // Math.random, and never the patron stream (no extra patron draws).
+  draw(cohort, rng = null) {
     const matching = this.heads.filter(h => h.cohort === cohort && !this.drawn.has(h.pid));
     if (!matching.length) return null;
-    const h = matching[(rng() * matching.length) | 0];
+    const roll = rng || this._drawStream();
+    const h = matching[(roll() * matching.length) | 0];
     this.drawn.add(h.pid);
     return h;
   }
+  _drawStream() {
+    if (!this._drawRng || this._drawDay !== this.day) {
+      this._drawDay = this.day;
+      this._drawRng = mulberry32(hashSeed(`${this.seed}:${this.day}:draw`));
+    }
+    return this._drawRng;
+  }
   get(pid) { return this.byPid.get(pid) || null; }
-  reset() { this.day = -1; this.heads = []; this.byPid = new Map(); this.drawn = new Set(); }
+  reset() { this.day = -1; this.heads = []; this.byPid = new Map(); this.drawn = new Set(); this._drawRng = null; }
   // outcome: 'served' | 'balked' | 'defected'. Nudges pool op, restages.
   recordVisit(pid, { day, drink, outcome, stayed }) {
     const head = this.byPid.get(pid);

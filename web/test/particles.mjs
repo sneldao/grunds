@@ -36,8 +36,8 @@ check('mist, motes, and rain are masked and stay under the camera', () => {
   assert.match(weather, /alphaMap: puff, alphaTest: 0\.05/);
   assert.match(weather, /alphaMap: rainStreak, alphaTest: 0\.05/);
   assert.match(weather, /fog: false/);
-  assert.match(weather, /mp\[i\*3\+2\] = 5\.5 \+ Math\.random\(\)\*8/);
-  assert.doesNotMatch(weather, /8 \+ Math\.random\(\)\*14/);
+  assert.match(weather, /mp\[i\*3\+2\] = 5\.5 \+ cosmeticRandom\(\)\*8/);
+  assert.doesNotMatch(weather, /8 \+ cosmeticRandom\(\)\*14/);
   assert.match(weather, /W\.mist\.visible = false/);
   assert.match(weather, /W\.motes\.visible = false/);
   assert.match(weather, /W\.rain\.visible = false/);

@@ -53,3 +53,15 @@ test('main wires seeded floor streams and re-points them on reset and resume', a
   assert.ok((main.match(/patrons\.random = patronsRng/g) || []).length >= 2,
     'reset and resume must re-point patrons.random after reseeding');
 });
+
+test('fx draws only from its injected stream; main wires and re-points fxRng', async () => {
+  const fs = await import('node:fs/promises');
+  const fx = await fs.readFile(new URL('../js/fx.js', import.meta.url), 'utf8');
+  assert.equal([...fx.matchAll(/Math\.random\(\)/g)].length, 0, 'bare Math.random() left in fx.js');
+  assert.match(fx, /\{ random = Math\.random \} = \{\}/);
+  const main = await fs.readFile(new URL('../js/main.js', import.meta.url), 'utf8');
+  assert.match(main, /fxRng = seeded\(seedNow\(\) \+ 23\)/);
+  assert.match(main, /new FX\(scene, null, lite, \{ random: fxRng \}\)/);
+  assert.ok((main.match(/fx\.random = fxRng/g) || []).length >= 2,
+    'reset and resume must re-point fx.random after reseeding');
+});

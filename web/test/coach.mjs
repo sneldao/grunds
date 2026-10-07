@@ -108,7 +108,7 @@ check('start card does not pause the floor', G.paused === true, 'planning pause 
 const committed = G.commitDayPlan();
 check('commit accepted', committed && committed.ok === true, JSON.stringify(committed));
 runFrames(1);
-check('intro card reveals once the brief closes', registry.get('coach').hidden === false && /Ruth has the bar/.test(coachText()), coachText().slice(0, 120));
+check('intro card reveals once the brief closes', G.coach.state().intro === true && registry.get('coach').hidden === false && /Ruth has (the bar|served)/.test(coachText()), coachText().slice(0, 120));
 check('intro card offers skip guidance', coachButtons().some(b => b.textContent === 'skip guidance'), JSON.stringify(coachButtons().map(b => b.textContent)));
 check('intro card is a paper block, not a modal', !registry.get('coach').classList.contains('modal'), 'must not open a modal');
 G.doPrebatch();

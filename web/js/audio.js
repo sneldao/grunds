@@ -1,5 +1,6 @@
 // Procedural WebAudio — café murmur, espresso hiss, till chime, lo-fi pad.
 // Zero assets; the graph is built on the title-screen gesture.
+import { cosmeticRandom } from './cosmetic.js';
 
 export class AudioEngine {
   constructor() {
@@ -73,7 +74,7 @@ export class AudioEngine {
     const d = buf.getChannelData(0);
     let last = 0;
     for (let i = 0; i < len; i++) {
-      const w = Math.random() * 2 - 1;
+      const w = cosmeticRandom() * 2 - 1;
       if (brown) { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w;
     }
     return buf;
@@ -96,16 +97,16 @@ export class AudioEngine {
     }
     this.hissGain.gain.setTargetAtTime(this.rush ? 0.035 : 0, t, 0.8);
     // muffled syllables when it's busy
-    if (this.crowd > 6 && Math.random() < dt * this.crowd * 0.05) {
+    if (this.crowd > 6 && cosmeticRandom() < dt * this.crowd * 0.05) {
       const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf;
-      src.playbackRate.value = 0.7 + Math.random() * 0.6;
+      src.playbackRate.value = 0.7 + cosmeticRandom() * 0.6;
       const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass';
-      bp.frequency.value = 300 + Math.random() * 900; bp.Q.value = 2.5;
-      const g = this.ctx.createGain(); const v = 0.012 + Math.random() * 0.02;
+      bp.frequency.value = 300 + cosmeticRandom() * 900; bp.Q.value = 2.5;
+      const g = this.ctx.createGain(); const v = 0.012 + cosmeticRandom() * 0.02;
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09 + Math.random() * 0.08);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09 + cosmeticRandom() * 0.08);
       src.connect(bp); bp.connect(g); g.connect(this.master);
-      src.start(t, Math.random() * 1.5, 0.25); src.stop(t + 0.3);
+      src.start(t, cosmeticRandom() * 1.5, 0.25); src.stop(t + 0.3);
     }
     this._chordT += dt;
     if (this._chordT > 5.5) { this._chordT = 0; this._chordI = (this._chordI + 1) % this.chords.length; this._applyChord(this._chordI); }
@@ -115,7 +116,7 @@ export class AudioEngine {
       this._hammerT += dt;
       if (this._hammerT >= this._hammerNext) {
         this._hammerT = 0;
-        this._hammerNext = 0.6 + Math.random() * 0.3;
+        this._hammerNext = 0.6 + cosmeticRandom() * 0.3;
         this._hammerTap();
       }
     }
@@ -145,7 +146,7 @@ export class AudioEngine {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     if (t - this._lastClink < 0.06) return; this._lastClink = t;
-    const o = this.ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = 2400 + Math.random() * 500;
+    const o = this.ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = 2400 + cosmeticRandom() * 500;
     const g = this.ctx.createGain(); this._env(g, t, 0.035, 0.09);
     o.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.12);
   }
@@ -225,7 +226,7 @@ export class AudioEngine {
     this._hammerOn = !!on;
     if (!this._hammerOn) {
       this._hammerT = 0;
-      this._hammerNext = 0.6 + Math.random() * 0.3;
+      this._hammerNext = 0.6 + cosmeticRandom() * 0.3;
     }
   }
   _hammerTap(at, withClick = true, vol = 1) {
@@ -233,11 +234,11 @@ export class AudioEngine {
     const t = typeof at === 'number' ? at : this.ctx.currentTime;
     // wooden tock: low bandpassed noise burst, ~80ms
     const src1 = this.ctx.createBufferSource(); src1.buffer = this.noiseBuf;
-    src1.playbackRate.value = 0.6 + Math.random() * 0.3;
+    src1.playbackRate.value = 0.6 + cosmeticRandom() * 0.3;
     const bp1 = this.ctx.createBiquadFilter(); bp1.type = 'bandpass';
-    bp1.frequency.value = 80 + Math.random() * 40; bp1.Q.value = 2.5;
+    bp1.frequency.value = 80 + cosmeticRandom() * 40; bp1.Q.value = 2.5;
     const g1 = this.ctx.createGain();
-    const v1 = (0.04 + Math.random() * 0.02) * vol;
+    const v1 = (0.04 + cosmeticRandom() * 0.02) * vol;
     g1.gain.setValueAtTime(0, t);
     g1.gain.linearRampToValueAtTime(v1, t + 0.005);
     g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
@@ -246,11 +247,11 @@ export class AudioEngine {
     if (!withClick) return;
     // metal click: high bandpassed noise, ~30ms — the hammer-on-nail top
     const src2 = this.ctx.createBufferSource(); src2.buffer = this.noiseBuf;
-    src2.playbackRate.value = 1.4 + Math.random() * 0.4;
+    src2.playbackRate.value = 1.4 + cosmeticRandom() * 0.4;
     const bp2 = this.ctx.createBiquadFilter(); bp2.type = 'bandpass';
-    bp2.frequency.value = 1800 + Math.random() * 400; bp2.Q.value = 4;
+    bp2.frequency.value = 1800 + cosmeticRandom() * 400; bp2.Q.value = 4;
     const g2 = this.ctx.createGain();
-    const v2 = 0.012 + Math.random() * 0.006;
+    const v2 = 0.012 + cosmeticRandom() * 0.006;
     g2.gain.setValueAtTime(0, t);
     g2.gain.linearRampToValueAtTime(v2, t + 0.002);
     g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);

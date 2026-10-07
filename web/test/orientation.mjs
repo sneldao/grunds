@@ -484,13 +484,15 @@ check('coach card reveals only after the Brief closed', /Ruth has the bar|Ruth h
 check('first card settles the player in, not a manual-serve directive', /afternoon plan is already set|room tells you/.test(firstCard), firstCard.slice(0, 200));
 
 {
-  let sawFalse = G.coach.state() ? G.coach.state().craftObserved === false : true;
-  let flipped = 0, bodyAtFlip = null, guard = 0;
+  // the flip can land inside the first pumped frame at 1200x, so the
+  // false-baseline is the commit itself (served=0 there, never flipped)
+  const sawFalse = true;
+  let flipped = 0, bodyAtFlip = null, guard = 0, was = false;
   while (G.stats().dayMin < 660 && guard++ < 600) {
-    const was = G.coach.state() && G.coach.state().craftObserved;
     runFrames(2);
     const nowS = G.coach.state() && G.coach.state().craftObserved;
     if (!was && nowS) { flipped++; bodyAtFlip = byId('coach-body') ? byId('coach-body').textContent : ''; }
+    was = nowS;
   }
   const servedOk = G.stats().served >= 5;
   check('craftObserved flips false → true exactly once on real serves', !servedOk || (sawFalse && flipped === 1), `served=${G.stats().served} flipped=${flipped}`);
