@@ -1,6 +1,6 @@
 // Cinematic camera — title orbit, crane-in, drag-orbit, beat push-ins, handheld breath.
 import * as THREE from '../vendor/three.module.js';
-import { dragExceeded, pinchRadius, pointerDistance } from './gestures.js';
+import { cameraGestureTarget, dragExceeded, mouseButtonsUp, pinchRadius, pointerDistance, stalePointerIds } from './gestures.js';
 
 // Idle/home framing. 24 is close enough that a person at the bar and the
 // chalkboard read, and the far curb of the road still sits in frame.
@@ -32,12 +32,19 @@ export class CameraRig {
     this._fovOff = 0;
     this.lastUser = 0;
     this.craneT = 0;
+    this.dom = dom;
+    this.blocked = () => false;
     this._drag = null;
     this._pinch = null;
     this.pointers = new Map();
+    this._cap = new Set();
     this.suppressClick = false;
     const endPointer = (e) => {
-      if (!e || e.pointerId == null) { this.pointers.clear(); this._drag = null; this._pinch = null; return; }
+      if (!e || e.pointerId == null) { this.release(); return; }
+      if (this._cap.has(e.pointerId)) {
+        this._cap.delete(e.pointerId);
+        try { dom.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+      }
       this.pointers.delete(e.pointerId);
       if (this.pointers.size < 2) this._pinch = null;
       if (this.pointers.size === 0) {
@@ -50,9 +57,14 @@ export class CameraRig {
         this._drag = { x: p.x, y: p.y, ox: p.x, oy: p.y, active: false };
       }
     };
-    dom.addEventListener('pointerdown', e => {
+    const onDown = (e) => {
+      if (this.blocked()) { this.release(); return; }
+      if (!cameraGestureTarget(e.target)) return;
+      if (e.pointerType === 'mouse' && e.button != null && e.button !== 0) return;
+      for (const id of stalePointerIds(this.pointers.keys(), e)) this.pointers.delete(id);
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       this.lastUser = performance.now();
+      try { dom.setPointerCapture(e.pointerId); this._cap.add(e.pointerId); } catch { /* inert or gone */ }
       if (this.pointers.size === 1) {
         this._pinch = null;
         this._drag = { x: e.clientX, y: e.clientY, ox: e.clientX, oy: e.clientY, active: false };
@@ -62,9 +74,11 @@ export class CameraRig {
         this._pinch = { dist: Math.max(1, pointerDistance(a, b)), r: this.r };
         this._drag = null;
       }
-    });
-    addEventListener('pointermove', e => {
+    };
+    const onMove = (e) => {
+      if (mouseButtonsUp(e)) { if (this.pointers.has(e.pointerId)) endPointer(e); return; }
       if (!this.pointers.has(e.pointerId)) return;
+      if (this.blocked()) { this.release(); return; }
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.pointers.size >= 2 && this._pinch) {
         const [a, b] = [...this.pointers.values()];
@@ -87,13 +101,31 @@ export class CameraRig {
       this.theta -= dx * 0.005; this.phi = THREE.MathUtils.clamp(this.phi - dy * 0.004, 0.5, 1.32);
       this.lastUser = performance.now();
       if (this.beat) this.beat = null; // user takes the camera back
-    });
-    addEventListener('pointerup', endPointer);
-    addEventListener('pointercancel', endPointer);
-    dom.addEventListener('wheel', e => {
+    };
+    const onWheel = (e) => {
+      if (this.blocked()) return;
+      if (!cameraGestureTarget(e.target)) return;
       this.r = THREE.MathUtils.clamp(this.r * (1 + e.deltaY * 0.0009), 10, 34);
       this.lastUser = performance.now();
-    }, { passive: true });
+      if (this.beat) this.beat = null;
+    };
+    addEventListener('pointerdown', onDown, true);
+    addEventListener('pointermove', onMove, true);
+    addEventListener('pointerup', endPointer, true);
+    addEventListener('pointercancel', endPointer, true);
+    addEventListener('blur', () => this.release());
+    addEventListener('wheel', onWheel, { capture: true, passive: true });
+  }
+
+  // Drop a gesture that a card, a blur, or a lost pointerup interrupted.
+  release() {
+    for (const id of this._cap) {
+      try { this.dom.releasePointerCapture(id); } catch { /* already released */ }
+    }
+    this._cap.clear();
+    this.pointers.clear();
+    this._drag = null;
+    this._pinch = null;
   }
 
   crane() { this.mode = 'crane'; this.craneT = 0; this._from = { target: this.target.clone(), theta: this.theta, phi: this.phi, r: this.r }; this._calm = performance.now(); }

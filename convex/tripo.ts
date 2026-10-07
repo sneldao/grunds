@@ -48,12 +48,12 @@ function resolveModel(model: string): string {
 // Reaper thresholds: webhooks normally land within a few minutes; re-query
 // anything still processing after 10 min, give up after 1h (failed tasks
 // are refunded, so a lost task only costs the row, not credits).
-// NUDGE_MS is the live path: a status read on a task past 90s re-queries
-// Tripo itself, so a described stand can arrive mid-session instead of
-// waiting for the hourly cron.
+// NUDGE_MS is the live path: a status read on a task past 15s re-queries
+// Tripo itself, so a described stand can arrive while the player is still
+// on that day (~2 min) instead of waiting for the hourly cron.
 export const REAPER_STUCK_MS = 10 * 60 * 1000;
 export const REAPER_DEAD_MS = 60 * 60 * 1000;
-export const NUDGE_MS = 90 * 1000;
+export const NUDGE_MS = 15 * 1000;
 
 export interface GenerateSpec {
   prompt: string;

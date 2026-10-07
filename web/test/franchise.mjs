@@ -41,7 +41,7 @@ const fails = [];
 function check(name, cond, detail) { if (!cond) fails.push(`${name}: ${detail || 'failed'}`); else console.log('  PASS', name); }
 
 globalThis.__headless = false; globalThis.__noGLB = false;
-const { initFranchise } = await import('../js/franchise.js');
+const { initFranchise, morningFranchiseLines, FRANCHISE_POLL_MS, FRANCHISE_MAX_POLLS } = await import('../js/franchise.js');
 const { FRANCHISE } = await import('../js/config.js');
 
 const main = readFileSync(join(ROOT, 'web/js/main.js'), 'utf8');
@@ -411,6 +411,40 @@ check('franchiseRentToday reset per dawn + campaign', (main.match(/franchiseRent
 check('franchise exported for headless tests', /\n  franchise,\n/.test(main));
 check('index.html: #brief-row sits above #brief-prep', idxHtml.indexOf('id="brief-row"') > -1 && idxHtml.indexOf('id="brief-row"') < idxHtml.indexOf('id="brief-prep"'));
 check('index.html: licence street entries exist', idxHtml.includes('id="lic-see-street"') && idxHtml.includes('id="lic-new-street"'));
+
+// A stand should show up the same day (~2 min of polling), and the next
+// morning's brief should name the bonus even while another lease is vacant.
+check('poll looks immediately and keeps looking for about six minutes', FRANCHISE_POLL_MS === 10000 && FRANCHISE_MAX_POLLS === 36);
+check('a failed status read schedules another look',
+  /if \(!r\.ok\) \{ continuePoll\(attempt, gen\); return; \}/.test(frJs) &&
+  /catch \{ waiting = true;/.test(frJs) &&
+  /if \(waiting\) continuePoll\(attempt, gen\)/.test(frJs));
+check('a success that has not landed keeps polling', frJs.includes("ls.status === 'success' && !ls.placed) waiting = true"));
+check('describe starts the look immediately', frJs.includes('scaffold(lotId); armPoll()'));
+check('nudge asks Tripo after 15s', /export const NUDGE_MS = 15 \* 1000/.test(convexTripo));
+check('morning brief renders the row bonus', main.includes('morningFranchiseLines') && main.includes("id = 'brief-row-bonus'"));
+check('morning brief keeps last night’s hub for today’s line',
+  /franchiseCarry = \{[\s\S]{0,240}franchiseFxToday\.returnees/.test(main) &&
+  main.indexOf('franchiseCarry = {') < main.indexOf('franchiseFxToday = { awareness: 0, returnees: 0, rentBonus: 0 };', main.indexOf('franchiseCarry = {')));
+check('row bonus is visible in the brief', idxHtml.includes('#brief-row .row-bonus'));
+
+const briefFx = initFranchise({ scene: null, seed: 1, classic: true });
+briefFx.lots['14'] = { placed: true, placedDay: 3, purpose: 'community', status: 'success' };
+briefFx.lots['11'] = { placed: true, placedDay: 4, purpose: 'draw', status: 'success' };
+briefFx.lots['18'] = { placed: false, placedDay: 0, purpose: null, status: 'missing' };
+const opened = morningFranchiseLines(briefFx, 3, { awareness: 0, returnees: 0, rentBonus: 0 });
+check('the morning a hub opens names when neighbours start',
+  opened.some(l => l.includes('14 The Row is open') && l.includes(String(P.community.returnees))), opened.join(' | '));
+check('the morning a hub opens does not claim rent already landed', !opened.some(l => l.includes('ground rent')), opened.join(' | '));
+const lines = morningFranchiseLines(briefFx, 4, { awareness: 0, returnees: 0, rentBonus: 0 });
+const rent14b = FRANCHISE.lots.find(l => l.id === '14').rent;
+check('day 4 names this morning’s ground rent', lines.some(l => l.includes(`£${rent14b}`) && l.includes('ground rent')), lines.join(' | '));
+check('day 4 names the hub’s neighbours from tonight',
+  lines.some(l => l.includes(`${P.community.returnees} neighbours`) && l.includes('tomorrow')), lines.join(' | '));
+check('a stand that arrived today says when the draw starts',
+  lines.some(l => l.includes('11 The Row is open') && l.includes('draw')), lines.join(' | '));
+const carried = morningFranchiseLines(briefFx, 4, { awareness: 0, returnees: P.community.returnees, rentBonus: 0 });
+check('last night’s hub is in today’s crowd', carried.some(l => /today.s crowd/.test(l) && l.includes(String(P.community.returnees))), carried.join(' | '));
 
 console.log(fails.length ? `\nFAIL (${fails.length}):\n - ${fails.join('\n - ')}` : '\nPASS — the franchise: three buildable lots · words or photos → Tripo-grown stands → dawn rent · the street remembers');
 process.exit(fails.length ? 1 : 0);

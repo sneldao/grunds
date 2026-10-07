@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import assert from 'node:assert/strict';
-import { dragExceeded, pinchRadius, DRAG_THRESHOLD_PX } from '../js/gestures.js';
+import { dragExceeded, pinchRadius, DRAG_THRESHOLD_PX, cameraGestureTarget, stalePointerIds, mouseButtonsUp } from '../js/gestures.js';
 import { saveWeek, loadWeek, clearWeek, resumeLabel, WEEK_SAVE_KEY } from '../js/weekSave.js';
 import { rushSpeed, RUSH_SPEED } from '../js/paceNotice.js';
 
@@ -18,6 +18,29 @@ assert.equal(DRAG_THRESHOLD_PX, 6);
 assert.equal(pinchRadius(100, 200, 24), 12, 'spreading fingers zooms in');
 assert.equal(pinchRadius(100, 50, 24), 34, 'pinch radius clamps at 34');
 assert.equal(pinchRadius(0, 10, 24), 24, 'a zero span does not move the camera');
+
+const view = { id: 'view', tagName: 'CANVAS', parentElement: { id: '', tagName: 'BODY', parentElement: null } };
+assert.equal(cameraGestureTarget(view), true, 'the street view still orbits');
+const hudBtn = { id: '', tagName: 'BUTTON', parentElement: { id: 'hud', tagName: 'DIV', parentElement: null } };
+assert.equal(cameraGestureTarget(hudBtn), false, 'a HUD press is not a drag');
+const shown = { id: 'brief', tagName: 'DIV', classList: { contains(c) { return c === 'modal' || c === 'show'; } }, parentElement: null };
+assert.equal(cameraGestureTarget({ tagName: 'P', id: '', parentElement: shown }), false, 'an open card keeps the camera');
+assert.equal(cameraGestureTarget({ tagName: 'BODY', id: '', parentElement: null }), true, 'the page itself can still orbit after a card');
+assert.deepEqual(stalePointerIds([1, 7], { pointerType: 'mouse', pointerId: 1 }), [7], 'a new mouse press drops a stuck touch');
+assert.deepEqual(stalePointerIds([1, 2], { pointerType: 'touch', pointerId: 3 }), [], 'a second finger is a real pinch');
+assert.equal(mouseButtonsUp({ pointerType: 'mouse', type: 'pointermove', buttons: 0 }), true);
+assert.equal(mouseButtonsUp({ pointerType: 'mouse', type: 'pointermove', buttons: 1 }), false);
+
+const camSrc = readFileSync(join(ROOT, 'web/js/camera.js'), 'utf8');
+assert.match(camSrc, /setPointerCapture/);
+assert.match(camSrc, /addEventListener\('blur'/);
+assert.match(camSrc, /release\(\)/);
+assert.match(mainSrc, /rig\.blocked/);
+assert.match(mainSrc, /view\.inert = false/);
+assert.match(mainSrc, /SCHEDULE_LOAD_MS = 30000/);
+assert.match(mainSrc, /AbortSignal\.timeout\(SCHEDULE_LOAD_MS\)/);
+assert.match(mainSrc, /if \(attempt < 1\)/);
+assert.doesNotMatch(mainSrc, /api\/schedule\.json',\s*\{\s*signal:\s*AbortSignal\.timeout\(12000\)/);
 
 const mem = { m: new Map(), getItem(k) { return this.m.has(k) ? this.m.get(k) : null; }, setItem(k, v) { this.m.set(k, String(v)); }, removeItem(k) { this.m.delete(k); } };
 assert.equal(loadWeek(mem), null);
