@@ -139,7 +139,10 @@ test('Phase 3 · day-1 milk sizes from the wave sheet, scale-free', () => {
 test('Phase 3 · Brief stages prices + 86 board; commit applies', () => {
   const idx = main.indexOf('function renderMenuSection');
   assert.ok(idx > 0, 'renderMenuSection must be defined');
-  const body = main.slice(idx, idx + 3500);
+  // Slice to the top-level close brace — a fixed char window silently drops
+  // pins when the function grows (the cue-spot rows did just that).
+  const end = main.indexOf('\n}\n', idx);
+  const body = main.slice(idx, end > 0 ? end : idx + 3500);
   assert.match(body, /brief-86-\$\{id\}/);
   assert.match(body, /clampPrice\(id, stagedMenu\.prices\[id\] [-+] 0\.20\)/);
   assert.match(body, /always on/);

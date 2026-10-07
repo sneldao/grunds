@@ -43,6 +43,7 @@ import { strategyForDay } from './rival.js';
 import { canChooseStaffing, canHaveStaffCrisis, earnedRestDay, canStageHire, sickMorningCover, isMaintenanceMorning, robotPace, visitLands, tipForgone, quietOpinionDrag, HIRE_ROBOT } from './staffing.js';
 import { resolveDecision } from './decision.js';
 import { firstMorningCopy, economicsLesson } from './orientation.js';
+import { FLOOR_CUES, CUE_STEP_CAP, shouldTeachOpening, cueSchedule, advanceElapsed, briefCueCopy, wireTapeLine, pastryTodayLine } from './floorCues.js';
 import { planTools, TOOL_IDS, toolCopy, essentialNote } from './curriculum.js';
 import { initSync } from './convexSync.js';
 import { buildMailTheater } from './mailTheater.js';
@@ -521,6 +522,7 @@ let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let waveBatchServed = 0, waveStockoutAt = 0;
 let turnaways = 0, turnawayToastDone = false;
 let coach = null, coachHold = false;
+let cueRun = null, cuesFinished = false;
 let coached = false;   // day-1 lever hint, once per campaign
 // just-in-time nudges: each fires once per campaign, only when its
 // condition is on screen — teach at the moment of need, not at boot
@@ -2730,6 +2732,15 @@ function renderPastryCut(wrap) {
   rule.style.cssText = 'font-size:11px;line-height:1.35;margin-bottom:4px';
   rule.textContent = 'An empty case still sells the drink. One in four leaves, and the room notices.';
   row.appendChild(rule);
+  const todayLine = pastryTodayLine(pastryOnOrder);
+  if (todayLine) {
+    const today = document.createElement('div');
+    today.id = 'brief-pastry-today';
+    today.style.cssText = 'font-size:11px;line-height:1.35;margin-bottom:4px';
+    today.textContent = todayLine;
+    row.appendChild(today);
+  }
+  if (openingTeach() && day === 1) row.classList.add('cue-spot');
   if (day >= CAMPAIGN.days) {
     const note = document.createElement('div');
     note.style.cssText = 'font-size:10px;opacity:.55;font-style:italic';
@@ -3086,8 +3097,9 @@ function renderMenuSection() {
   const TT = toolsToday || briefTools();
   const wasOpen = !!wrap.querySelector?.('details')?.open;
   clearEl(wrap);
-  if (!TT.visible.has('menu')) { wrap.style.display = 'none'; return; }
+  if (!TT.visible.has('menu')) { wrap.style.display = 'none'; wrap.classList.remove('cue-spot'); return; }
   wrap.style.display = '';
+  wrap.classList.toggle('cue-spot', openingTeach() && day === 1);
   if (!stagedMenu) stagedMenu = { prices: { ...menuPrices }, offered: { ...menuOffered } };
   stagedMenu.prices.matcha = stagedPrep.reprice ? ECON.matchaDeal : priceForDay(day);
 
@@ -3646,6 +3658,7 @@ function showMorningBrief() {
   // Phase 3 — the menu: price each drink, 86 the slow ones. Stages here,
   // commits with OPEN (applyMenu).
   renderMenuSection();
+  renderOpeningCues();
   const newEl = $('brief-new');
   if (newEl) {
     clearEl(newEl);
@@ -5073,6 +5086,12 @@ if ($('evening-hold')) $('evening-hold').onclick = () => resolveEvening('hold');
 if ($('evening-close')) $('evening-close').onclick = () => resolveEvening('close');
 if ($('skiprush')) $('skiprush').onclick = () => skipToRush();
 $('tape').onclick = () => { if (marketIntel) desk.open(marketIntel); };
+bindPress($('floorcue-look'), () => {
+  const cue = cueRun && FLOOR_CUES[cueRun.index];
+  if (cue) spotlightCue(cue);
+});
+bindPress($('floorcue-next'), () => advanceFloorCue());
+bindPress($('floorcue-skip'), () => finishFloorCues('skip'));
 
 function reset(coreOnly = false) {
   // full campaign restart: the market and the regulars rewind to their start state.
@@ -5126,6 +5145,7 @@ function reset(coreOnly = false) {
   compostToday = 0; trainingTotal = 0; ruthSkill = 0;
   phase = 'onboarding';
   coach = null; coachHold = false; coachHide(); tutorialActive = false;
+  cueRun = null; cuesFinished = false; hideFloorCue();
   demand.reset(); marketingSpend = 0;
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
   apprenticeHiredToday = false; rivalStrategy = 'DEFAULT'; rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];
@@ -5162,6 +5182,7 @@ function reset(coreOnly = false) {
 
 function beginWeek() {
   if (!softDay) return false;
+  const keepCues = cuesFinished;
   const kept = regulars.regulars.map(r => ({
     name: r.name, op: r.op, visits: r.visits, stage: r.stage, drink: r.drink,
     events: r.events.map(e => ({ ...e, day: 0 })),
@@ -5171,6 +5192,7 @@ function beginWeek() {
     events: (h.events || []).map(e => ({ ...e, day: 0 })), _lastOutcomeDay: undefined,
   }));
   reset(true);
+  cuesFinished = keepCues;
   for (const r of regulars.regulars) {
     const k = kept.find(x => x.name === r.name);
     if (!k) continue;
@@ -5850,8 +5872,173 @@ function coachResume() {
   else coachHold = false;
   coachHide();
 }
+function openingTeach() {
+  return shouldTeachOpening({
+    wantTutorial,
+    unlockAll: curriculumUnlockAll,
+    veteran: TOOL_IDS.every(t => introducedSet().has(t)),
+  });
+}
+function renderOpeningCues() {
+  const host = $('brief-cues');
+  const menu = $('brief-menu');
+  const pastry = $('brief-pastry');
+  const on = openingTeach() && day === 1;
+  if (menu) menu.classList.toggle('cue-spot', on && menu.style.display !== 'none');
+  if (pastry) pastry.classList.toggle('cue-spot', !!on);
+  if (!host) return;
+  clearEl(host);
+  if (!on) { host.hidden = true; host.style.display = 'none'; return; }
+  host.hidden = false;
+  host.style.display = '';
+  for (const line of briefCueCopy({
+    beanIndex: exchange.beanIndex,
+    eventHead: exchange.event && exchange.event.head,
+    onOrder: pastryOnOrder,
+  })) {
+    const row = document.createElement('div');
+    row.className = 'brief-cue';
+    row.dataset.cue = line.id;
+    const k = document.createElement('div');
+    k.className = 'ck';
+    k.textContent = line.kicker;
+    const p = document.createElement('div');
+    p.textContent = line.text;
+    row.append(k, p);
+    host.appendChild(row);
+  }
+}
+function hideFloorCue() {
+  const el = $('floorcue');
+  if (el) el.hidden = true;
+  const kicker = $('floorcue-kicker');
+  const body = $('floorcue-body');
+  const look = $('floorcue-look');
+  if (kicker) kicker.textContent = '';
+  if (body) body.textContent = '';
+  if (look) look.textContent = 'show me';
+  document.body?.classList.remove('cue-wire');
+  const rp = $('reprice');
+  if (rp) rp.classList.remove('cue-spot');
+  const tape = $('tape');
+  if (tape) {
+    tape.classList.remove('cue-spot');
+    if (tape.dataset && tape.dataset.cueHeld) {
+      tape.style.display = '';
+      delete tape.dataset.cueHeld;
+    }
+  }
+}
+function spotlightCue(cue) {
+  if (!cue || reducedMotion || !world.focus) return;
+  const p = world.focus[cue.look];
+  if (p && rig && rig.focus) rig.focus(p, 18, 6, cue.theta ?? null);
+}
+function paintFloorCue(cue, fresh) {
+  const el = $('floorcue');
+  if (!el || !cue) { hideFloorCue(); return; }
+  el.hidden = false;
+  document.body?.classList.toggle('cue-wire', cue.spot === 'tape');
+  const rp = $('reprice');
+  if (rp) rp.classList.toggle('cue-spot', cue.spot === 'reprice');
+  const tape = $('tape');
+  if (tape) {
+    const hold = cue.spot === 'tape';
+    tape.classList.toggle('cue-spot', hold);
+    if (hold) {
+      tape.dataset.cueHeld = '1';
+      tape.style.display = 'block';
+      tape.textContent = wireTapeLine({
+        beanIndex: exchange.beanIndex,
+        eventHead: exchange.event && exchange.event.head,
+      });
+    } else if (tape.dataset && tape.dataset.cueHeld) {
+      tape.style.display = '';
+      delete tape.dataset.cueHeld;
+    }
+  }
+  if (!fresh) return;
+  const k = $('floorcue-kicker');
+  const body = $('floorcue-body');
+  const look = $('floorcue-look');
+  if (k) k.textContent = `${cue.kicker} · ${cueRun.index + 1} of ${FLOOR_CUES.length}`;
+  if (body) body.textContent = cue.floor;
+  if (look) look.textContent = cue.lookLabel;
+  try { analytics.track('floor_cue', { id: cue.id, day, dayMin }); } catch {}
+  spotlightCue(cue);
+}
+function publishFloorCue() {
+  if (!cueRun || cueRun.done) { hideFloorCue(); return; }
+  const sched = cueSchedule(cueRun.elapsed);
+  if (sched.done || !sched.cue) { finishFloorCues('done'); return; }
+  const fresh = sched.index !== cueRun.shown || cueRun.hidden;
+  cueRun.index = sched.index;
+  cueRun.shown = sched.index;
+  cueRun.hidden = false;
+  paintFloorCue(sched.cue, fresh);
+}
+function finishFloorCues(reason) {
+  if (cuesFinished) { hideFloorCue(); return; }
+  const card = $('floorcue');
+  const visible = !!(card && card.hidden === false);
+  cuesFinished = true;
+  cueRun = { done: true };
+  hideFloorCue();
+  if (!visible) return;
+  try { analytics.track(reason === 'done' ? 'floor_cue_done' : 'floor_cue_skip', { day, dayMin }); } catch {}
+}
+function advanceFloorCue() {
+  if (cuesFinished || !cueRun || cueRun.done) return;
+  cueRun.elapsed = advanceElapsed(cueRun.elapsed);
+  cueRun.shown = -1;
+  publishFloorCue();
+}
+function coachCardOpen() {
+  if (!coach || coach.skipped) return false;
+  const card = $('coach');
+  return !!(card && card.hidden === false);
+}
+// The intro card is not up for a frame or two after the doors open. Hold the
+// tips until that card has been shown and dismissed, so the price beat does
+// not flash underneath it.
+function coachBlocksCues() {
+  if (!coach || coach.skipped) return false;
+  if (!coach.intro) return true;
+  return coachCardOpen();
+}
+function syncFloorCues(nowMs) {
+  if (cuesFinished) { hideFloorCue(); return; }
+  if (coach && coach.skipped) { finishFloorCues('skip'); return; }
+  const live = openingTeach() && day === 1 && phase === 'trading' && !closed && !modals.top();
+  // Ruth’s card sits over the HUD. The three beats wait until it is dismissed,
+  // so reading it does not skip the pastry case.
+  if (coachBlocksCues()) {
+    if (!cueRun) cueRun = { elapsed: 0, lastNow: nowMs, index: 0, shown: -1, hidden: true, done: false };
+    cueRun.lastNow = nowMs;
+    cueRun.hidden = true;
+    hideFloorCue();
+    return;
+  }
+  // The 14:00 coach owns the floor. A tip that ran long (quiet pace) steps aside.
+  if (live && (dayMin >= 840 || coachHold)) {
+    if (cueRun && !cueRun.done) finishFloorCues('done');
+    else hideFloorCue();
+    return;
+  }
+  if (!live) {
+    hideFloorCue();
+    if (cueRun && !cueRun.done) { cueRun.lastNow = nowMs; cueRun.hidden = true; }
+    return;
+  }
+  if (!cueRun) cueRun = { elapsed: 0, lastNow: nowMs, index: 0, shown: -1, hidden: true, done: false };
+  if (cueRun.lastNow == null) cueRun.lastNow = nowMs;
+  else if (!paused) cueRun.elapsed += Math.min(CUE_STEP_CAP, Math.max(0, nowMs - cueRun.lastNow));
+  cueRun.lastNow = nowMs;
+  publishFloorCue();
+}
 function coachSkip() {
   if (coach) coach.skipped = true;
+  finishFloorCues('skip');
   coachResume();
   try { analytics.track('coach_skip', { day, dayMin }); } catch {}
 }
@@ -6219,6 +6406,7 @@ function loop(now) {
   impact.update(nowSec);
   rig.update(dt, now);
   rig.setFovOffset(impact.fovDelta(nowSec));
+  syncFloorCues(now);
   // idle guidance: after 4.5s of no intent, point at the nextAction target
   if (halo) {
     let show = false;
@@ -6305,6 +6493,12 @@ function loop(now) {
     return true;
   },
   coach: { state: () => coach, begin: coachBegin, tick: coachTick, resume: coachResume, skip: coachSkip, hide: coachHide },
+  floorCues: {
+    finished: () => cuesFinished,
+    run: () => cueRun ? { elapsed: cueRun.elapsed, index: cueRun.index, done: !!cueRun.done } : null,
+    skip: finishFloorCues,
+    advance: advanceFloorCue,
+  },
   moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key), enqueue: (t, k, d = {}) => momentEnqueue(t, k, d) },
   stageCellar, stageLoan, stageCase,
   patrons, barStaff, modals, openDossier, showIncident, showLicence,
@@ -6390,6 +6584,7 @@ function paintStaticCopy() {
 }
 
 updateHUD();
+try { hideFloorCue(); } catch {}
 try { paintStaticCopy(); } catch {}
 try { modals.open('title'); } catch {}
 requestAnimationFrame(loop);
