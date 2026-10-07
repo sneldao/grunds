@@ -133,6 +133,15 @@ export const STREET_PROPS = [
 // Left of the zebra on the far pavement — beside Sam's line, not in it.
 export const GLASSHOUSE_WAIT = { x: -4.6, z: 14.75, face: 0 };
 
+// A demand surge poses a line on the apron before the real queue arrives.
+// Outside the door radius and off the café floor, facing the door.
+// The real counter line takes these spots over once it is this long.
+export const QUEUE_MARKS = [
+  { x: -6.35, z: 6.35, face: Math.PI, hold: 'queue:0' },
+  { x: -7.15, z: 6.42, face: Math.PI, hold: 'queue:1' },
+  { x: -7.95, z: 6.28, face: Math.PI, hold: 'queue:2' },
+];
+
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 
 export function mulberry32(seed) {
@@ -244,14 +253,17 @@ export function deriveRowLots(franchise, day) {
   return out;
 }
 
-export function ambientChoices({ rowLots = [], rivalHeat = 0, truce = false } = {}) {
+export function ambientChoices({ rowLots = [], rivalHeat = 0, truce = false, demandKind = 'flat' } = {}) {
   const heat = Math.max(0, Number(rivalHeat) || 0);
+  const surge = demandKind === 'surge' && !truce;
+  const thin = demandKind === 'thin';
+  const glass = truce ? 0 : (8 + Math.min(16, heat * 1.25) + (surge ? 10 : 0)) * (thin ? 0.5 : 1);
   const choices = [
-    { kind: 'pavement', weight: 36 },
+    { kind: 'pavement', weight: surge ? 52 : thin ? 16 : 36 },
     { kind: 'neighbor', weight: 22 },
-    { kind: 'park', weight: 14 },
-    { kind: 'bench', weight: 12 },
-    { kind: 'glasshouse', weight: truce ? 0 : 8 + Math.min(16, heat * 1.25) },
+    { kind: 'park', weight: thin ? 24 : 14 },
+    { kind: 'bench', weight: thin ? 18 : 12 },
+    { kind: 'glasshouse', weight: glass },
     { kind: 'prop', weight: 8 },
   ];
   for (const lot of rowLots) {
@@ -330,6 +342,10 @@ export function buildRoute(plan, rng) {
     points.push(pt(LAYOUT.crossX, LAYOUT.farSideZ));
     points.push(pt(LAYOUT.crossX, LAYOUT.pavementZ));
     points.push(pavementEnd(endX, roll));
+  } else if (plan.kind === 'queue' && plan.mark) {
+    const m = plan.mark;
+    points.push(pt(m.x, m.z, { dwell: 36, face: m.face }));
+    points.push(pavementEnd(endX, roll));
   } else if (plan.kind === 'glasshouse') {
     const x = GLASSHOUSE_WAIT.x - (plan.stand || 0) * 0.5;
     points.push(pt(LAYOUT.crossX, LAYOUT.pavementZ));
@@ -385,6 +401,9 @@ export class StreetLife {
     this.live = false;
     this.day = 1;
     this.rivalHeat = 0;
+    this.demandKind = 'flat';
+    this.demandQueue = 0;
+    this.demandGlass = 0;
     this.rowLots = [];
     this.agents = [];
     this.holds = new Set();
@@ -442,7 +461,7 @@ export class StreetLife {
   setLite(on) {
     this.lite = !!on;
     while (this.agents.length > this.cap) {
-      const pawn = this.agents.find(a => a.kind === 'pavement' || a.kind === 'prop' || a.kind === 'glasshouse');
+      const pawn = this.agents.find(a => a.kind === 'pavement' || a.kind === 'prop' || a.kind === 'glasshouse' || a.kind === 'queue');
       this._despawn(pawn || this.agents[this.agents.length - 1]);
     }
   }
@@ -456,6 +475,30 @@ export class StreetLife {
   }
 
   setRivalHeat(n) { this.rivalHeat = Math.max(0, Number(n) || 0); }
+
+  // Cosmetic. `read` comes from demandShockRead. It never joins a queue.
+  setDemandRead(read) {
+    const kind = read && (read.kind === 'surge' || read.kind === 'thin') ? read.kind : 'flat';
+    this.demandKind = kind;
+    const queue = kind === 'surge' ? Math.max(0, Math.floor(Number(read.queue) || 0)) : 0;
+    const glass = kind === 'surge' ? Math.max(0, Math.floor(Number(read.glass) || 0)) : 0;
+    this.demandQueue = Math.min(QUEUE_MARKS.length, queue);
+    this.demandGlass = Math.min(STREET_LIMITS.glasshouse, glass);
+  }
+
+  // The real line has caught the picture. The stand-ins step off.
+  noteQueue(n) {
+    const real = Math.max(0, Math.floor(Number(n) || 0));
+    const marks = this._kindCount('queue');
+    if (!marks || real < marks) return 0;
+    let gone = 0;
+    for (let i = this.agents.length - 1; i >= 0; i--) {
+      if (this.agents[i].kind !== 'queue') continue;
+      this._despawn(this.agents[i]);
+      gone++;
+    }
+    return gone;
+  }
 
   // Which neighbour rooms are currently open (all roofs, or one peek).
   // At most INTERIOR_CAP sitters, in door order. Does not draw the street
@@ -493,10 +536,16 @@ export class StreetLife {
   beginDay(day, seed) {
     const truce = this.truce;
     const heat = this.rivalHeat;
+    const kind = this.demandKind;
+    const queue = this.demandQueue;
+    const glass = this.demandGlass;
     const lots = this.rowLots.slice();
     this.reset();
     this.truce = truce;
     this.rivalHeat = heat;
+    this.demandKind = kind;
+    this.demandQueue = queue;
+    this.demandGlass = glass;
     this.rowLots = lots;
     this.day = day || 1;
     this.rng = mulberry32(mixSeed(seed, this.day));
@@ -506,10 +555,27 @@ export class StreetLife {
     this._spawnOne({ kind: 'park', settled: true });
     this._spawnOne({ kind: 'neighbor', settled: true });
     for (const lot of this.rowLots) this._spawnForced({ kind: 'row', lot });
-    const target = this.lite ? STREET_SEED.lite : STREET_SEED.full;
+    let target = this.lite ? STREET_SEED.lite : STREET_SEED.full;
+    if (this.demandKind === 'thin') target = Math.max(3, target - 2);
     let guard = 0;
     while (this.count < target && guard++ < 24) {
       if (!this._spawnOne()) break;
+    }
+    if (this.demandKind === 'surge') this._poseSurge();
+  }
+
+  // Stand-ins only. They are not patrons and they do not pay.
+  _poseSurge() {
+    const queueN = this.lite ? Math.min(2, this.demandQueue) : this.demandQueue;
+    const glassN = this.lite ? Math.min(1, this.demandGlass) : this.demandGlass;
+    for (let i = 0; i < queueN; i++) {
+      if (this.count >= this.cap) break;
+      this._spawnForced({ kind: 'queue', stand: i, settled: true });
+    }
+    if (this.truce) return;
+    for (let i = 0; i < glassN; i++) {
+      if (this.count >= this.cap) break;
+      this._spawnForced({ kind: 'glasshouse', settled: true });
     }
   }
 
@@ -669,7 +735,7 @@ export class StreetLife {
     }
   }
 
-  _planFor(kind, lot) {
+  _planFor(kind, lot, force) {
     const fromLeft = this.rng() < 0.5;
     if (kind === 'pavement') {
       const seat = this.rng() < 0.34 ? this._peek('bench') : null;
@@ -698,6 +764,12 @@ export class StreetLife {
     if (kind === 'glasshouse') {
       if (this.truce || this._kindCount('glasshouse') >= STREET_LIMITS.glasshouse) return null;
       return { kind, fromLeft, stand: this._kindCount('glasshouse') };
+    }
+    if (kind === 'queue') {
+      const i = force && Number.isFinite(force.stand) ? force.stand : this._kindCount('queue');
+      const mark = QUEUE_MARKS[i];
+      if (!mark || this.holds.has(mark.hold)) return null;
+      return { kind, fromLeft, mark, hold: mark.hold, stand: i };
     }
     if (kind === 'row') {
       const row = lot || this.rowLots.find(l => this._kindCount('row', l.id) < STREET_LIMITS.rowPerLot);
@@ -767,12 +839,13 @@ export class StreetLife {
       let plan;
       if (force && force.kind) {
         if (attempt > 0) return null;
-        plan = this._planFor(force.kind, force.lot);
+        plan = this._planFor(force.kind, force.lot, force);
         if (plan && force.from) plan.from = force.from;
         if (plan && force.pass) plan.pass = true;
       } else {
         const choices = ambientChoices({
           rowLots: this.rowLots, rivalHeat: this.rivalHeat, truce: this.truce,
+          demandKind: this.demandKind,
         }).filter(c => this._hasRoom(c));
         const choice = weightedPick(this.rng, choices);
         if (!choice) return null;
@@ -828,6 +901,8 @@ export class StreetLife {
         agent.dwell = spot.dwell;
         // The dawn visitor has to still be at the door when the crane settles.
         if (route.kind === 'neighbor') agent.dwell = Math.max(agent.dwell, 14);
+        if (route.kind === 'queue') agent.dwell = Math.max(agent.dwell, 36);
+        if (route.kind === 'glasshouse' && this.demandKind === 'surge') agent.dwell = Math.max(agent.dwell, 18);
         agent.dwell0 = agent.dwell;
         agent.sitting = !!spot.sit;
         if (spot.face != null) agent.face = spot.face;

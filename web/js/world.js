@@ -827,7 +827,8 @@ export function buildWorld(scene, renderer, lite) {
     const t = now / 1000;
     rvBarista.position.x = -0.5 + Math.sin(t * 0.9) * 0.3;
     rvBarista.position.y = Math.abs(Math.sin(t * 1.7)) * 0.03;
-    const lean = (W._rivalHeat || 0) > 6 ? -0.08 : 0;
+    const heat = (W._rivalHeat || 0) + (W._demandHeat || 0);
+    const lean = heat > 6 ? -0.08 : 0;
     rvBarista.rotation.z = lean;
     rvGuest.position.x = 1.2 + Math.sin(t * 0.5 + 2) * 0.18;
     // PR-B4 — Sam's reactive cameo: when he undercuts, step the silhouette
@@ -845,9 +846,9 @@ export function buildWorld(scene, renderer, lite) {
       rvBarista.position.z = -0.8;
       rvBarista.rotation.z = lean;
     }
-    // Extra bodies behind the glass as Sam's line grows. The queue itself
-    // is still the real patrons; these only thicken the shop.
-    const heat = W._rivalHeat || 0;
+    // Extra bodies behind the glass as Sam's line grows. A demand surge
+    // adds the same heat before anyone has crossed. The queue itself is
+    // still the real patrons; these only thicken the shop.
     const marks = W._rivalCrowd || [];
     const gates = [2, 6, 12];
     for (let i = 0; i < marks.length; i++) {
@@ -1684,7 +1685,8 @@ export function buildWorld(scene, renderer, lite) {
         g.textAlign = 'right'; g.fillText(vals[vals.length - 1].toFixed(2), x0 + w - 2, y0 + 9);
       }
       g.fillStyle = 'rgba(239,230,211,.72)'; g.font = '13px ui-monospace, monospace'; g.textAlign = 'center';
-      g.fillText('DAY ' + s.day + '/' + s.total + '   \u00b7   REP ' + s.rep + (s.bias ? '   \u00b7   \u25B2 WIRE' : ''), 256, s.history && s.history.length > 1 ? 282 : 268);
+      const streetWord = s.street && !/\d/.test(s.street) ? '   \u00b7   ' + s.street : '';
+      g.fillText('DAY ' + s.day + '/' + s.total + '   \u00b7   REP ' + s.rep + streetWord + (s.bias ? '   \u00b7   \u25B2 WIRE' : ''), 256, s.history && s.history.length > 1 ? 282 : 268);
       if (s.bias) {
         g.fillStyle = 'rgba(201,162,39,.62)'; g.font = '9px ui-monospace, monospace'; g.textAlign = 'center';
         g.fillText('tap the wire for sources', 256, s.history && s.history.length > 1 ? 294 : 282);
@@ -1774,7 +1776,19 @@ export function buildWorld(scene, renderer, lite) {
   // zebra itself lighting up, so the walk-over reads even when the line is
   // already standing at the door.
   W._rivalHeat = 0;
+  W._demandHeat = 0;
   W.setRivalHeat = (n) => { W._rivalHeat = Math.max(0, n || 0); };
+  // Added to the rival-queue heat. A surge lights Glasshouse before the
+  // line across the road is real. It does not change who queues there.
+  W.setDemandHeat = (n) => { W._demandHeat = Math.max(0, Number(n) || 0); };
+  W._tickerEnergy = 0;
+  W._tickerBase = new THREE.Color(0x141822);
+  W._tickerHot = new THREE.Color(0xc9a227);
+  W._tickerCool = new THREE.Color(0x1a2836);
+  W.setTickerEnergy = (e) => {
+    const n = Number(e) || 0;
+    W._tickerEnergy = n > 0 ? 1 : n < 0 ? -1 : 0;
+  };
   quietRandom(() => {
     // Normal alpha, not additive: the zebra is already near-white, so adding
     // light just clips to white and the wash disappears.
@@ -1906,6 +1920,20 @@ export function buildWorld(scene, renderer, lite) {
       W._tillShadow.scale.set(1 + openFrac * 0.35, 1, 1);
       W._tillShadowMat.opacity = openFrac * 0.18;
     }
+    if (W.tickerMat) {
+      const energy = W._tickerEnergy || 0;
+      const pulse = 0.5 + 0.5 * Math.sin(now * (energy > 0 ? 0.006 : 0.0025));
+      if (energy > 0) {
+        W.tickerMat.emissiveIntensity = 1.15 + pulse * 0.9;
+        W.tickerMat.emissive.copy(W._tickerBase).lerp(W._tickerHot, 0.35 + pulse * 0.45);
+      } else if (energy < 0) {
+        W.tickerMat.emissiveIntensity = 0.28 + pulse * 0.18;
+        W.tickerMat.emissive.copy(W._tickerCool);
+      } else {
+        W.tickerMat.emissiveIntensity = 0.9;
+        W.tickerMat.emissive.copy(W._tickerBase);
+      }
+    }
     if (W.rivalSignMat && W.rivalJeerUntil) {
       if (now < W.rivalJeerUntil) {
         const pulse = 0.5 + Math.sin(now * 0.012) * 0.35;
@@ -1935,13 +1963,14 @@ export function buildWorld(scene, renderer, lite) {
     // pools track the lamps: full at open and close, gone when street is 0 (midday)
     for (const pm of W.lampPoolMats) pm.opacity = street * 0.62;
     W.signMat.emissiveIntensity = 0.25 + street * 0.9;
-    W.rivalSignMat.emissiveIntensity = 0.2 + street * 1.1 + Math.min(0.6, W._rivalHeat * 0.05);
+    const shownHeat = (W._rivalHeat || 0) + (W._demandHeat || 0);
+    W.rivalSignMat.emissiveIntensity = 0.2 + street * 1.1 + Math.min(0.6, shownHeat * 0.05);
     // Their glass follows the streetlights: pale reflective panes by day,
     // lamplit amber after dark. The silhouettes read against both.
     rvWinMat.color.lerpColors(RV_DAY, RV_NIGHT, THREE.MathUtils.clamp(street, 0.12, 1));
     // Noon panes are pale. Pull them toward the night amber while Glasshouse
     // has a queue, so the shop reads warm from across the road.
-    const heatGlow = Math.min(0.48, (W._rivalHeat || 0) * 0.06);
+    const heatGlow = Math.min(0.48, shownHeat * 0.06);
     if (heatGlow > 0) rvWinMat.color.lerp(RV_NIGHT, heatGlow);
     const night = THREE.MathUtils.clamp((t - 1150) / 80, 0, 1);
     const duskish = THREE.MathUtils.clamp(1 - Math.abs((t - 720) / 480), 0, 1) * 0.4; // a little window-glow at golden hour too

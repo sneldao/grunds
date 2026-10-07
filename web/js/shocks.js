@@ -101,3 +101,34 @@ export function shockKnobs(effect = {}, staffCondition = 1) {
     shrinkMilky: !!effect.shrinkMilky,
   };
 }
+
+// The demand multiplier the dawn is about to apply. Same counter resolution
+// as the floor, so the street can pose before that write lands. This does
+// not call resolveDecision and does not change the spawn roll.
+export function dawnDemandMult({ day = 1, staged = null, counter = null, menuOffered = null } = {}) {
+  const id = staged?.id || shockOnDay(day);
+  let chosen = staged ? staged.counter : counter;
+  if (!chosen && id === 'dairy_crunch' && counterForMenu(menuOffered)) chosen = 'shrink';
+  const effect = id ? resolveShock(id, chosen) : {};
+  return shockKnobs(effect).demandMult;
+}
+
+// How a wire/demand shock should look on the street. `mul` is the product
+// the spawn roll already uses (event demand × dawn demandMult). Nothing
+// here is fed back into that roll. A surge reads as a line, Glasshouse
+// heat, and ticker energy. A thin day reads quieter. Flat days stay put.
+export function demandShockRead(eventDemand = 1, shockMul = 1) {
+  const event = Number.isFinite(eventDemand) && eventDemand > 0 ? eventDemand : 1;
+  const shock = Number.isFinite(shockMul) && shockMul > 0 ? shockMul : 1;
+  const mul = event * shock;
+  const kind = mul >= 1.05 ? 'surge' : mul <= 0.95 ? 'thin' : 'flat';
+  return {
+    kind,
+    mul,
+    queue: kind === 'surge' ? 3 : 0,
+    glass: kind === 'surge' ? 2 : 0,
+    heat: kind === 'surge' ? 6 : 0,
+    energy: kind === 'surge' ? 1 : kind === 'thin' ? -1 : 0,
+    word: kind === 'surge' ? 'STREET UP' : kind === 'thin' ? 'STREET THIN' : '',
+  };
+}

@@ -89,7 +89,7 @@ console.log('MIRROR  snapshot upserts campaign + stand, badge polls, nightly new
 
 // 11) The rival lives: heat glow, first-defection camera, payoff coins.
 ok(/setRivalHeat/.test(world), 'world.js has no setRivalHeat');
-ok(/_rivalHeat \* 0\.05/.test(world), 'rival sign does not burn with heat');
+ok(/\(W\._rivalHeat \|\| 0\) \+ \(W\._demandHeat \|\| 0\)/.test(world), 'rival sign does not burn with queue heat plus a demand surge');
 ok(/world\.setRivalHeat\(patrons\.rivalQ\.length\)/.test(main), 'main.js does not feed rival queue heat');
 ok(/defections === 1 && speed <= 300/.test(main), 'first defection does not show the enemy');
 ok(/queueFocus\(world\.focus\.rival/.test(main), 'rival focus stomps beats instead of queueing');
