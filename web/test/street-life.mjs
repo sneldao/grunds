@@ -11,7 +11,8 @@ import { SLOTS } from '../js/districtGen.js';
 import { PatronSystem } from '../js/patrons.js';
 import {
   STREET_CAP, STREET_SEED, NEIGHBOR_DOORS, BENCH_SEATS, PARK_SPOTS, STREET_PROPS,
-  GLASSHOUSE_WAIT, deriveRowLots, ambientChoices, weightedPick, buildRoute, routeBlocked,
+  GLASSHOUSE_WAIT, INTERIOR_CAP, deriveRowLots, ambientChoices, weightedPick, buildRoute, routeBlocked,
+  neighborEnterPose, neighborInsideSeconds, inPlayerCafe, nearCafeDoor,
   StreetLife, mulberry32,
 } from '../js/streetLife.js';
 
@@ -224,4 +225,120 @@ test('main wires street life beside the café waves', () => {
   assert.match(world, /_rivalHeat \* 0\.05/);
   assert.match(world, /W\._rivalCrowd/);
   assert.match(world, /W\.rivalHeatMat/);
+  assert.match(main, /street\.setOpenShops\(world\.openPremiseIds\(\)\)/);
+});
+
+test('a neighbour visit steps past the door for 2–4s and stays off the café', () => {
+  for (const dwell of [4.2, 5, 6.4, 14]) {
+    const inside = neighborInsideSeconds(dwell);
+    assert.ok(inside >= 2 && inside <= 4, `inside ${inside}s for dwell ${dwell}`);
+    let hidden = 0;
+    let leftApron = false;
+    let backOnApron = false;
+    const step = 0.05;
+    for (const door of NEIGHBOR_DOORS) {
+      hidden = 0;
+      leftApron = false;
+      backOnApron = false;
+      const start = neighborEnterPose(door, dwell, 0);
+      assert.equal(start.hidden, false);
+      assert.equal(start.z, door.z);
+      assert.equal(start.x, door.x);
+      for (let t = 0; t <= dwell + 1e-6; t += step) {
+        const pose = neighborEnterPose(door, dwell, t);
+        assert.equal(inPlayerCafe(pose.x, pose.z), false, door.id);
+        assert.equal(nearCafeDoor(pose.x, pose.z), false, door.id);
+        assert.equal(pose.x, door.x);
+        if (pose.hidden) {
+          hidden += step;
+          assert.ok(pose.z < door.z - 0.4, `${door.id} hides on the apron`);
+        }
+        if (pose.z < 4.2) leftApron = true;
+        if (hidden > 0 && !pose.hidden && Math.abs(pose.z - door.z) < 0.05) backOnApron = true;
+      }
+      assert.ok(hidden >= 2 && hidden <= 4.6, `${door.id} hidden ${hidden.toFixed(2)}s on a ${dwell}s dwell`);
+      assert.ok(leftApron, door.id);
+      assert.ok(backOnApron, door.id);
+    }
+  }
+  const life = new StreetLife(scene, { lite: false });
+  const orig = Math.random;
+  Math.random = () => { throw new Error('street life called Math.random'); };
+  try {
+    life.beginDay(1, 3);
+    const visitor = life.agents.find(a => a.kind === 'neighbor' && a.state === 'dwell');
+    assert.ok(visitor);
+    assert.equal(visitor.economic, false);
+    assert.equal(visitor.hidden, false);
+    assert.ok(Math.abs(visitor.pos.z - 5.7) < 0.05);
+    visitor.dwell0 = 5;
+    visitor.dwell = 5;
+    let hiddenS = 0;
+    let sawHidden = false;
+    let sawReturn = false;
+    for (let i = 0; i < 140; i++) {
+      life.update(0.05, 1, false);
+      if (!visitor.active) break;
+      assert.equal(routeBlocked([{ x: visitor.pos.x, z: visitor.pos.z }]), false);
+      assert.equal(visitor.economic, false);
+      if (visitor.hidden) { sawHidden = true; hiddenS += 0.05; }
+      else if (sawHidden) sawReturn = true;
+    }
+    assert.ok(sawHidden);
+    assert.ok(sawReturn);
+    assert.ok(hiddenS >= 2 && hiddenS <= 4.6, `sim hidden ${hiddenS}`);
+  } finally {
+    Math.random = orig;
+  }
+});
+
+test('open roofs seat one or two non-economic people inside, and nobody else', () => {
+  for (const door of NEIGHBOR_DOORS) {
+    assert.equal(inPlayerCafe(door.seat.x, door.seat.z), false, door.id);
+    assert.equal(nearCafeDoor(door.seat.x, door.seat.z), false, door.id);
+    assert.ok(door.seat.z < 3.2 && door.seat.z > 1.8, door.id);
+  }
+  const orig = Math.random;
+  Math.random = () => { throw new Error('street life called Math.random'); };
+  try {
+    const open = new StreetLife(scene, { lite: false });
+    const shut = new StreetLife(scene, { lite: false });
+    open.beginDay(2, 9);
+    shut.beginDay(2, 9);
+    const holds = open.holds.size;
+    open.setOpenShops(['quill', 'hearth', 'bell', 'marrow']);
+    assert.equal(open.census().interior, INTERIOR_CAP);
+    assert.equal(open.holds.size, holds);
+    assert.equal(shut.census().interior || 0, 0);
+    const seated = open.agents.filter(a => a.kind === 'interior');
+    assert.deepEqual(seated.map(a => a.doorId), ['quill', 'hearth']);
+    for (const a of seated) {
+      assert.equal(a.economic, false);
+      assert.equal(a.sitting, true);
+      assert.equal(inPlayerCafe(a.pos.x, a.pos.z), false);
+      const door = NEIGHBOR_DOORS.find(d => d.id === a.doorId);
+      assert.equal(a.pos.x, door.seat.x);
+      assert.equal(a.pos.z, door.seat.z);
+    }
+    for (let i = 0; i < 40; i++) {
+      open.tick();
+      shut.tick();
+      open.update(0.05, 1, false);
+      shut.update(0.05, 1, false);
+    }
+    assert.equal(open.census().interior, INTERIOR_CAP);
+    const walkers = (life) => life.agents
+      .filter(a => a.kind !== 'interior')
+      .map(a => `${a.kind}:${a.pos.x.toFixed(2)},${a.pos.z.toFixed(2)}`)
+      .join('|');
+    assert.equal(walkers(open), walkers(shut));
+    open.setOpenShops(['marrow']);
+    assert.equal(open.census().interior, 1);
+    assert.equal(open.agents.find(a => a.kind === 'interior').doorId, 'marrow');
+    open.setOpenShops([]);
+    assert.equal(open.census().interior || 0, 0);
+    assert.equal(walkers(open), walkers(shut));
+  } finally {
+    Math.random = orig;
+  }
 });

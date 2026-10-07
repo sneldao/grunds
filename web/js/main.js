@@ -169,6 +169,10 @@ function applyConstruction(d) {
   world.setConstruction(d, rowClaimed('18'));
   world.setConstructionLeft(d, rowClaimed('11'));
   world.setConstructionRight(d);
+  // Vacant Row shells stay up from day 1 until a lot is actually claimed.
+  if (world.setRowFront) {
+    for (const lot of FRANCHISE.lots) world.setRowFront(lot.id, !rowClaimed(lot.id));
+  }
 }
 // The Row's real state for the letter — built stands, claimed (built or
 // in the builders' hands), and leases open but unsigned as of day d.
@@ -6154,6 +6158,7 @@ function loop(now) {
     const ambient = started && phase === 'trading' && !paused && !tutorialActive && !modals.top()
       && !lite && !_liteSwitched && rig.mode !== 'title';
     const peeked = world.updateNeighborPeeks(dt, now, { ambient });
+    if (world.openPremiseIds) street.setOpenShops(world.openPremiseIds());
     if (peeked && !roofAmbientNoted) {
       roofAmbientNoted = true;
       fx.toast(`${peeked.name} — ${peeked.line}`, '');

@@ -6,6 +6,10 @@
 //
 // Do not call Math.random from this file. The headless day seeds that global
 // stream; burning it would move the café's balks.
+//
+// A neighbour visit still aims at the apron (z ≈ 5.7). On the dwell they
+// slide past the door and drop out of sight for 2–4s, then come back out.
+// Open roofs show one or two sitters inside. None of them join a queue.
 
 import * as THREE from '../vendor/three.module.js';
 import { COHORTS, COHORT_KEYS, LAYOUT, FRANCHISE } from './config.js';
@@ -29,15 +33,74 @@ const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];
 const LEGS = [0x2a2c34, 0x3a3230, 0x24303a];
 
 // Shop fronts face the play camera at z ≈ 3.6. These stands are on the
-// pavement side of the door, clear of the café threshold.
+// pavement side of the door, clear of the café threshold. `seat` is a
+// chair inside the open shell (shopGroup front at z 3.6, local +z toward
+// the back wall) — only drawn while that roof is open.
 export const NEIGHBOR_DOORS = [
   // On the apron in front of each bay (shop fronts sit near z 3.6–4).
   // Far enough out that a body reads as a visitor, not a fixture in the wall.
-  { id: 'quill', x: -10.55, z: 5.7, face: Math.PI },
-  { id: 'hearth', x: 3.55, z: 5.7, face: Math.PI },
-  { id: 'bell', x: 7.9, z: 5.7, face: Math.PI },
-  { id: 'marrow', x: 11.7, z: 5.7, face: Math.PI },
+  { id: 'quill', x: -10.55, z: 5.7, face: Math.PI, seat: { x: -10.95, z: 2.45 } },
+  { id: 'hearth', x: 3.55, z: 5.7, face: Math.PI, seat: { x: 3.0, z: 2.425 } },
+  { id: 'bell', x: 7.9, z: 5.7, face: Math.PI, seat: { x: 8.2, z: 2.4 } },
+  { id: 'marrow', x: 11.7, z: 5.7, face: Math.PI, seat: { x: 11.4, z: 2.4 } },
 ];
+
+const DOOR_BY_ID = Object.create(null);
+for (const door of NEIGHBOR_DOORS) DOOR_BY_ID[door.id] = door;
+
+// How long a neighbour visit spends past the door. The apron beat stays;
+// the hidden stretch is what reads as "they went in".
+export const ENTER_SLIDE_S = 0.45;
+export const ENTER_INSIDE_MIN = 2;
+export const ENTER_INSIDE_MAX = 4;
+// Just inside the shop front (z ≈ 3.6), still outside the player café.
+export const ENTER_THRESHOLD_Z = 3.45;
+export const INTERIOR_CAP = 2;
+
+export function neighborInsideSeconds(dwellTotal) {
+  const total = Math.max(0, Number(dwellTotal) || 0);
+  if (total <= 0.4) return 0;
+  const reserved = ENTER_SLIDE_S * 2 + 0.6;
+  const room = total - reserved;
+  if (room >= ENTER_INSIDE_MAX) return ENTER_INSIDE_MAX;
+  if (room >= ENTER_INSIDE_MIN) return room;
+  return Math.min(ENTER_INSIDE_MIN, Math.max(0.5, total * 0.5));
+}
+
+// Pure. `elapsed` is on the same clock as the dwell countdown.
+export function neighborEnterPose(door, dwellTotal, elapsed) {
+  const total = Math.max(0.01, Number(dwellTotal) || 0);
+  const t = Math.max(0, Math.min(Number(elapsed) || 0, total));
+  let inside = neighborInsideSeconds(total);
+  let slide = ENTER_SLIDE_S;
+  if (inside + slide * 2 > total) slide = Math.max(0.05, (total - inside) / 2);
+  if (inside + slide * 2 > total) inside = Math.max(0, total - slide * 2);
+  const lead = Math.max(0, total - inside - slide * 2);
+  const apronZ = door.z;
+  const inZ = ENTER_THRESHOLD_Z;
+  const insideStart = lead + slide;
+  const insideEnd = insideStart + inside;
+  const hideIn = lead + slide * 0.72;
+  const showOut = insideEnd + slide * 0.28;
+  let z = apronZ;
+  let phase = 'apron';
+  if (t < lead) {
+    phase = 'apron';
+  } else if (t < insideStart) {
+    phase = 'in';
+    const u = slide > 0 ? (t - lead) / slide : 1;
+    z = apronZ + (inZ - apronZ) * u;
+  } else if (t < insideEnd) {
+    phase = 'inside';
+    z = inZ;
+  } else if (t < insideEnd + slide) {
+    phase = 'out';
+    const u = slide > 0 ? (t - insideEnd) / slide : 1;
+    z = inZ + (apronZ - inZ) * u;
+  }
+  const hidden = inside > 0 && t >= hideIn && t < showOut;
+  return { x: door.x, z, hidden, phase, inside };
+}
 
 // The street bench is the slab at (5, 0.45, 7.4). Two people, facing the road.
 export const BENCH_SEATS = [
@@ -309,6 +372,7 @@ export function buildRoute(plan, rng) {
     kind: plan.kind,
     lotId: plan.lot ? plan.lot.id : null,
     hold: plan.hold || null,
+    doorId: plan.door ? plan.door.id : null,
     points,
     economic: false,
   };
@@ -393,6 +457,28 @@ export class StreetLife {
 
   setRivalHeat(n) { this.rivalHeat = Math.max(0, Number(n) || 0); }
 
+  // Which neighbour rooms are currently open (all roofs, or one peek).
+  // At most INTERIOR_CAP sitters, in door order. Does not draw the street
+  // rng — opening a roof must not change who walks the pavement.
+  setOpenShops(ids) {
+    const open = new Set(ids || []);
+    const want = [];
+    for (const door of NEIGHBOR_DOORS) {
+      if (!open.has(door.id) || !door.seat) continue;
+      want.push(door);
+      if (want.length >= INTERIOR_CAP) break;
+    }
+    const wantIds = new Set(want.map((d) => d.id));
+    for (let i = this.agents.length - 1; i >= 0; i--) {
+      const a = this.agents[i];
+      if (a.kind === 'interior' && !wantIds.has(a.doorId)) this._despawn(a);
+    }
+    for (const door of want) {
+      if (this.agents.some((a) => a.kind === 'interior' && a.doorId === door.id)) continue;
+      this._spawnInterior(door);
+    }
+  }
+
   // Visual only. Does not write franchise.effectsDue or tomorrow's returnees.
   syncFranchise(franchise, day) {
     const next = deriveRowLots(franchise, day);
@@ -465,13 +551,25 @@ export class StreetLife {
     for (const a of this.agents.slice()) {
       if (!a.active) continue;
       let walking = false;
-      if (a.state === 'dwell') {
+      if (a.state === 'dwell' && a.kind !== 'interior') {
         a.dwell -= stepScale * dwellScale;
         if (a.dwell <= 0) {
           a.state = 'walk';
           a.sitting = false;
+          a.hidden = false;
+          if (a.kind === 'neighbor' && DOOR_BY_ID[a.doorId]) {
+            a.pos.x = DOOR_BY_ID[a.doorId].x;
+            a.pos.z = DOOR_BY_ID[a.doorId].z;
+          }
           if (a.hold) { this.holds.delete(a.hold); a.hold = null; }
           if (!a.path.length) { this._despawn(a); continue; }
+        } else if (a.kind === 'neighbor' && DOOR_BY_ID[a.doorId]) {
+          const total = a.dwell0 || a.dwell;
+          const pose = neighborEnterPose(DOOR_BY_ID[a.doorId], total, total - a.dwell);
+          a.pos.x = pose.x;
+          a.pos.z = pose.z;
+          a.hidden = pose.hidden;
+          if (pose.phase === 'apron' || pose.phase === 'in') a.face = DOOR_BY_ID[a.doorId].face;
         }
       }
       if (a.state === 'walk' && a.path.length) {
@@ -487,6 +585,8 @@ export class StreetLife {
           if (t.dwell > 0) {
             a.state = 'dwell';
             a.dwell = t.dwell;
+            a.dwell0 = t.dwell;
+            a.hidden = false;
             a.sitting = !!t.sit;
             if (t.face != null) a.face = t.face;
           } else if (!a.path.length) {
@@ -506,7 +606,11 @@ export class StreetLife {
       }
       a.walking = walking;
       a.phase += stepScale * (walking ? 7 : 1.2);
-      this._draw(a, walking, !!reduced);
+      if (a.hidden) {
+        for (const part of Object.values(this.parts)) part.setMatrixAt(a.idx, ZERO);
+      } else {
+        this._draw(a, walking, !!reduced);
+      }
     }
     for (const part of Object.values(this.parts)) part.instanceMatrix.needsUpdate = true;
   }
@@ -613,6 +717,44 @@ export class StreetLife {
     return this.count < this.cap;
   }
 
+  _spawnInterior(door) {
+    if (!door || !door.seat) return null;
+    if (!this._makeRoom()) return null;
+    if (!this.free.length || this.count >= this.cap) return null;
+    const idx = this.free.pop();
+    const n = NEIGHBOR_DOORS.indexOf(door);
+    const cohort = PEOPLE[(n >= 0 ? n : 0) % PEOPLE.length] || 'commuters';
+    const agent = {
+      idx,
+      active: true,
+      economic: false,
+      kind: 'interior',
+      lotId: null,
+      hold: null,
+      doorId: door.id,
+      cohort,
+      pos: new THREE.Vector3(door.seat.x, 0, door.seat.z),
+      face: 0,
+      path: [],
+      state: 'dwell',
+      dwell: 1e9,
+      dwell0: 1e9,
+      hidden: false,
+      sitting: true,
+      walking: false,
+      speed: 0,
+      phase: n * 1.3,
+      scale: 0.92,
+      skin: new THREE.Color(SKIN[(n >= 0 ? n : 0) % SKIN.length]),
+      legs: new THREE.Color(LEGS[(n >= 0 ? n : 0) % LEGS.length]),
+      torso: new THREE.Color(COHORTS[cohort]?.color ?? 0xaaaaaa),
+    };
+    this.agents.push(agent);
+    this._paint(agent);
+    this._draw(agent, false, false);
+    return agent;
+  }
+
   _spawnForced(force) {
     if (!this._makeRoom()) return null;
     return this._spawnOne(force);
@@ -657,12 +799,15 @@ export class StreetLife {
       kind: route.kind,
       lotId: route.lotId,
       hold: route.hold,
+      doorId: route.doorId || null,
       cohort,
       pos: new THREE.Vector3(points[0].x, 0, points[0].z),
       face: points[0].face != null ? points[0].face : (points[0].x < 0 ? Math.PI / 2 : -Math.PI / 2),
       path: points.slice(1),
       state: 'walk',
       dwell: 0,
+      dwell0: 0,
+      hidden: false,
       sitting: false,
       walking: false,
       speed: (COHORTS[cohort]?.walkSpeed || 1.8) * 0.84,
@@ -683,6 +828,7 @@ export class StreetLife {
         agent.dwell = spot.dwell;
         // The dawn visitor has to still be at the door when the crane settles.
         if (route.kind === 'neighbor') agent.dwell = Math.max(agent.dwell, 14);
+        agent.dwell0 = agent.dwell;
         agent.sitting = !!spot.sit;
         if (spot.face != null) agent.face = spot.face;
       }
