@@ -7,6 +7,9 @@
 //   tutorial_step   {step, title}  — each Next
 //   tutorial_skip   {fromStep}     — Skip / Esc
 //   tutorial_complete {steps}      — finished 3/3
+//   floor_cue       {id}           — opening-minute price / pastry / wire beat
+//   floor_cue_skip  {day, dayMin}  — skip tips, or skip guidance
+//   floor_cue_done  {day, dayMin}  — the third beat finished on its own
 //   first_lever_at_min {lever, day, min} — first 1 or 2, wall-clock + sim-min
 //   lever_batch / lever_reprice — every press with queue + till snapshot
 //   day1_balk {min, queue, wave}  — every balk (day 1 filtered in summary)

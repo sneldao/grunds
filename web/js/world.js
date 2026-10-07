@@ -1966,6 +1966,9 @@ export function buildWorld(scene, renderer, lite) {
     wide: new THREE.Vector3(0, 1, 3),
     rival: new THREE.Vector3(LAYOUT.rival.x, 1.6, LAYOUT.rival.z - 1),
     newbuild: new THREE.Vector3(8, 2.2, 16),   // the sold storefronts, day-5 finale
+    board: new THREE.Vector3(-5.5, 2.2, -6.2), // the chalkboard menu
+    case: new THREE.Vector3(-4.3, 1.35, -4.8), // pastry case, customer side
+    ticker: new THREE.Vector3(13.6, 2.4, 6.2), // the morning wire on the street
   };
   applyDistrictFogTree(scene);
   // All Kenney GLB placements are queued above; W.ready resolves once they

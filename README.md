@@ -254,6 +254,8 @@ Morning Brief answers to `1`/`2`/`3`/`4`/`5` → `Enter`. Hidden delight: type `
 (no shadows/post-FX, 1× pixels, now also auto on ≤4 cores / ≤4GB), `?speed=60|300|1200` (default 1×; headless stays 5×),
 `?seed=N` (campaign seed), `?skipLicence` (bypass the pitch licence — defaults), `?skipTutorial`/`?notutorial` (bypass licence + day-1 coach onboarding).
 
+**First minute (new players).** Ruth’s opening card comes first. Once it is dismissed, three tips take under a minute and do not pause the café: what to price (chalkboard, and the menu in the morning brief), the pastry case (today’s croissants are already in; tomorrow is full, half, or skip), and the morning wire (the street ticker — a frost or drought changes what a cup costs). The tips wait while that card is up, so reading it does not skip a beat. Show me swings the camera. Next moves on. Skip tips, or skip guidance, clears them. `?skipTutorial` / `?notutorial` never shows them, and neither does a player who has already met every morning tool. The same three lines sit on the first morning brief, including how many croissants are already in the case.
+
 Onboarding: new players sign the **pitch licence** (name + stand + role + a one-perk
 background — activate the Sign button; Escape never signs or advances), then land on
 the paused floor inside the **Morning Brief** — on the first morning it opens as
