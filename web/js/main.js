@@ -36,7 +36,7 @@ import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, EMPTY_CASE_MOOD, starredDelivery } from './menu.js';
 import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity } from './demand.js';
-import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu, shockOnDay } from './shocks.js';
+import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu, shockOnDay, demandShockRead, dawnDemandMult } from './shocks.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay, modifiersForDay, wavesForDay, getMacroShockForDay, calculateNonLinearDrift, MACRO_SHOCKS } from './gentrification.js';
 import { strategyForDay } from './rival.js';
@@ -477,6 +477,8 @@ let menuOffered = Object.fromEntries(DRINK_IDS.map(id => [id, true]));
 let stagedMenu = null, stagedRoast = 3;
 let milkDelivery = 0, lastMilky = 0, milkTipped = 0, milkToastDone = false, milkBalked = 0;
 let shockCounter = null, stagedCounterable = null, shockDemandMul = 1, shockPulledFlat = false;
+let demandStreetWord = '';
+const DEMAND_CARD_MS = 1100;
 let compostToday = 0;
 let trainingTotal = 0, ruthSkill = 0;
 // first-timers = walk-ins the Regulars graph doesn't know (regularIdx < 0).
@@ -853,6 +855,7 @@ function tick() {
   const events = patrons.tick(dayMin, ctx);
   street.syncFranchise(franchise, day);
   street.setRivalHeat(patrons.rivalQ.length);
+  street.noteQueue(patrons.queueLength);
   street.tick();
   // deliver the wire's gossip once the named regular is actually on the
   // floor — routed through the friend graph so it lands as word-of-mouth
@@ -4094,6 +4097,9 @@ function prepareDay(d) {
   stagedCounterable = null;
   shockDemandMul = 1;
   ctx.priceMult = 1;
+  demandStreetWord = '';
+  street.setDemandRead(null);
+  try { world.setDemandHeat(0); world.setTickerEnergy(0); } catch {}
   milkBalked = 0;
   // default: hold (free) — the Brief never forces a debt, but it forces a choice
   planDraft = { day: d, hedge: 'hold', staffing: 'work', marketing: {} };
@@ -4370,12 +4376,21 @@ function startTradingDay(d) {
   // regulars.markSeen(cohort). No more blanket "everyone was here" — opinion
   // moves only for regulars who actually showed up today.
   rig.resetView();
+  // Street picture only. tick() still multiplies the wave by event.demand
+  // and shockDemandMul — this read does not change who pays.
+  const read = demandShockRead(ev.demand, dawnDemandMult({
+    day: d, staged: stagedCounterable, counter: shockCounter, menuOffered,
+  }));
+  demandStreetWord = read.word;
+  try { world.setDemandHeat(read.heat); world.setTickerEnergy(read.energy); } catch {}
+  street.setDemandRead(read);
+  street.setTruce(samTruce && d === 5);
+  street.beginDay(d, seedNow());
+  street.syncFranchise(franchise, d);
   updateTicker();
   // Managed runs mirror through sync.finishDay at close; unmanaged/local runs
   // never write — the leaderboard is still refreshed read-only.
   refreshStands();
-  fx.toast('DAY ' + day + '/' + CAMPAIGN.days + ' — ' + (ev.head || 'a new day'), ev.tier === 'cata' ? 'bad' : ev.tier === 'good' ? 'good' : '');
-  fx.card('DAY ' + day, ev.line || (ev.head || 'the district stirs'));
   try { world._onCatMeow = () => { try { audio.meow(); } catch {} }; } catch {}
   // gesha persists: Gwen's request lingers as a brass forecast stripe next day
   if (exchange.geshaUnlocked && day > 1) {
@@ -4385,9 +4400,17 @@ function startTradingDay(d) {
   phase = 'trading';
   closed = false;
   paused = false; if ($('pause')) $('pause').textContent = 'pause';
-  street.setTruce(samTruce && d === 5);
-  street.beginDay(d, seedNow());
-  street.syncFranchise(franchise, d);
+  const headline = ev.head || 'a new day';
+  const line = ev.line || (ev.head || 'the district stirs');
+  const tone = ev.tier === 'cata' ? 'bad' : ev.tier === 'good' ? 'good' : '';
+  const sayDay = () => {
+    fx.toast('DAY ' + day + '/' + CAMPAIGN.days + ' — ' + headline, tone);
+    fx.card('DAY ' + day, line);
+  };
+  // The line, the Glasshouse glow, and the ticker are already up.
+  // The headline follows, without the multiplier.
+  if (!headless && read.kind !== 'flat') scheduleRun(sayDay, DEMAND_CARD_MS);
+  else sayDay();
   updateHUD();
 }
 
@@ -4410,6 +4433,7 @@ function updateTicker() {
     day, total: CAMPAIGN.days, rep: regulars.reputation,
     history: exchange.history.map(h => h.index).concat(exchange.beanIndex),
     bias,
+    street: demandStreetWord,
   });
 }
 
@@ -5098,6 +5122,7 @@ function reset(coreOnly = false) {
   toolsToday = null;
   milkDelivery = 0; lastMilky = 0; milkTipped = 0; milkToastDone = false; milkBalked = 0;
   shockCounter = null; stagedCounterable = null; shockDemandMul = 1; shockPulledFlat = false; ctx.priceMult = 1;
+  demandStreetWord = '';
   compostToday = 0; trainingTotal = 0; ruthSkill = 0;
   phase = 'onboarding';
   coach = null; coachHold = false; coachHide(); tutorialActive = false;
@@ -5119,6 +5144,8 @@ function reset(coreOnly = false) {
   if (quietCarry > 0) regulars.adjustOpinions(quietOpinionDrag(quietCarry));
   walkins.reset();
   street.reset();
+  street.setDemandRead(null);
+  try { world.setDemandHeat(0); world.setTickerEnergy(0); } catch {}
   cRev = cCost = cBalked = cServed = cDef = cRivalServed = cRivalChoices = settledPaid = 0;
   campaignDone = false; paused = false;
   campaignDays = []; weekOpStart = null; staleByLotToday = {};   // Phase 6 — autopsy rewinds

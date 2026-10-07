@@ -222,7 +222,8 @@ test('main wires street life beside the café waves', () => {
   assert.match(main, /street\.update\(/);
   assert.match(main, /patrons\.onCosmeticCross/);
   assert.match(main, /world\.setRivalHeat\(patrons\.rivalQ\.length\)/);
-  assert.match(world, /_rivalHeat \* 0\.05/);
+  assert.match(world, /_demandHeat/);
+  assert.match(world, /\(W\._rivalHeat \|\| 0\) \+ \(W\._demandHeat \|\| 0\)/);
   assert.match(world, /Math\.min\(0\.58, 0\.28 \+ heat \* 0\.05\)/);
   assert.match(world, /heatGlow > 0\) rvWinMat\.color\.lerp\(RV_NIGHT, heatGlow\)/);
   assert.match(world, /W\._rivalCrowd/);

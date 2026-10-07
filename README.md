@@ -245,6 +245,8 @@ with replies committing through the same day-scoped record as the browser;
 days into a reputation meter that modulates footfall and tips. World events pass through
 commodity economics into patrons' pockets into your till — every link visible in 3D.
 
+**A busy wire shows up on the street first.** When the lists notice matcha, three people are already waiting outside your door, Glasshouse burns warmer across the road, and the pavement ticker picks up — the words say STREET UP, not a multiplier. The day’s headline follows a moment later. A rain day looks quieter and the ticker cools (STREET THIN). Who actually queues, and what they pay, is unchanged.
+
 The diorama: a shader **sky dome** (gradient + sun glow + procedural stars over the day
 arc), **brick district facades** (two-tone bricks + mortar, framed windows, cornice + brass shopfront) whose windows light up at dusk, a 9-block far skyline, a
 mailbox, a **512×320 brass-collar ticker** with linen grain, weather mist + **warm dust motes (180, amber) in sun-shaft god rays after a frost or harvest**, **7 bollards** + a *THE DISTRICT* street decal, and a
