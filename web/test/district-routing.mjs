@@ -91,6 +91,14 @@ check('providerOrder · un-grown → tripo first, mint fallback', () => {
 });
 check('providerOrder · tripo already failed this slot → mint gets first go', () =>
   assert.deepEqual(plain(D.providerOrder(null, failed('tripo'))), ['mint', 'tripo']));
+check('providerOrder · seed 5 mint cache with no tripo row still asks tripo', () =>
+  assert.deepEqual(plain(D.providerOrder(ok('mint'), null, 5)), ['tripo']));
+check('providerOrder · seed 5 does not retry a failed tripo row', () =>
+  assert.deepEqual(plain(D.providerOrder(ok('mint'), failed('tripo'), 5)), []));
+check('providerOrder · seed 5 leaves a live tripo row alone', () =>
+  assert.deepEqual(plain(D.providerOrder(ok('mint'), proc('tripo'), 5)), []));
+check('providerOrder · other mint caches stay put', () =>
+  assert.deepEqual(plain(D.providerOrder(ok('mint'), null, 7)), []));
 
 check('shouldFallBack · started/cached tasks stay', () => {
   assert.equal(D.shouldFallBack({ status: 'processing', created: true }), false);
@@ -188,6 +196,34 @@ await (async () => {
   check('ensure · mint-cached seed → no generation calls', () => assert.equal(ctx.calls.length, 0));
   check('ensure · mint-cached seed → every slot success via mint', () => {
     for (const s of SLOTS) { assert.equal(r.slots[s].status, 'success'); assert.equal(r.slots[s].provider, 'mint'); }
+  });
+})();
+
+await (async () => {
+  // a2) demo seed 5 is the Mint street that should catch up to Tripo.
+  // Other mint caches (seed 7 above) still make zero calls.
+  const k5 = keysFor(5);
+  const rows = new Map(SLOTS.map((s) => [k5[s].mint, ok('mint')]));
+  const ctx = makeCtx(rows, { tripo: () => ({ key: 't', created: true, status: 'processing' }), mint: never });
+  const r = plain(await D.ensure.handler(ctx, { seed: 5 }));
+  check('ensure · seed 5 mint cache asks Tripo once per slot', () => {
+    assert.equal(ctx.calls.length, 6);
+    assert.ok(ctx.calls.every((c) => c.fn === 'tripo.generate'));
+  });
+  check('ensure · seed 5 upgrade reports processing via tripo', () => {
+    for (const s of SLOTS) { assert.equal(r.slots[s].status, 'processing'); assert.equal(r.slots[s].provider, 'tripo'); }
+  });
+})();
+
+await (async () => {
+  const k5 = keysFor(5);
+  const rows = new Map();
+  for (const s of SLOTS) { rows.set(k5[s].mint, ok('mint')); rows.set(k5[s].tripo, failed('tripo')); }
+  const ctx = makeCtx(rows, { tripo: never, mint: never });
+  const r = plain(await D.ensure.handler(ctx, { seed: 5 }));
+  check('ensure · seed 5 does not retry a failed tripo row', () => assert.equal(ctx.calls.length, 0));
+  check('ensure · seed 5 failed tripo keeps the mint street', () => {
+    for (const s of SLOTS) { assert.equal(r.slots[s].provider, 'mint'); assert.equal(r.slots[s].status, 'success'); }
   });
 })();
 

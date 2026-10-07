@@ -10,8 +10,8 @@ import { assetKey, type GenerateSpec } from "./tripo";
 // (five street-furniture slots, each a precise prompt) → content-keyed
 // get-or-create, provider-routed: Tripo first, Mint as the proven fallback.
 // Keys differ by provider by design (`mintKey` vs `tripo.assetKey`), so a
-// slot already grown by Mint stays cached under its mint key and is never
-// re-grown; un-grown slots go to Tripo. Both may coexist for one seed.
+// slot already grown stays cached and is not re-grown — except the demo
+// seed in TRIPO_CATCHUP_SEEDS. Both providers may coexist for one seed.
 //
 // Determinism note: Tripo slots carry a `model_seed`/`texture_seed` derived
 // from (district seed, slot), so a Tripo district is reproducible at the API
@@ -176,6 +176,17 @@ type SlotRow = {
 
 const live = (r: SlotRow) => !!r && (r.status === "success" || r.status === "processing");
 
+// Seed 5 is the shareable demo street (?seed=5). It was fully grown on Mint
+// before Tripo credits existed, so a live Mint row blocked ensure() and the
+// street never matched seeds 13 and 99, which are all-Tripo. For this seed
+// only, a Mint success with no Tripo attempt yet still gets one Tripo try.
+// Mint keeps serving until that row succeeds (pickSlotRow prefers Tripo).
+// A failed Tripo row is not retried. Other Mint caches stay: re-growing
+// every old seed would change streets people already share, and spend a kit
+// per seed. The upgrade runs on the next ensure after this ships — it is
+// not applied from a deploy in the same change.
+export const TRIPO_CATCHUP_SEEDS = [5] as const;
+
 // Dual-key read: which provider's row represents this slot. A success under
 // either key wins (Tripo preferred when both exist); then processing; then
 // whatever row exists (failed); else null → "missing".
@@ -192,11 +203,21 @@ export function pickSlotRow(
 }
 
 // Which providers ensure() should try for a slot, in order. [] = leave it
-// alone (success/processing under either key — idempotent, never re-grow).
+// alone (success/processing under either key — idempotent, never re-grow),
+// unless `seed` is a catch-up seed whose Mint row has never had a Tripo try.
 // Tripo first; if Tripo already failed this slot asynchronously and Mint
 // hasn't, Mint goes first so a Tripo outage can't pin a slot to "failed".
-export function providerOrder(mintRow: SlotRow, tripoRow: SlotRow): Provider[] {
-  if (live(mintRow) || live(tripoRow)) return [];
+export function providerOrder(mintRow: SlotRow, tripoRow: SlotRow, seed?: number): Provider[] {
+  if (live(tripoRow)) return [];
+  if (
+    seed != null &&
+    (TRIPO_CATCHUP_SEEDS as readonly number[]).includes(seed) &&
+    live(mintRow) &&
+    tripoRow == null
+  ) {
+    return ["tripo"];
+  }
+  if (live(mintRow)) return [];
   if (tripoRow?.status === "failed" && mintRow?.status !== "failed") return ["mint", "tripo"];
   return ["tripo", "mint"];
 }
@@ -263,7 +284,7 @@ export const ensure = action({
       const tripoSpec = tripoSpecForSlot(args.seed, slot, spec[slot]);
       const mintRow = await ctx.runQuery(api.tripo.byKey, { key: slotKey(slot, spec[slot]) });
       const tripoRow = await ctx.runQuery(api.tripo.byKey, { key: assetKey(tripoSpec) });
-      const order = providerOrder(mintRow, tripoRow);
+      const order = providerOrder(mintRow, tripoRow, args.seed);
       if (!order.length) {
         const hit = pickSlotRow(mintRow, tripoRow)!;
         slots[slot] = { status: hit.row.status, provider: hit.provider, modelUrl: hit.row.modelUrl ?? null };

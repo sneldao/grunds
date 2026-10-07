@@ -317,13 +317,48 @@ export function menuBoard() {
   return { draw, drawMenu, canvas: c };
 }
 
-// Soft radial sprite for particles (steam, coins, dust, huffs).
+// Point and sprite masks. The falloff has to reach the corner of the quad:
+// a radial stop short of the corner leaves an opaque border, and a Points
+// primitive is a square, so the street fills with grey squares. The mask is
+// also in the green channel (alphaMap samples .g) so a lost alpha channel
+// cannot bring the square back. Leave the texture linear — sRGB upload
+// treats this as a photo and can drop the alpha.
+function maskTexture(c) {
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.NoColorSpace;
+  t.generateMipmaps = false;
+  t.minFilter = THREE.LinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  t.premultiplyAlpha = false;
+  t.needsUpdate = true;
+  return t;
+}
+
+// Soft radial sprite for particles (steam, coins, dust, huffs, mist, motes).
 export function softSprite() {
   const [c, g] = canvas(64, 64);
-  const grd = g.createRadialGradient(32, 32, 2, 32, 32, 30);
-  grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.5, 'rgba(255,255,255,.45)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  // 46 covers the corner (32√2 ≈ 45.3). Outside the end radius the canvas
+  // would keep whatever was there; the whole quad has to fade out.
+  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 46);
+  grd.addColorStop(0, 'rgba(255,255,255,1)');
+  grd.addColorStop(0.42, 'rgba(255,255,255,0.55)');
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  return maskTexture(c);
+}
+
+// Vertical dash for rain. Same mask rules — a square point with a round
+// sprite reads as hail, and a square point with no sprite reads as litter.
+export function streakSprite() {
+  const [c, g] = canvas(32, 64);
+  const grd = g.createLinearGradient(0, 0, 0, 64);
+  grd.addColorStop(0, 'rgba(0,0,0,0)');
+  grd.addColorStop(0.18, 'rgba(255,255,255,0.95)');
+  grd.addColorStop(0.82, 'rgba(255,255,255,0.95)');
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grd;
+  g.fillRect(12, 0, 8, 64);
+  return maskTexture(c);
 }
 
 // Envelope sprite for the letter-arrival beat — cream paper, flap crease,
