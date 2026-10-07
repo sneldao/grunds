@@ -72,7 +72,11 @@ const gbpWhole = (n) => '£' + Math.abs(n).toFixed(0).replace(/\B(?=(\d{3})+(?!\
 // `nut` is today's pre-cup bill (quoteDayPlan fixedMinimum) when the caller
 // has one. No second cash threshold: the warn is "under today's bills" or
 // "under the held bar", both numbers the game already uses.
-export function weekStanding({ net = 0, rep = 62, day = 1, days = 5, asOf = 'close', nut = null, countToday = false } = {}) {
+//
+// `recent` is each closed day's take-home (netToday), oldest first. A slide
+// is not a new gate: the last close already went backward, and one more day
+// of that size would put the week under £0. The £0 tab itself does not move.
+export function weekStanding({ net = 0, rep = 62, day = 1, days = 5, asOf = 'close', nut = null, countToday = false, recent = null } = {}) {
   const heldNet = VERDICT_GATES.held.netAbove;
   const heldRep = VERDICT_GATES.held.repAtLeast;
   const books = asOf !== 'opening';
@@ -80,12 +84,21 @@ export function weekStanding({ net = 0, rep = 62, day = 1, days = 5, asOf = 'clo
   const insolvent = books && net < 0;
   const underNut = books && nut != null && nut > 0 && net >= 0 && net < nut;
   const repShort = repNow < heldRep;
+  const closes = (Array.isArray(recent) ? recent : []).filter((n) => typeof n === 'number' && Number.isFinite(n));
+  const lastClose = closes.length ? closes[closes.length - 1] : null;
+  let lossStreak = 0;
+  for (let i = closes.length - 1; i >= 0 && closes[i] < 0; i--) lossStreak++;
+  // Mid-week only. Day 2 under the nut is a normal opening; the slide is
+  // said once there is a week to slide through (day 3 on). Saturday's
+  // close has no next morning, so the tip stops there.
+  const anotherMorning = !(asOf === 'close' && day >= days);
+  const sliding = books && !insolvent && day >= 3 && anotherMorning && lossStreak >= 1 && lastClose != null && lastClose < 0 && net + lastClose < 0;
   // After a close, or during a day already open, today is spent.
   // The morning brief still has today in front of it.
   const morningsLeft = Math.max(0, days - day + (countToday ? 1 : 0));
   let tone = 'ok';
   if (insolvent) tone = 'bad';
-  else if (repShort || underNut) tone = 'warn';
+  else if (repShort || underNut || sliding) tone = 'warn';
 
   const heldLine = `Held needs more than ${gbpWhole(heldNet)} and regulars at ${heldRep}. Miss either and the week is scraped, not held.`;
   const repLine = repShort
@@ -111,22 +124,36 @@ export function weekStanding({ net = 0, rep = 62, day = 1, days = 5, asOf = 'clo
     cashLine = `${prefix} ${gbp2(net)}. Solvent — the tab is called only below £0.${cover}`;
   }
 
+  let slideLine = null;
+  if (sliding) {
+    const amt = gbp2(lastClose);
+    const lead = asOf === 'close'
+      ? (lossStreak >= 2
+        ? `The till has gone backward ${lossStreak} closes running — today ${amt}.`
+        : `Today the till went backward (${amt}).`)
+      : (lossStreak >= 2
+        ? `The till has gone backward ${lossStreak} mornings running — last close ${amt}.`
+        : `The last close went backward (${amt}).`);
+    slideLine = `${lead} One more morning like that crosses £0, and that’s when Idris calls the tab. Not there yet.`;
+  }
+
   return {
-    tone, insolvent, underNut, repShort, asOf, books,
+    tone, insolvent, underNut, repShort, sliding, asOf, books,
     heldNet, heldRep, rep: repNow,
-    cashLine, repLine, heldLine,
-    lines: [heldLine, cashLine, repLine],
+    cashLine, repLine, heldLine, slideLine,
+    lines: [heldLine, cashLine, slideLine, repLine].filter(Boolean),
   };
 }
 
 // Mid-morning toast. The brief already states the rule every morning.
 // The toast repeats it only when the miss is easy to play through:
-// regulars under 50, books already below £0, or from day 3 the week
-// still hasn’t banked one day’s bills. Day 2 under the nut is normal
-// and stays on the brief.
+// books already below £0, a mid-week slide toward that line, regulars
+// under 50, or from day 3 the week still hasn’t banked one day’s bills.
+// Day 2 under the nut is normal and stays on the brief.
 export function standingNudge(stand, day = 1) {
   if (!stand) return null;
   if (stand.insolvent) return { tone: 'bad', text: stand.cashLine };
+  if (stand.sliding && day >= 3) return { tone: 'warn', text: stand.slideLine };
   if (stand.repShort) return { tone: 'warn', text: stand.repLine };
   if (stand.underNut && day >= 3) return { tone: 'warn', text: stand.cashLine };
   return null;

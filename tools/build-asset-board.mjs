@@ -10,10 +10,12 @@
 //
 // In-game screenshots: drop `web/assets/board/seed-<N>-<slot>.(png|jpg)` or a
 // whole-street `seed-<N>.(png|jpg)`; the board picks them up (see
-// tools/capture-board-shots.mjs). Missing → "capture pending" placeholder.
+// tools/capture-board-shots.mjs). A seed with no street shot is left off
+// the page — a demo board should not be a column of "capture pending".
 //
 // Usage: node tools/build-asset-board.mjs [seeds…] [--out file] [--base url]
-//        [--offline] [--inline]     (defaults: 7 13 19 11 23 → dist/asset-board.html)
+//        [--offline] [--inline]
+//        (defaults: the grown streets 5 7 11 13 17 19 21 23 27 31 42 99)
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +32,7 @@ const OFFLINE = argv.includes('--offline');
 const INLINE = argv.includes('--inline');
 const seeds = argv.filter((a) => !a.startsWith('--') && !flagVals.has(a)).map(Number);
 if (seeds.some((s) => !Number.isFinite(s))) { console.error('seeds must be numbers'); process.exit(2); }
-if (!seeds.length) seeds.push(7, 13, 19, 11, 23);
+if (!seeds.length) seeds.push(5, 7, 11, 13, 17, 19, 21, 23, 27, 31, 42, 99);
 
 function manifestSeed(seed) {
   try {
@@ -92,7 +94,7 @@ for (const seed of seeds) {
   const live = await liveKit(seed);
   const franchise = await liveFranchise(seed);
   const src = live?.slots ? { from: 'live', slots: live.slots } : manifestSeed(seed) ? { from: 'manifest', slots: manifestSeed(seed).slots } : { from: 'none', slots: {} };
-  data.seeds.push({
+  const entry = {
     seed,
     from: src.from,
     street: shot(`seed-${seed}`),
@@ -110,8 +112,14 @@ for (const seed of seeds) {
         shot: shot(`seed-${seed}-${slot}`),
       };
     }),
-  });
-  console.log(`  seed ${seed} (${src.from}): ${data.seeds.at(-1).slots.map((s) => `${s.slot}=${s.status}${s.provider ? `(${s.provider})` : ''}`).join(' ')}`);
+  };
+  const covered = entry.slots.every((s) => s.shot || entry.street);
+  if (!covered) {
+    console.log(`  seed ${seed} trimmed — no in-game capture`);
+    continue;
+  }
+  data.seeds.push(entry);
+  console.log(`  seed ${seed} (${src.from}): ${entry.slots.map((s) => `${s.slot}=${s.status}${s.provider ? `(${s.provider})` : ''}`).join(' ')}`);
 }
 
 // Shared by Node (static render) and the browser (live refresh).

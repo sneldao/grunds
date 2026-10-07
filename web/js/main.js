@@ -27,7 +27,7 @@ import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict, w
 import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
-import { planAttendance, incidentCost, ABSENCE_WORD } from './consequences.js';
+import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
 import { rushSpeed } from './paceNotice.js';
 import { touchPrimary } from './gestures.js';
@@ -1008,9 +1008,15 @@ function tick() {
       // are unsee'd in patrons.js and never earned the day).
       if (e.p && e.p.pid && e.p.regularIdx < 0) walkins.recordVisit(e.p.pid, { day, outcome: 'defected' });
       const widx = e.p ? (e.p.defectedFrom ?? e.p.regularIdx) : -1;
+      const named = widx >= 0 ? regulars.regulars[widx] : null;
       if (widx >= 0) regulars.noteWalkout(widx, { day, outcome: 'defected' });
-      if (widx >= 0) { const rr = regulars.regulars[widx]; if (rr) momentEnqueue('sam', `sam:${rr.name}`, { name: rr.name }); }
-      if (defections === 1) fx.toast('they’re crossing the road to ' + COPY.rivalName + '…', 'bad');
+      if (named) momentEnqueue('sam', `sam:${named.name}`, { name: named.name });
+      const crossNote = rivalCrossNotice({
+        name: named?.name || e.p?.regularName || null,
+        defections,
+        rivalName: COPY.rivalName,
+      });
+      if (crossNote) fx.toast(crossNote, 'bad');
       if (defections === 1 && speed <= 300) rig.queueFocus(world.focus.rival, 13, 4, 12, Math.PI);
       if (defections === 5) {
         const taunt = COPY.rivalTaunts ? COPY.rivalTaunts[(Math.random() * COPY.rivalTaunts.length) | 0] : null;
@@ -1049,6 +1055,11 @@ function tick() {
 
 // Books the player can read: yesterday until the receipt, then the close.
 // `nut` is today's pre-cup bill when a plan exists — not a new cash rule.
+// `recent` is each closed day's take-home, so a mid-week slide can be said
+// without inventing a second cash gate.
+function recentTakeHome() {
+  return (campaignDays || []).map((d) => d.netToday).filter((n) => typeof n === 'number' && Number.isFinite(n));
+}
 function standingSnapshot() {
   if (softDay) return null;
   const asOf = (phase === 'review' || phase === 'finale') ? 'close' : (day > 1 ? 'last-close' : 'opening');
@@ -1067,7 +1078,7 @@ function standingSnapshot() {
     });
     nut = q.fixedMinimum;
   } catch { nut = null; }
-  return weekStanding({ net, rep: regulars.reputation, day, days: CAMPAIGN.days, asOf, nut, countToday: phase === 'planning' });
+  return weekStanding({ net, rep: regulars.reputation, day, days: CAMPAIGN.days, asOf, nut, countToday: phase === 'planning', recent: recentTakeHome() });
 }
 
 function renderWeekStanding() {
@@ -1579,6 +1590,7 @@ function closeDay() {
   const worthNow = cRev - cCost - cOps - settledPaid - exchange.debt;
   const stand = softDay ? null : weekStanding({
     net: worthNow, rep: regulars.reputation, day, days: CAMPAIGN.days, asOf: 'close',
+    recent: recentTakeHome(),
   });
   if (stand && stand.insolvent) verdict += ' ' + stand.cashLine;
   else if (worthNow < ops.total) verdict += ` The week so far is ${fmt(worthNow)} — today’s operating costs were ${fmt(ops.total)}.`;
