@@ -6,7 +6,7 @@ import * as THREE from '../vendor/three.module.js';
 import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS, FRANCHISE } from './config.js';
 import { buildWorld, chalkPopScale } from './world.js';
 import { initDistrictGen, districtOptOut } from './districtGen.js';
-import { initFranchise } from './franchise.js';
+import { initFranchise, morningFranchiseLines } from './franchise.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
 import { buildDirector } from './director.js';
@@ -336,6 +336,7 @@ const modals = createModalController({
   },
 });
 fx.modals = modals;
+rig.blocked = () => { try { return !!modals.top(); } catch { return false; } };
 // District Insider Pass: the research desk gates on the entitlement; the
 // stand owner doubles as the RevenueCat appUserId so a pass travels with it.
 const desk = initDesk({ billing, analytics, modals });
@@ -456,6 +457,7 @@ let selectedLot = 'huila', topUpCups = 0, beanSpend = 0, emergencySpend = 0, sac
 const loan = new MorningLoan();
 let stagedLoan = 0, stagedCases = 0, caseUnits = 0, caseRevenueToday = 0, franchiseRentToday = 0;
 let franchiseFxToday = { awareness: 0, returnees: 0, rentBonus: 0 };   // the Row's purpose bonuses landed at last close
+let franchiseCarry = { awareness: 0, returnees: 0, rentBonus: 0 };     // that close, still owed to this morning's brief
 let loanLotCover = 0, loanSponsorCover = 0, loanCashCap = null, closeTillOverride = null;
 let loanClaim = null, menuHeld = null, salesTillForOps = null;
 let pouredOther = 0, lastPour = 0, dawnIndex = 1.0;
@@ -2306,12 +2308,25 @@ function renderFranchiseRow() {
   // lot's status + purpose feeds the key so a status read that resolves a
   // build (or fills the row) redraws, while one that changes nothing
   // leaves the draft untouched.
+  const bonusLines = morningFranchiseLines(franchise, day, franchiseCarry);
   const key = [forNow, FRANCHISE.lots.map(l => `${ls(l.id).status || ''}:${ls(l.id).purpose || ''}`).join('+'),
-    rowSending, rowError || ''].join('|');
+    rowSending, rowError || '', bonusLines.join('~')].join('|');
   if (host.dataset.rowKey === key) return;
   host.dataset.rowKey = key;
   clearEl(host);
   host.style.display = '';
+
+  if (bonusLines.length) {
+    const box = document.createElement('div');
+    box.id = 'brief-row-bonus';
+    box.className = 'row-bonus';
+    for (const line of bonusLines) {
+      const p = document.createElement('div');
+      p.textContent = line;
+      box.appendChild(p);
+    }
+    host.appendChild(box);
+  }
 
   if (building.length) {
     const note = document.createElement('div');
@@ -4051,6 +4066,11 @@ function prepareDay(d) {
   loan.beginMorning();
   stagedLoan = 0; stagedCases = 0; caseRevenueToday = 0;
   franchiseRentToday = 0; franchise.refresh(d);
+  franchiseCarry = {
+    awareness: franchiseFxToday.awareness || 0,
+    returnees: franchiseFxToday.returnees || 0,
+    rentBonus: franchiseFxToday.rentBonus || 0,
+  };
   franchiseFxToday = { awareness: 0, returnees: 0, rentBonus: 0 };
   loanLotCover = 0; loanSponsorCover = 0; salesTillForOps = null;
   firstServed = firstWalked = firstServedToast = firstWalkedToast = 0;
@@ -4958,6 +4978,7 @@ function reset(coreOnly = false) {
   lotState.reset(); selectedLot = 'huila'; topUpCups = 0; beanSpend = 0; emergencySpend = 0; sackSpend = 0;
   loan.reset(); stagedLoan = 0; stagedCases = 0; caseUnits = 0; caseRevenueToday = 0; franchiseRentToday = 0;
   franchiseFxToday = { awareness: 0, returnees: 0, rentBonus: 0 };
+  franchiseCarry = { awareness: 0, returnees: 0, rentBonus: 0 };
   loanLotCover = 0; loanSponsorCover = 0; loanCashCap = null; closeTillOverride = null;
   loanClaim = null; menuHeld = null; salesTillForOps = null;
   pouredOther = 0; lastPour = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set();
@@ -5508,23 +5529,31 @@ function layoutMobile() {
 layoutMobile();
 
 // ---- boot -------------------------------------------------------------------------
-fetch('./api/schedule.json', { signal: AbortSignal.timeout(12000) }).then(r => {
-  if (r && r.ok === false) throw new Error('schedule');
-  return r.json();
-}).then(s => {
-  schedule = s;
-  // Wait for the Kenney GLBs to be placed before enabling Open. If a GLB
-  // fails, the loader's graceful fallback returns a placeholder so the user
-  // still sees a floor — they just don't see it half-loaded.
-  Promise.resolve(world.ready).then(() => {
-    $('open').disabled = false;
-    $('open').textContent = COPY.open;
-    paintResume();
+// Slow GPUs stall the main thread; a 12s cap aborted the schedule before the
+// street could finish drawing. 30s, then one more try, then a real failure.
+const SCHEDULE_LOAD_MS = 30000;
+function loadSchedule(attempt = 0) {
+  const signal = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(SCHEDULE_LOAD_MS) : undefined;
+  fetch('./api/schedule.json', { signal }).then(r => {
+    if (r && r.ok === false) throw new Error('schedule');
+    return r.json();
+  }).then(s => {
+    schedule = s;
+    // Wait for the Kenney GLBs to be placed before enabling Open. If a GLB
+    // fails, the loader's graceful fallback returns a placeholder so the user
+    // still sees a floor — they just don't see it half-loaded.
+    Promise.resolve(world.ready).then(() => {
+      $('open').disabled = false;
+      $('open').textContent = COPY.open;
+      paintResume();
+    });
+  }).catch(() => {
+    if (attempt < 1) { loadSchedule(attempt + 1); return; }
+    try { globalThis.grundsBootFail && globalThis.grundsBootFail('Couldn’t load today’s street. Reload to try again.'); }
+    catch { $('open').textContent = 'Couldn’t load today’s street. Reload to try again.'; }
   });
-}).catch(() => {
-  try { globalThis.grundsBootFail && globalThis.grundsBootFail('Couldn’t load today’s street. Reload to try again.'); }
-  catch { $('open').textContent = 'Couldn’t load today’s street. Reload to try again.'; }
-});
+}
+loadSchedule();
 addEventListener('beforeunload', e => {
   if (headless || !started || campaignDone) return;
   if (phase === 'planning' || phase === 'trading' || phase === 'review' || phase === 'committing') {
@@ -6022,6 +6051,16 @@ function loop(now) {
   kitBeat.update(dt, now);
   mailT.update(dt, now);
   try { world.manageCutaway?.(camera.position, document.body.classList.contains('photo') ? 'photo' : rig.mode); } catch {}
+  try {
+    if (modals.top()) rig.release();
+    else {
+      const view = renderer.domElement;
+      if (view && (view.inert || (view.hasAttribute && view.hasAttribute('inert')))) {
+        view.inert = false;
+        if (view.removeAttribute) view.removeAttribute('inert');
+      }
+    }
+  } catch {}
   try {
     const ambient = started && phase === 'trading' && !paused && !tutorialActive && !modals.top()
       && !lite && !_liteSwitched && rig.mode !== 'title';

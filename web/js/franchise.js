@@ -15,7 +15,12 @@ import { GLBLoader } from './loader.js';
 import { fitToSlot } from './districtGen.js';
 import { baseUrl } from './convexSync.js';
 
-const MAX_POLLS = 8; // ~4 min while trading — a fresh build finishes inside one day
+// A fresh stand is usually ready in about two minutes. Look immediately, then
+// every 10s for six minutes, and keep looking through a failed read or a GLB
+// that is not fetchable yet. Stopping early used to leave the kiosk until the
+// next dawn — most of a day of play, about eight minutes on the clock.
+export const FRANCHISE_POLL_MS = 10000;
+export const FRANCHISE_MAX_POLLS = 36;
 
 export function initFranchise({ scene, seed, classic, loader, onArrived, onStatus }) {
   const state = {
@@ -99,15 +104,28 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     }
   }
 
-  async function poll(attempt) {
-    if (dead || !base) return;
+  let pollGen = 0;
+  let pollTimer = 0;
+  function continuePoll(attempt, gen) {
+    if (gen !== pollGen || !(attempt < FRANCHISE_MAX_POLLS)) return;
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = setTimeout(() => { if (gen === pollGen) poll(attempt + 1, gen); }, FRANCHISE_POLL_MS);
+  }
+  function armPoll() {
+    const gen = ++pollGen;
+    if (pollTimer) { clearTimeout(pollTimer); pollTimer = 0; }
+    poll(1, gen);
+  }
+  async function poll(attempt, gen) {
+    if (dead || !base || gen !== pollGen) return;
+    let waiting = false;
     try {
       const r = await fetch(`${base}/franchise/status?seed=${seed}`);
-      if (!r.ok) return;
+      if (gen !== pollGen) return;
+      if (!r.ok) { continuePoll(attempt, gen); return; }
       const d = await r.json();
       const firstRead = !state.live;
       state.live = true;
-      let anyProcessing = false;
       for (const l of d.lots || []) {
         const ls = lotState(l.lot);
         ls.status = l.status || 'missing';
@@ -116,14 +134,16 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
         ls.purpose = l.purpose ?? null; // status is authoritative — never keep a stale local one
         ls.byline = l.byline ?? null;   // the builder's signature, same rule
         if (ls.status === 'success' && l.modelUrl && !ls.placed) await place(l.lot, l.modelUrl, state.day, !firstRead);
-        if (ls.status === 'processing') { anyProcessing = true; scaffold(l.lot); }
+        if (gen !== pollGen) return;
+        if (ls.status === 'processing') { waiting = true; scaffold(l.lot); }
+        else if (ls.status === 'success' && !ls.placed) waiting = true; // GLB not in the street yet — try again
         // The worksite survives a failed GLB load — place() removes it only
         // after a real stand lands; anything that isn't buildable loses it.
         else if (ls.status !== 'success' || ls.placed) unscaffold(l.lot);
       }
       if (state.onStatus) { try { state.onStatus(d); } catch {} }
-      if (anyProcessing && attempt < MAX_POLLS) setTimeout(() => poll(attempt + 1), 30000);
-    } catch { /* street carries on without it */ }
+    } catch { waiting = true; /* one blip must not wait until dawn */ }
+    if (waiting) continuePoll(attempt, gen);
   }
 
   // The floor calls this at each dawn (and once at boot): refresh the read,
@@ -136,7 +156,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       const s = lotState(l.id);
       return s.status === 'processing' || (s.status === 'success' && !s.placed);
     });
-    if (needsPoll) poll(1);
+    if (needsPoll) armPoll();
   };
 
   // The next storefront the brief can offer: first unlocked lot nobody is
@@ -174,7 +194,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
         ls.purpose = d.purpose ?? null;
         ls.byline = d.byline ?? null;
         if (d.claimed) ls.mine = true;   // claimed=false: somebody else got here first
-        if (d.status === 'processing') { scaffold(lotId); setTimeout(() => poll(1), 30000); }
+        if (d.status === 'processing') { scaffold(lotId); armPoll(); }
         // place() owns the worksite — it comes down only after a real GLB lands.
         else if (d.modelUrl) place(lotId, d.modelUrl, state.day);
       }
@@ -226,4 +246,42 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
 
   state.refresh(0);
   return state;
+}
+
+function gbp(n) {
+  const v = Math.round(Number(n) * 100) / 100;
+  if (!(v > 0)) return '';
+  return Number.isInteger(v) ? `£${v}` : `£${v.toFixed(2)}`;
+}
+
+// What the morning brief should say about The Row. Eligible stands (placed
+// before today) credit rent this morning and name the bonus tonight's close
+// will count. `carry` is last night's close — those neighbours and that
+// awareness are already in today's street. A stand that arrived this morning
+// says when its bonus starts, so the next brief is not silent.
+export function morningFranchiseLines(franchise, day, carry = {}) {
+  const lines = [];
+  if (!franchise || typeof franchise.effectsDue !== 'function') return lines;
+  const fx = franchise.effectsDue(day) || {};
+  const rent = typeof franchise.rentDue === 'function' ? franchise.rentDue(day) : 0;
+  const bonus = fx.rentBonus || 0;
+  const base = Math.max(0, rent - bonus);
+  const P = FRANCHISE.purposes;
+  if ((carry.returnees || 0) > 0) lines.push(`The hub’s ${carry.returnees} neighbours are in today’s crowd.`);
+  if ((carry.awareness || 0) > 0) lines.push(`The draw’s awareness carried into today.`);
+  const baseTxt = gbp(base);
+  if (baseTxt) lines.push(`The Row’s ground rent is in this morning — ${baseTxt}.`);
+  const bonusTxt = gbp(bonus);
+  if (bonusTxt) lines.push(`The tenant’s lease is in this morning — ${bonusTxt}.`);
+  if ((fx.returnees || 0) > 0) lines.push(`The hub on the Row — ${fx.returnees} neighbours come back from tonight, in tomorrow’s crowd.`);
+  if ((fx.awareness || 0) > 0) lines.push(`The draw on the Row — +${Number(fx.awareness).toFixed(2)} awareness at tonight’s close.`);
+  const lots = franchise.lots || {};
+  for (const def of FRANCHISE.lots) {
+    const s = lots[def.id];
+    if (!s || !s.placed || !s.purpose || day !== s.placedDay) continue;
+    if (s.purpose === 'community') lines.push(`${def.name} is open — a hub’s ${P.community.returnees} neighbours start from the next morning.`);
+    else if (s.purpose === 'draw') lines.push(`${def.name} is open — the draw’s awareness starts at the next close.`);
+    else if (s.purpose === 'rent') lines.push(`${def.name} is open — the tenant’s lease starts next morning.`);
+  }
+  return lines;
 }
