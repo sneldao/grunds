@@ -5886,8 +5886,10 @@ function hideFloorCue() {
   if (el) el.hidden = true;
   const kicker = $('floorcue-kicker');
   const body = $('floorcue-body');
+  const look = $('floorcue-look');
   if (kicker) kicker.textContent = '';
   if (body) body.textContent = '';
+  if (look) look.textContent = 'show me';
   document.body?.classList.remove('cue-wire');
   const rp = $('reprice');
   if (rp) rp.classList.remove('cue-spot');
@@ -5969,13 +5971,21 @@ function coachCardOpen() {
   const card = $('coach');
   return !!(card && card.hidden === false);
 }
+// The intro card is not up for a frame or two after the doors open. Hold the
+// tips until that card has been shown and dismissed, so the price beat does
+// not flash underneath it.
+function coachBlocksCues() {
+  if (!coach || coach.skipped) return false;
+  if (!coach.intro) return true;
+  return coachCardOpen();
+}
 function syncFloorCues(nowMs) {
   if (cuesFinished) { hideFloorCue(); return; }
   if (coach && coach.skipped) { finishFloorCues('skip'); return; }
   const live = openingTeach() && day === 1 && phase === 'trading' && !closed && !modals.top();
   // Ruth’s card sits over the HUD. The three beats wait until it is dismissed,
-  // so reading the intro does not skip the pastry case.
-  if (coachCardOpen()) {
+  // so reading it does not skip the pastry case.
+  if (coachBlocksCues()) {
     if (!cueRun) cueRun = { elapsed: 0, lastNow: nowMs, index: 0, shown: -1, hidden: true, done: false };
     cueRun.lastNow = nowMs;
     cueRun.hidden = true;
