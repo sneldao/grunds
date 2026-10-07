@@ -1198,7 +1198,13 @@ function waveRead() {
   const ratio = waveN ? waveBalked / waveN : 0;
   const lever = prebatched ? 'prep' : repriced ? 'deal' : null;
   const sub = !lever
-    ? (waveBalked ? 'No cups bought — the wave ate you.' : 'The wave passed quietly.')
+    ? (!waveBalked
+      ? 'The wave passed quietly.'
+      : ratio <= 0.06
+        ? 'The raw bar held — nobody staged, nobody needed it.'
+        : ratio <= 0.15
+          ? 'The wave cost a few — a batch would have kept them.'
+          : 'No pre-batch — the wave ate you.')
     : lever === 'deal'
       ? (ratio <= 0.06 ? 'You held the line.' : ratio <= 0.15 ? 'The call paid off.' : 'Tough wave — the deal bought patience, not speed.')
       : (ratio <= 0.06 ? 'You held the line.' : ratio <= 0.15 ? 'The call paid off.' : 'Tough wave — top up earlier tomorrow.');
@@ -1237,24 +1243,33 @@ function showEveningCall(read) {
   setBeatPower('evening', BEAT_POWERED.evening);
   const body = $('evening-read');
   const partyLine = partyLineText();
-  if (body) body.textContent = (partyLine ? partyLine + '\n\n' : '') + read.sub + '\n' + read.lines.join('\n');
+  if (body) body.textContent = read.sub + '\n' + read.lines.join('\n') + (partyLine ? '\n\n' + partyLine : '');
+  const residual = residualEveningCups();
   const left = $('evening-left');
   if (left) {
-    const residual = residualEveningCups();
     const q = patrons.queueLength;
     let txt = ctx.batchUnits > 0
       ? ctx.batchUnits + ' cups still ready — leftovers spoil at close'
       : (prebatched ? 'no cups left on the bar' : 'no cups ready');
     if (residual > 0) {
       if (q <= 5 && residual < ECON.batchUnits / 2)
-        txt += ` · evening usually brings ~${residual} — hold is enough`;
+        txt += ` · evening usually brings ~${residual} people — hold is enough`;
       else
-        txt += ` · evening usually brings ~${residual}`;
+        txt += ` · evening usually brings ~${residual} people`;
     } else if (q <= 5) {
       txt += ' — hold is enough';
     }
     left.textContent = txt;
   }
+  // The stake rides the buttons: closing forfeits the evening's footfall.
+  const holdSmall = $('evening-hold')?.querySelector?.('small');
+  const closeSmall = $('evening-close')?.querySelector?.('small');
+  if (holdSmall) holdSmall.textContent = residual > 0
+    ? `keep trading · ~${residual} still coming`
+    : 'keep what’s left · then the receipt';
+  if (closeSmall) closeSmall.textContent = residual > 0
+    ? `close now · forfeit ~${residual}`
+    : 'close now · no evening trade';
   const morrow = $('evening-morrow');
   if (morrow) {
     if (day === 1) {
@@ -1278,7 +1293,7 @@ function showEveningCall(read) {
 function partyLineText() {
   if (!party) return '';
   if (party.declined) return party.name + ' stayed away.';
-  return party.name + '’s group: ' + party.served + ' stayed, ' + party.walked + ' walked';
+  return party.name + '’s group: ' + party.served + ' stayed · ' + party.walked + ' walked';
 }
 
 function resolveEvening(choice) {
