@@ -523,6 +523,7 @@ let waveBatchServed = 0, waveStockoutAt = 0;
 let turnaways = 0, turnawayToastDone = false;
 let coach = null, coachHold = false;
 let cueRun = null, cuesFinished = false;
+let rulesTaught = new Map();   // rule id → day first said; said all that day, then the ledger
 let coached = false;   // day-1 lever hint, once per campaign
 // just-in-time nudges: each fires once per campaign, only when its
 // condition is on screen — teach at the moment of need, not at boot
@@ -1094,11 +1095,21 @@ function renderWeekStanding() {
   if (!stand) { el.hidden = true; return; }
   el.hidden = false;
   el.className = 'bs-' + stand.tone;
-  for (const line of stand.lines) {
+  // The ledger strip is every morning. The rule sentences are said once,
+  // then only while the condition they name is actually live.
+  const chip = document.createElement('div');
+  chip.className = 'bs-chip';
+  chip.textContent = stand.chip;
+  el.appendChild(chip);
+  const taughtDay = rulesTaught.get('standing');
+  const says = stand.warns.length ? stand.warns
+    : (taughtDay != null && taughtDay !== day) ? [] : stand.teaches;
+  for (const line of says) {
     const p = document.createElement('p');
     p.textContent = line;
     el.appendChild(p);
   }
+  if (!stand.warns.length) rulesTaught.set('standing', day);
 }
 
 // ---- story beats ----------------------------------------------------------------
@@ -3480,6 +3491,7 @@ function showMorningBrief() {
   const people = $('brief-people');
   if (people) {
     const pl = [];
+    let womLine = null;
     if (day >= 2) {
       for (const r of regulars.regulars) {
         if (r.justLost) pl.push(`${r.name} has started going to Glasshouse.`);
@@ -3488,20 +3500,33 @@ function showMorningBrief() {
       }
       for (const c of companionsYesterday) pl.push(`${c.name} brought ${c.friend} in yesterday.`);
       const pct = Math.round((regulars.footfallMul - 1) * 100);
-      if (pct >= 3) pl.push(`Word is getting around — about ${pct}% more people are expected because of how your regulars feel.`);
-      else if (pct <= -3) pl.push(`Word is getting around — about ${Math.abs(pct)}% fewer people are expected because of how your regulars feel.`);
+      if (pct >= 3) womLine = `Word is getting around — about ${pct}% more people are expected because of how your regulars feel.`;
+      else if (pct <= -3) womLine = `Word is getting around — about ${Math.abs(pct)}% fewer people are expected because of how your regulars feel.`;
     }
     clearEl(people);
-    if (pl.length) {
+    if (pl.length || womLine) {
       const h = document.createElement('div');
       h.className = 'l-kicker';
       h.textContent = 'Who’s coming in';
       people.appendChild(h);
-      for (const l of pl) {
+      const addLine = (l, host) => {
         const d = document.createElement('div');
         d.className = 'd-line';
         d.textContent = l;
-        people.appendChild(d);
+        (host || people).appendChild(d);
+      };
+      if (womLine) addLine(womLine);
+      for (const l of pl.slice(0, 2)) addLine(l);
+      if (pl.length > 2) {
+        const det = document.createElement('details');
+        det.id = 'brief-people-more';
+        if (drawerOpen('brief-people-more', false)) det.open = true;
+        watchDrawer(det, 'brief-people-more');
+        const sum = document.createElement('summary');
+        sum.textContent = `…and ${pl.length - 2} more`;
+        det.appendChild(sum);
+        for (const l of pl.slice(2)) addLine(l, det);
+        people.appendChild(det);
       }
       people.style.display = '';
     } else people.style.display = 'none';
@@ -5146,6 +5171,7 @@ function reset(coreOnly = false) {
   phase = 'onboarding';
   coach = null; coachHold = false; coachHide(); tutorialActive = false;
   cueRun = null; cuesFinished = false; hideFloorCue();
+  rulesTaught = new Map();
   demand.reset(); marketingSpend = 0;
   baristaCondition = 1.0; baristaHomeToday = false; baristaRested = false; baristaStaged = false; baristaCrisis = false;
   apprenticeHiredToday = false; rivalStrategy = 'DEFAULT'; rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];

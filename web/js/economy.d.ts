@@ -53,6 +53,9 @@ export interface WeekStanding {
   heldLine: string;
   slideLine: string | null;
   lines: string[];
+  chip: string;
+  warns: string[];
+  teaches: string[];
 }
 export function weekStanding(input?: {
   net?: number; rep?: number; day?: number; days?: number;

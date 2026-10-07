@@ -23,7 +23,7 @@ const html  = readFileSync(resolve(root, 'web/index.html'), 'utf8');
 
 // (1) HTML slot
 test('PR-A1 · #brief-prep slot exists in the brief modal', () => {
-  assert.match(html, /<div\s+id="brief-prep"\s+style="display:none"\s*><\/div>/);
+  assert.match(html, /<div\s+id="brief-prep"[^>]*style="display:none"[^>]*><\/div>/);
 });
 
 // (2) stagedPrep state declaration

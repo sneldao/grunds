@@ -74,6 +74,19 @@ ok(!finale.sliding && finale.slideLine == null, 'Saturday’s close does not pro
 const lastMorning = weekStanding({ net: 400, rep: 55, day: 5, asOf: 'last-close', days: 5, recent: [-500] });
 ok(lastMorning.sliding && lastMorning.slideLine.includes('last close'), 'the last morning can still hear the slide');
 
+// The ledger strip is the everyday surface — one line of numbers. The rule
+// sentences are taught once, then only spoken while their condition is live.
+const led = weekStanding({ net: 5000, rep: 55, day: 4, asOf: 'close', nut: 2000 });
+ok(led.chip.includes('week +£5,000.00') && led.chip.includes('bills £2,000.00') && led.chip.includes('regulars 55 (needs 50)'), led.chip);
+ok(led.warns.length === 0 && led.teaches.length === 3, 'a quiet week teaches, it does not warn');
+ok(led.teaches.some(l => l.includes('£4,500')) && led.teaches.some(l => l.includes('Below £0')), 'the teach block still names both rules');
+const ledOpen = weekStanding({ net: 0, rep: 62, day: 1, asOf: 'opening' });
+ok(ledOpen.chip.includes('no closes yet'), ledOpen.chip);
+ok(slide.warns.includes(slide.slideLine) && !slide.warns.includes(slide.heldLine), 'a sliding week says the slide, not the syllabus');
+ok(bust.warns.includes(bust.cashLine) && !bust.warns.includes(bust.heldLine), 'insolvency is a warn, not a lecture');
+ok(cool.warns.includes(cool.repLine), 'a short room is a warn');
+ok(safe.warns.length === 0 && safe.teaches.length === 3, 'a held week has nothing to warn');
+
 const letter = composeLetter({
   day: 3, index: 1, indexPrev: 1, cost: 1.3, sold: 40, balked: 20, defections: 4,
   reputation: 45, debt: 0, contract: null, mode: 'planning', event: { tier: 'calm', head: 'Quiet', line: '' },
@@ -93,6 +106,10 @@ ok(/#evening-read[\s\S]*white-space:\s*pre-wrap/.test(html), 'evening read wraps
 ok(/#evening\.modal\s*\{\s*overflow-x:\s*hidden/.test(html), 'evening overlay does not scroll sideways');
 ok(/#evening \.l-actions button \{[^}]*width:\s*100%[^}]*min-width:\s*0/.test(html), 'evening actions shrink and wrap instead of overflowing');
 ok(main.includes('standingNudge(standingSnapshot()') && main.includes('renderWeekStanding'), 'brief and mid-morning use the standing');
+ok(main.includes('stand.chip') && main.includes('stand.warns') && main.includes('stand.teaches') && main.includes('rulesTaught'), 'the brief renders the ledger strip and one-time rules');
+ok(main.includes('brief-people-more'), 'the people list caps named lines behind a drawer');
+ok(html.includes('class="brief-call"'), 'the brief marks decision sections');
+ok(html.includes('.bs-chip'), 'the ledger strip has its own style');
 ok(main.includes('recent: recentTakeHome()'), 'closed-day take-home is what the slide reads');
 ok(main.includes("the supplier calls the tab →"), 'an insolvent receipt does not offer another morning');
 ok(main.includes('...stand.lines'), 'evening card carries the standing lines');

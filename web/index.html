@@ -453,9 +453,14 @@
     white-space: normal; overflow-wrap: anywhere; }
   #brief-standing p { margin: 0 0 6px; }
   #brief-standing p:last-child { margin: 0; }
+  #brief-standing .bs-chip { font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+    margin: 0 0 6px; opacity: .85; }
+  #brief-standing .bs-chip:last-child { margin-bottom: 0; }
   #brief-standing.bs-warn { border-left-color: #a0522d; background: rgba(160,82,45,.12); }
   #brief-standing.bs-bad { border-left-color: #8f2d22; background: rgba(143,45,34,.14); }
   #brief-standing[hidden] { display: none; }
+  /* Brass edge = a decision the OPEN button commits. Plain sections are read-only. */
+  #brief .brief-call { border-left: 2px solid rgba(201,162,39,.38); padding-left: 10px; }
   #daytag { white-space: normal; overflow-wrap: anywhere; }
   /* Evening card: stack and wrap. A pre, or a nowrap button, was painting a horizontal scrollbar. */
   #evening.modal { overflow-x: hidden; }
@@ -845,16 +850,16 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <div id="brief-cues" hidden></div>
         <div id="brief-learning" style="display:none"></div>
         <div id="brief-people" style="display:none"></div>
-        <div id="brief-row" style="display:none"></div>
-        <div id="brief-prep" style="display:none"></div>
+        <div id="brief-row" class="brief-call" style="display:none"></div>
+        <div id="brief-prep" class="brief-call" style="display:none"></div>
         <div id="brief-staff" style="display:none"></div>
         <div id="brief-rival" style="display:none"></div>
         <div id="brief-tools">
         <div id="brief-new" style="display:none"></div>
-        <div id="brief-lots" style="display:none"></div>
-        <div id="brief-menu" style="display:none"></div>
+        <div id="brief-lots" class="brief-call" style="display:none"></div>
+        <div id="brief-menu" class="brief-call" style="display:none"></div>
         <div id="brief-demand" style="display:none"></div>
-        <div id="brief-actions"></div>
+        <div id="brief-actions" class="brief-call"></div>
         <details id="brief-context"><summary>the wire</summary>
           <pre id="brief-letter"></pre>
           <canvas id="brief-canvas" width="480" height="72" aria-hidden="true"></canvas>

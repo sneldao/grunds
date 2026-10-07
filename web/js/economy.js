@@ -137,15 +137,37 @@ export function weekStanding({ net = 0, rep = 62, day = 1, days = 5, asOf = 'clo
     slideLine = `${lead} One more morning like that crosses £0, and that’s when Idris calls the tab. Not there yet.`;
   }
 
+  // The ledger strip is the everyday surface — one line, numbers only.
+  // The rule sentences are taught once, then only spoken again while the
+  // condition they describe is actually live (warns).
+  const chipParts = [];
+  if (books) chipParts.push(`week ${net < 0 ? '−' : '+'}${gbp2(Math.abs(net))}`);
+  else chipParts.push('no closes yet');
+  if (nut != null && nut > 0) chipParts.push(`bills ${gbp2(nut)}`);
+  chipParts.push(`regulars ${repNow} (needs ${heldRep})`);
+  const chip = chipParts.join(' · ');
+
+  const warns = [];
+  if (insolvent || underNut) warns.push(cashLine);
+  if (sliding) warns.push(slideLine);
+  if (repShort) warns.push(repLine);
+
+  const cashTeach = 'Cash is judged at each close. Below £0, Idris calls the tab and the stand closes — even before Saturday.';
+  const repTeach = repShort
+    ? repLine
+    : `Regulars ${repNow}/100 — held needs ${heldRep}. Walk-outs are what pull this down.`;
+  const teaches = [heldLine, cashTeach, repTeach];
+
   return {
     tone, insolvent, underNut, repShort, sliding, asOf, books,
     heldNet, heldRep, rep: repNow,
     cashLine, repLine, heldLine, slideLine,
     lines: [heldLine, cashLine, slideLine, repLine].filter(Boolean),
+    chip, warns, teaches,
   };
 }
 
-// Mid-morning toast. The brief already states the rule every morning.
+// Mid-morning toast. The brief states the rule once, then keeps the ledger.
 // The toast repeats it only when the miss is easy to play through:
 // books already below £0, a mid-week slide toward that line, regulars
 // under 50, or from day 3 the week still hasn’t banked one day’s bills.
