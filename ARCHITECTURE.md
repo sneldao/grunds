@@ -813,9 +813,11 @@ campaign seed, masking the cases where jitter is the thing under test.
 per load rather than per frame — verify before converting it.
 
 **Status (Oct 7).** Sim streams: `exchange.rng = seeded(seed)`, `patronsRng`
-+17, `floorRng` +19, `fxRng` +23 (FX particle jitter + gossip-hop picks),
++17 (decisions), `patronsCosRng` +29 (spawn paint — hat/skin/legs/scale/
+walk-phase; split off so cosmetic churn can't shift decision draws),
+`floorRng` +19, `fxRng` +23 (FX particle jitter + gossip-hop picks),
 soft-opening `softRng` +101; all reseed on `reset()`. The dawn save carries
-each stream's position (`streams.{patrons,floor,fx}` alongside
+each stream's position (`streams.{patrons,floor,fx,cos}` alongside
 `rngState`), so a resumed week replays the exact draws an uninterrupted
 one takes; saves predating the field reseed cleanly. The save also carries
 the cross-day sim projections the ledger reads: menu (`prices`/`offered`),

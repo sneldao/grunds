@@ -281,7 +281,8 @@ function currentAction() {
 // exchange.rng so patron rolls never steal market draws.
 let patronsRng = seeded(seedNow() + 17);
 let floorRng = seeded(seedNow() + 19);
-const patrons = new PatronSystem(scene, world, regulars, exchange, fx, { random: patronsRng });
+let patronsCosRng = seeded(seedNow() + 29);
+const patrons = new PatronSystem(scene, world, regulars, exchange, fx, { random: patronsRng, cosmetic: patronsCosRng });
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
 // Cosmetic street life. Own meshes, own random stream — never a café wave.
 const street = new StreetLife(scene, { lite });
@@ -4063,6 +4064,7 @@ function capturePreDawn(enteringDay) {
         patrons: patronsRng && patronsRng.state ? patronsRng.state() : null,
         floor: floorRng && floorRng.state ? floorRng.state() : null,
         fx: fxRng && fxRng.state ? fxRng.state() : null,
+        cos: patronsCosRng && patronsCosRng.state ? patronsCosRng.state() : null,
       },
       exchange: {
         beanIndex: exchange.beanIndex, day: exchange.day, debt: exchange.debt,
@@ -4119,7 +4121,9 @@ function applySavedWeek(save) {
   patronsRng = seeded((save.seed || seedNow()) + 17, ss.patrons);
   floorRng = seeded((save.seed || seedNow()) + 19, ss.floor);
   fxRng = seeded((save.seed || seedNow()) + 23, ss.fx);
+  patronsCosRng = seeded((save.seed || seedNow()) + 29, ss.cos);
   patrons.random = patronsRng;
+  patrons.cosmetic = patronsCosRng;
   fx.random = fxRng;
   if (Array.isArray(save.regulars)) {
     for (const r of regulars.regulars) {
@@ -5221,7 +5225,9 @@ function reset(coreOnly = false) {
   patronsRng = seeded(seedNow() + 17);
   floorRng = seeded(seedNow() + 19);
   fxRng = seeded(seedNow() + 23);
+  patronsCosRng = seeded(seedNow() + 29);
   patrons.random = patronsRng;
+  patrons.cosmetic = patronsCosRng;
   fx.random = fxRng;
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;

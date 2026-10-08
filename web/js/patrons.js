@@ -18,7 +18,7 @@ const RED = new THREE.Color(0xd0503a);
 const GLASS = new THREE.Color(0x7fb3b0);
 
 export class PatronSystem {
-  constructor(scene, world, regulars = null, exchange = null, fx = null, { random = Math.random, walkins = null } = {}) {
+  constructor(scene, world, regulars = null, exchange = null, fx = null, { random = Math.random, cosmetic = random, walkins = null } = {}) {
     this.world = world;
     this.regulars = regulars;     // for named-patron flagging
     this.walkins = walkins;       // Phase 1 — day-pool of generated walk-in heads
@@ -45,6 +45,11 @@ export class PatronSystem {
     this.rivalStrategy = 'DEFAULT';
     this.dwellMul = 1;
     this.random = random;
+    // Cosmetic stream — spawn draws that paint the patron but never feed a
+    // decision: hat/skin/legs/scale/walk-phase. Kept off the decision stream
+    // so cosmetic churn (a new hat roll, a reordered palette) can't shift
+    // every downstream sim draw.
+    this.cosmetic = cosmetic;
     this.apprenticeActive = false;
     this.staffMul = 1;   // <1 short-staffed — the bar spends fewer prep-points a tick
     this.capacityMult = 1; // shock capacity, separate from staffMul / Ruth's condition
@@ -276,13 +281,13 @@ export class PatronSystem {
       drink, wantsMatcha: drink === 'matcha',
       pos: V3(s.x, 0, s.z + (this.random() - 0.5) * 1.4), face: fromLeft ? Math.PI / 2 : -Math.PI / 2,
       path: [], state: 'walking', waitMin: 0, dwell: 0,
-      speed: ritualSpeed + (this.random() - 0.5) * 0.3, phase: this.random() * 6.28,
+      speed: ritualSpeed + (this.random() - 0.5) * 0.3, phase: this.cosmetic() * 6.28,
       jx: (this.random() - 0.5) * 0.24, jz: (this.random() - 0.5) * 0.2,
-      seat: null, hasCup: false, cupGreen: false, hasHat: this.random() < 0.45,
-      torso, skin: new THREE.Color(SKIN[(this.random() * SKIN.length) | 0]),
-      legs: new THREE.Color(LEGS[(this.random() * LEGS.length) | 0]),
+      seat: null, hasCup: false, cupGreen: false, hasHat: this.cosmetic() < 0.45,
+      torso, skin: new THREE.Color(SKIN[(this.cosmetic() * SKIN.length) | 0]),
+      legs: new THREE.Color(LEGS[(this.cosmetic() * LEGS.length) | 0]),
       flash: 0, colorDirty: true, queueRef: null, slotI: -1, walking: true,
-      scale: 0.84 + this.random() * 0.32,
+      scale: 0.84 + this.cosmetic() * 0.32,
       regularName: null, regularIdx: -1, greeted: false,
       regularFriends: null,   // Set<string> of friend names, populated if named
       // Phase 1 — identity: roster regulars fill canon fields below;
