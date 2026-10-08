@@ -2,7 +2,24 @@
 
 How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
 
-## Current verification — October 6, 2026: empty pastry case softened
+## Current verification — October 7, 2026: bookend policies measure the spread
+
+Same ten seeds as the grids below, now × **ten** policies — `web/test/balance-policies.mjs` gains an `optimal` upper bound (the `queue` ruleset plus strictly-better moves: morning batch staged free in the Brief via `game.stagePrep`, batch at queue≥4 pre-peak, top-ups on a dry batch, +EV offers only, no hedging, no marketing) and a `delayed` lower bound (same rules, every intra-day action landing 300ms of wall clock later, ≈20 sim-minutes at speed 1200). Local simulator, no identity perk, fixed 100ms frames, deterministic `Math.random` reset before play. Harness source hash `1a0ccbc932b1795ea7958a43f12a37a2608cac19d73dfeb1a01abe77b315d28e`. Ten-seed diagnostic pilot; verdicts ride the unchanged `campaignVerdict` ladder. This is not an isolated marketing-ROI estimate.
+
+Means rounded to the pound, ten seeds each:
+
+| Policy | Mean net worth | Verdicts |
+|---|---:|---|
+| Optimal | £7,723 | 8 held · 2 scarped |
+| Queue | £7,512 | 10 scarped |
+| Delayed | £7,087 | 10 scarped |
+| Passive | £1,541 | 9 scarped · 1 lost |
+
+Three findings. **Pressure is real**: passive→optimal spans ~£6.2k (5×), and the delayed twin pays a £425 reaction tax (−5.7%) — the floor punishes slowness but does not collapse. **Headroom at the top is thin**: perfect play clears competent queue-play by only ~£210 — most of the spread is floor work, not mastery. **The hedge is currently dominated**: `optimal` never buys cover (hedgeBenefitAfterFees 0) and wins anyway, while every contract-buying policy posts negative hedge benefit (−£75 to −£508); the fee schedule outruns cover at these volumes — a tuning finding, not a test failure. Verdict and net worth are separate objectives: `optimal` earns `held` through reputation/served thresholds even where `queue` out-earns it on cash.
+
+Recorded also in `ARCHITECTURE.md` → V4. A sanity assertion in the harness fails loudly if the upper bound ever stops clearing the passive floor.
+
+## Previous verification — October 6, 2026: empty pastry case softened
 
 Same 80-run grid (`web/test/balance-policies.mjs`: seeds 7, 42, 101, 202, 555, 13, 77, 150, 314, 431 × eight policies). Competent policies restock and settle. Passive and reckless stay naive. Verdict thresholds were not moved. Source hash `8b07b336a31e990610e82e1133c370f9b4eba154b1cb75fecf84c2441e76b84d`. The walk-out grid below is `0df597d0`.
 
@@ -25,7 +42,7 @@ Verdicts on the softened grid: passive 8 lost · 2 scarped; queue, growth, conse
 
 `757229b` had 5 held and 1 good. The walk-out grid had none. Softening the empty case put one run over the held line. Competent means moved by less than £60 (forecaster fell £46). Passive and reckless improved and stayed negative. Queue walk-outs fell from 2,223 to 2,076 a week, so the total walk-out was only a small slice of current balks. While the case still has croissants, retail buys those instead of a drink, and patience is unchanged. That is why the means did not return to the `757229b` band. Reputation for the competent policies sits around 45, under the held gate of 50, except engaged at 54. No threshold was changed.
 
-## Current verification — October 6, 2026: restock-and-settle harness on the walk-out rule
+## Previous verification — October 6, 2026: restock-and-settle harness on the walk-out rule
 
 Same 80-run grid as the October 1 diagnostic (`web/test/balance-policies.mjs`: seeds 7, 42, 101, 202, 555, 13, 77, 150, 314, 431 × eight policies). Competent policies restock the cellar each morning and settle an open tab before borrowing again. Passive and reckless stay naive. No identity perk, fixed 100ms frames, offers and incidents declined except `engaged`, which accepts them. A replay of seed 7 / passive matched. Source hash `0df597d0c2f9880b500eba03764dac023fee0e8e31525d749c132416c91d76e3`. The supplier tab in this run is the live cap, **£3,500** (`CAMPAIGN.creditLimit` in `web/js/config.js`). The £1,500 figure further down is the September 28 cap only.
 
@@ -78,9 +95,9 @@ This matches the commit message ("Retail sells one dawn croissant case that comp
 
 Earlier, and smaller: `b7351fa` (utilities split out of the £64 sundries, plus a wifi drop the scripted policies never tether) lowered the same two-seed means by about £300–£550. The full grid at `757229b`, which already includes that and the satisfaction work, still reached held. No verdict threshold and no economy constant was changed in this investigation.
 
-Means are rounded to the pound from the 80-run grids at those two commits. The empty-case walk-out described here was softened later the same day; that grid is the first section.
+Means are rounded to the pound from the 80-run grids at those two commits. The empty-case walk-out described here was softened later the same day; that grid is the empty-case-softened section above.
 
-## Current verification — October 1, 2026: economy incentives pass (`c94b822`; deployed to dev)
+## Previous verification — October 1, 2026: economy incentives pass (`c94b822`; deployed to dev)
 
 - Baseline on the then-current code (80 runs, 10 seeds × 8 scripted policies): every policy averaged a loss (−£1,188 to −£287), none reached "held", and about 28–30 of 50 player-days per policy were negative. Causes found by reading the per-day ledgers: (1) the supplier tab capped at £1,500 was smaller than one day of beans (~£3.3k at full service), so from day 3 the cellar ran dry and every cup billed the till at 1.5× spot (revenue per cup fell from £3.55 to £1.70); (2) the hedge and `settle` share one slot, so hedging meant not settling, which meant a capped tab; (3) the Brief's "restock" bought yesterday's pour +25% regardless of stock on hand, so a larger tab alone would have composted the surplus.
 - Changes: `creditLimit` 1,500 → 3,500 (`web/js/config.js`, `convex/gameConfig.ts`); `restockQty(poured, onHand)` tops up to the same target net of stock on hand; the final receipt gains a "the turning point" row (`turningPoint` in `autopsy.js`) that names the costliest avoidable decision (dry cellar premium, interest, an uncovered frost/drought) from fields now on the per-day record. Prices, costs, demand and hedge fees are unchanged.
@@ -88,7 +105,7 @@ Means are rounded to the pound from the 80-run grids at those two commits. The e
 - Not fixed, found while measuring: service capacity binds at roughly 2,500–2,850 cups a day, and the opening demand is already near it, so awareness above about 0.3 adds little (the `growth` policy trails `queue`; `engaged` at awareness 1.0 served only ~14% more). Marketing has almost no payoff until demand or capacity is retuned. A competent week still mostly lands at "scarped" (£0–4.5k); "held" is 10–50% of runs by policy and "good"/"star" are rare.
 - Gate: all 72 non-balance suites pass (including new `restockQty` net-of-stock and `turningPoint` cases); the separate `stage-site.mjs` check passes from the project checkout; `tsc --noEmit` is clean. The two tests that hard-coded the £1,500 cap were updated (`orientation.mjs` now derives it from `CAMPAIGN.creditLimit`). Commit `c94b822` is pushed and deployed to the dev site; sampled live files match the staged artifact by SHA-256. No browser run and no human playtest.
 
-## Current verification — October 1, 2026: staged soft morning
+## Previous verification — October 1, 2026: staged soft morning
 
 - On the soft day, the first-morning brief is replaced by a two-step card modal (`#softintro`): the stand name with "Step inside" (or "Skip the soft opening"), then Ruth's portrait with "Open the doors", which commits a hold/no-prep plan and starts the day. Progress dots and a fade-and-rise step transition, disabled under `prefers-reduced-motion`. The "Students arrive at 14:00" line no longer appears before Pip asks, fixing a cause-before-effect leak. Accepting Pip queues a `plan` moment — "24 students at 14:00. How will you get ready?" — whose Starter batch, Matcha deal, and Wait and see buttons call the real levers with live costs and expire at 14:00. The soft coach no longer says a plan is already set. All Day-1 choice cards are one line each, with a merged "what's the difference?" details.
 - `soft-opening.mjs` (79 checks) covers the steps, dots, Escape inertness, skip parity, plan-card copy/costs/expiry/priority/lever wiring, and the previous slice checks. The full 72-suite non-balance gate passed on the working tree in `/tmp/grunds-test-mirror17`, with orientation, moments, coach, modals, curriculum, lifecycle/accounting, and time-locked-levers suites and TypeScript clean.
@@ -191,7 +208,7 @@ Means are rounded to the pound from the 80-run grids at those two commits. The e
 
 | Check | Requirement / scope | Evidence / limitation |
 |---|---|---|
-| Same seed → same run | Seeded market behavior and reproducible scripted probes. | Harnesses seed `Math.random` and fix clocks; full cosmetic RNG determinism remains roadmap work. |
+| Same seed → same run | Seeded market behavior and reproducible scripted probes. | Decision and cosmetic draws ride separate seeded streams (`patronsRng` +17, `patronsCosRng` +29, `floorRng` +19, `fxRng` +23); `replay-campaign.mjs` replays a full week identically at three frame clocks and `replay-resume.mjs` proves dawn saves resume byte-identically. Browser-rendered replay is still unproven. |
 | Event fairness | The pity timer protects the first three days; days four and five retain the gamble. | `intel.mjs`, `clamp-asymmetry.mjs`; no blanket guarantee against consecutive catastrophes. |
 | Economy baseline | Historical 13-week revenue ≈ GBP 157k and source-data cake attach rate 8.2%. | Dataset context, not a current gameplay or player-engagement measurement. |
 | Deterministic gate | Loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`; `intel.mjs` pins bias behavior. | Controlled headless fixtures, not unseeded browser replay proof. |

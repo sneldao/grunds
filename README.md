@@ -789,17 +789,17 @@ The V0–V5 plan lives in `ARCHITECTURE.md` ("Verification roadmap"), with
 discipline borrowed from [`majidmanzarpour/threejs-game-skills`](https://github.com/majidmanzarpour/threejs-game-skills)
 (MIT).
 
-*Status (Sept 30): this roadmap stays the plan of record — the current gate is
-64 non-balance suites plus focused re-runs, all Node fixtures; manual browser
-exploration ran separately and was stopped before full coverage; fresh human
-playtests are still pending.*
+*Status (Oct 7): V0 and V4 are measured and landed — see `ARCHITECTURE.md`
+for the full record. The gate is 385 Node tests plus focused re-runs; manual
+browser exploration ran separately and was stopped before full coverage;
+fresh human playtests are still pending.*
 
 Ordered by dependency, not desirability:
 
-- **V0 seed the cosmetic RNG** — a real bug: `patrons.js` wires a `random`
-  injection seam and bypasses it ~11 lines later with the global. `fx.js` has
-  39 bare `Math.random` calls in dust/coins/huffs, which fails every screenshot
-  diff on particle jitter alone. Prerequisite for V3.
+- ~~**V0 seed the cosmetic RNG**~~ — **done** (`2aebcdf`): patron decision
+  draws and spawn paint ride separate seeded streams (+17/+29), FX and
+  floor noise have their own (+23/+19), the dawn save round-trips every
+  stream position, and resumed weeks replay byte-identically (`4e7a7e1`).
 - **V1 bot playtest on real input** — `videos/grunds-demo/scripts/record{,2}.mjs`
   already drive the live site through the whole week via Playwright, but make
   zero assertions and catch no console errors. Redirect that at `__grunds.stats()`.
@@ -807,10 +807,10 @@ Ordered by dependency, not desirability:
   nowhere, so every perf claim is frame-time heuristics. Measure the mobile
   budget *before* the Capacitor wrap.
 - **V3 screenshot baselines** — the four hero states, desktop + mobile.
-- **V4 teeth at both ends** — perfect-play upper bound beside a
-  reaction-delayed lower bound. The Sept 28 tab conversion fixed the floor
-  (20 of 80 pilot runs now reach `lost`); the unmeasured half is the upper
-  bound — no harness policy reaches `held`+ reliably.
+- ~~**V4 teeth at both ends**~~ — **measured** (`6e15153`): `optimal` lands
+  8×held at £7,723 mean vs passive £1,541; a 300ms reaction lag costs −5.7%.
+  Pressure is real, headroom is thin, and the contract hedge is dominated —
+  perfect play never buys cover at the current fee schedule.
 - **V5 score the scorecard** — turn `ART.md`'s "conform or be rejected" into a
   number, and get recorded motion evidence for Phase 5's gait work.
 

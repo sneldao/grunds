@@ -18,5 +18,6 @@
 - Choice surfaces: options + consequence visible, no folds for choices —
   see ARCHITECTURE.md "Choice surfaces".
 - Sim RNG must never call bare `Math.random` — streams are `seeded(seed + n)`
-  (`patronsRng` +17, `floorRng` +19, `fxRng` +23); `web/test/seeded-floor.mjs`
-  and `replay-campaign.mjs` guard it.
+  (`patronsRng` +17 decisions, `patronsCosRng` +29 spawn paint, `floorRng`
+  +19, `fxRng` +23); `web/test/seeded-floor.mjs` and `replay-campaign.mjs`
+  guard it.

@@ -979,7 +979,7 @@ steps). If the delayed policy survives as long as the fast one, pressure is
 decorative; if perfect play and passive play land within noise, that is the
 teeth measurement — and the honest answer to "liked, not loved".
 
-**Measured (Oct 7, `5c13a6c`):** both bookends exist now — `optimal`
+**Measured (Oct 7, `6e15153`):** both bookends exist now — `optimal`
 (the `queue` ruleset plus the strictly-better moves: morning batch staged free
 in the Brief, batch at queue≥4 pre-peak, top-up on a dry batch, +EV offers
 only) and `delayed` (the `queue` ruleset with every intra-day action landing
