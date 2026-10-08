@@ -12,6 +12,29 @@ test('seeded streams replay', () => {
   assert.deepEqual(seqA, seqB);
 });
 
+test('seeded stream state resumes mid-sequence (week-resume contract)', () => {
+  const live = seeded(7 + 17);
+  const head = Array.from({ length: 40 }, () => live());
+  const restored = seeded(7 + 17, live.state());
+  const tail = Array.from({ length: 40 }, () => live());
+  const replayed = Array.from({ length: 40 }, () => restored());
+  assert.deepEqual(replayed, tail, 'restored stream must continue the live sequence');
+  assert.notDeepEqual(replayed, head, 'restored stream must not restart from the seed');
+});
+
+test('week save carries stream positions and resume restores them', async () => {
+  const fs = await import('node:fs/promises');
+  const main = await fs.readFile(new URL('../js/main.js', import.meta.url), 'utf8');
+  assert.match(main, /streams:\s*\{\s*patrons: patronsRng[^}]*floor: floorRng[^}]*fx: fxRng[^}]*\}/s,
+    'capturePreDawn must snapshot all three stream positions');
+  assert.match(main, /seeded\(\(save\.seed \|\| seedNow\(\)\) \+ 17, ss\.patrons\)/,
+    'resume must restore the patron stream position');
+  assert.match(main, /seeded\(\(save\.seed \|\| seedNow\(\)\) \+ 19, ss\.floor\)/,
+    'resume must restore the floor stream position');
+  assert.match(main, /seeded\(\(save\.seed \|\| seedNow\(\)\) \+ 23, ss\.fx\)/,
+    'resume must restore the fx stream position');
+});
+
 test('patron and floor streams diverge from exchange', () => {
   const ex = seeded(7);
   const pat = seeded(7 + 17);

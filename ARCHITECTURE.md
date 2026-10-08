@@ -814,7 +814,10 @@ per load rather than per frame — verify before converting it.
 
 **Status (Oct 7).** Sim streams: `exchange.rng = seeded(seed)`, `patronsRng`
 +17, `floorRng` +19, `fxRng` +23 (FX particle jitter + gossip-hop picks),
-soft-opening `softRng` +101; all reseed on `reset()` and week resume. Also
+soft-opening `softRng` +101; all reseed on `reset()`. The dawn save carries
+each stream's position (`streams.{patrons,floor,fx}` alongside
+`rngState`), so a resumed week replays the exact draws an uninterrupted
+one takes; saves predating the field reseed cleanly. Also
 seeded now: walk-in head picks (`WalkinPool.draw`, day-local
 `mulberry32(seed:day:draw)`), the regulars fallback roll (patron stream), and
 table seat angles (fixed private LCG in `world.js`: they set walk distances).
@@ -896,9 +899,6 @@ only — the chalkboard strategy beats stay synthetic.
   `main.js`, and everything behind `cosmeticRandom()` (presentation only).
   The headless stub has no 2D canvas, so the sparkline is not drawn in the
   replay run.
-- Save/resume reseeds the floor streams from `save.seed` rather than
-  restoring their positions, so a resumed week is deterministic but not the
-  same draws as an uninterrupted one.
 
 ### V1 — Bot playtest on real input (~1 day)
 

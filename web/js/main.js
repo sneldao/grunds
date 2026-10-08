@@ -4060,6 +4060,11 @@ function capturePreDawn(enteringDay) {
       playerName, standName, playerRole, perkBg,
       softWeekDone: !!softWeekDone,
       rngState: exchange.rng && exchange.rng.state ? exchange.rng.state() : null,
+      streams: {
+        patrons: patronsRng && patronsRng.state ? patronsRng.state() : null,
+        floor: floorRng && floorRng.state ? floorRng.state() : null,
+        fx: fxRng && fxRng.state ? fxRng.state() : null,
+      },
       exchange: {
         beanIndex: exchange.beanIndex, day: exchange.day, debt: exchange.debt,
         contract: exchange.contract, event: exchange.event, history: exchange.history,
@@ -4101,11 +4106,12 @@ function applySavedWeek(save) {
   exchange.lastTier = ex.lastTier ?? null;
   exchange.lastEventId = ex.lastEventId ?? null;
   if (save.rngState != null) exchange.rng = seeded(save.seed || seedNow(), save.rngState);
-  // Floor streams restart from the resumed seed (week saves store exchange
-  // rngState only; patron/floor cosmetic+decision streams reseed cleanly).
-  patronsRng = seeded((save.seed || seedNow()) + 17);
-  floorRng = seeded((save.seed || seedNow()) + 19);
-  fxRng = seeded((save.seed || seedNow()) + 23);
+  // Stream positions ride the save, so a resumed week replays the exact draws
+  // an uninterrupted one takes. Saves predate this field reseed cleanly.
+  const ss = save.streams || {};
+  patronsRng = seeded((save.seed || seedNow()) + 17, ss.patrons);
+  floorRng = seeded((save.seed || seedNow()) + 19, ss.floor);
+  fxRng = seeded((save.seed || seedNow()) + 23, ss.fx);
   patrons.random = patronsRng;
   fx.random = fxRng;
   if (Array.isArray(save.regulars)) {
