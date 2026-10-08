@@ -103,6 +103,34 @@ export function initSync() {
     }
   }
 
+  // Async rivals — a real player's week ledger on this seed, for the
+  // Glasshouse ghost to pace against. Null offline / no opponent yet.
+  async function rival(seed) {
+    if (!live || runDisabled) return null;
+    try {
+      const r = await timed(url + '/sync/rival?seed=' + encodeURIComponent(seed)
+        + '&owner=' + encodeURIComponent(ownerName()));
+      if (!r.ok) return null;
+      const data = await r.json();
+      return data && data.rival ? data.rival : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Publish this stand's day ledger at close — the row later players race.
+  // Fire-and-forget: a missed post just means a thinner ghost pool.
+  function publishRivalDay(payload) {
+    if (!live || runDisabled) return;
+    try {
+      timed(url + '/sync/rivalDay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner: ownerName(), ...payload }),
+      }).catch(() => {});
+    } catch { /* offline */ }
+  }
+
   // Idris's inbox: newest inbound reply after a cursor (ms timestamp of the
   // last letter seen). Null offline or on any failure — the mailbox simply
   // stays shut. Read-only mirror; the backend already applied the command.
@@ -299,7 +327,7 @@ export function initSync() {
     paint('○ local', false);
   }
 
-  return { live, url, owner, mirror, poll, stands, intel, inbox,
+  return { live, url, owner, mirror, poll, stands, rival, publishRivalDay, intel, inbox,
     managed, beginRun, preparePlan, stagePlan, commitPlan, finishDay, sendPlanMail, abandonRun, disableRun,
     get runDisabled() { return runDisabled; },
     get campaignId() { return campaignId; },

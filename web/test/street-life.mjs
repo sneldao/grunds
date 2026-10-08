@@ -221,7 +221,7 @@ test('main wires street life beside the café waves', () => {
   assert.match(main, /street\.tick\(\)/);
   assert.match(main, /street\.update\(/);
   assert.match(main, /patrons\.onCosmeticCross/);
-  assert.match(main, /world\.setRivalHeat\(patrons\.rivalQ\.length\)/);
+  assert.match(main, /world\.setRivalHeat\(patrons\.rivalQ\.length \+ Math\.min\(6, Math\.round\(patrons\.ghostPace \* 4\)\)\)/);
   assert.match(world, /_demandHeat/);
   assert.match(world, /\(W\._rivalHeat \|\| 0\) \+ \(W\._demandHeat \|\| 0\)/);
   assert.match(world, /Math\.min\(0\.58, 0\.28 \+ heat \* 0\.05\)/);

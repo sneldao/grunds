@@ -852,6 +852,24 @@ clock). The gate calls `doPrebatch()`/`doReprice()` directly, which re-check
 one frame-safe input: a modal sets `paused`, freezing the sim clock, so
 clicking it at any frame is the same input at the same frozen sim-minute.
 
+**Async rivals (seed-scoped ghost weeks).** Like `franchises`, the street
+remembers who raced a seed: `rivalWeeks` upserts one ledger per
+(seed, owner) — `publishRivalDay` patches in each day's closing tally,
+`rivalFor` hands the next player the strongest week that isn't theirs
+(done beats open, then cups, then recency). Client side: `convexSync.
+rival(seed)` fetches at boot/re-week, `bindRivalGhost` puts the real
+player's name on `COPY.rivalBarista` (the venue stays the Glasshouse —
+the lease rotates, the building doesn't) and `patrons.ghostPace` gets
+their day's `served / 900` cups per tick. In `tick`, that pace is a
+credit pool: queued defectors drain it as visible serves first, the
+remainder accrues to `ghostServed` — their street's own demand, off
+camera. `rivalDayCups()` = visible + ambient is the number the Brief,
+receipt and week verdict race. No ghost → `0.5 * speedMul` exactly as
+before. The narrative beats (grudges, truce, FOR LEASE) keep working —
+they were always theater over the numbers. Scope: ledgers are
+self-reported (not server-replayed), and the ghost paces throughput
+only — the chalkboard strategy beats stay synthetic.
+
 **Still nondeterministic, on purpose or out of scope:**
 - **Frame timing (cosmetic only).** `patrons.step()` runs inside `tick()` at
   one fixed quantum per sim-minute — movement, arrivals, dwell and

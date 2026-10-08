@@ -509,6 +509,64 @@ export const syncStands = httpAction(async (ctx, req) => {
   }
 });
 
+// Async rivals — seed-scoped ghost weeks. GET picks the opponent ledger for
+// a new run; POST is the fire-and-forget per-day publish from closeDay.
+// Same no-auth posture as the rest of /sync/* — self-reported tallies.
+export const syncRival = httpAction(async (ctx, req) => {
+  const p = new URL(req.url).searchParams;
+  const seed = Number(p.get("seed"));
+  const owner = p.get("owner") ?? "";
+  if (!Number.isFinite(seed)) return json({ error: "seed required" }, 400);
+  try {
+    const rival = await ctx.runQuery(api.rivals.rivalFor, { seed, owner });
+    return json({ rival });
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
+export const syncRivalDay = httpAction(async (ctx, req) => {
+  let payload: {
+    seed?: number;
+    owner?: string;
+    standName?: string;
+    playerName?: string;
+    day?: { day?: number; served?: number; till?: number; rep?: number };
+    status?: string;
+    netWorth?: number;
+    reputation?: number;
+  };
+  try {
+    payload = (await req.json()) as typeof payload;
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const d = payload.day;
+  if (!Number.isFinite(payload.seed) || !payload.owner || !d || !Number.isFinite(d.day)) {
+    return json({ error: "seed, owner, day.day required" }, 400);
+  }
+  try {
+    await ctx.runMutation(api.rivals.publishRivalDay, {
+      seed: payload.seed as number,
+      owner: payload.owner,
+      standName: payload.standName ?? "",
+      playerName: payload.playerName ?? "",
+      day: {
+        day: Number(d.day),
+        served: Number(d.served) || 0,
+        till: Number(d.till) || 0,
+        rep: Number(d.rep) || 0,
+      },
+      status: payload.status === "done" ? "done" : "open",
+      netWorth: payload.netWorth,
+      reputation: payload.reputation,
+    });
+    return json({ ok: true });
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
 // PR-4e — RevenueCat webhook. Saves the active entitlement state on every
 // event the dashboard broadcasts (PURCHASE / RENEWAL / EXPIRATION).
 // Idempotent by event id — re-delivery is a no-op.
@@ -651,6 +709,8 @@ http.route({ path: "/sync/state", method: "GET", handler: syncState });
 http.route({ path: "/sync/snapshot", method: "POST", handler: syncSnapshot });
 http.route({ path: "/sync/plan", method: "POST", handler: syncPlan });
 http.route({ path: "/sync/stands", method: "GET", handler: syncStands });
+http.route({ path: "/sync/rival", method: "GET", handler: syncRival });
+http.route({ path: "/sync/rivalDay", method: "POST", handler: syncRivalDay });
 http.route({ path: "/sync/entitlements", method: "GET", handler: syncEntitlements });
 http.route({ path: "/sync/setEntitlement", method: "POST", handler: syncSetEntitlement });
 http.route({ path: "/revenuecat/webhook", method: "POST", handler: revenuecatWebhook });

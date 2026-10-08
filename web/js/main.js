@@ -200,6 +200,11 @@ if (sync.live && sync.intel) sync.intel().then(r => {
   if (r && $('wirebtn') && day >= 2) $('wirebtn').style.display = '';
 });
 if (sync.managed && sync.managed()) sync.beginRun(SEED).catch(() => {});
+// Async rival: fetch the strongest week another stand logged on this seed —
+// their ledger paces the Glasshouse and their name takes Sam's beats.
+if (sync.managed && sync.managed() && sync.rival) {
+  sync.rival(SEED).then(g => { if (g) bindRivalGhost(g); }).catch(() => {});
+}
 
 // FX cosmetic stream (V0): particle jitter and gossip-hop picks. Own seed
 // offset so a burst of coins never consumes a patron, floor or market draw.
@@ -601,6 +606,29 @@ let rivalReactLog = [];   // [{move, ts, msg}] — per-day
 // mid-campaign), the truce is offered once (day 3), the finale remembers.
 let samGrudge = { cuts: 0, preps: 0, snubs: 0 };
 let samTruce = false, truceShown = false;
+// Async rivals — a real player's week ledger on this seed, fetched once from
+// Convex. Their cups-per-tick pace the Glasshouse (patrons.ghostPace); their
+// licence name takes the rival-barista beats. Null offline/first on a seed.
+let rivalGhost = null;
+function ghostPaceFor(d) {
+  if (!rivalGhost || !rivalGhost.days || !rivalGhost.days.length) return 0;
+  const e = rivalGhost.days.find(x => x.day === d) || rivalGhost.days[rivalGhost.days.length - 1];
+  return (e.served || 0) / (DAY_END - DAY_START);
+}
+function bindRivalGhost(g) {
+  rivalGhost = g || null;
+  const who = rivalGhost
+    ? ((rivalGhost.playerName || '').trim() || (rivalGhost.standName || '').trim() || 'the last tenant').slice(0, 24)
+    : 'Sam';
+  COPY.rivalBarista = who;
+  if (rivalGhost && !headless) {
+    fx.toast(`the Glasshouse is running ${who}’s week — ${rivalGhost.weekServed} cups on their ledger`, 'warn');
+  }
+  patrons.ghostPace = ghostPaceFor(day);
+}
+// The rival's real daily tally: cups we watched them pour plus the ghost's
+// ambient trade. Same number the brief, receipt and week-verdict race.
+const rivalDayCups = () => rivalServed + (patrons.ghostServed || 0);
 // Phase 4 — Idris's arc: the roaster remembers. Contracts taken, tabs
 // settled, advice ignored — quoted back in his letters. Loyalty (2+ covers)
 // buys early alpha on frost aftermath. Reset on campaign restart.
@@ -868,7 +896,7 @@ function tick() {
   // run the floor
   const events = patrons.tick(dayMin, ctx);
   street.syncFranchise(franchise, day);
-  street.setRivalHeat(patrons.rivalQ.length);
+  street.setRivalHeat(patrons.rivalQ.length + Math.min(6, Math.round(patrons.ghostPace * 4)));   // ghost pace reads as ambient warmth even with no queue
   street.noteQueue(patrons.queueLength);
   street.tick();
   // deliver the wire's gossip once the named regular is actually on the
@@ -1463,8 +1491,8 @@ function closeDay() {
   // then is the day's revenue booked. Pitch (below) sees the till after that.
   settleStockLoanAtClose();
   cRev += till; cBalked += balked; cServed += served + servedRetail; cDef += defections;
-  cRivalServed += rivalServed; cRivalChoices += patrons.rivalChoices;   // PR-B1 — accumulate rival week tally
-  lastDayStats = { sold: served + servedRetail, balked, defections, rivalServed, rivalChoices: patrons.rivalChoices };   // the Brief reads these at dawn — PR-B1 adds rival data
+  cRivalServed += rivalDayCups(); cRivalChoices += patrons.rivalChoices;   // PR-B1 — accumulate rival week tally (ghost: visible + ambient cups)
+  lastDayStats = { sold: served + servedRetail, balked, defections, rivalServed: rivalDayCups(), rivalChoices: patrons.rivalChoices };   // the Brief reads these at dawn — PR-B1 adds rival data
   // Ruth's ledger — a worked day drains (harder on a brutal floor), a
   // sent-home day recovers. The cost is real: her wage is saved but the
   // bar runs a third slower while she's off. Apprentice gives partial rest.
@@ -1759,7 +1787,7 @@ function closeDay() {
       ['chose ' + COPY.rivalName, patrons.rivalChoices],
       ...(turnaways > 0 ? [['left at the board', turnaways + ` (no ${DRINK_IDS.filter(id => menuOffered[id] === false).map(id => DRINKS[id].name).join(' / ') || '—'} today)`]] : []),
       ['—', '—'],
-      ['you vs ' + COPY.rivalBarista, `you ${served + servedRetail} · ${COPY.rivalBarista} ${rivalServed + patrons.rivalChoices}`],   // PR-B1 — side-by-side
+      ['you vs ' + COPY.rivalBarista, `you ${served + servedRetail} · ${COPY.rivalBarista} ${rivalDayCups() + patrons.rivalChoices}`],   // PR-B1 — side-by-side
       ['NET TODAY', fmt(netToday)],
       ...(settleToday > 0 ? [['debt settled (balance payment)', fmt(settleToday)]] : []),
     ],
@@ -1793,6 +1821,18 @@ function closeDay() {
       rep: regulars.reputation,
       matchaPrice: exchange.matchaPrice,
     }).catch(() => {});
+  }
+  // Async rivals — publish the day ledger so the next stand on this seed
+  // races what we actually did. Fire-and-forget; a missed post thins the
+  // ghost pool, nothing else.
+  if (!softDay && sync.publishRivalDay) {
+    sync.publishRivalDay({
+      seed: SEED, standName, playerName,
+      day: { day, served: served + servedRetail, till: cRev + till, rep: regulars.reputation },
+      status: day >= CAMPAIGN.days ? 'done' : 'open',
+      netWorth: worthNow,
+      reputation: regulars.reputation,
+    });
   }
   // the between-days phase: the roaster writes. The mailbox flag goes up.
 }
@@ -4387,6 +4427,7 @@ function startTradingDay(d) {
 
   // Dynamic rival strategy:
   patrons.rivalStrategy = rivalStrategy;
+  patrons.ghostPace = ghostPaceFor(d);   // async rival: their ledger sets the day's cups/tick
   if (d >= 2 && rivalStrategy !== 'DEFAULT' && !headless) {
     const stratDef = CAMPAIGN.rivalStrategies[rivalStrategy];
     if (stratDef) fx.toast(`${COPY.rivalBarista} moves: ${stratDef.name} (£${stratDef.price.toFixed(2)}) — ${COPY.rivalName}'s chalkboard changed`, 'warn');   // PR-B1 — name Sam personally
@@ -4758,7 +4799,7 @@ function updateHUD() {
   }
   const h = String(Math.floor(dayMin / 60)).padStart(2, '0'), m = String(dayMin % 60).padStart(2, '0');
   $('clock').textContent = (paused ? '❚❚ ' : '') + `${h}:${m}`;
-  world.setRivalHeat(patrons.rivalQ.length);   // their sign burns as their line grows
+  world.setRivalHeat(patrons.rivalQ.length + Math.min(6, Math.round(patrons.ghostPace * 4)));   // their sign burns as their line grows (+ghost trade)
   if ($('daytag')) {
     const heldRep = VERDICT_GATES.held.repAtLeast;
     const repNow = regulars.reputation;
@@ -5207,6 +5248,12 @@ function reset(coreOnly = false) {
   briefSyncError('');
   { const ob = $('brief-open'), mb = $('letter-mail-btn'); if (ob) ob.disabled = false; if (mb) mb.disabled = false; }
   if (sync.abandonRun) { sync.abandonRun(); if (sync.live && !sync.runDisabled) sync.beginRun(SEED).catch(() => {}); }
+  // A fresh week re-races the street — drop the old ghost, ask for the
+  // current strongest ledger on the seed (our own row is excluded server-side).
+  bindRivalGhost(null);
+  if (sync.managed && sync.managed() && sync.rival) {
+    sync.rival(SEED).then(g => { if (g) bindRivalGhost(g); }).catch(() => {});
+  }
   const newOpWarm = (PERK_VALUES[perkBg] || {}).opWarm;
   for (const r of regulars.regulars) { r.op = newOpWarm != null ? Math.max(r.op, newOpWarm) : 0.15; r.visits = 5; r.stage = 'regular'; r.drink = CANON_DRINKS[r.name] || 'filter'; r.events = []; r.seen = false; r._spawned = false; r.served = 0; r.balked = 0; r.absence = 'present'; r.absentReason = null; r.justLost = false; r._defectShown = false; r._lastWalkoutDay = undefined; r._lastOutcomeDay = undefined; }
   // The quieter room survives the new week. Dawn does not clear it either.
@@ -6405,7 +6452,7 @@ function loop(now) {
     }
   }
   vitality.tick();
-  try { world.setRivalHeat(patrons.rivalQ.length); } catch {}
+  try { world.setRivalHeat(patrons.rivalQ.length + Math.min(6, Math.round(patrons.ghostPace * 4))); } catch {}
   world.updateTimeOfDay(dayMin);
   sky.update(dayMin, null, vitality.current);
   director.update({ dt, now, dayMin, night: world.night || 0, vitality: vitality.current });
@@ -6477,6 +6524,7 @@ function loop(now) {
     board: loan.seized ? 'beans and water' : 'menu',
     index: exchange.beanIndex, cost: exchange.costPerCup, debt: exchange.debt, settledPaid, campaignDone, cRev, cCost, cOps, netWorth: cRev - cCost - cOps - settledPaid - exchange.debt, rep: regulars.reputation, vitality: Math.round(vitality.current * 100) / 100, event: exchange.event ? exchange.event.id : null, contract: exchange.contract ? exchange.contract.price : null, rushFast, eveningFast,
     staffCondition: baristaCondition, staffing: onRobotHire() ? 'robot' : (planDraft ? planDraft.staffing : 'work'), rivalChoices: patrons.rivalChoices, preparedCups, baristaCrisis,
+    rivalCups: rivalDayCups(), ghostServed: patrons.ghostServed || 0, rivalBarista: COPY.rivalBarista,
     weekHire, hireLocked, quietCarry, apprentice: apprenticeHiredToday, maintenance: maintenanceBill, tipsForgone: tipsForgoneToday, staffMul: patrons.staffMul, tipMul: regulars.tipMul,
     trainingSpend, sampleSpend, feeToday, interestToday, settleToday, marketingSpend,
     milkDelivery, milkStock: ctx.milkStock, milky: ctx.milky, milkOut: ctx.milkOut, milkBalked,
@@ -6494,6 +6542,9 @@ function loop(now) {
   prepareDay, stageDayPlan, stageWeekHire, commitDayPlan, continueFromReview,
   stageShockCounter, stageCounterable, stagePastryCut,
   doPrebatch, doReprice,
+  // Headless lever: bind a rival ghost ledger (as /sync/rival returns) — the
+  // async-rivals path under test. Null restores synthetic Sam.
+  setRivalGhost(g) { bindRivalGhost(g); },
   // Headless lever: stage menu prices + 86 board without DOM (mirrors the
   // Brief's menu section: stagedMenu → applyMenu at commit). NOTE: commit
   // order matters — commitDayPlan() calls applyMenu() only inside

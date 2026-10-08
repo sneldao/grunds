@@ -37,6 +37,11 @@ export class PatronSystem {
     this.rivalClock = 0;
     this.rivalCredit = 0;
     this.rivalChoices = 0;
+    // Async rivals — a real player's week ledger, seed-scoped. ghostPace is
+    // their day's cups per sim-minute (0 = synthetic Sam). ghostServed counts
+    // the ambient share: cups their street's own demand drinks off-camera.
+    this.ghostPace = 0;
+    this.ghostServed = 0;
     this.rivalStrategy = 'DEFAULT';
     this.dwellMul = 1;
     this.random = random;
@@ -603,8 +608,9 @@ export class PatronSystem {
     const stratDef = CAMPAIGN.rivalStrategies[this.rivalStrategy] || {};
     const speedMul = stratDef.speedMul || 1;
     const rivalReady = this.rivalQ.length > 0 && this.rivalQ[0].state === 'inRivalQ';
-    this.rivalCredit += 0.5 * speedMul;
-    if (!rivalReady) this.rivalCredit = Math.min(1, this.rivalCredit);
+    // A bound ghost sets throughput outright — you race their actual cups,
+    // so the strategy multiplier no longer applies to their pace.
+    this.rivalCredit += (this.ghostPace || 0.5 * speedMul);
     while (this.rivalCredit >= 1 - 1e-9 && this.rivalQ.length && this.rivalQ[0].state === 'inRivalQ') {
       const p = this.rivalQ.shift();
       this.rivalCredit = Math.max(0, this.rivalCredit - 1);
@@ -612,6 +618,13 @@ export class PatronSystem {
       p.path = [V3(p.pos.x + 5, 0, 15.4)];
       ev.push({ type: 'rivalServed', p });
     }
+    // Ghost weeks: whatever pace the defectors didn't consume is their own
+    // street's demand, served off-camera — total rival cups track the real
+    // ledger. Without a ghost, credit banks at one serve while nobody waits.
+    if (this.ghostPace) {
+      const ambient = Math.floor(this.rivalCredit + 1e-9);
+      if (ambient > 0) { this.ghostServed += ambient; this.rivalCredit -= ambient; }
+    } else if (!rivalReady) this.rivalCredit = Math.min(1, this.rivalCredit);
     let walkedBack = false;
     for (let i = this.rivalQ.length - 1; i >= 0; i--) {
       const p = this.rivalQ[i];
@@ -1104,6 +1117,7 @@ export class PatronSystem {
     for (let i = MAXP - 1; i >= 0; i--) this.free.push(i);
     this.walkMul = 1;
     this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.rivalClock = 0; this.rivalCredit = 0; this.rivalChoices = 0;
+    this.ghostServed = 0; this.ghostPace = 0;   // per-day; main re-binds the pace at each openDay
     this.staffMul = 1; this.capacityMult = 1; this.shockStaff = 0; this.reach = 1; this.cupQuality = 1;
     this.balkMul = 1; this.dwellMul = 1;
     this.turnaways = 0; this._boardProbe = 0; this._boardEvents = [];

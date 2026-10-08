@@ -257,6 +257,29 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_seed", ["seed"]),
 
+  // Async rivals — a completed (or in-progress) week ledger, keyed by seed
+  // like franchises: the street remembers who raced it, and every later
+  // player on the seed finds that person's ghost pacing the Glasshouse.
+  // One row per (seed, owner); each closeDay patches in the day's tally.
+  // Self-reported by the client — not server-replayed anti-cheat.
+  rivalWeeks: defineTable({
+    seed: v.number(),
+    owner: v.string(),        // stand owner id (localStorage grunds.owner)
+    standName: v.string(),    // licence stand name — display
+    playerName: v.string(),   // licence name — becomes the rival barista
+    days: v.array(v.object({
+      day: v.number(),
+      served: v.number(),     // cups out the window (served + retail)
+      till: v.number(),       // campaign-cumulative till at close
+      rep: v.number(),
+    })),
+    weekServed: v.number(),   // running total of days[].served
+    netWorth: v.optional(v.number()),
+    reputation: v.optional(v.number()),
+    status: v.string(),       // "open" | "done"
+    updatedAt: v.number(),
+  }).index("by_seed", ["seed"]),
+
   // PR-4e — RevenueCat entitlement mirror. One row per appUserId (the
   // stand owner), updated by the RevenueCat webhook. The client polls
   // /sync/entitlements on boot to reconcile localStorage-billing state,

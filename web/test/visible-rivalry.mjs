@@ -52,7 +52,8 @@ test('visible-rivalry: cRivalServed / cRivalChoices accumulated on day-end', () 
   const idx = main.indexOf('cRev += till;');
   assert.ok(idx > -1, 'cRev += till; not found');
   const block = main.slice(idx, idx + 600);
-  assert.match(block, /cRivalServed \+= rivalServed/);
+  // rivalDayCups() = visible rivalServed + ghost ambient — the ledger total
+  assert.match(block, /cRivalServed \+= rivalDayCups\(\)/);
   assert.match(block, /cRivalChoices \+= patrons\.rivalChoices/);
 });
 
@@ -93,9 +94,10 @@ test('visible-rivalry: showMorningBrief calls renderRivalLine', () => {
 test('visible-rivalry: wave-debrief mid-day card has you vs Sam line', () => {
   // The middle-of-day card: left side is "you vs " + COPY.rivalBarista,
   // right side is a template literal with `${served + servedRetail}`,
-  // `${COPY.rivalBarista}`, and `${rivalServed + patrons.rivalChoices}`.
+  // `${COPY.rivalBarista}`, and `${rivalDayCups() + patrons.rivalChoices}`
+  // (rivalDayCups = visible serves + ghost ambient — async-rivals ledger).
   assert.match(main, /you vs '\s*\+\s*COPY\.rivalBarista/);
-  assert.match(main, /\$\{served \+ servedRetail\}[\s\S]{0,40}?\$\{COPY\.rivalBarista\}[\s\S]{0,40}?\$\{rivalServed \+ patrons\.rivalChoices\}/);
+  assert.match(main, /\$\{served \+ servedRetail\}[\s\S]{0,40}?\$\{COPY\.rivalBarista\}[\s\S]{0,40}?\$\{rivalDayCups\(\) \+ patrons\.rivalChoices\}/);
 });
 
 test('visible-rivalry: verdict receipt has you vs Sam week-tally line', () => {
