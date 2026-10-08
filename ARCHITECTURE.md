@@ -979,6 +979,29 @@ steps). If the delayed policy survives as long as the fast one, pressure is
 decorative; if perfect play and passive play land within noise, that is the
 teeth measurement — and the honest answer to "liked, not loved".
 
+**Measured (Oct 7, `5c13a6c`):** both bookends exist now — `optimal`
+(the `queue` ruleset plus the strictly-better moves: morning batch staged free
+in the Brief, batch at queue≥4 pre-peak, top-up on a dry batch, +EV offers
+only) and `delayed` (the `queue` ruleset with every intra-day action landing
+300ms of wall clock later, ≈20 sim-minutes at speed 1200). The teeth reading:
+
+| policy | mean netWorth | verdicts |
+|---|---|---|
+| `optimal` | £7,723 | 8×held, 2×scarped — the first policy to reliably cross `held` |
+| `queue` | £7,512 | 10×scarped |
+| `delayed` | £7,087 | 10×scarped |
+| `passive` | £1,541 | 9×scarped, 1×lost |
+
+Three findings fall out. **Pressure is real**: passive→optimal spans £6.2k
+(5×), and a 300ms reaction lag costs £425 (−5.7%) against its instant twin —
+the floor punishes slowness but doesn't collapse. **The headroom is thin**:
+perfect play only clears competent queue-play by ~£210 — most of the spread
+is floor work, not mastery. **The market lever is currently dominated**:
+`optimal` never hedges (hedgeBenefitAfterFees 0) and wins anyway, while every
+contract-buying policy posts a negative hedge benefit (−£75 to −£508). The
+frost/rumour signal is priced wrong for perfect play — fees outrun the cover
+at these volumes. That's a tuning finding, not a test failure.
+
 Also worth running on the opening specifically: *"the first 30 seconds contain
 no real decision."* We deliberately open with a licence modal, a 3-step
 tutorial, half-demand mornings, and a 3.4s crane settle. `first_lever_at_min`

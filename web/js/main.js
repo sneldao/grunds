@@ -6582,6 +6582,15 @@ function loop(now) {
   // Headless lever: bind a rival ghost ledger (as /sync/rival returns) — the
   // async-rivals path under test. Null restores synthetic Sam.
   setRivalGhost(g) { bindRivalGhost(g); },
+  // Headless lever: stage the morning prep choice without DOM (mirrors the
+  // Brief's hold/batch/reprice radio — mutually exclusive, fired free at
+  // commit by applyStagedPrep).
+  stagePrep({ batch = false, reprice = false } = {}) {
+    if (phase !== 'planning') return false;
+    if (batch && reprice) return false;   // the pills are a radio pair
+    stagedPrep = { batch: !!batch, reprice: !!reprice };
+    return true;
+  },
   // Headless lever: stage menu prices + 86 board without DOM (mirrors the
   // Brief's menu section: stagedMenu → applyMenu at commit). NOTE: commit
   // order matters — commitDayPlan() calls applyMenu() only inside

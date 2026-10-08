@@ -5,10 +5,11 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { CAMPAIGN } from '../js/config.js';
 import { campaignVerdict } from '../js/economy.js';
+import { wavesForDay } from '../js/gentrification.js';
 
 const schedule = JSON.parse(readFileSync(new URL('../../out/wave_schedule.json', import.meta.url), 'utf8'));
 const seeds = [7, 42, 101, 202, 555, 13, 77, 150, 314, 431];
-const policies = ['passive', 'queue', 'growth', 'conservative', 'aggressive', 'forecaster', 'engaged', 'reckless'];
+const policies = ['passive', 'queue', 'growth', 'conservative', 'aggressive', 'forecaster', 'engaged', 'reckless', 'optimal', 'delayed'];
 const sourceFiles = ['main', 'config', 'patrons', 'exchange', 'economy', 'decision', 'gentrification', 'demand', 'regulars', 'rival', 'staffing'];
 const fingerprint = () => createHash('sha256').update(sourceFiles.map(name => readFileSync(new URL(`../js/${name}.js`, import.meta.url), 'utf8')).join('\n')).digest('hex');
 const sourceHash = fingerprint();
@@ -83,10 +84,27 @@ async function run(seed, policy) {
   document.getElementById('open').click();
   randomState = seed >>> 0;
   const days = [];
+  const pend = [];            // delayed policy: {dueAt, act} on the fake wall clock
+  const pendSeen = new Set(); // arms a delayed action once per trigger
   for (let day = 1; day <= CAMPAIGN.days; day++) {
     assert.equal(game.phase, 'planning');
     const before = game.stats();
     let hedge = before.debt > 0 && policy !== 'passive' && policy !== 'reckless' ? 'settle' : 'hold';   // competent policies clear the tab before re-borrowing
+    // optimal — the upper bound: the best-performing rules plus the
+    // strictly-better upgrades a perfect player makes. Stages the morning
+    // batch free in the Brief (no £4.20 override), accepts the offers that
+    // are +EV (Gwen's day-4 units lock the price cut for the whole day —
+    // declined), and never hedges: contract fees outrun their cover in this
+    // build, so perfect play rides the spot and keeps the tab settled.
+    let peakT = 840;
+    if (policy === 'optimal') {
+      const dayWaves = wavesForDay(schedule.waves, day);
+      peakT = dayWaves.reduce((m, w) => {
+        const q = w.spawns.reduce((a, s) => a + s.q, 0);
+        return q > m.q ? { t: w.t, q } : m;
+      }, { t: 840, q: 0 }).t;
+      game.stagePrep({ batch: true });   // free at commit — the wave lands every day
+    }
     if (policy === 'conservative') {
       if (!game.exc.contract && before.index <= 1.1) hedge = 'contract_light';
       else if (before.debt > 0) hedge = 'settle';
@@ -114,14 +132,37 @@ async function run(seed, policy) {
     assert.equal(res.ok, true, JSON.stringify(res));
     let frames = 0;
     while (game.phase === 'trading' && frames++ < 1000) {
-      if (game.modals.top() === 'offer') document.getElementById(policy === 'engaged' ? 'offer-yes' : 'offer-no').click();
-      const s = game.stats();
-      if (policy !== 'passive' && policy !== 'reckless' && !game.paused) {
-        const batch = document.getElementById('prebatch');
-        if (s.queue >= 6 && s.dayMin < 960 && !batch.disabled) batch.click();
-        const price = document.getElementById('reprice');
-        if (s.queue >= 12 && s.dayMin >= 800 && !price.disabled) price.click();
+      if (game.modals.top() === 'offer') {
+        if (policy === 'delayed') {
+          if (!pendSeen.has('offer')) { pendSeen.add('offer'); pend.push({ dueAt: now + 300, key: 'offer', act: () => document.getElementById('offer-no').click() }); }
+        } else {
+          // Gwen's day-4 offer (OFFERS[3]) locks the matcha price cut for the
+          // rest of the day — ~£13 of units against a full day's margin. The
+          // upper bound declines it; every other offer is +EV.
+          const yes = policy === 'engaged' || (policy === 'optimal' && day !== 4);
+          document.getElementById(yes ? 'offer-yes' : 'offer-no').click();
+        }
       }
+      const s = game.stats();
+      if (!game.paused) {
+        if (policy === 'delayed') {
+          // Reaction-delayed lower bound: the player sees the state now and
+          // acts ~300ms of wall clock later — ~20 sim-minutes at speed 1200.
+          const later = (key, act) => { if (!pendSeen.has(key)) { pendSeen.add(key); pend.push({ dueAt: now + 300, key, act }); } };
+          if (s.queue >= 6 && s.dayMin < 960) later('batch', () => game.doPrebatch());
+          if (s.queue >= 12 && s.dayMin >= 800) later('reprice', () => game.doReprice());
+        } else if (policy === 'optimal') {
+          if (s.queue >= 4 && s.dayMin < peakT && !s.prebatched) game.doPrebatch();
+          if (s.prebatched && s.batchUnits < 10 && s.queue >= 10 && s.dayMin < 1100) game.doPrebatch();   // top up a dry batch
+          if (s.queue >= 12 && s.dayMin >= 800 && !s.repriced) game.doReprice();
+        } else if (policy !== 'passive' && policy !== 'reckless') {
+          const batch = document.getElementById('prebatch');
+          if (s.queue >= 6 && s.dayMin < 960 && !batch.disabled) batch.click();
+          const price = document.getElementById('reprice');
+          if (s.queue >= 12 && s.dayMin >= 800 && !price.disabled) price.click();
+        }
+      }
+      while (pend.length && pend[0].dueAt <= now) { const p = pend.shift(); pendSeen.delete(p.key); p.act(); }
       assert.equal(typeof raf, 'function');
       const cb = raf; raf = null; now += 100; cb(now);
     }
@@ -250,7 +291,10 @@ try {
       meanReputation: mean('reputation'), meanServed: mean('served'), meanBalked: mean('balked'), meanHedgeBenefitAfterFees: mean('hedgeBenefitAfterFees'),
       verdicts, meanWorstDayNet: mean('worstDayNet'), totalNegativeDays: rows.reduce((n, r) => n + r.negativeDays, 0) };
   });
-  const report = { sourceHash, seeds, policies, assumptions: ['Local simulator, no identity perk, speed1200, deterministic Math.random reset immediately before play', 'All offers and incidents declined through the same modal action handler', 'All active policies batch at queue>=6 before16:00 and discount at queue>=12 after13:20; apprentice when eligible', 'Growth samples days1-4 and sponsors days3-4; conservative locks light at index<=1.1 or settles outstanding debt; aggressive buys heavy whenever uncovered; forecaster/engaged buy heavy after a rumour day and light after a spike; engaged also accepts offers and incidents; reckless buys heavy whenever uncovered, pushes Ruth, never works the queue; a rejected contract (supplier tab limit) falls back to riding the spot', 'Each campaign runs in a fresh Node process; fixed 100ms frame clock, fixed Date.now origin, and UI animation timers disabled; no browser, live backend, or human playtest', 'Ten-seed diagnostic pilot. Verdicts come from the shared campaignVerdict ladder; still not an isolated marketing ROI estimate'], summary, runs };
+  const report = { sourceHash, seeds, policies, assumptions: ['Local simulator, no identity perk, speed1200, deterministic Math.random reset immediately before play', 'All offers and incidents declined through the same modal action handler', 'All active policies batch at queue>=6 before16:00 and discount at queue>=12 after13:20; apprentice when eligible', 'Growth samples days1-4 and sponsors days3-4; conservative locks light at index<=1.1 or settles outstanding debt; aggressive buys heavy whenever uncovered; forecaster/engaged buy heavy after a rumour day and light after a spike; engaged also accepts offers and incidents; reckless buys heavy whenever uncovered, pushes Ruth, never works the queue; a rejected contract (supplier tab limit) falls back to riding the spot', 'optimal (V4 upper bound): the queue policy plus the strictly-better moves — the morning batch staged free in the Brief, batch at queue>=4 pre-peak, a top-up when the batch runs dry, every offer accepted except Gwen day-4 (locks the price cut), no contracts and no marketing spend (fees and sampling outrun their return in this build — hedge and street work are dominated)', 'delayed (V4 lower bound): the queue policy with every intra-day action landing 300ms of wall clock later — ~20 sim-minutes at speed 1200 — including offer dismissal', 'Each campaign runs in a fresh Node process; fixed 100ms frame clock, fixed Date.now origin, and UI animation timers disabled; no browser, live backend, or human playtest', 'Ten-seed diagnostic pilot. Verdicts come from the shared campaignVerdict ladder; still not an isolated marketing ROI estimate'], summary, runs };
+  const meanOf = p => summary.find(s => s.policy === p)?.meanNetWorth;
+  assert.ok(meanOf('optimal') > meanOf('passive'),
+    `upper bound must clear the floor — optimal ${meanOf('optimal')} vs passive ${meanOf('passive')}`);
   if (process.argv[2]) writeFileSync(process.argv[2], JSON.stringify(report, null, 2) + '\n', { flag: 'wx' });
   original.log(JSON.stringify({ sourceHash, seeds, replayVerified: true, summary, artifact: process.argv[2] || null }, null, 2));
   }
