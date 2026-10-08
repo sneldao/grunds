@@ -4052,7 +4052,6 @@ if ($('brief-softskip')) $('brief-softskip').onclick = () => beginWeek();
 
 // ---- dawns -------------------------------------------------------------------
 function capturePreDawn(enteringDay) {
-  if (headless) return;
   try {
     saveWeek(localStorage, {
       seed: seedNow(),
@@ -4074,11 +4073,19 @@ function capturePreDawn(enteringDay) {
         name: r.name, op: r.op, visits: r.visits, stage: r.stage, drink: r.drink,
         events: r.events, absence: r.absence, absentReason: r.absentReason,
         seen: r.seen, served: r.served, balked: r.balked,
+        justLost: r.justLost, _defectShown: r._defectShown,
+        _lastWalkoutDay: r._lastWalkoutDay, _lastOutcomeDay: r._lastOutcomeDay,
       })),
       walkins: (walkins.heads || []).map(h => ({ ...h })),
       lots: { lots: lotState.lots, house: lotState.house, pending: lotState.pending },
       awareness: demand.awareness, satisfaction: demand.satisfaction,
-      lastMilky, lastPour, lastRetail, pastryCut,
+      returnees: demand.todayReturnees,
+      menu: { prices: { ...menuPrices }, offered: { ...menuOffered } },
+      lastMilky, lastPour, lastRetail, pastryCut, shockPulledFlat,
+      rival: {
+        grudge: { ...samGrudge },
+        prices: Object.fromEntries(Object.entries(CAMPAIGN.rivalStrategies).map(([k, s]) => [k, s.price])),
+      },
       campaign: { cRev, cCost, cOps, cBalked, cServed, cDef, cRivalServed, cRivalChoices, settledPaid },
       staff: {
         baristaCondition, weekHire, hireLocked, ruthSkill, samTruce, quietCarry,
@@ -4122,6 +4129,8 @@ function applySavedWeek(save) {
       r.events = k.events || []; r.absence = k.absence || 'present';
       r.absentReason = k.absentReason || null; r.seen = !!k.seen;
       r.served = k.served || 0; r.balked = k.balked || 0;
+      r.justLost = !!k.justLost; r._defectShown = !!k._defectShown;
+      r._lastWalkoutDay = k._lastWalkoutDay; r._lastOutcomeDay = k._lastOutcomeDay;
     }
   }
   if (save.lots && save.lots.lots) {
@@ -4131,6 +4140,22 @@ function applySavedWeek(save) {
   }
   if (save.awareness != null) demand.awareness = save.awareness;
   if (save.satisfaction != null) demand.satisfaction = save.satisfaction;
+  if (save.returnees != null) demand.todayReturnees = save.returnees;
+  shockPulledFlat = !!save.shockPulledFlat;
+  if (save.rival) {
+    if (save.rival.grudge) samGrudge = { cuts: 0, preps: 0, snubs: 0, ...save.rival.grudge };
+    if (save.rival.prices) {
+      for (const [k, p] of Object.entries(save.rival.prices)) {
+        const def = CAMPAIGN.rivalStrategies[k];
+        if (def && Number.isFinite(p)) def.price = p;
+      }
+    }
+  }
+  if (save.menu && save.menu.prices) Object.assign(menuPrices, save.menu.prices);
+  if (save.menu && save.menu.offered) Object.assign(menuOffered, save.menu.offered);
+  ctx.menuPrices = menuPrices;
+  patrons.menuPrices = menuPrices;
+  patrons.menuOffered = menuOffered;
   if (save.lastMilky != null) lastMilky = save.lastMilky;
   if (save.lastPour != null) lastPour = save.lastPour;
   if (save.lastRetail != null) lastRetail = save.lastRetail;

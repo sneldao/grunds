@@ -817,7 +817,16 @@ per load rather than per frame — verify before converting it.
 soft-opening `softRng` +101; all reseed on `reset()`. The dawn save carries
 each stream's position (`streams.{patrons,floor,fx}` alongside
 `rngState`), so a resumed week replays the exact draws an uninterrupted
-one takes; saves predating the field reseed cleanly. Also
+one takes; saves predating the field reseed cleanly. The save also carries
+the cross-day sim projections the ledger reads: menu (`prices`/`offered`),
+`demand.todayReturnees` (yesterday's evangelism deepens today's waves),
+`samGrudge` + the `CAMPAIGN.rivalStrategies[*].price` mutations `rivalReact`
+undercuts leave behind (the defs are shared and the mutation persists —
+without them a resumed week faces a pristine board), `shockPulledFlat`, and
+regulars' `justLost`/`_defectShown`/`_lastWalkoutDay`/`_lastOutcomeDay`.
+`web/test/replay-resume.mjs` gates it: a child resumes from the donor run's
+day-2/3/4 dawn saves and must produce byte-identical ledgers and campaign
+ends. Also
 seeded now: walk-in head picks (`WalkinPool.draw`, day-local
 `mulberry32(seed:day:draw)`), the regulars fallback roll (patron stream), and
 table seat angles (fixed private LCG in `world.js`: they set walk distances).
