@@ -833,24 +833,40 @@ fixed script (menu prices, pastry cut, restock, day-1 light contract,
 prep/reprice at fixed queue thresholds, offers declined). Two runs at seed 7
 are identical on every day's till, cogs, served, balked, defections, rival
 counts, ops lines, receipt `netToday` and the end-of-week ledger; seed 8
-differs. From the moment the day opens `Math.random` throws (and records the
+differs; and the same seed replays identically under 100ms, 50ms and 37ms
+frame clocks — the campaign is a pure function of seed + inputs at any frame
+cadence. From the moment the day opens `Math.random` throws (and records the
 caller, since `main.js` swallows many throws); only three.js `generateUUID`
 is let through, on a stream that differs between the two runs, as does the
 boot-time cosmetic stream — so object ids and boot noise provably don't steer
-the sim. So: **same seed + same inputs + same frame clock → same campaign.**
+the sim. So: **same seed + same inputs → same campaign, at any frame rate.**
+
+**The input rule the gate enforces.** A scripted "player input" is a
+function of sim state — `queue >= 6`, `dayMin < 960` — so it must be
+evaluated at sim boundaries (once per tick), never per frame: a frame-paced
+poll clicks the batch lever on different sim-minutes under different clocks.
+Same for the DOM `disabled` flag — `updateHUD` refreshes it per frame, so a
+harness that gates on it reads state up to a frame stale (the lag differs by
+clock). The gate calls `doPrebatch()`/`doReprice()` directly, which re-check
+`leverState(leverSnapshot())` against live sim state. Modal dismissal is the
+one frame-safe input: a modal sets `paused`, freezing the sim clock, so
+clicking it at any frame is the same input at the same frozen sim-minute.
 
 **Still nondeterministic, on purpose or out of scope:**
-- **Frame timing (now cosmetic for patrons).** `patrons.step()` runs inside
-  `tick()` at one fixed quantum per sim-minute — movement, arrivals, dwell
-  and `waitMin` are frame-rate independent. `patrons.render()` runs per
-  frame and only reads sim state (`p.vis` trails `p.pos` for glide; prop
-  verbs draw on `fx.random`, not the patron stream). `street.update` and
-  `barStaff.update` still run per frame but are ambient/pose-only — they
-  feed no decisions. `update(dt,…)` remains as the `step + render`
-  composite for harnesses. Two residual sharers to watch: spawn gating
-  reads `speed` (which `rushSpeed` mutates on the wall of the sim clock —
-  fine) and `patrons.reset()` re-canonicalises the `free` idx stack, since
-  `p.idx` order is sim-visible through the seat-plan tiebreak.
+- **Frame timing (cosmetic only).** `patrons.step()` runs inside `tick()` at
+  one fixed quantum per sim-minute — movement, arrivals, dwell and
+  `waitMin` are frame-rate independent (verified: identical campaigns at
+  37/50/100ms clocks). `patrons.render()` runs per frame and only reads sim
+  state (`p.vis` trails `p.pos` for glide; prop verbs draw on `fx.random`,
+  not the patron stream). `street.update` and `barStaff.update` still run
+  per frame but are ambient/pose-only — they feed no decisions.
+  `update(dt,…)` remains as the `step + render` composite for harnesses.
+  Residual cosmetic drift that stays out of the sim: `p.flash`/`p._impact`
+  decay per frame, and `p.greeted` can lag a frame because `fx.bubble`
+  returns false while a bubble is live — greeting retries draw nothing, so
+  the streams never desync. `patrons.reset()` re-canonicalises the `free`
+  idx stack, since `p.idx` order is sim-visible through the seat-plan
+  tiebreak.
 - Tripo / GLB asset loads (arrival order and failures; visuals only, the
   `seats[]` array is synchronous).
 - Network: Convex sync and managed-decision round-trips, mail replies,

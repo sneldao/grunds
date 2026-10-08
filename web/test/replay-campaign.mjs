@@ -1,11 +1,20 @@
 // V0 replay gate: a campaign is a pure function of seed + player inputs.
 //
 // Each run is a fresh Node process that imports the real main.js headless
-// (same stub harness as balance-policies.mjs: fixed 100ms frame clock, fixed
+// (same stub harness as balance-policies.mjs: a parameterized frame clock —
+// 100ms by default, driven differently in the frame-invariance test — fixed
 // performance.now / Date.now, UI timers disabled) and plays the full
 // CAMPAIGN.days week with one fixed script of inputs: menu prices, pastry
 // cut, cellar restock, a day-1 light contract, the prep/reprice levers at
 // fixed queue thresholds, every offer declined.
+//
+// The input script is evaluated once per sim tick, not per frame: lever
+// conditions like 'queue >= 6' are functions of sim state, so polling them
+// per frame would make the script itself frame-rate dependent — a 37ms
+// clock would click the batch lever on different sim-minutes than a 100ms
+// clock. Modal dismissals are the exception and stay in the frame pump,
+// gated on paused: a modal freezes the sim clock, so clicking it at any
+// frame is the same input at the same frozen sim-minute.
 //
 // Math.random is never seeded here. While the module boots it returns a
 // throwaway cosmetic stream whose seed differs between the two same-seed
@@ -16,11 +25,12 @@
 // MathUtils.generateUUID (Object3D ids for meshes spawned mid-day); it gets
 // the same varying cosmetic stream, so object ids cannot steer the sim either.
 //
-// Covered: the whole main.js day loop (tick → patrons.tick/update, exchange
+// Covered: the whole main.js day loop (tick → patrons.step/tick, exchange
 // dawn/events, demand, regulars, walk-ins, street demand, floor coin-tosses,
-// FX bubbles, closeDay ledger, week continuation). Not covered: real RAF frame
-// timing (dt is a fixed 100ms here), save/resume across a reload, Convex sync,
-// Tripo/GLB asset loads, Linkup and any network.
+// FX bubbles, closeDay ledger, week continuation) plus frame-rate invariance
+// — the same campaign is replayed under 100ms, 50ms and 37ms frame clocks
+// and must produce identical outcomes. Not covered: save/resume across a
+// reload, Convex sync, Tripo/GLB asset loads, Linkup and any network.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -33,7 +43,7 @@ function lcg(seed) {
   return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
 }
 
-async function child(seed, cosmeticSeed) {
+async function child(seed, cosmeticSeed, frameMs = 100) {
   const { CAMPAIGN } = await import('../js/config.js');
   const schedule = JSON.parse(readFileSync(new URL('../../out/wave_schedule.json', import.meta.url), 'utf8'));
   const out = process.stdout.write.bind(process.stdout);
@@ -97,6 +107,25 @@ async function child(seed, cosmeticSeed) {
   await new Promise(resolve => setImmediate(resolve));
   const game = globalThis.__grunds;
 
+  // Levers fire once per sim tick — see the header note. patrons.tick only
+  // runs while trading and unpaused, which is exactly when lever presses
+  // are legal inputs anyway. We call doPrebatch/doReprice directly rather
+  // than clicking the DOM buttons: the buttons' disabled flag is refreshed
+  // per frame in updateHUD, so it lags sim state by up to a frame — a lag
+  // that differs by frame clock and would re-couple the script to RAF.
+  // The lever functions re-check availability against live sim state
+  // themselves, so calling them is frame-rate safe.
+  const origPatronsTick = game.patrons.tick.bind(game.patrons);
+  game.patrons.tick = (dm, c) => {
+    const ev = origPatronsTick(dm, c);
+    if (!game.paused) {
+      const s = game.stats();
+      if (s.queue >= 6 && s.dayMin < 960) game.doPrebatch();
+      if (s.queue >= 12 && s.dayMin >= 800) game.doReprice();
+    }
+    return ev;
+  };
+
   // From here on the sim path owns the clock: bare Math.random is a bug.
   const strays = new Map();
   let uuidDraws = 0;
@@ -128,15 +157,8 @@ async function child(seed, cosmeticSeed) {
     assert.equal(res.ok, true, JSON.stringify(res));
     let frames = 0;
     while (game.phase === 'trading' && frames++ < 1000) {
-      if (game.modals.top() === 'offer') document.getElementById('offer-no').click();
-      const s = game.stats();
-      if (!game.paused) {
-        const batch = document.getElementById('prebatch');
-        if (s.queue >= 6 && s.dayMin < 960 && !batch.disabled) batch.click();
-        const price = document.getElementById('reprice');
-        if (s.queue >= 12 && s.dayMin >= 800 && !price.disabled) price.click();
-      }
-      const cb = raf; raf = null; now += 100; cb(now);
+      if (game.paused && game.modals.top() === 'offer') document.getElementById('offer-no').click();
+      const cb = raf; raf = null; now += frameMs; cb(now);
     }
     const s = game.stats(), receipt = game.lastDayReceipt || {};
     days.push({
@@ -166,15 +188,18 @@ async function child(seed, cosmeticSeed) {
 }
 
 if (process.argv[2] === '--replay') {
-  await child(Number(process.argv[3]), Number(process.argv[4]));
+  await child(Number(process.argv[3]), Number(process.argv[4]), Number(process.argv[5] || 100));
   process.exit(0);
 } else {
   const { default: test } = await import('node:test');
-  const run = (seed, cosmeticSeed) => JSON.parse(execFileSync(process.execPath, [SELF, '--replay', String(seed), String(cosmeticSeed)],
+  const run = (seed, cosmeticSeed, frameMs) => JSON.parse(execFileSync(process.execPath,
+    [SELF, '--replay', String(seed), String(cosmeticSeed), String(frameMs || 100)],
     { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }));
   const A = run(7, 1);
   const B = run(7, 0xC0FFEE);
   const C = run(8, 1);
+  const F50 = run(7, 1, 50);
+  const F37 = run(7, 1, 37);
 
   test('replay: campaign plays out to the finale under the sentinel', () => {
     const { days } = A;
@@ -192,11 +217,24 @@ if (process.argv[2] === '--replay') {
     assert.deepEqual(A.strays, [], 'Math.random reached from:\n' + A.strays.join('\n'));
     assert.deepEqual(B.strays, []);
     assert.deepEqual(C.strays, []);
+    assert.deepEqual(F50.strays, []);
+    assert.deepEqual(F37.strays, []);
   });
 
   test('replay: same seed + same inputs → identical till, served, balked, defections, ledger', () => {
     assert.deepEqual(B.days, A.days);
     assert.deepEqual(B.end, A.end);
+  });
+
+  test('replay: the campaign is identical at 50ms and 37ms frame clocks (fixed-step invariance)', () => {
+    assert.equal(F50.crash, null, F50.crash);
+    assert.equal(F37.crash, null, F37.crash);
+    // `frames` legitimately differs across clocks — it measures how many RAF
+    // turns the day took, which is the very thing being varied. Everything
+    // else — every per-day ledger and the campaign end — must be identical.
+    const strip = r => ({ days: r.days.map(({ frames, ...d }) => d), end: r.end });
+    assert.deepEqual(strip(F50), strip(A));
+    assert.deepEqual(strip(F37), strip(A));
   });
 
   test('replay: a different seed produces a different campaign', () => {
