@@ -13,6 +13,7 @@ export class AudioEngine {
     this.buffers = {}; this._samplesReady = null;
     this._lastCup = -1; this._cupsActive = 0;
     this._lastGrinder = -10; this._grinderActive = false;
+    this.streetActive = false;
   }
 
   start() {
@@ -71,19 +72,26 @@ export class AudioEngine {
     this.hissSrc.start();
     this.noiseBuf = white;
 
+    const streetFB = ctx.createBufferSource(); streetFB.buffer = brown; streetFB.loop = true;
+    const streetLP = ctx.createBiquadFilter(); streetLP.type = 'lowpass'; streetLP.frequency.value = 260;
+    this.streetFBGain = ctx.createGain(); this.streetFBGain.gain.value = 0;
+    streetFB.connect(streetLP); streetLP.connect(this.streetFBGain); this.streetFBGain.connect(this.master);
+    streetFB.start();
+
     this._samplesReady = this._loadSamples(ctx);
   }
 
   _loadSamples(ctx) {
     if (!this._fetch || typeof ctx.decodeAudioData !== 'function') return Promise.resolve();
     const fetch = this._fetch;
-    const jobs = ['espresso', 'grinder', 'cup'].map(async name => {
+    const jobs = ['espresso', 'grinder', 'cup', 'street'].map(async name => {
       const res = await fetch(new URL(`../assets/audio/${name}.mp3`, import.meta.url).href);
       if (!res || !res.ok) throw new Error(`audio ${name}: ${res ? res.status : 'no response'}`);
       const data = await res.arrayBuffer();
       const buffer = await ctx.decodeAudioData(data);
       this.buffers[name] = buffer;
       if (name === 'espresso') this._startEspresso(buffer);
+      if (name === 'street') this._startStreet(buffer);
     });
     return Promise.allSettled(jobs);
   }
@@ -95,6 +103,15 @@ export class AudioEngine {
     src.connect(g); g.connect(this.master);
     src.start();
     this.espGain = g;
+  }
+
+  _startStreet(buffer) {
+    if (!this.ctx || this.streetGain) return;
+    const src = this.ctx.createBufferSource(); src.buffer = buffer; src.loop = true;
+    const g = this.ctx.createGain(); g.gain.value = 0;
+    src.connect(g); g.connect(this.master);
+    src.start();
+    this.streetGain = g;
   }
 
   _noiseBuffer(brown) {
@@ -126,6 +143,9 @@ export class AudioEngine {
     }
     this.hissGain.gain.setTargetAtTime(this.rush && !this.espGain ? 0.035 : 0, t, 0.8);
     if (this.espGain) this.espGain.gain.setTargetAtTime(this.rush ? 0.035 : 0, t, 0.8);
+    const moodScale = 0.55 + 0.45 * this.mood;
+    if (this.streetGain) this.streetGain.gain.setTargetAtTime(this.streetActive ? 0.022 * moodScale : 0, t, 1.2);
+    this.streetFBGain.gain.setTargetAtTime(this.streetActive && !this.streetGain ? 0.006 * moodScale : 0, t, 1.2);
     // muffled syllables when it's busy
     if (this.crowd > 6 && cosmeticRandom() < dt * this.crowd * 0.05) {
       const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf;
@@ -243,6 +263,7 @@ export class AudioEngine {
   }
   setCrowd(n) { this.crowd = n; }
   setRush(b) { this.rush = b; }
+  setStreetActive(on) { this.streetActive = !!on; }
   setMood(v) { this.mood = v < 0 ? 0 : v > 1 ? 1 : v; }
   tick(at1x) {
     if (!this.ctx || !at1x || this.ctx.state !== 'running') return;

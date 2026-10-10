@@ -89,4 +89,45 @@ ok('renderer is keyed: rows reused, stale rows removed, unchanged rows untouched
   assert.ok(list.children.every(li => li.dataset.v !== 'tab'));
 });
 
+ok('mapped rows render mask glyph classes; unmapped keep their emoji', () => {
+  const mk = () => ({ className: '', textContent: '', hidden: false, style: {}, dataset: {}, children: [], attrs: {},
+    setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; },
+    appendChild(c) { this.children.push(c); c._p = this; return c; },
+    remove() { const p = this._p; if (p) p.children.splice(p.children.indexOf(this), 1); } });
+  globalThis.document = { createElement: mk };
+  const list = mk();
+  renderVitals(list, buildVitals({ ...base, debt: 900, batchUnits: 12 }));
+  const vi = id => list.children.find(li => li.dataset.v === id).children[0];
+  assert.equal(vi('staff').className, 'vi vital-icon vital-icon-cup');
+  assert.equal(vi('beans').className, 'vi vital-icon vital-icon-coffee');
+  assert.equal(vi('milk').className, 'vi vital-icon vital-icon-milk');
+  assert.equal(vi('batch').className, 'vi vital-icon vital-icon-cup');
+  assert.equal(vi('tab').className, 'vi vital-icon vital-icon-coins');
+  for (const id of ['staff', 'beans', 'milk', 'batch', 'tab']) {
+    assert.equal(vi(id).textContent, '', id);
+    assert.equal(vi(id).attrs['aria-hidden'], 'true', id);
+  }
+  assert.equal(vi('utilities').className, 'vi');
+  assert.equal(vi('utilities').textContent, '⚡');
+  assert.equal(vi('cost').className, 'vi');
+  assert.equal(vi('cost').textContent, '⚖');
+  assert.equal(vi('nut').className, 'vi');
+});
+
+ok('cache re-renders when icon or label changes under the same row id', () => {
+  const mk = () => ({ className: '', textContent: '', hidden: false, style: {}, dataset: {}, children: [],
+    appendChild(c) { this.children.push(c); c._p = this; return c; },
+    remove() { const p = this._p; if (p) p.children.splice(p.children.indexOf(this), 1); } });
+  globalThis.document = { createElement: mk };
+  const list = mk();
+  const row = (icon, label) => ({ id: 'probe', icon, label, value: 'v', tone: 'ok' });
+  renderVitals(list, [row('a', 'one')]);
+  assert.equal(list.children[0].children[0].textContent, 'a');
+  assert.equal(list.children[0].children[1].textContent, 'one');
+  renderVitals(list, [row('a', 'one')]);
+  renderVitals(list, [row('b', 'two')]);
+  assert.equal(list.children[0].children[0].textContent, 'b');
+  assert.equal(list.children[0].children[1].textContent, 'two');
+});
+
 console.log(`vitals: ${n} passed`);

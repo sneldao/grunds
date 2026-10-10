@@ -231,6 +231,8 @@ node web/test/modals.mjs              # modal a11y: focus trap, stack z-order/in
 node web/test/lifecycle-accounting.mjs # planning→trading→review lifecycle, per-cup hedge accounting, reconciled P&L
 node --experimental-vm-modules web/test/decisions.mjs  # managed decision protocol: resolver, Convex handlers (mock DB), client lifecycle
 node web/test/balance-policies.mjs    # diagnostic policy comparison across fixed seeds (fresh-process replay)
+node --test web/test/floor-stock.mjs web/test/audio.mjs web/test/brief-icons.mjs web/test/vitals.mjs  # stock display slots, sampled audio, icon + vitals surfaces
+node --experimental-vm-modules --test --test-concurrency=1 web/test/stage-site.mjs web/test/replay-resume.mjs  # dist staging bundle + deterministic resume replay
 ```
 
 The floor is a **connected 5-day campaign**, not a closed loop. The three nested clocks
@@ -280,6 +282,35 @@ an flop falls as a soft rain. At 17:30 and on day-1 close a **Day-2 forecast**
 toast + receipt stripe preview the next day's board to earn the replay. A local `analytics.js` tracks
 `tutorial_step/skip/complete`, `first_lever_at_min`, every balk, debrief and forecast
 for the 5-question playtest (`__grunds.analytics.summary()`).
+
+### Asset-led readability — October 10, 2026
+
+A local pass that puts live stock and quieter sound on the existing floor,
+without touching simulation math or RNG:
+
+- The pastry case now keeps six representative positions whose fill tracks
+  `ctx.pastryStock` against the capacity ordered at day open — sales empty
+  slots and the dawn restock refills them.
+- A stock view on the bar shows two milk cartons, two bean bags, and three
+  prepared cups, driven by milk delivery, house-lot stock, and batch units;
+  a tray under the cups reads matcha when the batch is ready and brass when
+  it's reserved. All counts are approximate stock representation, not
+  physical per-unit counts — the sim's numbers stay authoritative.
+- Three recorded café sounds (an espresso rush loop, grinder and cup
+  one-shots) plus a quiet street-traffic bed lazy-load after the first
+  gesture, with procedural fallbacks and the master mute preserved; street
+  and rush duck when the day is paused, closed, or the tab is hidden.
+- Morning Brief and vitals labels carry decorative masked ink glyphs; text
+  labels and controls keep their semantics.
+
+Contracts and remaining options are in
+[ARCHITECTURE.md](ARCHITECTURE.md#october-10--asset-led-readability-and-remaining-options);
+the icon/palette rules are in [ART.md](ART.md); asset provenance is in
+[web/assets/SOURCES.md](web/assets/SOURCES.md).
+
+*Status: implemented locally — not a deployment or release claim, and not
+part of a shipped PR. Verification is code/headless only; appearance and
+sound have not been reviewed live for this pass.*
 
 Repo structure:
 
@@ -337,7 +368,9 @@ grunds/
 │   │   ├── convexSync.js        # optional connected mode (auto on *.convex.site + grunds.trustfall.xyz, ?convex= override): managed plan queue + Linkup intel + inbox poll
 │   │   ├── analytics.js         # local playtest analytics (tutorial/lever/balk/debrief/forecast) + localStorage + console
 │   │   ├── desk.js + billing.js # The Wire research desk (headlines free, tilt on District Insider) + RevenueCat Web Billing
-│   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist, scaffolds) + chalkboard flash
+│   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist, scaffolds) + chalkboard flash + live stock display
+│   │   ├── floorStock.js        # pure visual helpers: stock → fixed slot counts (pastry case, bar props)
+│   │   ├── vitals.js            # read-only status rows + keyed renderer + decorative icons
 │   │   ├── sky.js               # custom shader sky dome (gradient + sun + stars) — core-Three only
 │   │   ├── postfx.js            # core-Three render-target bloom + vignette + grain
 │   │   ├── patrons.js           # instanced characters, queue/balk/defect behaviour, named-Regular hat/bubble
@@ -348,7 +381,7 @@ grunds/
 │   │   ├── gentrification.js    # per-day cost creep + matcha price curve + cohort expectation pressure
 │   │   ├── loader.js            # async GLB loader with cache + FIFO eviction + placeholder fallback
 │   │   ├── camera.js            # cinematic rig: title orbit, crane-in, beat push-ins, calm-gated + reduced-motion breath
-│   │   ├── audio.js             # procedural WebAudio: murmur, hiss, till, pad, construction saw + hammer
+│   │   ├── audio.js             # hybrid WebAudio: procedural pad/murmur/till/saw + locally vendored recordings (espresso, grinder, cup, street bed) with fallbacks
 │   │   ├── config.js            # palette, layout, cohorts, economy, campaign, events, regulars, drift
 │   │   └── textures.js          # procedural canvas textures (wood, chalkboard, facade, awning, rent sign, tarp)
 │   ├── test/
@@ -371,7 +404,7 @@ grunds/
 │   │      mail-inbox, share-card, modals, decisions, lifecycle-accounting — full list with one-liners in the test
 │   │      commands above)
 │   ├── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)
-│   └── assets/                  # Kenney CC0 GLB props + SOURCES.md
+│   └── assets/                  # Kenney CC0 GLB props, CC0 Freesound/OpenGameArt audio, CC BY 3.0 Game-icons.net SVGs + SOURCES.md
 ├── benchmark_corpus.json        # UK café COGS benchmarks (anchors the Exchange math)
 ├── locality_packs.json          # London district locality data (matcha price ranges)
 ├── cli.py

@@ -636,6 +636,77 @@ collapsed `<details>` rows in the Brief (summary ending `· change ›`,
 persisted per drawer) are the tools — the wire row auto-opens only when a
 signal is in it.
 
+## October 10 — asset-led readability and remaining options
+
+### Implemented locally
+
+*Implemented in source — not a deployment or merged-PR claim. Verification
+for this pass is code/headless only; live visual and listening review remains open.*
+
+- **Pastry stock display.** The case keeps six persistent parent Groups;
+  `floorStock.stockDisplayCount(stock, capacity, slots)` maps stock to slot
+  count with strict finite-numeric inputs, `ceil` of the clamped fraction,
+  invalid/zero → 0, and a conservative 1 for positive stock with
+  unknown/zero capacity. `setPastryStock` is fed `ctx.pastryStock` against a
+  capacity captured at day open (because `pastryOnOrder` is zeroed
+  immediately after assignment). Fixed parent Groups mean a late-loaded GLB
+  cannot un-hide an empty slot.
+- **Ingredient props.** `ingredientDisplay` drives fixed 2/2/3 proxy groups
+  (Kenney `carton.glb`, `bag.glb`, existing `cup-coffee.glb`) from
+  `ctx.milkStock`/`milkDelivery`, house-lot stock, and batch units; a cloned-
+  material tray reads matcha when ready, brass when reserved. No inventory
+  mutation, revenue, or RNG. `fitStockProp` detaches a loaded prop, measures
+  its local-space bounding box, scales to target height, and re-attaches —
+  so slot world transforms can't skew placement. New ingredient meshes have
+  `castShadow` disabled. Source pack textures are used unmodified; palette
+  changes are limited to semantic inks, the tray, and icon masks — not an
+  atlas recolour.
+- **Recorded audio + street bed.** Three CC0 Freesound café sounds (espresso
+  loop, grinder and cup one-shots) and a CC0 OpenGameArt traffic bed
+  lazy-load once after the title gesture, with independent failure →
+  procedural fallback and the master mute/compressor intact. Street and rush are gated on active
+  trading (not paused/closed/hidden); a `visibilitychange` listener ducks
+  them when the tab hides.
+- **Decorative icons.** Five CC BY 3.0 Game-icons.net SVGs (Delapouite ×4,
+  rihlsul ×1) render as CSS-mask `currentColor` glyphs on three Brief
+  labels and five vitals rows; text labels, statuses, notes, and actions
+  are unchanged, and the credit lives in the Brief's art-credits fold.
+- **Asset strategy.** Kenney CC0 packs first (matching `colormap.png`
+  verified by hash before copy); CC0 audio from Freesound + OpenGameArt;
+  CC BY 3.0 icons with visible attribution. `web/assets/SOURCES.md` is the
+  provenance source of truth.
+
+### Next options — not yet implemented
+
+| Option | Consequence | Constraint |
+|---|---|---|
+| Occasional CC0 footsteps + a throttled entrance/door cue | More life on the floor | Audition against the mix first; never one-per-spawn, never overwhelm gameplay; assets and triggers not yet chosen |
+| Cup-handling variation (volume/pitch or small variant set) | Less mechanical repeats | Cosmetic only, separate cosmetic stream, no decision-RNG change; currently one cup recording |
+| Weather/market warning glyphs where they aid scan-reading | Faster row parsing | Keep text + consequences; never an icon-only dashboard; staff/beans/milk/batch/tab + three Brief labels already covered |
+| Selective prop upgrade only where a real gap exists (e.g. an authored grinder or display case) | Higher-craft hero props | Kenney first; itch.io/OpenGameArt as per-asset licence-checked fallback; no raw generic-library import, no hero-character remapping |
+| Human visual + listening review (desktop/mobile, mix balance) | Grounds any quality claim | No browser run this pass at user request; mask/geometry tests are not pixel proof |
+
+### Deferred / not applicable
+
+- **Mixamo** — only for a future featured-barista or close-up if a rigged
+  path is ever worth it; Mixamo's rigged characters are not drop-in
+  replacements for the current instanced crowd.
+- **Godot plugins** — not applicable to the Three.js stack; no migration.
+- **Lospec palettes** — reference only; the existing brass/cream/walnut
+  family is retained, no pixel-art assets or foreign-palette rollout.
+- **itch.io/OpenGameArt art packs** — per-asset fallbacks, not a commitment
+  to a new style; OGA is so far used only for the traffic bed (a sound,
+  distinct from any future art source).
+
+Verification for this pass: the focused commands in the README test block —
+the floor-stock/audio/brief-icons/vitals checks and the stage-site +
+deterministic resume checks — all pass under Node; later local-fit and
+hidden-tab fixes re-passed the floor/audio files. No new full-suite claim:
+the earlier full run before these readability additions had a
+`moments.mjs` quiet-morning pacing failure that passed standalone, and this
+pass deliberately used narrow checks. No visual or audition claims and no
+deployment claim are made here.
+
 ## Depth rebuild roadmap (adopted Sept 28)
 
 *Historical plan — the per-phase [SHIPPED Sept 28] tags below mark the subset

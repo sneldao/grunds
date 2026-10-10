@@ -562,6 +562,7 @@ let pastryWaste = 0; // dawn case still in the cabinet at close
 let pastryWasteCost = 0; // close charge: unsold × PASTRY.cogs. Not prepaid at dawn.
 let pastrySpend = 0; // wholesale of croissants that left the case at the register
 let pastryOnOrder = 0;
+let pastryCaseCap = 0;
 let pastryMissDrinks = 0; // empty case, they still bought the drink
 let pastryMissWalks = 0;  // empty case, the one-in-four who left
 let pastryMissNoted = false;
@@ -2290,6 +2291,7 @@ function renderPlanQuote() {
   if (drawerOpen('brief-nut-details', wasOpen || q.contractFee > 0 || q.interest > 0 || q.settlement || q.training || q.sampling || q.marketing)) det.open = true;
   watchDrawer(det, 'brief-nut-details');
   const sum = document.createElement('summary');
+  sum.className = 'brief-icon-label brief-icon-coins';
   sum.textContent = `bills counted at closing · ${fmt(q.fixedMinimum)} before per-cup costs · change ›`;
   const body = document.createElement('div');
   body.style.whiteSpace = 'pre-wrap';
@@ -2789,6 +2791,7 @@ function renderPastryCut(wrap) {
   row.style.cssText = 'margin-top:8px';
   const lab = document.createElement('div');
   lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
+  lab.className = 'brief-icon-label brief-icon-pastry';
   lab.textContent = 'tomorrow’s croissant case';
   row.appendChild(lab);
   const rule = document.createElement('div');
@@ -2950,6 +2953,7 @@ function renderLotSection() {
   if (houseEmpty || houseLow || TT.newToday === 'coffee' || drawerOpen('brief-lot-details', wasOpen || topUpCups > 0 || stale || (lotState.pending && lotState.pending.length))) det.open = true;
   watchDrawer(det, 'brief-lot-details');
   const sum = document.createElement('summary');
+  sum.className = 'brief-icon-label brief-icon-coffee';
   sum.textContent = `pouring ${name}${house ? ` · ${house.stock} left` : ''}${topUpCups > 0 ? ' · restocking' : ''} · change ›`;
   det.appendChild(sum);
   if (houseEmpty) {
@@ -4470,6 +4474,7 @@ function startTradingDay(d) {
   if (estherCard) { till -= 2; fx.toast('esther’s stamp card: −£2', ''); }  // her cup's on the house
   { const fr = franchise.rentDue(d); if (fr) { till += fr; franchiseRentToday = fr; } }  // 14 The Row pays at open
   ctx.pastryStock = pastryOnOrder;
+  pastryCaseCap = pastryOnOrder;
   pastryOnOrder = 0;
   world.setMail(false);
   mailT.disarm();                 // the wait for a reply never crosses into a live floor
@@ -4718,6 +4723,16 @@ function refreshStands() {
 
 let lastHudText = 0;
 function updateHUD() {
+  if (started) world.setPastryStock?.(ctx.pastryStock, pastryCaseCap);
+  if (started) {
+    const inDay = phase === 'trading' && !closed;
+    world.setIngredients?.({
+      milkStock: inDay ? ctx.milkStock : 0, milkDelivery,
+      houseStock: inDay ? (lotState.entry(lotState.house)?.stock ?? 0) : 0,
+      batchUnits: inDay ? ctx.batchUnits : 0, batchCapacity: ECON.batchUnits,
+      batchReserved: ctx.batchReservedUntil > dayMin,
+    });
+  }
   const inPlay = phase === 'trading' && !closed;
   document.body?.classList.toggle('in-play', inPlay);
   // Cheap per-tick state: progress bar + lever availability + queue bar +
@@ -5233,7 +5248,7 @@ function reset(coreOnly = false) {
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   rushFast = false;
-  party = null; batchWaste = 0; batchSpend = 0; pastryWaste = 0; pastryWasteCost = 0; pastrySpend = 0; pastryOnOrder = 0; pastryMissDrinks = 0; pastryMissWalks = 0; pastryMissNoted = false; lastRetail = 0; ctx.pastryStock = null;
+  party = null; batchWaste = 0; batchSpend = 0; pastryWaste = 0; pastryWasteCost = 0; pastrySpend = 0; pastryOnOrder = 0; pastryCaseCap = 0; pastryMissDrinks = 0; pastryMissWalks = 0; pastryMissNoted = false; lastRetail = 0; ctx.pastryStock = null;
   incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; solicitorCharge = 140; cOps = 0;
   wifiOutage = null;
   rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day
@@ -5759,6 +5774,12 @@ addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight); postfx.resize(innerWidth, innerHeight);
   layoutMobile();
+});
+document.addEventListener?.('visibilitychange', () => {
+  if (!document.hidden) return;
+  audio.setStreetActive(false);
+  audio.setRush(false);
+  audio.update(0);
 });
 
 const sysBar = $('sys');
@@ -6543,7 +6564,8 @@ function loop(now) {
     halo.update(dt, now, { reduced: reducedMotion });
   }
   audio.setCrowd(patrons.count);
-  audio.setRush(patrons.queueLength > 8);
+  audio.setStreetActive(started && phase === 'trading' && !closed && !paused && !document.hidden);
+  audio.setRush(started && phase === 'trading' && !closed && !paused && !document.hidden && patrons.queueLength > 8);
   audio.setMood(vitality.current);
   audio.update(dt);
   // PR-2 — showfloor autoplay. Polls the modal stack and fires the same

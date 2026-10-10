@@ -101,12 +101,13 @@ test('repeated start resumes, fetches each asset once, never re-loops espresso',
   await a._samplesReady;
   a.start(); a.start();
   assert.equal(a.ctx.resumes, 2);
-  assert.equal(calls.length, 3);
-  for (const n of ['espresso', 'grinder', 'cup']) {
+  assert.equal(calls.length, 4);
+  for (const n of ['espresso', 'grinder', 'cup', 'street']) {
     assert.equal(calls.filter(u => String(u).includes(`/audio/${n}.mp3`)).length, 1);
     assert.ok(a.buffers[n]);
   }
   assert.equal(a.ctx.sources.filter(s => s.buffer === a.buffers.espresso).length, 1);
+  assert.equal(a.ctx.sources.filter(s => s.buffer === a.buffers.street).length, 1);
 });
 
 test('asset URLs resolve from the module path, including a site subpath', async () => {
@@ -160,7 +161,7 @@ test('recorded clink caps at 2 overlapping and throttles at 0.35s', async () => 
 
 test('fetch reject, non-ok, decode error each fall back independently', async () => {
   const { fetch } = recordingFetch({
-    espresso: { reject: true }, grinder: { status: 404 }, cup: { decodeError: true },
+    espresso: { reject: true }, grinder: { status: 404 }, cup: { decodeError: true }, street: { status: 404 },
   });
   const a = engineWith(fetch);
   a.start();
@@ -177,7 +178,7 @@ test('one failed asset does not block the others', async () => {
   const a = engineWith(fetch);
   a.start();
   await a._samplesReady;
-  assert.ok(a.buffers.espresso && a.buffers.cup);
+  assert.ok(a.buffers.espresso && a.buffers.cup && a.buffers.street);
   assert.equal(a.buffers.grinder, undefined);
 });
 
@@ -208,10 +209,11 @@ test('suspended context: update makes no gain changes', async () => {
   a.start();
   await a._samplesReady;
   a.ctx.state = 'suspended';
-  const before = [a.murmurGain, a.hissGain, a.padGain, a.espGain].map(g => g.gain.calls.length);
+  const nodes = [a.murmurGain, a.hissGain, a.padGain, a.espGain, a.streetGain, a.streetFBGain].filter(Boolean);
+  const before = nodes.map(g => g.gain.calls.length);
   a.setRush(true);
   a.update(0.016);
-  const after = [a.murmurGain, a.hissGain, a.padGain, a.espGain].map(g => g.gain.calls.length);
+  const after = nodes.map(g => g.gain.calls.length);
   assert.deepEqual(after, before);
 });
 
@@ -292,6 +294,82 @@ test('grinder fallback burst disconnects onended', async () => {
   assert.ok(src.disconnects >= 1 && bp.disconnects >= 1 && g.disconnects >= 1);
 });
 
+test('street loop fades in only while active; fallback covers a missing sample', async () => {
+  const { fetch } = recordingFetch();
+  const a = engineWith(fetch);
+  a.start();
+  await a._samplesReady;
+  assert.ok(a.streetGain);
+  const src = a.ctx.sources.find(s => s.buffer === a.buffers.street);
+  assert.equal(src.loop, true);
+  assert.ok(a.streetGain.connections.includes(a.master));
+  a.setStreetActive(true); a.update(0.016);
+  const s = a.streetGain.gain.calls.filter(c => c[0] === 'setTargetAtTime').at(-1);
+  assert.ok(Math.abs(s[1] - 0.022 * (0.55 + 0.45 * a.mood)) < 1e-9);
+  assert.equal(s[3], 1.2);
+  const fb = a.streetFBGain.gain.calls.filter(c => c[0] === 'setTargetAtTime').at(-1);
+  assert.equal(fb[1], 0);
+  a.setStreetActive(false); a.update(0.016);
+  assert.equal(a.streetGain.gain.calls.at(-1)[1], 0);
+  a.setStreetActive(true); a.update(0.016);
+  assert.equal(a.ctx.sources.filter(x => x.buffer === a.buffers.street).length, 1);
+});
+
+test('street fallback bed runs when the sample never decoded', async () => {
+  const a = engineWith(null);
+  a.start();
+  await a._samplesReady;
+  assert.equal(a.streetGain, undefined);
+  a.setStreetActive(true); a.update(0.016);
+  const fb = a.streetFBGain.gain.calls.filter(c => c[0] === 'setTargetAtTime').at(-1);
+  assert.ok(Math.abs(fb[1] - 0.006 * (0.55 + 0.45 * a.mood)) < 1e-9);
+  a.setStreetActive(false); a.update(0.016);
+  assert.equal(a.streetFBGain.gain.calls.at(-1)[1], 0);
+});
+
+test('street 404 alone still leaves the other samples ready', async () => {
+  const { fetch } = recordingFetch({ street: { status: 404 } });
+  const a = engineWith(fetch);
+  a.start();
+  await a._samplesReady;
+  assert.equal(a.buffers.street, undefined);
+  assert.ok(a.buffers.espresso && a.buffers.cup && a.buffers.grinder);
+  assert.equal(a.streetGain, undefined);
+  a.setStreetActive(true); a.update(0.016);
+  const fb = a.streetFBGain.gain.calls.filter(c => c[0] === 'setTargetAtTime').at(-1);
+  assert.ok(fb[1] > 0);
+});
+
+test('main gates street and rush on trading, unpaused, visible floor', () => {
+  const src = readFileSync(fileURLToPath(new URL('../js/main.js', import.meta.url)), 'utf8');
+  assert.ok(src.includes('audio.setStreetActive(started && phase === \'trading\' && !closed && !paused && !document.hidden)'));
+  assert.ok(src.includes('audio.setRush(started && phase === \'trading\' && !closed && !paused && !document.hidden && patrons.queueLength > 8)'));
+});
+
+test('a once-registered visibilitychange handler ducks street and rush when hidden', async () => {
+  const src = readFileSync(fileURLToPath(new URL('../js/main.js', import.meta.url)), 'utf8');
+  assert.equal(src.split("'visibilitychange'").length - 1, 1, 'registered once');
+  const m = src.match(/document\.addEventListener\?\.\('visibilitychange'[\s\S]*?\}\);/);
+  assert.ok(m);
+  assert.ok(m[0].includes('if (!document.hidden) return'));
+  assert.ok(m[0].includes('audio.setStreetActive(false)'));
+  assert.ok(m[0].includes('audio.setRush(false)'));
+  assert.ok(m[0].includes('audio.update(0)'));
+  const { fetch } = recordingFetch();
+  const a = engineWith(fetch);
+  a.start();
+  await a._samplesReady;
+  a.setStreetActive(true); a.setRush(true); a.update(0.016);
+  a.setStreetActive(false); a.setRush(false); a.update(0);
+  assert.equal(a.streetGain.gain.calls.at(-1)[1], 0);
+  assert.equal(a.espGain.gain.calls.at(-1)[1], 0);
+  a.update(0.016);
+  assert.equal(a.streetGain.gain.calls.at(-1)[1], 0);
+  const cold = engineWith(fetch);
+  cold.setStreetActive(false); cold.setRush(false); cold.update(0);
+  assert.equal(cold.ctx, null);
+});
+
 test('doPrebatch emits exactly one grinder after its guards', () => {
   const src = readFileSync(fileURLToPath(new URL('../js/main.js', import.meta.url)), 'utf8');
   const start = src.indexOf('function doPrebatch');
@@ -310,15 +388,18 @@ test('doPrebatch emits exactly one grinder after its guards', () => {
 
 test('audio assets exist, are MP3, and fit the size budget', () => {
   const dir = new URL('../assets/audio/', import.meta.url);
-  let total = 0;
-  for (const n of ['espresso', 'grinder', 'cup']) {
+  let base = 0, total = 0;
+  for (const n of ['espresso', 'grinder', 'cup', 'street']) {
     const p = fileURLToPath(new URL(`${n}.mp3`, dir));
     const buf = readFileSync(p);
     assert.ok(buf.length > 500);
     const id3 = buf.subarray(0, 3).toString('latin1') === 'ID3';
     const sync = buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0;
     assert.ok(id3 || sync);
-    total += statSync(p).size;
+    const size = statSync(p).size;
+    total += size;
+    if (n !== 'street') base += size; else assert.ok(size < 110 * 1024, `street.mp3 ${size}`);
   }
-  assert.ok(total < 150 * 1024);
+  assert.ok(base < 150 * 1024, `original three: ${base}`);
+  assert.ok(total < 250 * 1024, `all four: ${total}`);
 });

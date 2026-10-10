@@ -7,6 +7,7 @@ import { GLBLoader } from './loader.js';
 import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
 import { PREMISES, dressInterior, createCutawayRig } from './premises.js';
 import { BACKDROP_FACADES, vacantRowFronts } from './farSide.js';
+import { setStockVisibility, ingredientDisplay } from './floorStock.js';
 
 const M = {}; // shared materials
 function mat(color, o = {}) {
@@ -103,6 +104,22 @@ export function windowMenuRows({ prices = {}, offered = {} } = {}) {
     price: Number(menuPrice(id, prices)).toFixed(2),
     offered: id === 'matcha' || offered[id] !== false,
   }));
+}
+
+export function fitStockProp(g, targetH) {
+  const parent = g.parent;
+  parent?.remove(g);
+  g.position.set(0, 0, 0); g.scale.set(1, 1, 1);
+  g.updateWorldMatrix(false, true);
+  const bb = new THREE.Box3().setFromObject(g);
+  const size = bb.getSize(new THREE.Vector3());
+  const c = bb.getCenter(new THREE.Vector3());
+  const s = targetH / (size.y || 1);
+  g.scale.setScalar(s);
+  g.position.set(-c.x * s, -bb.min.y * s, -c.z * s);
+  g.traverse(m => { if (m.isMesh) m.castShadow = false; });
+  parent?.add(g);
+  return g;
 }
 
 export function buildWorld(scene, renderer, lite) {
@@ -405,16 +422,44 @@ export function buildWorld(scene, renderer, lite) {
   // Pastry items: 3 croissants (procedural torus -> Kenney croissant.glb)
   // and 3 cakes (procedural box -> Kenney cake.glb). The case frame stays
   // procedural because the GLB kit has no display case.
+  const pastrySlots = [];
   pastryCols.forEach((col, i) => {
+    const slot = new THREE.Group(); pc.add(slot); pastrySlots.push(slot);
     const px = -0.6 + (i % 3) * 0.6, py = i < 3 ? 0.16 : 0.46, pz = -0.15 + (i % 2) * 0.3;
     if (i % 3 === 0) {
       // croissant.glb replaces the procedural torus donut
-      place(pc, 'croissant.glb', { position: [px, py, pz], scale: 0.7, rotationY: Math.PI / 4 });
+      place(slot, 'croissant.glb', { position: [px, py, pz], scale: 0.7, rotationY: Math.PI / 4 });
     } else {
       // cake.glb replaces the procedural box pastry (the largest one in the case)
-      place(pc, 'cake.glb', { position: [px, py, pz], scale: 0.45, rotationY: 0 });
+      place(slot, 'cake.glb', { position: [px, py, pz], scale: 0.45, rotationY: 0 });
     }
   });
+  W._pastrySlots = pastrySlots;
+  W.setPastryStock = (stock, capacity) => setStockVisibility(pastrySlots, stock, capacity);
+  const placeScaled = (slot, url, targetH) => place(slot, url, {}).then(g => fitStockProp(g, targetH));
+  const ingredientSlots = { milk: [], beans: [], batch: [] };
+  const mkSlot = (x, y, z) => { const s = new THREE.Group(); s.position.set(x, y, z); s.visible = false; bar.add(s); return s; };
+  for (const x of [-5.8, -5.5]) ingredientSlots.milk.push(mkSlot(x, 1.106, -5.94));
+  for (const x of [-7.65, -7.3]) ingredientSlots.beans.push(mkSlot(x, 1.106, -5.94));
+  for (const x of [-2.75, -2.45, -2.15]) ingredientSlots.batch.push(mkSlot(x, 1.13, -5.72));
+  for (const s of ingredientSlots.milk) placeScaled(s, 'carton.glb', 0.28);
+  for (const s of ingredientSlots.beans) placeScaled(s, 'bag.glb', 0.24);
+  for (const s of ingredientSlots.batch) placeScaled(s, 'cup-coffee.glb', 0.12);
+  const batchTray = box(bar, 0.95, 0.025, 0.38, PAL.matcha, -2.45, 1.12, -5.72);
+  batchTray.material = batchTray.material.clone();
+  batchTray.visible = false;
+  let trayReserved = false;
+  W._ingredientSlots = ingredientSlots;
+  W._batchTray = batchTray;
+  W.setIngredients = snap => {
+    const c = ingredientDisplay(snap);
+    ingredientSlots.milk.forEach((s, i) => { s.visible = i < c.milk; });
+    ingredientSlots.beans.forEach((s, i) => { s.visible = i < c.beans; });
+    ingredientSlots.batch.forEach((s, i) => { s.visible = i < c.batch; });
+    batchTray.visible = c.batch > 0;
+    if (c.reserved !== trayReserved) { trayReserved = c.reserved; batchTray.material.color.set(c.reserved ? PAL.brass : PAL.matcha); }
+    return c;
+  };
   // till on its own little pay station at the end of the bar
   // (Kenney kitchenBarEnd.glb replaces the procedural walnut stand; the
   // brass screen and receipt roll stay procedural for screen readability)

@@ -132,6 +132,8 @@ export function buildVitals(s) {
   return [staffRow(s), beanRow(s), milkRow(s), batchRow(s), costRow(s), utilitiesRow(s), nutRow(s), tabRow(s)].filter(Boolean);
 }
 
+const VITAL_ICONS = { staff: 'cup', beans: 'coffee', milk: 'milk', batch: 'cup', tab: 'coins' };
+
 // Keyed renderer: one <li> per row id, rewritten only when its text changes.
 // Row nodes are cached on the list element (no querySelector), so it is cheap
 // at 5Hz and safe under the headless DOM stubs.
@@ -152,13 +154,22 @@ export function renderVitals(listEl, rows) {
     seen.add(r.id);
     let row = cache.get(r.id);
     if (!row) { row = makeRow(r.id); cache.set(r.id, row); listEl.appendChild(row.li); }
-    const sig = [r.value, r.tone, r.note, r.hint || '', r.meter == null ? '' : Math.round(r.meter * 100), r.action ? r.action.act + r.action.label : ''].join('|');
+    const sig = [r.id, r.icon, r.label, r.value, r.tone, r.note, r.hint || '', r.meter == null ? '' : Math.round(r.meter * 100), r.action ? r.action.act + r.action.label : ''].join('|');
     if (row.sig === sig) continue;
     row.sig = sig;
     const p = row.parts;
     row.li.className = 'v-' + r.tone + (r.inverse ? ' v-inv' : '');
     row.li.title = r.hint || '';
-    p.vi.textContent = r.icon;
+    const key = VITAL_ICONS[r.id];
+    if (key) {
+      p.vi.className = `vi vital-icon vital-icon-${key}`;
+      p.vi.textContent = '';
+      p.vi.setAttribute?.('aria-hidden', 'true');
+    } else {
+      p.vi.className = 'vi';
+      p.vi.textContent = r.icon;
+      p.vi.removeAttribute?.('aria-hidden');
+    }
     p.vl.textContent = r.label;
     p.vv.textContent = r.value;
     p.vn.textContent = r.note || '';

@@ -9,6 +9,7 @@
   :root {
     --ink: #171310; --paper: #efe6d3; --cream: #f6efe0;
     --brass: #c9a227; --matcha: #86a860; --neg: #d0603b; --teal: #7fb3b0;
+    --ok-ink: #3d5243; --warn-ink: #7a5a2a; --danger-ink: #7a2e1a;
     --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --modal-pad: 24px; --modal-gap: 12px; --modal-body-size: 13px; --modal-leading: 1.5;
@@ -163,7 +164,7 @@
   #vitals .vv { font-size: 11.5px; color: #2a241c; font-weight: 600; text-align: right; }
   #vitals .vm { grid-column: 2 / 4; height: 3px; margin-top: 4px; background: rgba(58,50,38,.14); border-radius: 2px; overflow: hidden; }
   #vitals .vm[hidden] { display: none; }
-  #vitals .vm i { display: block; height: 100%; width: 0; background: #5d7a45; transition: width .4s ease; }
+  #vitals .vm i { display: block; height: 100%; width: 0; background: var(--ok-ink); transition: width .4s ease; }
   #vitals .vn { grid-column: 2 / 4; font-size: 12px; line-height: 1.4; margin-top: 2px; color: #3a3226; }
   #vitals .vn:empty { display: none; }
   #vitals .va { grid-column: 2 / 4; justify-self: start; margin-top: 5px; font-size: 11px; padding: 5px 9px;
@@ -175,7 +176,16 @@
   #vitals li.v-warn .vm i { background: var(--brass); }
   #vitals li.v-bad { border-left-color: var(--neg); background: rgba(208,96,59,.08); }
   #vitals li.v-bad .vm i { background: var(--neg); }
-  #vitals li.v-bad .vv { color: #7a2e1a; }
+  #vitals li.v-bad .vv { color: var(--danger-ink); }
+  .vital-icon::before { content: ""; display: inline-block; width: 14px; height: 14px; vertical-align: -2px; background-color: currentColor; -webkit-mask: var(--vital-icon) center / contain no-repeat; mask: var(--vital-icon) center / contain no-repeat; }
+  .vital-icon-cup { --vital-icon: url('./assets/icons/coffee-cup.svg'); }
+  .vital-icon-coffee { --vital-icon: url('./assets/icons/coffee-beans.svg'); }
+  .vital-icon-milk { --vital-icon: url('./assets/icons/milk-carton.svg'); }
+  .vital-icon-coins { --vital-icon: url('./assets/icons/coins.svg'); }
+  #vitals .vital-icon { color: var(--ink); }
+  #vitals li.v-ok .vital-icon { color: var(--ok-ink); }
+  #vitals li.v-warn .vital-icon { color: var(--warn-ink); }
+  #vitals li.v-bad .vital-icon { color: var(--danger-ink); }
   #vitals li.v-dim { opacity: .6; }
   #vitals li.v-inv.v-ok .vm i { background: #7a6a52; }
   body.vitals-on #feed { right: 334px; }
@@ -417,6 +427,14 @@
     cursor: pointer; font-size: 12.5px; letter-spacing: .01em; text-transform: none; font-weight: 600; opacity: .9;
   }
   #brief-nut details > div, #brief-lots details > div, #brief-menu details > div { margin-top: 8px; }
+  .brief-icon-label::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; background-color: currentColor; -webkit-mask: var(--brief-icon) center / contain no-repeat; mask: var(--brief-icon) center / contain no-repeat; }
+  .brief-icon-coffee { --brief-icon: url('./assets/icons/coffee-beans.svg'); }
+  .brief-icon-pastry { --brief-icon: url('./assets/icons/croissant.svg'); }
+  .brief-icon-coins { --brief-icon: url('./assets/icons/coins.svg'); }
+  #asset-credits { margin-top: 10px; padding-top: 6px; border-top: 1px solid rgba(201,162,39,.22); font-size: 10px; }
+  #asset-credits summary { cursor: pointer; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; opacity: .75; font-weight: 600; }
+  #asset-credits p { margin: 4px 0 0; opacity: .8; line-height: 1.45; }
+  #asset-credits a { color: #1d4a48; text-decoration: underline; }
   #brief.first-morning { place-items: center end; background: rgba(10,8,6,.30); backdrop-filter: blur(1px); }
   #brief.first-morning #brief-summary { white-space: normal; overflow: visible; text-overflow: clip; height: auto; }
   #brief.first-morning .modal-panel { --modal-width: 460px; margin-right: 28px; height: min(760px, 86vh); height: min(760px, 86dvh); }
@@ -880,6 +898,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <div id="brief-risk" style="display:none"></div>
         </div>
         <button id="review-last" style="display:none">yesterday’s receipt →</button>
+        <details id="asset-credits"><summary>art credits</summary><p>Coffee beans, croissant, coins and coffee cup icons by <a href="https://delapouite.com" target="_blank" rel="noopener noreferrer">Delapouite</a>; milk carton icon by <a href="https://game-icons.net/1x1/rihlsul/milk-carton.html" target="_blank" rel="noopener noreferrer">rihlsul</a> — all via <a href="https://game-icons.net" target="_blank" rel="noopener noreferrer">Game-icons.net</a> · <a href="http://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener noreferrer">CC BY 3.0</a>. Artwork unchanged; tinted to match the brief.</p></details>
       </div>
 
       <!-- Tier 3: Anchored Actions & Commit -->
