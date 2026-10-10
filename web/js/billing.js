@@ -37,6 +37,23 @@ const RC_API_KEY = "test_DOEfrSpAdSHcSyPwiCtnbOnjHqD"; // gitleaks:allow — pub
 
 const RC_SDK_URL =
   "https://cdn.jsdelivr.net/npm/@revenuecat/purchases-js@1.47.3/+esm";
+// Pinned SRI for the jsdelivr bundle (sha384, measured Oct 10 2026). The SDK
+// loads via dynamic import which cannot carry an integrity attribute, so
+// configure() fetches + hashes first and refuses a mismatched bundle —
+// a compromised CDN cannot silently swap the checkout code.
+const RC_SDK_SRI =
+  "sha384-Uky3XC3G4X8lh82cCrxhPS60KA+HxebOzK3U416nVxsMCMNDi23rW6SUjT5n3JOa";
+
+async function loadVerifiedSdk(url, sri) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`SDK fetch ${res.status}`);
+  const buf = await res.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-384', buf);
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(digest)));
+  if (`sha384-${b64}` !== sri) throw new Error('SDK integrity mismatch — refusing to load checkout code');
+  const blob = new Blob([buf], { type: 'text/javascript' });
+  return import(URL.createObjectURL(blob));
+}
 
 function store() {
   try {
@@ -113,7 +130,7 @@ class BillingManager {
     const key = configuredKey();
     if (!key) return this.mode;
     try {
-      const mod = await import(/* webpackIgnore: true */ RC_SDK_URL);
+      const mod = await loadVerifiedSdk(RC_SDK_URL, RC_SDK_SRI);
       const Purchases = mod.Purchases;
       this.purchases = Purchases.configure({
         apiKey: key,

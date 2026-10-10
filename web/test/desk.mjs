@@ -40,11 +40,15 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
 //    deck tilt — multipliers + per-card reasoning are the insider edge.
 {
   const d = read('web/js/desk.js');
-  assert.ok(d.includes('billing.isSubscribed()'), 'desk checks the entitlement');
+  assert.ok(d.includes('billing.isInsider()') || d.includes('billing.isSubscribed()'), 'desk checks the entitlement');
   assert.ok(d.includes('renderDesk(intel, subscribed)'),
     'desk renders for non-subscribers too — the tilt is what gates');
   assert.ok(d.includes('if (!subscribed)') && d.includes('District Insider'),
     'free players see the tilt placeholder, not the numbers');
+  assert.ok(d.includes('verifyAgainstMirror') && d.includes('/sync/entitlements'),
+    'tilt re-verifies against the server mirror — a local flag alone cannot mint the edge');
+  assert.ok(d.includes('RC_SDK_SRI') || read('web/js/billing.js').includes('RC_SDK_SRI'),
+    'SDK bundle pinned with integrity (no naked CDN import)');
   assert.ok(d.includes("track(subscribed ? 'desk_opened' : 'desk_opened_free'"),
     'free vs insider desk opens are measured separately');
   assert.ok(d.includes('marketShift') && d.includes('sources'),

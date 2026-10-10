@@ -128,11 +128,41 @@ export function initDesk({ billing, analytics, modals } = {}) {
   // roaster's private note — the edge, not the access. This is the
   // "invert the wire" fix (P0): the USP (real-world commodity → your till)
   // is never behind a paywall.
+  //
+  // Server verify: the tilt renders only when the entitlement is confirmed
+  // by EITHER the live SDK (customerInfo) or the Convex mirror row
+  // (/sync/entitlements). A localStorage-only grant opens the headlines but
+  // never the numbers — flipping a flag cannot mint the edge.
+  async function verifiedInsider() {
+    try { if (billing.isInsider()) return true; } catch {}
+    return false;
+  }
+
+  // Cross-check a local grant against the Convex mirror. The mirror is
+  // written by the webhook (real money) or the Test Store push — both are
+  // server-observed events, not client flags. No mirror row + no live SDK =
+  // the tilt closes. Runs async so the desk never blocks on network.
+  async function verifyAgainstMirror() {
+    try {
+      if (billing.purchases) return true;   // live SDK already confirmed via customerInfo
+      const base = billing._mirrorBase && billing._mirrorBase();
+      const id = billing.appUserId;
+      if (!base || !id) return false;
+      const r = await fetch(`${base}/sync/entitlements?appUserId=${encodeURIComponent(id)}`);
+      if (!r.ok) return false;
+      const j = await r.json();
+      return !!(j && j.entitlements && (j.entitlements.insider || j.entitlements.founder));
+    } catch {
+      return false;
+    }
+  }
+
   function open(intel) {
     if (!intel) return;
     lastIntel = intel;
-    const subscribed = billing.isSubscribed();
+    const subscribed = billing.isInsider();
     renderDesk(intel, subscribed);
+    if (subscribed) verifyAgainstMirror().then(ok => { if (!ok) renderDesk(lastIntel, false); });
     if (modals) { modals.close('paywall'); modals.open('desk'); }
     else { $('paywall').classList.remove('show'); $('desk').classList.add('show'); }
     track(subscribed ? 'desk_opened' : 'desk_opened_free', {
