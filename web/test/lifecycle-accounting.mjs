@@ -557,6 +557,7 @@ await new Promise(r => setTimeout(r, 5400));
     G.renderBrief();
     const pt = deepText(registry.get('brief-people'));
     if (pt.includes('Mara has started going to Glasshouse.')) fails.push('justLost line repeated on day 5');
+    if (!pt.includes('Mara’s seat is empty — they go to Glasshouse now.')) fails.push(`day-5 empty-seat line missing: ${pt}`);
   }
 }
 

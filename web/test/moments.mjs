@@ -1,7 +1,7 @@
 // In-day moments + quiet auto-pace — headless drive of the real triggers:
 // returning regular, regular at the counter, line building, Sam defection,
-// once-per-day, priority order, 45-minute expiry, greet wiring, no pauses,
-// and pace-on/off economic identity.
+// Ruth needs a minute, once-per-day, priority order, 45-minute expiry,
+// greet wiring, no pauses, and pace-on/off economic identity.
 // Run: node web/test/moments.mjs   (from the repo root)
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -207,12 +207,33 @@ runTo(1261, 2400);
 if (G.phase !== 'review') fails.push(`day 1 did not close, phase ${G.phase}`);
 for (let d = 2; d <= 2; d++) {
   if (!G.continueFromReview()) fails.push('day-2 continue rejected');
+  G.testState({ baristaCondition: 0.3 });
+  if (G.stats().staffCondition !== 0.3) fails.push(`condition lever failed: ${G.stats().staffCondition}`);
   G.stageDayPlan({ hedge: 'hold' });
   if (!G.stageCellar({ lot: 'cerrado', topup: 'restock' })) fails.push('day-2 cellar staging rejected');
   if (!G.commitDayPlan().ok) fails.push('day-2 commit failed');
   if (G.reg.regulars[0].absence !== 'away') fails.push(`Mara should be away day 2, got ${G.reg.regulars[0].absence}`);
+  // Ruth needs a call: fading under a third, worked today → one non-modal
+  // card in the 12:00–15:00 window, before the crisis window. Beat to notice
+  // her, not a second staffing choice (the Brief owns that).
+  let rtries = 0;
+  while (G.phase === 'trading' && G.moment.active() !== 'ruth' && G.stats().dayMin < 900 && rtries++ < 1400) runFrames(1);
+  if (G.moment.active() !== 'ruth') fails.push(`ruth moment never fired (dayMin ${G.stats().dayMin}, active ${G.moment.active()}, pending ${JSON.stringify(G.moment.pending())})`);
+  else {
+    const txt = momentBody();
+    if (!/^Ruth needs a minute\. She’s fading on the bar/.test(txt)) fails.push(`ruth moment copy wrong: "${txt}"`);
+    if (!clickBtn('Got it')) fails.push('ruth moment missing Got it');
+    else {
+      if (momentVisible()) fails.push('ruth moment did not hide after Got it');
+      if (G.paused) fails.push('ruth moment action paused the clock');
+    }
+    let more = 0;
+    while (G.phase === 'trading' && G.stats().dayMin < 899 && more++ < 400 && G.moment.active() === null) runFrames(1);
+    if (G.moment.active() === 'ruth') fails.push('ruth moment fired twice in one day');
+  }
   runTo(1261, 2400);
 }
+
 if (!G.continueFromReview()) fails.push('day-3 continue rejected');
 if (G.reg.regulars[0].absence !== 'returning') fails.push(`Mara should be returning day 3, got ${G.reg.regulars[0].absence}`);
 
@@ -337,6 +358,9 @@ if (G.phase !== 'review') fails.push(`day 3 did not close, phase ${G.phase}`);
   G.stageDayPlan({ hedge: 'hold' });
   G.stageCellar({ lot: 'cerrado', topup: 'restock' });
   if (!G.commitDayPlan().ok) fails.push('day-4 commit failed');
+  G.testState({ baristaCondition: 1 });   // the ruth card must not steal the expiry check
+  G.moment.block('ruth:4');
+  G.moment.block('counter');              // expiry check targets the line card only
   G.patrons.staffMul = 0.02;
   let tries = 0;
   while (G.phase === 'trading' && G.moment.active() !== 'line' && tries++ < 1200) runFrames(1);

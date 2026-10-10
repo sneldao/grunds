@@ -3553,6 +3553,7 @@ function showMorningBrief() {
         if (r.justLost) pl.push(`${r.name} has started going to Glasshouse.`);
         else if (r.absence === 'away') pl.push(`${r.name} isn’t coming in today — ${r.absentReason}.`);
         else if (r.absence === 'returning') pl.push(`${r.name} is giving you another chance today. Say hello if you see them.`);
+        else if (r.absence === 'lost') pl.push(`${r.name}’s seat is empty — they go to Glasshouse now.`);
       }
       for (const c of companionsYesterday) pl.push(`${c.name} brought ${c.friend} in yesterday.`);
       const pct = Math.round((regulars.footfallMul - 1) * 100);
@@ -6336,7 +6337,7 @@ bindPress($('open'), () => {
 bindPress($('resume'), () => resumeWeek());
 
 const MOMENT_TTL = 45;
-const MOMENT_PRIO = { plan: -1, returning: 0, sam: 1, line: 2, counter: 3 };
+const MOMENT_PRIO = { plan: -1, returning: 0, ruth: 1, sam: 2, line: 3, counter: 4 };
 const momentsOn = () => !headless || momentsTest;
 function momentEnqueue(type, key, data = {}) {
   if (!momentsOn() || momentDone.has(key)) return;
@@ -6407,6 +6408,10 @@ function momentShow(m) {
     b.textContent = `${m.name} crossed to Glasshouse.`;
     body.append(b, ' Sam’s line was shorter.');
     row.appendChild(momentBtn('Got it', () => momentAct(m)));
+  } else if (m.type === 'ruth') {
+    b.textContent = 'Ruth needs a minute.';
+    body.append(b, ' She’s fading on the bar — nothing breaks yet, but the afternoon will cost her.');
+    row.appendChild(momentBtn('Got it', () => momentAct(m)));
   } else return false;
   momentActive = { ...m, shownAt: dayMin };
   el.hidden = false;
@@ -6441,6 +6446,12 @@ function momentScan() {
     }
   }
   if (dayMin < 840 && patrons.queueLength >= 6) momentEnqueue('line', 'line', { queue: patrons.queueLength });
+  // Ruth needs a call — fading under a third of her condition, worked today,
+  // once per day before the crisis window (15:00+). A beat to notice her
+  // before she breaks, not a second staffing choice (the Brief owns that).
+  if (day >= 2 && !baristaHomeToday && !apprenticeHiredToday && !onRobotHire()
+      && baristaCondition < 0.35 && baristaCondition >= 0.2 && dayMin >= 720 && dayMin < 900)
+    momentEnqueue('ruth', `ruth:${day}`, {});
 }
 
 // ---- loop ---------------------------------------------------------------------------
