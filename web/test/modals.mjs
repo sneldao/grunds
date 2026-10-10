@@ -253,7 +253,11 @@ console.log('FOCUSABLES hidden/disabled/closed-details excluded');
   const html = read('web/index.html');
   const css = html;
   for (const id of ['brief', 'offer', 'letter', 'licence', 'paywall', 'desk', 'evening']) {
-    const seg = html.slice(html.indexOf(`id="${id}"`), html.indexOf(`id="${id}"`) + 4000);
+    const start = html.indexOf(`id="${id}"`);
+    // Slice to the next modal root so long bodies (the Brief) stay covered.
+    const rest = html.slice(start + 1);
+    const next = rest.search(/<div id="(brief|offer|letter|licence|paywall|desk|evening|softintro|receipt|tutorial|title)"/);
+    const seg = next < 0 ? html.slice(start) : html.slice(start, start + 1 + next);
     for (const cls of ['modal-panel', 'modal-header', 'modal-body', 'modal-footer'])
       check(seg.includes(cls), `${id} missing .${cls}`);
     check(seg.includes('role="dialog"'), `${id} missing role=dialog`);
