@@ -4986,7 +4986,7 @@ function doPrebatch(opts = {}) {
     ? `topped up — ${ECON.batchUnits} more cups (−${fmt(ECON.batchCost)}; leftovers spoil)`
     : `${ECON.batchUnits} cups bought (−${fmt(ECON.batchCost)}) — ${dayMin < 840 ? 'reserved for the 14:00 wave' : 'fast bar, full price'}; leftovers spoil`)
     + (opts.asPlanned ? ' · as planned in the brief' : ''), 'good');
-  audio.clink();
+  audio.grinder();
   world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced);
   world.flashChalk('batch');
   try { fx.chalkDust(-5.5, 2.75, -6.48); audio.chalkScreech(); } catch {}

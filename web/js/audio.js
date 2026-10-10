@@ -3,12 +3,16 @@
 import { cosmeticRandom } from './cosmetic.js';
 
 export class AudioEngine {
-  constructor() {
+  constructor({ fetch = globalThis.fetch } = {}) {
     this.ctx = null; this.muted = false;
     this.crowd = 0; this.rush = false; this.mood = 1; this._padT = -1;
     this._lastTill = 0; this._lastClink = 0; this._lastBalk = 0;
     this._chordI = 0; this._chordT = 0;
     this._hammerOn = false; this._hammerT = 0; this._hammerNext = 0.7;
+    this._fetch = fetch;
+    this.buffers = {}; this._samplesReady = null;
+    this._lastCup = -1; this._cupsActive = 0;
+    this._lastGrinder = -10; this._grinderActive = false;
   }
 
   start() {
@@ -66,6 +70,31 @@ export class AudioEngine {
     this.hissSrc.connect(hissBP); hissBP.connect(this.hissGain); this.hissGain.connect(this.master);
     this.hissSrc.start();
     this.noiseBuf = white;
+
+    this._samplesReady = this._loadSamples(ctx);
+  }
+
+  _loadSamples(ctx) {
+    if (!this._fetch || typeof ctx.decodeAudioData !== 'function') return Promise.resolve();
+    const fetch = this._fetch;
+    const jobs = ['espresso', 'grinder', 'cup'].map(async name => {
+      const res = await fetch(new URL(`../assets/audio/${name}.mp3`, import.meta.url).href);
+      if (!res || !res.ok) throw new Error(`audio ${name}: ${res ? res.status : 'no response'}`);
+      const data = await res.arrayBuffer();
+      const buffer = await ctx.decodeAudioData(data);
+      this.buffers[name] = buffer;
+      if (name === 'espresso') this._startEspresso(buffer);
+    });
+    return Promise.allSettled(jobs);
+  }
+
+  _startEspresso(buffer) {
+    if (!this.ctx || this.espGain) return;
+    const src = this.ctx.createBufferSource(); src.buffer = buffer; src.loop = true;
+    const g = this.ctx.createGain(); g.gain.value = 0;
+    src.connect(g); g.connect(this.master);
+    src.start();
+    this.espGain = g;
   }
 
   _noiseBuffer(brown) {
@@ -95,7 +124,8 @@ export class AudioEngine {
       this._padT = padTarget;
       this.padGain.gain.setTargetAtTime(padTarget, t, 1.5);
     }
-    this.hissGain.gain.setTargetAtTime(this.rush ? 0.035 : 0, t, 0.8);
+    this.hissGain.gain.setTargetAtTime(this.rush && !this.espGain ? 0.035 : 0, t, 0.8);
+    if (this.espGain) this.espGain.gain.setTargetAtTime(this.rush ? 0.035 : 0, t, 0.8);
     // muffled syllables when it's busy
     if (this.crowd > 6 && cosmeticRandom() < dt * this.crowd * 0.05) {
       const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf;
@@ -145,10 +175,45 @@ export class AudioEngine {
   clink() {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
+    if (this.buffers.cup) {
+      if (t - this._lastCup < 0.35 || this._cupsActive >= 2) return;
+      this._lastCup = t; this._cupsActive++;
+      const src = this.ctx.createBufferSource(); src.buffer = this.buffers.cup;
+      const g = this.ctx.createGain(); g.gain.value = 0.06;
+      src.connect(g); g.connect(this.master);
+      src.onended = () => { this._cupsActive--; try { src.disconnect(); g.disconnect(); } catch {} };
+      src.start(t);
+      return;
+    }
     if (t - this._lastClink < 0.06) return; this._lastClink = t;
     const o = this.ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = 2400 + cosmeticRandom() * 500;
     const g = this.ctx.createGain(); this._env(g, t, 0.035, 0.09);
     o.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.12);
+  }
+  grinder() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (t - this._lastGrinder < 3 || this._grinderActive) return;
+    this._lastGrinder = t;
+    if (this.buffers.grinder) {
+      this._grinderActive = true;
+      const src = this.ctx.createBufferSource(); src.buffer = this.buffers.grinder;
+      const g = this.ctx.createGain(); g.gain.value = 0.045;
+      src.connect(g); g.connect(this.master);
+      src.onended = () => { this._grinderActive = false; try { src.disconnect(); g.disconnect(); } catch {} };
+      src.start(t);
+      return;
+    }
+    if (!this.noiseBuf) return;
+    const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf;
+    const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 240; bp.Q.value = 1.1;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.045, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+    src.connect(bp); bp.connect(g); g.connect(this.master);
+    src.onended = () => { try { src.disconnect(); bp.disconnect(); g.disconnect(); } catch {} };
+    src.start(t); src.stop(t + 0.6);
   }
   balk() {
     if (!this.ctx) return;
