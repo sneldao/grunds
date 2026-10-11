@@ -40,7 +40,11 @@ export function resolveDecision(snapshot, plan) {
   const interest = day > 1 && hedge !== 'settle' ? debtInterestFor(debt) : 0;   // the debt clock compounds at dawn
   const terms = hedgeTerms(hedge, extraFee);
   const fee = terms ? terms.fee : 0;
-  if (terms && debt + interest + fee > CAMPAIGN.creditLimit) return { ok: false, why: 'the tab is maxed — settle the supplier first' };
+  // The tab carries yesterday's sacks — a full cellar must not lock the
+  // hedge out by itself. Gate contracts on fee+interest headroom (the new
+  // money this decision adds), not total debt: dawn sacks still clamp at
+  // the cap in applyLots, and settling still clears room for both.
+  if (terms && interest + fee > CAMPAIGN.creditLimit) return { ok: false, why: 'the tab is maxed — settle the supplier first' };
   const newDebt = debt - settlement + interest + fee;
   if (!Number.isFinite(newDebt)) return { ok: false, why: 'debt overflow' };
   const newContract = contract

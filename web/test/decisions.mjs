@@ -50,10 +50,12 @@ const check = (cond, msg) => { if (!cond) fails.push(msg); };
   check(hold.ok && hold.interest === 4 && hold.debt === 24, 'hold on day>1 adds the interest tick');
   const hedged = resolveDecision({ day: 2, index: 1.2, debt: 0, contract: null, extraFee: 5, staffCondition: 1 }, { ...plan, hedge: 'contract' });
   check(hedged.ok && hedged.contract && hedged.contract.price === 1.2 && hedged.extraFee === 0 && hedged.debt === hedged.fee, 'contract locks index, clears surcharge, debts the fee');
-  const nearLimit = CAMPAIGN.creditLimit - hedgeTerms('contract').fee - debtInterestFor(0);
-  check(resolveDecision({ day: 2, index: 1.2, debt: nearLimit + 1, contract: null, extraFee: 0, staffCondition: 1 }, { ...plan, hedge: 'contract' }).ok === false, 'contract over the supplier tab limit rejected');
-  check(resolveDecision({ day: 2, index: 1.2, debt: nearLimit + 1, contract: null, extraFee: 0, staffCondition: 1 }, { ...plan, hedge: 'settle' }).ok === true, 'settle still available over the tab limit');
-  check(resolveDecision({ day: 2, index: 1.2, debt: nearLimit - hedgeTerms('contract').fee, contract: null, extraFee: 0, staffCondition: 1 }, { ...plan, hedge: 'contract' }).ok === true, 'contract inside the tab limit accepted');
+  // The gate is fee+interest headroom, not total debt: yesterday's sacks
+  // riding the tab must not lock the hedge out by themselves. A full tab
+  // still buys cover; dawn sacks clamp separately in applyLots.
+  const fullTab = CAMPAIGN.creditLimit;
+  check(resolveDecision({ day: 2, index: 1.2, debt: fullTab, contract: null, extraFee: 0, staffCondition: 1 }, { ...plan, hedge: 'contract' }).ok === true, 'contract on a sack-full tab accepted — sacks do not gate the hedge');
+  check(resolveDecision({ day: 2, index: 1.2, debt: fullTab, contract: null, extraFee: 0, staffCondition: 1 }, { ...plan, hedge: 'settle' }).ok === true, 'settle still available on a full tab');
 }
 console.log('PURE resolveDecision validation + finance verified');
 
