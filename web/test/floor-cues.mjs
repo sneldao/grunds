@@ -29,14 +29,14 @@ ok(advanceElapsed(100) === CUE_MS && advanceElapsed(CUE_MS + 5) === CUE_MS * 2, 
 
 const price = priceCueBrief();
 ok(price.includes(`£${DRINKS.matcha.base.toFixed(2)}`) && price.includes(`£${ECON.matchaDeal.toFixed(2)}`), 'price cue names the board and the deal');
-ok(price.includes(`£${DRINKS.espresso.base.toFixed(2)}`) && price.includes('20p'), 'price cue names the other drinks and the step');
+ok(price.includes('20p'), 'price cue names the step');
 const pastry = pastryCueBrief();
-ok(/full case, half, or skip/.test(pastry) && /One in four leaves/.test(pastry), 'pastry cue names the bake and the empty case');
+ok(/full, half, or skip/.test(pastry) && /one in four leaves/.test(pastry), 'pastry cue names the bake and the empty case');
 ok(!/croissants, already in the cabinet/.test(pastry), 'pastry cue omits a count when the case is empty');
 ok(pastryCueBrief(12).startsWith('Today’s case is 12 croissants, already in the cabinet.'), 'pastry cue leads with today’s case');
 ok(pastryTodayLine(0) === '' && pastryTodayLine(12).includes('12 croissants'), 'today’s case count only when there is one');
 const quiet = wireCueBrief({ beanIndex: 1, eventHead: '' });
-ok(/morning wire is the bean market/.test(quiet) && /Beans are 1\.00/.test(quiet) && /frost or a drought/.test(quiet), 'a quiet morning still explains a shock');
+ok(/Beans 1\.00/.test(quiet) && /Frost or drought/.test(quiet), 'a quiet morning still explains a shock');
 const frost = wireCueBrief({ beanIndex: 1.4, eventHead: 'FROST ON MINAS GERAIS' });
 ok(frost.startsWith('FROST ON MINAS GERAIS.'), frost);
 ok(wireTapeLine({ beanIndex: 1.4, eventHead: 'FROST ON MINAS GERAIS' }) === 'morning wire · beans 1.40 · FROST ON MINAS GERAIS', wireTapeLine({ beanIndex: 1.4, eventHead: 'FROST ON MINAS GERAIS' }));
@@ -48,7 +48,6 @@ const html = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
 const main = readFileSync(join(ROOT, 'web/js/main.js'), 'utf8');
 ok(html.includes('id="floorcue"') && html.includes('id="brief-cues"') && html.includes('skip tips'), 'the page has the tip and the brief lines');
 ok(main.includes('syncFloorCues') && main.includes("urlParams.has('skipTutorial')"), 'the floor clock is wired and skipTutorial still exists');
-ok(main.includes('An empty case still sells the drink. One in four leaves, and the room notices.'), 'the pastry rule on the brief is unchanged');
 
 console.log(`floor-cues pure: ${pass} pass`);
 

@@ -60,23 +60,21 @@ export function advanceElapsed(elapsedMs, cueMs = CUE_MS) {
 
 export function priceCueBrief() {
   const d = DRINKS;
-  return `Matcha follows your afternoon plan — £${d.matcha.base.toFixed(2)} on the board, or £${ECON.matchaDeal.toFixed(2)} if you take the deal. ` +
-    `Espresso £${d.espresso.base.toFixed(2)}, flat white £${d.flatwhite.base.toFixed(2)}, and filter £${d.filter.base.toFixed(2)} sit under menu, 20p a step. ` +
-    'A higher price sends people toward the cheaper drinks.';
+  return `Matcha £${d.matcha.base.toFixed(2)} on the board, £${ECON.matchaDeal.toFixed(2)} on the deal. Menu prices move in 20p steps — dear drinks send people to cheaper ones.`;
 }
 
 export function pastryCueBrief(onOrder) {
   const today = pastryTodayLine(onOrder);
-  const plan = 'Set tomorrow under the afternoon plan: full case, half, or skip. An empty case still sells the drink. One in four leaves, and the room notices.';
+  const plan = 'Set tomorrow: full, half, or skip. Empty case, one in four leaves.';
   return today ? `${today} ${plan}` : plan;
 }
 
 export function wireCueBrief({ beanIndex = null, eventHead = '' } = {}) {
   const head = String(eventHead || '').trim();
   const n = Number(beanIndex);
-  const beans = Number.isFinite(n) ? `Beans are ${n.toFixed(2)} this morning. ` : '';
+  const beans = Number.isFinite(n) ? `Beans ${n.toFixed(2)}. ` : '';
   const ev = head ? `${head}. ` : '';
-  return `${ev}${beans}The morning wire is the bean market. A frost or a drought changes what a cup costs you. Covering a price waits until the market has warned you.`;
+  return `${ev}${beans}Frost or drought moves the cup cost. Cover after the market warns.`;
 }
 
 export function wireTapeLine({ beanIndex = null, eventHead = '' } = {}) {

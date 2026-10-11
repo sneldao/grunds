@@ -78,14 +78,14 @@ ok(lastMorning.sliding && lastMorning.slideLine.includes('last close'), 'the las
 // sentences are taught once, then only spoken while their condition is live.
 const led = weekStanding({ net: 5000, rep: 55, day: 4, asOf: 'close', nut: 2000 });
 ok(led.chip.includes('week +£5,000.00') && led.chip.includes('bills £2,000.00') && led.chip.includes('regulars 55 (needs 50)'), led.chip);
-ok(led.warns.length === 0 && led.teaches.length === 3, 'a quiet week teaches, it does not warn');
-ok(led.teaches.some(l => l.includes('£4,500')) && led.teaches.some(l => l.includes('Below £0')), 'the teach block still names both rules');
+ok(led.warns.length === 0 && led.teaches.length === 1, 'a quiet week teaches one line, it does not warn');
+ok(led.teaches.some(l => l.includes('£4,500')) && led.teaches.some(l => l.includes('Below £0')), 'the teach line still names both rules');
 const ledOpen = weekStanding({ net: 0, rep: 62, day: 1, asOf: 'opening' });
 ok(ledOpen.chip.includes('no closes yet'), ledOpen.chip);
 ok(slide.warns.includes(slide.slideLine) && !slide.warns.includes(slide.heldLine), 'a sliding week says the slide, not the syllabus');
 ok(bust.warns.includes(bust.cashLine) && !bust.warns.includes(bust.heldLine), 'insolvency is a warn, not a lecture');
 ok(cool.warns.includes(cool.repLine), 'a short room is a warn');
-ok(safe.warns.length === 0 && safe.teaches.length === 3, 'a held week has nothing to warn');
+ok(safe.warns.length === 0 && safe.teaches.length === 1, 'a held week has nothing to warn');
 
 const letter = composeLetter({
   day: 3, index: 1, indexPrev: 1, cost: 1.3, sold: 40, balked: 20, defections: 4,

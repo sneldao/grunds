@@ -1067,11 +1067,14 @@ Three findings fall out. **Pressure is real**: passive→optimal spans £6.2k
 (5×), and a 300ms reaction lag costs £425 (−5.7%) against its instant twin —
 the floor punishes slowness but doesn't collapse. **The headroom is thin**:
 perfect play only clears competent queue-play by ~£210 — most of the spread
-is floor work, not mastery. **The market lever is currently dominated**:
-`optimal` never hedges (hedgeBenefitAfterFees 0) and wins anyway, while every
-contract-buying policy posts a negative hedge benefit (−£75 to −£508). The
-frost/rumour signal is priced wrong for perfect play — fees outrun the cover
-at these volumes. That's a tuning finding, not a test failure.
+is floor work, not mastery. **The market lever was unreachable, now buyable
+(`fa89e50`, Oct 11):** the tab gate rejected every contract past day 1
+(debt pinned at the cap by dawn sacks), so `optimal` never hedged and every
+contract-buying policy posted a negative hedge benefit (−£75 to −£508). The
+gate is now fee+interest headroom — the Oct-11 grid shows cover clearing the
+gate on frost runs (seed-202 day-4 light: fee £93, save £88; day-5 save £622
+on carried cover), forecaster mean hedgeBen −£41. Calm-week bleed vs spike
+payoff remains a tuning question, not a test failure.
 
 Also worth running on the opening specifically: *"the first 30 seconds contain
 no real decision."* We deliberately open with a licence modal, a 3-step

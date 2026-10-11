@@ -152,11 +152,12 @@ export function weekStanding({ net = 0, rep = 62, day = 1, days = 5, asOf = 'clo
   if (sliding) warns.push(slideLine);
   if (repShort) warns.push(repLine);
 
-  const cashTeach = 'Cash is judged at each close. Below £0, Idris calls the tab and the stand closes — even before Saturday.';
+  const cashTeach = 'Below £0 at a close, Idris calls the tab and the stand closes.';
   const repTeach = repShort
     ? repLine
-    : `Regulars ${repNow}/100 — held needs ${heldRep}. Walk-outs are what pull this down.`;
-  const teaches = [heldLine, cashTeach, repTeach];
+    : `Regulars ${repNow}/100 — held needs ${heldRep}. Walk-outs pull this down.`;
+  // One line, not three paragraphs: the bar and the floor in a breath.
+  const teaches = [`Held needs ${gbpWhole(heldNet)}+ and regulars ${heldRep}+. ${cashTeach}`];
 
   return {
     tone, insolvent, underNut, repShort, sliding, asOf, books,

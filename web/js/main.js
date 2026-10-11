@@ -4600,7 +4600,7 @@ function campaignClose(insolvent = false) {
   const stand = weekStanding({ net, rep, day: Math.min(day, CAMPAIGN.days), days: CAMPAIGN.days, asOf: 'close' });
   const v = (verdictId === 'star' || verdictId === 'good' || verdictId === 'held')
     ? VERDICTS[verdictId]
-    : `${VERDICTS[verdictId]} ${stand.heldLine} ${stand.cashLine} ${stand.repLine}`;
+    : `${VERDICTS[verdictId]} ${stand.teaches[0] || ''}`;
   // PR-B3 — the weekly winner is who served more cups this week
   const yourWeekTotal = cServed;
   const samWeekTotal = (cRivalServed || 0) + (cRivalChoices || 0);

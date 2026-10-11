@@ -842,8 +842,9 @@ Ordered by dependency, not desirability:
 - **V3 screenshot baselines** — the four hero states, desktop + mobile.
 - ~~**V4 teeth at both ends**~~ — **measured** (`6e15153`): `optimal` lands
   8×held at £7,723 mean vs passive £1,541; a 300ms reaction lag costs −5.7%.
-  Pressure is real, headroom is thin, and the contract hedge is dominated —
-  perfect play never buys cover at the current fee schedule.
+  Pressure is real, headroom is thin, and the contract hedge is now buyable
+  past day 1 (`fa89e50` fee+interest gate — was unreachable under the old
+  debt-total gate).
 - **V5 score the scorecard** — turn `ART.md`'s "conform or be rejected" into a
   number, and get recorded motion evidence for Phase 5's gait work.
 
