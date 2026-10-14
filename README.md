@@ -335,6 +335,7 @@ grunds/
 │   ├── agentmail.ts + http.ts   # Svix-signed webhook → thread-mapped reply-to-command (frozen posted plan) + latestInbox mirror; /sync/* bridge incl. /sync/plan token ops; static catch-all
 │   └── convex.config.ts         # registers @convex-dev/static-hosting
 ├── tools/build-dist.sh          # web/ → dist/ + schedule snapshot for site upload
+├── tools/mirror-assets.mjs      # tripoAssets Convex-storage objects → Grove upload, rewrites js/groveAssets.js
 ├── data/
 │   └── coffee_shop_sales.xlsx   # source (deterministic via transform.py)
 ├── out/
@@ -380,6 +381,7 @@ grunds/
 │   │   ├── fx.js                # steam/coins/dust/gossip bubbles/3D conversation lines/construction dust + debrief card + forecast slot
 │   │   ├── gentrification.js    # per-day cost creep + matcha price curve + cohort expectation pressure
 │   │   ├── loader.js            # async GLB loader with cache + FIFO eviction + placeholder fallback
+│   │   ├── groveAssets.js       # generated Convex-storage → Grove mirror map + resolveAssetUrl (tools/mirror-assets.mjs)
 │   │   ├── camera.js            # cinematic rig: title orbit, crane-in, beat push-ins, calm-gated + reduced-motion breath
 │   │   ├── audio.js             # hybrid WebAudio: procedural pad/murmur/till/saw + locally vendored recordings (espresso, grinder, cup, street bed) with fallbacks
 │   │   ├── config.js            # palette, layout, cohorts, economy, campaign, events, regulars, drift
@@ -492,6 +494,12 @@ The Convex phase shipped as working backend + hosting, not a plan:
   *is* the dist plus a schedule snapshot). When hosted there the game runs
   the managed decision protocol — each day's plan commits through
   `POST /sync/plan`, day-scoped and retry-safe (HUD badge flips `● LIVE`).
+  Generated GLBs + preview renders are mirrored to Grove
+  (`tools/mirror-assets.mjs` → `web/js/groveAssets.js`) and served from
+  `api.grove.storage` — Convex keeps the JSON API and the small static
+  bundle, the multi-MB assets ride IPFS so file egress stays inside the
+  free plan; an un-mirrored storage URL falls back to the classic
+  procedural path without a request.
 - **Game feel**: one speech bubble at a time, width-aware and clamped clear of the HUD, sign-aware
   numbers ("down 6%", never "up -6%" — now `tabular-nums` so the till never jitters), `space` or button pauses the sim
   clock, the Brief answers to `1`–`5` + `Enter`; `P`/`📷` freezes a golden-hour **stamped print** — a 1280×720 share card (cream paper border, cover-cropped post-FX snapshot, a rotated red "GRUNDS · SEED N" rubber stamp) with a `↓ save · 𝕏 share · ⧉ copy` action row (Web Share Level 2 where available, X-intent + clipboard fallbacks); type `GRUNDS` for Gwen's £7.80 gesha wink. Beat cameras hold still at 20×

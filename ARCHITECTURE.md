@@ -395,6 +395,13 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   public domain: `grunds.trustfall.xyz` — GoDaddy CNAME → Vercel `grunds-proxy`
   (`deploy/vercel-proxy/vercel.json`, one catch-all rewrite, GET+POST), TLS
   auto-minted, `_vercel` TXT + `grunds` CNAME both required at GoDaddy;
+  generated assets mirrored to **Grove** (Oct 14 — team hit ~82% of Convex
+  free-plan data egress, driven by `api/storage` GLB/preview downloads):
+  `tools/mirror-assets.mjs` uploads every `tripoAssets` storage object
+  (immutable, `chain_id` 232 → permanent retention, CORS `*`) and rewrites
+  `web/js/groveAssets.js`; `loader.js`/`streets.html` resolve
+  `*.convex.cloud/api/storage/<uuid>` through it, un-mirrored URLs fall back
+  to classic without a request. Convex now serves only the bundle + JSON API;
   performance: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms, shadow budget at `queue>40`, GLB cross-fade, `tabular-nums` till + staggered/typewriter receipt, `P` photo + `GRUNDS` secret, **bounce hemi 0.22 lifts the bar**;
   delight wiring: `world.setPlantHealth`/`setGodRay`/`setMotes`/`spawnCat`/`updateCat`/`popTillDrawer`/`_updateDelight(now, dt)`/`jeerRival`, `audio.tick`/`waveFanfare`/`waveRain`/`chalkScreech`/`purr`/`meow`/`shutter`, `fx.chalkDust`/`coinRain`/`victoryBurst` + receipt stagger, `main` reactive `#goal` + nudges + haptics + hover card + Idris quips + rival jeer + desk/billing + `requestAnimationFrame(loop)` re-arm discipline;
   app routes stay at root (`/sync/*`, `/ai/*`, `/agentmail/*`). On managed

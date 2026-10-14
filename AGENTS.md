@@ -14,6 +14,15 @@
   exits 0. `~/grunds-deploy` works; symlink in `node_modules`, `out/`, `.env`,
   `.env.local` first.
 
+## Generated assets (Grove mirror)
+- Convex data-egress is the constraint: generated GLBs + previews are mirrored
+  to Grove (immutable, `chain_id` 232) and the client rewrites
+  `*.convex.cloud/api/storage/<uuid>` via `web/js/groveAssets.js` (generated —
+  do not hand-edit the map). Un-mirrored storage URLs resolve to `null` and
+  fall back to the classic procedural path **without a network request**.
+- After new generations land (Tripo `persist`, franchise stands, new district
+  kits), refresh the mirror: `node tools/mirror-assets.mjs` then redeploy.
+
 ## Conventions
 - Choice surfaces: options + consequence visible, no folds for choices —
   see ARCHITECTURE.md "Choice surfaces".

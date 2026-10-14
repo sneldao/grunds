@@ -79,6 +79,7 @@
 </footer>
 <script type="module">
   import { deedQuote } from './js/deeds.js';
+  import { resolveAssetUrl } from './js/groveAssets.js';
   // Same-origin on the deployment; file:// previews hit the live site.
   const BASE = (location.origin.endsWith('convex.site') || location.hostname === 'grunds.trustfall.xyz')
     ? location.origin : 'https://striped-anaconda-746.convex.site';
@@ -118,13 +119,16 @@
       // The Row: the deeds, named and signed.
       const sd = card.querySelector('.stands');
       if (stands.length) {
-        sd.innerHTML = stands.map((s) => `
+        sd.innerHTML = stands.map((s) => {
+          const img = resolveAssetUrl(s.previewUrl);
+          return `
           <div class="stand">
-            ${s.previewUrl ? `<img src="${esc(s.previewUrl)}" alt="" loading="lazy">` : '<span class="ph">on the<br>drawing board</span>'}
+            ${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : '<span class="ph">on the<br>drawing board</span>'}
             <span class="deed"><span class="lot">${esc(s.lot)} The Row</span><span class="who">${esc(deedQuote(s.prompt))}</span>
               <span class="meta">${esc(PURPOSE_LABEL[s.purpose] || 'a stand')}${s.byline ? ` · signed ${esc(s.byline)}` : ''} · day ${esc(s.day)}</span>
               <span class="st ${esc(s.status)}">${esc(s.status)}</span></span>
-          </div>`).join('');
+          </div>`;
+        }).join('');
       } else {
         sd.innerHTML = '<div class="none">nobody has signed a lease here yet — day 3 opens the first</div>';
       }
@@ -133,9 +137,12 @@
         const strip = card.querySelector('.strip');
         if (!strip) return;
         if (!kit) throw new Error('kit');
-        const slots = Object.entries(kit.slots || {}).filter(([, s]) => s.status === 'success' && s.previewUrl);
+        const slots = Object.entries(kit.slots || {})
+          .filter(([, s]) => s.status === 'success' && s.previewUrl)
+          .map(([k, s]) => [k, resolveAssetUrl(s.previewUrl)])
+          .filter(([, img]) => img);
         strip.innerHTML = slots.length
-          ? slots.map(([k, s]) => `<span><img src="${esc(s.previewUrl)}" alt="${esc(k)}" loading="lazy"><span class="slot">${esc(k)}</span></span>`).join('')
+          ? slots.map(([k, img]) => `<span><img src="${esc(img)}" alt="${esc(k)}" loading="lazy"><span class="slot">${esc(k)}</span></span>`).join('')
           : '<span class="ph">the classic street — nothing grown yet</span>';
       }).catch(() => {
         const strip = card.querySelector('.strip');

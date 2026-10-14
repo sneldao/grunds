@@ -26,6 +26,7 @@
 // the asset root and remote GLBs keep their own directory for sidecar files.
 import * as THREE from '../vendor/three.module.js';
 import { GLTFLoader } from '../vendor/loaders/GLTFLoader.js';
+import { resolveAssetUrl } from './groveAssets.js';
 
 const ABSOLUTE_URL = /^(?:https?:)?\/\//i;
 
@@ -71,7 +72,12 @@ export function GLBLoader(opts = {}) {
 
   async function loadOne(url) {
     if (globalThis.__noGLB) return placeholder(url, 'noGLB');
-    const target = glbLoadTarget(url, path);
+    // Convex storage URLs resolve to their Grove mirror; a storage URL with
+    // no mirror entry (a model generated after the last mirror run) resolves
+    // to null and falls back without touching the network.
+    const resolved = resolveAssetUrl(url);
+    if (resolved == null) return placeholder(url, 'not-mirrored');
+    const target = glbLoadTarget(resolved, path);
     const active = target.path ? threeLoader : remoteLoader;
     try {
       const gltf = await active.loadAsync(target.url);

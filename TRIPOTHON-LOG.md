@@ -398,3 +398,36 @@ the entitlement yet (perks are cosmetic), and the RC SDK rides the
 jsdelivr CDN without SRI.
 
 **Credit ledger**: unchanged — no generations this session.
+
+## Generated assets move off Convex → Grove mirror (2026-10-14)
+
+**The Convex free-plan warning drove this one.** Team data egress hit
+~82% of quota (821 MB of 1 GB), and the per-deployment breakdown put the
+weight on this app's `api/storage` downloads — every generated GLB and
+preview render was a multi-MB pull through Convex on every visit.
+
+- **114 storage objects mirrored to Grove** (Lens' storage layer): all
+  `tripoAssets` model + preview URLs exported from the deployment and
+  re-uploaded — immutable uploads bound to `chain_id` 232 so retention
+  follows mainnet policy, not testnet expiry. Gateway serves
+  `api.grove.storage/<hash>` with `Access-Control-Allow-Origin: *` and
+  correct content types (`model/gltf-binary`, `image/png`).
+- **`web/js/groveAssets.js` (generated)** maps storage uuid → Grove URL;
+  `loader.js` resolves every `*.convex.cloud/api/storage/<uuid>` through
+  it before GLTFLoader runs, and `streets.html` does the same for stand +
+  kit previews. A storage URL with no mirror entry resolves to `null` and
+  lands on the existing classic/procedural fallback **without touching the
+  network** — the egress fix can't be leaked by a stale manifest.
+- **`tools/mirror-assets.mjs`** is the repeatable half: re-reads
+  `tripoAssets`, uploads only un-mirrored objects, rewrites the map.
+  Re-run + `deploy:site` after new generations.
+- Mint-provider kits were never on Convex storage (`cdn.mint.gg` serves
+  them directly) — they pass the resolver untouched.
+
+Convex now carries only the ~4.4 MB JS/HTML bundle + JSON API per visit;
+the GLB/preview payload — the part that spiked to ~700 MB over Oct 5–7 —
+rides Grove instead.
+
+**Honest limit:** new generations still write to Convex storage
+(`tripo.persist` is frozen on the live deployment's code) — they render
+classic until the mirror re-runs.
