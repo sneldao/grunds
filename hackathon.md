@@ -13,9 +13,73 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-01T16:58:00+01:00
+- **Last updated:** 2026-10-15 (docs restructure; log now current through `daf2fa4`)
 
 ## Log
+
+### 2026-10-15 - docs restructure
+
+- **README cut to a front door (~140 lines).** The old 866-line README had grown into a
+  second build log; readers bounced. It now carries: what it is, the play link above the
+  fold, the pillar, four systems, cohorts, a compressed "how a week plays", data layer,
+  demo script, getting-started, principles, and a docs map. A "Current state" box holds
+  the live URL, latest commit, test/typecheck status, and the verified-vs-not line —
+  stated once instead of five times across three docs.
+- **Overflow migrated, not deleted.** The README's repo-structure tree moved to
+  `ARCHITECTURE.md` ("Repo layout"); its dated pass narratives (PR #2–9, Live on Convex,
+  Oct 1/1b/1c, Sept 30, post-Sept 22) were duplicates of entries already in this log.
+  Stale sections (expired "deadline Sept 22" framing, the struck-through build plan, the
+  hackathon track-alignment tables) were dropped.
+- **ARCHITECTURE.md de-duplicated.** The Oct-1/Oct-1b pass narratives collapse into one
+  timeless "Brief disclosure contract" section; the Sept-30 section's contracts already
+  live under "Time-locked levers"; stale verification-state paragraphs replaced by
+  pointers here + EVAL.md. The October-10 asset section keeps its contracts and options
+  table, minus the deploy boilerplate.
+
+### 2026-10-10 → 10-14 - asset floor pass, money hardening, Grove mirror
+
+- **Floor + audio asset pass** (`6591a2e`, `8fbfb20`, Oct 10): pastry case + bar stock
+  props made readable from live stock via `web/js/floorStock.js` (pure, fixed slot
+  counts; the sim's numbers stay authoritative) and three CC0 recordings + a street bed
+  with procedural fallbacks. Contracts, the next-options table and deferred calls are in
+  `ARCHITECTURE.md` ("Asset-led readability"); provenance in `web/assets/SOURCES.md`.
+- **V1 bot playtest progress** (`2ff96a8`, Oct 10): the Playwright day-1 script gained a
+  real-key close gate; modals slice fix.
+- **Money hardening** (`5dcea68`, Oct 10): pinned SDK integrity + server-verified tilt
+  for the wire's insider read.
+- **Moments** (`7e25fe2`, Oct 10): Ruth needs a minute + empty-seat line surfaced —
+  roadmap steps 2/3 gaps ("Ruth moment not yet built", "empty regular seats") closed.
+- **Hedge gate fix** (`fa89e50`, Oct 11): contracts gate on fee+interest headroom, not
+  total debt — the hedge was unreachable past day 1 under the old debt-total gate.
+- **Brief trim** (`a33632d`, Oct 11): one-line standing teach, tighter cue copy; docs
+  swept for consistency.
+- **Grove mirror** (`daf2fa4`, Oct 14): generated GLBs + previews mirrored from Convex
+  storage to Grove (immutable, `chain_id` 232); `web/js/groveAssets.js` rewrites
+  `*.convex.cloud/api/storage/<uuid>` client-side, un-mirrored URLs fall back to the
+  procedural path with no network request. Kills Convex data-egress cost. Refresh with
+  `node tools/mirror-assets.mjs` after new generations land, then redeploy.
+- *Details per commit; no fresh full-suite count claimed here — see the Current state box
+  in the README and `npm test` on the tree.*
+
+### 2026-10-07 → 10-08 - verification roadmap V0 + V4 landed
+
+- **V0 — seeded cosmetic RNG** (`9339c03`, `2aebcdf`): patron decision draws and spawn
+  paint split onto separate seeded streams (+17/+29; floor +19, FX +23); no bare
+  `Math.random` in the sim — guarded by `seeded-floor.mjs` / `replay-campaign.mjs`.
+- **Deterministic resume** (`b67547e`, `4e7a7e1`): week saves round-trip every stream
+  position; resumed weeks replay byte-identically. Fixed-step patron sim
+  (`45faea4`, `028b6e9`): movement steps per sim-minute, renders per frame —
+  frame-rate invariance gated on the campaign replay.
+- **V4 — teeth measured** (`6e15153`): policy bookends on fixed seeds — `optimal`
+  lands 8× `held` at £7,723 mean vs passive £1,541; a 300 ms reaction lag costs −5.7 %.
+  Pressure real, headroom thin. Figures + limitations in `EVAL.md`.
+- **Async rivals** (`7d24474`): a real week ledger races you on the same seed.
+- **Player-clarity passes** (Oct 7): opening-minute teach (price, pastry case, wire —
+  held until Ruth's card is dismissed), demand surge shown on the street before the day
+  card, ledger-not-syllabus evening card, tightened Brief drawer + brass grammar,
+  licence role/background made a visible choice with inline perk.
+- **Docs** (`152f4e5`, `e2d7e3d`): AGENTS.md working notes added; README/EVAL caught up
+  to the Oct 7–8 state.
 
 ### 2026-10-01 - c94b822 - supplier credit and restock incentives
 

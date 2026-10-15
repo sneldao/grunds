@@ -3,12 +3,24 @@
 A live 3D coffee district where **players run competing café stands** and **AI patrons
 decide where to buy** — real commodity prices, behavioural cohorts, and word-of-mouth
 gossip, all visible on the floor. Built at the **Spatial Intelligence + Generative 3D
-Hackathon** (Founders Inc., Sept 5) and being rebuilt as a **persistent multiplayer
-product on Convex** for the **Convex All Gas Hackathon** (deadline Sept 22).
+Hackathon** (Founders Inc., Sept 5) and rebuilt as a **persistent multiplayer product
+on Convex**.
 
-> *"The Sims gave us households, Football Manager gave us squads — Grunds gives you a
-> live micro-economy where real commodity shocks meet behavioural agents, and you can
-> watch cause and effect move through a 3D street."*
+## ▶ Play it
+
+**https://grunds.trustfall.xyz** — no install, plays in the browser (desktop + phone).
+Served by Convex static hosting ([direct link](https://striped-anaconda-746.convex.site));
+connected mode runs the multiplayer backend with live commodity news in the wire.
+
+Demo video: `videos/grunds-demo` (recorded gameplay + HyperFrames title treatment).
+
+| Current state | |
+|---|---|
+| Latest commit | `daf2fa4` (2026-10-14) |
+| Tests | `npm test` — 104 headless suites, run sequentially · `npm run typecheck` clean |
+| Verified | full Node suite + headless replay on the committed tree; live HTTP artifact checks |
+| Not yet verified | live browser playthrough of the current build; fresh human playtests (criteria in [EVAL.md](EVAL.md)) |
+| Build history | [hackathon.md](hackathon.md) — dated log from day one |
 
 ## Design pillar
 
@@ -55,66 +67,33 @@ Diversity lives in the demand curves and gossip networks, not in costumes:
 | Tourists (weekends) | Whatever's on the "best of" list | Follow hype, tip well | Post the latte art |
 
 A price cut wins students but insults the creatives. Each cohort is a different clock
-in the day and a different lever that works on them.
+in the day and a different lever that works on them. Inflation enters as a *pressure
+clock*, not a stat screen: the district gentrifies — rents and bean costs creep,
+standing still loses.
 
-**Inflation** enters as a *pressure clock*, not a stat screen: the district
-gentrifies — rents and bean costs creep, willingness-to-pay rises but expectations
-rise faster. Standing still loses. (Supplier credit is the Drug Wars debt clock,
-delivered by the Roaster's Letter — dawn bean sacks ride the tab, which caps at
-£3,500 (about one full day of beans) and compounds 2.5%/day; a bone-dry cellar bills every cup from the till
-at 1.5× spot; and a campaign that ends a review worth less than it owes is
-called: insolvency closes the stand early.)
+## How a week plays
 
-## Track alignment
+The floor is a **connected 5-day campaign**, not a closed loop. At 06:00 the
+**Morning Brief** pauses the street for the day's plan (sized bean hedge against the
+ticker + wire); you trade the day's waves — commuters, the 14:00 matcha rush; at
+11:00 a regular asks; incidents bite in the afternoon; at close a **receipt** prints
+the real ledger (staff, milk, rent, tab interest, hedge benefit) and the **Roaster's
+Letter** arrives for review — on connected runs you can post your plan to Idris's
+real inbox and answer by email (contract / hold / settle). The event deck rolls a
+pity-timed market at each dawn (frost, drought, clean harvest, matcha hype) that
+moves the bean benchmark; **persistent Regulars** carry opinion across days into
+reputation that modulates footfall and tips. New players get a **soft opening**
+practice day first; the week ends in a sold-sign verdict and a seed-shareable
+receipt. Full mechanics in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-### Spatial Intelligence Hackathon — Gaming & Interactive Worlds (today)
+## Data layer
 
-| What judges look for | What Grunds delivers |
-|---|---|
-| Playable world, one complete interaction loop | Read → scramble → payoff, demoed in 2 minutes |
-| Embodied agents in a physical environment | AI patrons with memory, visible on the floor |
-| Clearly visible state changes | Transactions spawn entities; frost events visibly shift the drink mix |
-| Spatial reasoning | The floorplan is the chart: queues, gossip, zone heat |
-
-Single-player, deterministic, seeded — `transform.py` generates the demand curves.
-Planted signals are the narrative arc: the matcha riser, the loaf faller, the 8.2%
-cake attach.
-
-### Convex All Gas Hackathon (by Sept 22)
-
-Same world, multiplayer and persistent:
-
-- **Convex**: tables for stands, patrons, opinions, contracts; scheduled functions
-  spawn waves and roll events; live queries move the whole district in real time
-- **Firecrawl**: commodity-news crawls feed the merged Wire — **live since Sept 13**
-  (Brazil drought → `drought_ea` corroborated tilt)
-- **AgentMail**: the roaster is a real mailbox — post the letter to your inbox,
-  reply `contract`/`hold`/`settle`, and it plays your move (verified end-to-end)
-- **OpenAI**: `gpt-4o-mini` writes the Wire's "why this matters" line —
-  crawls become a one-line analyst read a player can act on
-- Deployed on `convex.site`, public repo, `hackathon.md` build log from day one
-  — **live since Sept 12** at https://grunds.trustfall.xyz
-  (Vercel proxy → `striped-anaconda-746.convex.site`, which also serves directly)
-
-Prior work disclosed honestly in the build log: "a deterministic café dataset engine
-and briefing design (prototype); this build: a live, real-time product on Convex."
-
-## Data layer (exists today)
-
-- **Source**: Maven Analytics "Coffee Shop Sales" — 149k transactions, 3 NYC
-  locations, Jan–Jun 2023
-- **Transform**: `transform.py` (deterministic, seeded RNG) — one location, 13 weeks
-  shifted to end on the most recent Saturday, matcha-café menu overlay, GBP/VAT
-- **Output**: `out/square_item_sales.csv` — ~26.5k rows, 286 txns/day, morning peak
-  7–11am
-
-### Planted signals (the narrative arc)
-
-| Signal | Pattern | Why it matters in the game |
-|---|---|---|
-| **RISER** | Iced Matcha Latte 260→671 units/wk (2.6×) | The read: spot it, pre-batch, win the afternoon wave |
-| **FALLER** | Miso Banana Loaf 141→59 (−45%) | Dead stock decision: discount, donate, or drop |
-| **ATTACH** | Cake attached to only 8.2% of matcha orders | The nudge: bundle mechanics, measurable lift |
+- **Source**: Maven Analytics "Coffee Shop Sales" — 149k transactions, 3 NYC locations
+- **Transform**: `transform.py` (deterministic, seeded RNG) — 13 weeks, matcha-café
+  menu overlay, GBP/VAT
+- **Planted signals** (the narrative arc): **RISER** — iced matcha 260→671 units/wk;
+  **FALLER** — miso loaf −45%; **ATTACH** — cake on only 8.2% of matcha orders.
+  Spot them on the floor, act on them before rivals do.
 
 ## Two-minute demo script
 
@@ -124,54 +103,20 @@ and briefing design (prototype); this build: a live, real-time product on Convex
 4. Watch the payoff: queue shifts, till ticks, the rival stand visibly starves
 5. One gossip moment: a bad review spreads across the floor as patrons chat
 
-Keep one reliable path, visible reset controls, and a fallback recording.
+## Getting started
 
-## Hackathon build plan
+```bash
+npm run preview:local    # serve the latest web build at http://127.0.0.1:8766
+npm test                 # full headless suite (node --test web/test/*.mjs)
+npm run typecheck        # tsc --noEmit
 
-**Today (spatial, 10:00–18:00)**
-1. Zone mapper: each transaction → (zone, time, item, cohort) — `grunds/ingest.py`
-2. Patron wave spawner from `transform.py` output — cohorts 1–3 (commuters,
-   creatives, students)
-3. Three.js floor: 4 zones, entity spawning, queue heat
-4. ONE player lever wired in: pre-batch/reprice before the afternoon matcha wave
-5. Gossip stub: one visible bad-review propagation
-6. Demo polish: reset button, fallback recording, 2-min script locked
-
-**Convex phase (by Sept 22)** — status Sept 12:
-1. ~~Fresh repo, `npm create convex`, port signals/zone logic to TypeScript~~ — done:
-   `convex/` holds schema, exchange, regulars, letters, apiCache + OpenAI/Firecrawl/
-   AgentMail actions, verified end-to-end on a cloud dev deployment; the
-   `planSessions`/`dayDecisions` decision protocol is deployed there too —
-   `npm run deploy:site` pushed the functions (new `dayDecisions`/`planSessions`
-   indexes) and re-uploaded the static site together
-2. ~~The Exchange: scheduled functions + Firecrawl news→event deck (with pity timers)~~ —
-   deck + pity timers live server-side; Firecrawl pull live with 6h cache; nightly cron next
-3. ~~The Regulars: persistent patron memory + gossip propagation graph~~ — done server-side
-4. ~~The Roaster's Letter: AgentMail inbox, reply-to-command mutations~~ — live
-   end-to-end: `grunds-roaster@agentmail.to` sends the letter, signed webhook plays
-   reply commands, Idris acks by return post
-5. All 5 cohorts, supplier credit clock, gentrification drift, cupping events — drift +
-   credit live; `wireWhy` live on the OpenAI chain (primary key → compatible fallback)
-6. ~~Deploy convex.site, public repo, `hackathon.md`, video, X post~~ — site + repo + log
-   live; demo video v1 rendered (`videos/grunds-demo`, renders gitignored); social still to do
-
-## Architecture
-
+# Optional: regenerate demand data from raw sales (not needed to play)
+python3 transform.py
+python3 -m grunds run
 ```
-transform.py          ← deterministic data engine (existing)
-        ↓
-  square_item_sales.csv
-        ↓
-  ingest/             ← CSV parser + zone/cohort mapper
-        ↓
-  spatial/            ← Three.js floor: zones, entity spawner, gossip bubbles
-        ↓
-  agent/              ← patron decisions + barista agent (read/scramble levers)
-        ↓
-  precedent/          ← patron memory: opinions persist across runs
-        ↓
-  exchange/           ← (Convex phase) event deck, price drift, contracts
-```
+
+URL params: `?seed=N`, `?speed=60|300|1200`, `?lite`, `?skipTutorial`,
+`?skipLicence`, `?demo=1` (self-running showfloor demo), `?classicDistrict`.
 
 ## Design principles
 
@@ -179,688 +124,19 @@ transform.py          ← deterministic data engine (existing)
 - **The floorplan is the chart**: the 3D view *is* the interface — no dashboard required
 - **Foresight is a skill**: the economy isn't rigged; reads must be legible in hindsight
 - **Fairest losses win**: never two catastrophes in a row — pity-timed events
-- **Depth in the doc, delight in the demo**: elasticity never appears on screen
+- **Honest numbers on screen**: cards and receipts quote real counters, never invented
+  saves or projected fun
 - **Demo-reliable**: frozen dataset, one clean path, fallback recording ready
 
-## Getting started
-
-```bash
-npm run preview:local               # serve the latest web build at http://127.0.0.1:8766
-                                    # (prefers out/wave_schedule.json if present, falls back
-                                    #  to the existing dist/api/schedule.json snapshot — a
-                                    #  frozen data snapshot, not a fresh ingest; no regeneration
-                                    #  required. Loopback-only, no deps.)
-
-# Optional: regenerate demand data from raw sales (writes data, not needed to play)
-python3 transform.py          # regenerate deterministic demand data
-python3 -m grunds run         # zone/cohort map + wave schedule
-python3 -m grunds spatial     # launch the Three.js floor at localhost:8787
-
-node web/test/smoke.mjs              # headless day sim — scramble levers + the queue
-node web/test/coach.mjs              # day-1 inline coach: pause ownership, wave/low-stock gates
-node web/test/vitals.mjs             # "Running the Stand" panel: Ruth, beans, milk, cost basis, the nut, the tab
-node web/test/utilities.mjs          # power + wifi on the cost sheet; seeded wifi drop vs the tether
-node web/test/orientation.mjs        # first morning: context-first brief, guided opening, deferred economics
-node web/test/lever-state.mjs        # lever legality: reservation, late-switch fee, runtime orders
-node web/test/campaign.mjs           # 5-day campaign — the Gamble hedge + debt clock
-node web/test/campaign-tight.mjs      # per-regular opinion + cup-bounded contract expiry
-node web/test/regulars-graph.mjs      # friendship graph + opinion contagion
-node web/test/gentrification.mjs      # per-day cost creep + cohort expectations
-node web/test/rent-sign.mjs           # 'let' → 'lease' → 'sold' rent sign ladder
-node web/test/construction.mjs        # day-5 right scaffold + tarp
-node web/test/construction-left.mjs   # day-5 left scaffold (district-wide)
-node web/test/construction-active.mjs # day-5 drifting dust + low saw loop
-node web/test/construction-final.mjs  # day-4 letter line + back-row scaffold + hammer
-node web/test/glb-substitution.mjs    # Kenney GLB loader + substitution map
-node web/test/game-feel.mjs           # bubbles bounded/clamped, signed numbers, pause, letter keys
-node web/test/intel.mjs               # Linkup deck bias (clamped), pity under bias, citations
-node web/test/behavioral.mjs          # decoy anchoring, pastry/cacao attachments, tip jar social proof
-node web/test/share.mjs               # Z-read share cards, campaign badges, replayable seed links
-node web/test/desk.mjs                # District Insider Pass: entitlement gates the wire, purchase/restore flows
-node web/test/agency.mjs              # Drug Wars turn — Morning Brief at 06:00, sized hedge, 11:00 offer + cost sheet
-node web/test/identity.mjs            # pitch licence — modal, name threading (letter/receipt/board), perks, skip paths
-node web/test/demand.mjs              # awareness decay + street-work payback + loyalty return rate
-node web/test/district.mjs            # generative district: seed→kit gate, fallbacks, slot contract
-node web/test/vitality.mjs            # vitality spine: bounds, lerp, spawnMul untouched (skin only)
-node web/test/kit-arrival.mjs         # kit-arrival beat: onGrown fires once, classic/headless never
-node web/test/next-action.mjs         # next-action priority + #goal renders from the same module
-node web/test/halo.mjs                # guidance halo: shouldHalo predicate, idle timer, reduced motion
-node web/test/mail-inbox.mjs          # Idris inbox mirror: latestInbox, /agentmail/inbox, arrival theater
-node web/test/share-card.mjs          # stamped print share card: layout, composition order, doPhoto wiring
-node web/test/modals.mjs              # modal a11y: focus trap, stack z-order/inert, shortcut routing
-node web/test/lifecycle-accounting.mjs # planning→trading→review lifecycle, per-cup hedge accounting, reconciled P&L
-node --experimental-vm-modules web/test/decisions.mjs  # managed decision protocol: resolver, Convex handlers (mock DB), client lifecycle
-node web/test/balance-policies.mjs    # diagnostic policy comparison across fixed seeds (fresh-process replay)
-node --test web/test/floor-stock.mjs web/test/audio.mjs web/test/brief-icons.mjs web/test/vitals.mjs  # stock display slots, sampled audio, icon + vitals surfaces
-node --experimental-vm-modules --test --test-concurrency=1 web/test/stage-site.mjs web/test/replay-resume.mjs  # dist staging bundle + deterministic resume replay
-```
-
-The floor is a **connected 5-day campaign**, not a closed loop. The three nested clocks
-now meet the floor: the Exchange rolls a pity-timer event deck at each dawn (frost on
-Minas Gerais, East Africa drought, clean harvest, matcha hype) that moves the bean
-benchmark; your cost-of-goods (anchored to `benchmark_corpus.json` — ~30% COGS for a UK
-independent) eats the margin shown on an in-world **ticker board**; the **Roaster's
-Letter** arrives at each close for review — on connected runs you can post the
-morning's plan to Idris's real inbox and answer by email (contract / hold / settle),
-with replies committing through the same day-scoped record as the browser;
-**persistent Regulars** carry opinion across
-days into a reputation meter that modulates footfall and tips. World events pass through
-commodity economics into patrons' pockets into your till — every link visible in 3D.
-
-**A busy wire shows up on the street first.** When the lists notice matcha, three people are already waiting outside your door, Glasshouse burns warmer across the road, and the pavement ticker picks up — the words say STREET UP, not a multiplier. The day’s headline follows a moment later. A rain day looks quieter and the ticker cools (STREET THIN). Who actually queues, and what they pay, is unchanged.
-
-The diorama: a shader **sky dome** (gradient + sun glow + procedural stars over the day
-arc), **brick district facades** (two-tone bricks + mortar, framed windows, cornice + brass shopfront) whose windows light up at dusk, a 9-block far skyline, a
-mailbox, a **512×320 brass-collar ticker** with linen grain, weather mist + **warm dust motes (180, amber) in sun-shaft god rays after a frost or harvest**, **7 bollards** + a *THE DISTRICT* street decal, and a
-street **cat Miso** that walks once a day — rendered through a
-core-Three **post-FX** bloom/vignette/grain pipeline (auto-disabled on low-RAM/low-core + dynamic shadow budget at `queue>40` + GLB cross-fade-in). Controls: `1` pre-batch, `2` reprice, `space` pause — title prints the live set.
-Morning Brief answers to `1`/`2`/`3`/`4`/`5` → `Enter`. Hidden delight: type `GRUNDS` for Gwen's gesha reserve. URL params: `?lite`
-(no shadows/post-FX, 1× pixels, now also auto on ≤4 cores / ≤4GB), `?speed=60|300|1200` (default 1×; headless stays 5×),
-`?seed=N` (campaign seed), `?skipLicence` (bypass the pitch licence — defaults), `?skipTutorial`/`?notutorial` (bypass licence + day-1 coach onboarding).
-
-**First minute (new players).** Ruth’s opening card comes first. Once it is dismissed, three tips take under a minute and do not pause the café: what to price (chalkboard, and the menu in the morning brief), the pastry case (today’s croissants are already in; tomorrow is full, half, or skip), and the morning wire (the street ticker — a frost or drought changes what a cup costs). The tips wait while that card is up, so reading it does not skip a beat. Show me swings the camera. Next moves on. Skip tips, or skip guidance, clears them. `?skipTutorial` / `?notutorial` never shows them, and neither does a player who has already met every morning tool. The same three lines sit on the first morning brief, including how many croissants are already in the case.
-
-Onboarding: new players sign the **pitch licence** (name + stand + role + a one-perk
-background — activate the Sign button; Escape never signs or advances), then land on
-the paused floor inside the **Morning Brief** — on the first morning it opens as
-**"YOUR FIRST MORNING"**: the stand, Idris and Ruth (small portraits), the rival
-across the road, and the afternoon's aim, then **one plan for the afternoon**
-(batch / deal / wait — the first real choice; `1`/`2`/`3` pick it, `Enter` opens
-only once a plan is chosen under the guided opening). The full plan — cellar,
-menu, hedges, the wire, the closing bill — sits one tap away under **"Explore
-the full plan"**. Day 1 offers an **optional inline
-coach** — a non-modal paper card beside the floor that pauses the sim at 14:00 before
-the first reserved cup serves, again at the first low-stock moment, and steps aside
-for the debrief; skipping it or pausing yourself hands control back without it ever
-overriding your pause. Day-1
-mornings are half-demand and gossip-throttled so eyes settle before the queue reads.
-The HUD is goal-first: a brass goal strip, a queue health bar (ok/warm/hot + "queue
-7/12 — watch it", **heartbeat at >10 and purr glow at ≤5**), a bean tape, and a batch countdown; levers pulse until first use and the
-chalkboard flashes on press (with a chalk-dust puff and `screech` on reprice). At 06:00 the **Morning Brief** pauses the floor for the day's hedge (sparkline + wire + sized pills) — staged, so day 1 shows hold plus the contract row folded under one line while street work, staffing, and the net-position figure arrive as they earn a reason (day 2 for street work and net position, Ruth's row when she's actually fading, settle once a tab exists); at 11:00 a regular pauses it again for a y/n ask. At 17:00 a **14:00 wave debrief** card shows saved cups
-and `~£` vs GLASSHOUSE — a real save pops fanfare + a 3.5s counter crane + coin rain;
-an flop falls as a soft rain. At 17:30 and on day-1 close a **Day-2 forecast**
-toast + receipt stripe preview the next day's board to earn the replay. A local `analytics.js` tracks
-`tutorial_step/skip/complete`, `first_lever_at_min`, every balk, debrief and forecast
-for the 5-question playtest (`__grunds.analytics.summary()`).
-
-### Asset-led readability — October 10, 2026
-
-A local pass that puts live stock and quieter sound on the existing floor,
-without touching simulation math or RNG:
-
-- The pastry case now keeps six representative positions whose fill tracks
-  `ctx.pastryStock` against the capacity ordered at day open — sales empty
-  slots and the dawn restock refills them.
-- A stock view on the bar shows two milk cartons, two bean bags, and three
-  prepared cups, driven by milk delivery, house-lot stock, and batch units;
-  a tray under the cups reads matcha when the batch is ready and brass when
-  it's reserved. All counts are approximate stock representation, not
-  physical per-unit counts — the sim's numbers stay authoritative.
-- Three recorded café sounds (an espresso rush loop, grinder and cup
-  one-shots) plus a quiet street-traffic bed lazy-load after the first
-  gesture, with procedural fallbacks and the master mute preserved; street
-  and rush duck when the day is paused, closed, or the tab is hidden.
-- Morning Brief and vitals labels carry decorative masked ink glyphs; text
-  labels and controls keep their semantics.
-
-Contracts and remaining options are in
-[ARCHITECTURE.md](ARCHITECTURE.md#october-10--asset-led-readability-and-remaining-options);
-the icon/palette rules are in [ART.md](ART.md); asset provenance is in
-[web/assets/SOURCES.md](web/assets/SOURCES.md).
-
-*Status: implemented locally — not a deployment or release claim, and not
-part of a shipped PR. Verification is code/headless only; appearance and
-sound have not been reviewed live for this pass.*
-
-Repo structure:
-
-```
-grunds/
-├── README.md
-├── ARCHITECTURE.md
-├── EVAL.md
-├── pyproject.toml
-├── package.json                 # convex + static-hosting (npm run typecheck/build:dist/deploy:site)
-├── tsconfig.json
-├── convex/                      # live backend (cloud dev deployment, verified end-to-end)
-│   ├── schema.ts                # campaigns, marketEvents, regulars, friendships, letters, stands, apiCache, planSessions, dayDecisions
-│   ├── gameConfig.ts            # drift, event deck, roster, seeded RNG (ported from web/js/config.js)
-│   ├── exchange.ts              # dawns, contracts, debt — drift-then-pity-roll (rejects writes to managed campaigns)
-│   ├── decisions.ts             # managed per-day commit records — begin/prepare/stage/commit/finish/abandon, browser+email first-writer arbitration
-│   ├── regulars.ts              # seen-marks, expectation pressure, 5% contagion
-│   ├── letters.ts               # templated Letter preview + archive
-│   ├── apiCache.ts              # TTL response cache (Firecrawl 6h, OpenAI 7d)
-│   ├── openai.ts                # enhanceLetter + personaLine (gpt-4o-mini, key-gated)
-│   ├── firecrawl.ts             # commodity-news → deck weights (live)
-│   ├── agentmail.ts + http.ts   # Svix-signed webhook → thread-mapped reply-to-command (frozen posted plan) + latestInbox mirror; /sync/* bridge incl. /sync/plan token ops; static catch-all
-│   └── convex.config.ts         # registers @convex-dev/static-hosting
-├── tools/build-dist.sh          # web/ → dist/ + schedule snapshot for site upload
-├── tools/mirror-assets.mjs      # tripoAssets Convex-storage objects → Grove upload, rewrites js/groveAssets.js
-├── data/
-│   └── coffee_shop_sales.xlsx   # source (deterministic via transform.py)
-├── out/
-│   └── square_item_sales.csv    # generated export
-├── grunds/
-│   ├── __init__.py
-│   ├── __main__.py              # makes `python3 -m grunds` work
-│   ├── ingest.py                # CSV parser + zone/cohort mapper + wave schedule
-│   ├── spatial.py               # Three.js floor server (localhost:8787)
-│   ├── agent.py                 # patron choice loop + barista levers (stub)
-│   ├── precedent.py             # patron memory, opinions, friendship graph (stub)
-│   └── eval.py                  # demo-loop scoring
-├── web/
-│   ├── index.html               # shell, HUD, story overlays (chapters, notebook, letter, receipt)
-│   ├── js/
-│   │   ├── main.js              # the campaign: loop, economy, story beats, the letter flow, pause, letter keys
-│   │   ├── director.js          # per-frame layered-modulation registry (runs after world/sky/audio overwrite)
-│   │   ├── vitality.js          # 0.65·awareness + 0.35·reputation — audiovisual skin, never the numbers
-│   │   ├── nextAction.js        # pure priority rule: the one next move (batch/price/mail/wait)
-│   │   ├── halo.js              # camera-invariant ground ring on the next-action target when idle
-│   │   ├── kitArrival.js        # cart-rolls-in + lanterns-light beat when a generated kit finishes growing
-│   │   ├── mailTheater.js       # Idris reply arrives: poll /agentmail/inbox, knock, flag, dropped envelope
-│   │   ├── shareCard.js         # stamped-print 1280×720 photo card (paper border + rubber seed stamp)
-│   │   ├── demand.js            # awareness stock (decay + street work) + loyalty return rate
-│   │   ├── economy.js           # shared sale price / operating costs / hedge terms / plan quote
-│   │   ├── rival.js             # GLASSHOUSE strategy: price posture, cohort draw, service speed
-│   │   ├── staffing.js          # Ruth/apprentice staffing predicates + crisis eligibility
-│   │   ├── modals.js            # shared modal controller: focus trap, inert stack, top-layer keys
-│   │   ├── decision.js          # pure resolveDecision(snapshot, plan) — local + managed commit path
-│   │   ├── districtGen.js       # seed → generated 3D kit cross-fade (?classicDistrict / failure → procedural)
-│   │   ├── convexSync.js        # optional connected mode (auto on *.convex.site + grunds.trustfall.xyz, ?convex= override): managed plan queue + Linkup intel + inbox poll
-│   │   ├── analytics.js         # local playtest analytics (tutorial/lever/balk/debrief/forecast) + localStorage + console
-│   │   ├── desk.js + billing.js # The Wire research desk (headlines free, tilt on District Insider) + RevenueCat Web Billing
-│   │   ├── world.js             # the diorama + time-of-day director (district, ticker, mailbox, mist, scaffolds) + chalkboard flash + live stock display
-│   │   ├── floorStock.js        # pure visual helpers: stock → fixed slot counts (pastry case, bar props)
-│   │   ├── vitals.js            # read-only status rows + keyed renderer + decorative icons
-│   │   ├── sky.js               # custom shader sky dome (gradient + sun + stars) — core-Three only
-│   │   ├── postfx.js            # core-Three render-target bloom + vignette + grain
-│   │   ├── patrons.js           # instanced characters, queue/balk/defect behaviour, named-Regular hat/bubble
-│   │   ├── exchange.js          # the Gamble: seeded pity-timer event deck + optional bias (Linkup), bean market, debt clock
-│   │   ├── regulars.js          # persistent opinion + friendship graph + 5%/day contagion (the Regulars)
-│   │   ├── letter.js            # the Roaster's Letter: driftLine + neighborhoodLine + intelLine + reply-to-command
-│   │   ├── fx.js                # steam/coins/dust/gossip bubbles/3D conversation lines/construction dust + debrief card + forecast slot
-│   │   ├── gentrification.js    # per-day cost creep + matcha price curve + cohort expectation pressure
-│   │   ├── loader.js            # async GLB loader with cache + FIFO eviction + placeholder fallback
-│   │   ├── groveAssets.js       # generated Convex-storage → Grove mirror map + resolveAssetUrl (tools/mirror-assets.mjs)
-│   │   ├── camera.js            # cinematic rig: title orbit, crane-in, beat push-ins, calm-gated + reduced-motion breath
-│   │   ├── audio.js             # hybrid WebAudio: procedural pad/murmur/till/saw + locally vendored recordings (espresso, grinder, cup, street bed) with fallbacks
-│   │   ├── config.js            # palette, layout, cohorts, economy, campaign, events, regulars, drift
-│   │   └── textures.js          # procedural canvas textures (wood, chalkboard, facade, awning, rent sign, tarp)
-│   ├── test/
-│   │   ├── smoke.mjs                  # headless day integration test
-│   │   ├── campaign.mjs               # 5-day campaign: hedge + debt clock + settle
-│   │   ├── campaign-tight.mjs         # per-regular opinion + cup-bounded contract expiry
-│   │   ├── regulars-graph.mjs         # friendship graph + opinion contagion
-│   │   ├── gentrification.mjs         # per-day cost creep + cohort expectations
-│   │   ├── rent-sign.mjs              # 'let' → 'lease' → 'sold' rent sign ladder
-│   │   ├── construction.mjs           # day-5 right scaffold + tarp
-│   │   ├── construction-left.mjs      # day-5 left scaffold
-│   │   ├── construction-active.mjs    # day-5 drifting dust + low saw loop
-│   │   ├── construction-final.mjs     # day-4 letter + back-row scaffold + hammer
-│   │   ├── glb-substitution.mjs       # Kenney GLB loader + substitution map
-│   │   ├── game-feel.mjs              # bubbles bounded/clamped, signed numbers, pause, letter keys
-│   ├── intel.mjs                  # Linkup deck bias (clamped), pity under bias, citations
-│   ├── behavioral.mjs             # decoy anchoring, pastry/cacao attachments, tip jar social proof
-│   └── share.mjs                  # Z-read share cards, campaign badges, replayable seed links + outcome framing
-│   │   (…plus demand, district, vitality, kit-arrival, next-action, halo,
-│   │      mail-inbox, share-card, modals, decisions, lifecycle-accounting — full list with one-liners in the test
-│   │      commands above)
-│   ├── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)
-│   └── assets/                  # Kenney CC0 GLB props, CC0 Freesound/OpenGameArt audio, CC BY 3.0 Game-icons.net SVGs + SOURCES.md
-├── benchmark_corpus.json        # UK café COGS benchmarks (anchors the Exchange math)
-├── locality_packs.json          # London district locality data (matcha price ranges)
-├── cli.py
-└── tests/
-```
-
----
-
-## Recent progress (post-PR #1)
-
-After the connected-campaign PR #1 landed, the build log has been steadily
-catching up to the README's promises. Each item below shipped as its own
-squash-merge PR with a headless test gate.
-
-- **PR #2 — Phase 0 CC0 props (Kenney)**. The vendored Kenney GLBs that the
-  README always promised now sit on the floor: bar, espresso machine, till,
-  three tables, nine chairs, three lamps, two planters, retail shelf
-  backing, six pastry items, three bar stools, one side table. New
-  `web/js/loader.js` (async GLB loader with cache + FIFO eviction + magenta
-  placeholder fallback). `web/test/glb-substitution.mjs` (15 assertions).
-- **PR #3 — Regulars friendship graph**. Gossip is no longer random: it
-  routes through named friends when one is on the floor, and a dashed
-  `THREE.LineSegments` is drawn between gossiping regulars' heads. Each
-  `REGULAR_ROSTER` entry has a `friends` array (11 undirected edges,
-  diameter 2). `Regulars` now has a `friendships` Map, `pickFriendFor`,
-  `reachableIn`, and a 5%-per-day `opContagion` step that runs at end of
-  day. `web/test/regulars-graph.mjs` (8 assertions).
-- **PR #4 — Gentrification drift**. The README's "Inflation enters as a
-  *pressure clock*" is now real. New `web/js/gentrification.js`:
-  `applyDrift(ex, day)` raises `beanIndex` by +0.025/day (capped at 1.80)
-  and sets the day's matcha till price on a 4.80→5.40 curve;
-  `applyExpectation(regulars, day)` shifts each seen regular's `op` by
-  `day * delta` per cohort (elders -0.02, creatives -0.01, students +0.01,
-  tourists +0.01). HUD gets a new `#pressure` line "costs +X% · matcha £Y
-  · day Z/5". The Roaster's Letter gets a `driftLine` paragraph on days
-  ≥ 2. `exchange.openDay()` applies the drift *before* the event roll
-  (the drift is the baseline; the event is the deviation). New
-  `web/test/gentrification.mjs` (6 assertions).
-- **PRs #5–#9 — Day-5 visual + audible construction story** (5 PRs).
-  - A `W.setRentPressure(day)` exposes a rent sign on the right side of
-    the street: 'let' (day 1-2), 'lease' (day 3-4), 'sold' (day 5).
-  - Three procedural scaffolds materialize on day 5: right facade block
-    (x=11), left facade block (x=-10), back-right (x=17). Each carries
-    a red-and-white striped "UNDER CONSTRUCTION · SEPT 15" tarp.
-  - A `dustSite` particle pool in `fx.js` drifts 80 cream/warm-grey
-    particles between the scaffolds on day 5.
-  - `audio.js` adds a low procedural saw loop (drone) and a jittered
-    wooden tock + metal click (rhythm) on day 5.
-  - The Roaster's Letter gets a `neighborhoodLine` paragraph on days
-    ≥ 4 ("Both storefronts are scaffolded now. The street is being
-    remade — for or against you, that's the question.").
-  - 4 new tests: `rent-sign`, `construction`, `construction-left`,
-    `construction-active`, `construction-final` (19 assertions total, canvases now 1024 including `setLineDash` stubs).
-
-The day-5 narrative is now end-to-end: numbers (HUD `#pressure` + goal +
-queue bar + batch countdown + `tabular-nums` till + bean **tape**), narrative (the **Morning Brief at 06:00 [PAUSED]** + the Letter + 14:00 wave debrief +
-Day-2 forecast + The Wire desk + sized hedge + cost sheet), physical (honey-oak floor + slab pavement + aggregate road + awning eyelets + facades/cornice/shopfront + bollards/decal + scaffolds/tarps + chalkboard flash + till drawer + shadow + arcing coins + sipping sitters + motes/god rays), audible
-(saw + hammer + till/coins + 90Hz clock tick at 1× + chalk screech + fanfare/rain + 38Hz purr + meow + shutter), animated (drifting dust + 3D conversation
-lines + cat Miso + living plant + god rays + rival lean/jeer + photo vignette). Onboarding lands at 1× inside the paused Morning Brief with an optional day-1 inline coach + calm-open throttling;
-**06:00 Drug Wars turn** pauses the floor for the Morning Brief (sparkline + wire headlines + 5 sized pills → `OPEN FOR DAY`); `analytics.js` measures every brief choice, balk and first lever for the playtest. Performance is intent: auto- + dynamic-`lite` (no shadows/post-FX on weak devices, shadow budget at `queue>40`), GLB cross-fade, `tabular-nums` + staggered receipt typewriter. **30/30**
-headless tests run green on every merge (new `vitality/kit-arrival/next-action/halo/mail-inbox/share-card` are the delight-pass gates).
-
-## Live on Convex (Sept 12–19)
-
-The Convex phase shipped as working backend + hosting, not a plan:
-
-- **Linkup**: Deep Research integration (`convex/linkup.ts`) querying global coffee commodity intelligence (weather disruptions, harvest reports, shipping bottlenecks) to dynamically bias the morning event deck with cited source URLs — nightly `linkup-intel-refresh` cron (06:15 UTC) keeps the 6h cache warm; the floor fetches once per session via `convexSync.intel()` and threads `marketShift` (clamped 0.2–3×) through the pity-timer roll on both client and server (`exchange.openDay(bias)`), cited in the Letter via `intelLine` and surfaced as a day-1 toast.
-- **Nebius**: Applied AI integration (`convex/nebius.ts`) via Token Factory (`meta-llama/Llama-3.3-70B-Instruct`, was 3.1 — host moved to `api.tokenfactory.nebius.com`) for in-character prose generation and responsive patron reaction lines with latency and token telemetry; new `POST /ai/letter` (`convex/http.ts`) serves `enhanceLetterNebius` (7-day hash cache), consumed fire-and-forget from `main.js` `showLetter()` (templated letter swaps to LLM prose with `— Idris · Llama-3.3-70B · {latency}ms`).
-- **RevenueCat**: Subscriptions / Web Test Store + live Web Billing (`web/js/billing.js` → `@revenuecat/purchases-js` CDN 1.47.3 when `?rc=`/localStorage/`RC_API_KEY`) — the District Insider Pass buys the *edge* on **The Wire** research desk (`web/js/desk.js`): the desk is open to everyone — headlines + sources + a why-it-matters line are free (the USP is never paywalled); `commodity_insider` unlocks the quantitative deck tilt (× multipliers + per-card reasoning). Free readers get a `#desk-edge` footer invite, not a blocking modal. HUD gains `⚡ the wire ↗` when intel lands; the bean tape clicks through; the Letter grows a desklink where the choice happens. Modal: 3 perks, live `formattedPrice`, restore + dismiss + mode badge. Analytics: `paywall_shown` / `desk_opened` / `desk_opened_free` / `purchase_success`. Gate adds `desk.mjs`.
-- **District leaderboard + research bridge**: new `GET /sync/stands`, `GET /ai/research`, `POST /ai/letter` in `convex/http.ts`; nightly `commodity-news-refresh` + `linkup-intel-refresh` crons; local `apiCache` table backs both.
-- **Backend** (`convex/`): schema for campaigns, market events, regulars,
-  friendships, letters, stands, and an API-response cache; queries +
-  mutations for the Exchange (drift-then-pity-roll dawns, contracts,
-  debt), the Regulars (seen-marks, expectation pressure, 5% contagion),
-  and the Letter (templated preview + archive); `GET /ai/research` serves
-  the merged Wire — Linkup Deep Search + Firecrawl crawls unioned per
-  event (corroboration lifts a tilt ~15%), with OpenAI `wireWhy`
-  (`gpt-4o-mini`, 7-day hash cache) writing the "why this matters" line;
-  AgentMail runs the Roaster's Letter as a real mailbox — `/agentmail/letter`
-  posts it to a player inbox, Svix-signed `/agentmail/webhook` resolves the
-  reply (thread/recipient → campaign) and plays contract/hold/settle, with
-  an Idris ack by return post and the whole correspondence in `letters`.
-- **Hosting**: the floor deploys via `@convex-dev/static-hosting` to
-  https://striped-anaconda-746.convex.site (38 files, no bundler — `web/`
-  *is* the dist plus a schedule snapshot). When hosted there the game runs
-  the managed decision protocol — each day's plan commits through
-  `POST /sync/plan`, day-scoped and retry-safe (HUD badge flips `● LIVE`).
-  Generated GLBs + preview renders are mirrored to Grove
-  (`tools/mirror-assets.mjs` → `web/js/groveAssets.js`) and served from
-  `api.grove.storage` — Convex keeps the JSON API and the small static
-  bundle, the multi-MB assets ride IPFS so file egress stays inside the
-  free plan; an un-mirrored storage URL falls back to the classic
-  procedural path without a request.
-- **Game feel**: one speech bubble at a time, width-aware and clamped clear of the HUD, sign-aware
-  numbers ("down 6%", never "up -6%" — now `tabular-nums` so the till never jitters), `space` or button pauses the sim
-  clock, the Brief answers to `1`–`5` + `Enter`; `P`/`📷` freezes a golden-hour **stamped print** — a 1280×720 share card (cream paper border, cover-cropped post-FX snapshot, a rotated red "GRUNDS · SEED N" rubber stamp) with a `↓ save · 𝕏 share · ⧉ copy` action row (Web Share Level 2 where available, X-intent + clipboard fallbacks); type `GRUNDS` for Gwen's £7.80 gesha wink. Beat cameras hold still at 20×
-  and breath is calm-gated 7s + `prefers-reduced-motion`-aware, and the rival
-  lives — their sign burns with their queue, **leans -0.08rad at heat>6 and jeers at 5 defections via `world.jeerRival()`**, the camera shows first blood,
-  their sales ring coins. The day opens at **1×** inside the paused Morning
-  Brief — day 1 additionally offers an optional inline coach card (`?skipTutorial`
-  bypass) — a crane settles into the paused Brief; day-1 mornings are half-demand and
-  gossip-throttled. The HUD is **goal-first** (brass goal strip + queue health
-  bar + batch countdown + **heartbeat at >10, purr glow at ≤5**), levers pulse until first use and the chalkboard
-  flashes on press with the live inventory and ready-time readout + chalk dust + `screech` (desaturate + wobble). At 17:00
-  a **14:00 wave debrief** card reports actual served/walked counts, batch cups and stockout timing, or the discount's patience rule. Strong wave outcomes trigger fanfare, coin rain, a camera beat and haptics; rough outcomes use soft `waveRain`, without inventing saved cups or revenue.
-  At 17:30 and on the day-1 Z-read a Day-2 forecast earns the replay. The week closes in three beats: a CLOSING TIME card at 20:40, the day-5 Z-read
-  (with a district leaderboard block when live), then a SOLD finale — the
-  camera visits the sold storefronts before the verdict receipt lands. That
-  receipt now **prints line-by-line (30ms) and typewrites the verdict (18ms/char)**, and the till counts with `tabular-nums`. The
-  shop is alive: **sitters sip at `dwell==4`** (arm/head/lean + steam puff), **Miso the street cat** walks `spawnL→door→tables` once/day ~09:30 (sits if `queue<4`, scatters if >10, meows via `world._onCatMeow`), a **living plant** tints HSL lush→brown with queue health, **god rays** and **mist** quote the event tier, and a **till drawer** slides + stretches its shadow on every sale.
-  Hover a patron → story card (op ♥, friends, wave); click to wave. GLASSHOUSE keeps staff silhouettes moving behind glass that runs pale by
-  day and amber after dark; new weeks open with a crane swoop home. HUD text
-  renders at ~5Hz so 20× stays smooth. The verdict receipt carries a
-  seed-challenge share button with outcome framing ("Held the line — 320
-  served, 12 walked" beats "£42"). Mix runs through a bus compressor (older
-  WebAudio guarded — pad now pre-warms `0→0.02 in 600ms` so Day 1 isn't silent, clock `tick` at 1×, `purr` at ≤5 queue); phones get a ≤640px layout with `touch-action: none`
-  and width-aware bubble clamping + queue heartbeat / purr; grain/pulse/breath/`heartbeat`/`purr` respect
-  `prefers-reduced-motion` (and breath/haptics scale with the media query). Local `analytics.js` tracks tutorial steps,
-  first lever, every balk, debrief and forecast for the playtest
-  (`__grunds.analytics.summary()` + boot 5-question script). Loop tests are
-  RNG-seeded, so the **30-test** gate is deterministic.
-- **Drug Wars turn**: `main.js` Morning Brief at `06:00` (`#brief` 520px linen: Idris prose + 76px sparkline + wire headlines/host/why + 5 pills; `phase:'planning'` freezes `loop`, `stageDayPlan` is reversible, `commitDayPlan` resolves the day through the shared pure `resolveDecision` *before* the market rolls — on connected runs the server's per-day commit record arbitrates browser vs email, first writer wins, retries return the same result); `OFFERS` (5) at `11:00` — same modal pause path, each with a real payoff; `INCIDENTS` (6) `14:55–16:55` days 2+ (red tint, rotated) and a **cost-sheet P&L** at `closeDay` (staff+milk+rent+card+sundries + contract fees + interest + realized hedge benefit). Outcomes are measured by the reproducible policy comparison, not a promised profit target. `agency.mjs` Drug Wars gate.
-- **The pitch licence**: before the floor opens, the district office hands you a licence — your name, the stand's name, a title (`the new owner` / `the manager` / `the name on the lease`), and a background with one small perk (`ex-barista` paces the bar ~8%, `ex-accountant` trims fees & payouts 15%, `new to the trade` warms the regulars, `a market regular` hears the wire's lean in the Brief). Signing is explicit activation only — the Sign button; Escape never signs or advances; the signature threads the letter (*Dear Ada… what do you want to do, Ada?*), the Morning Brief, both receipts, and the Convex district board (`grunds.owner` reads live). Persists via `localStorage`; `?skipLicence` bypasses.
-- **Ruth, your barista**: one named staffer, one hidden `baristaCondition` — Ruth loses 0.14 condition per worked shift (+0.08 for peak queues above 50, +0.06 for 60+ balks). Below 0.55 from day two, the Brief offers work / home / apprentice cover: home saves the wage, runs the bar at 0.7×, restores 0.45; apprentice cover costs a £2,040 temp day rate + £12 training + £0.04 extra supplies a cup, runs 1.05×, restores 0.25. Push on keeps pace now and risks her breaking mid-shift (asleep at the counter, or snapping at a regular — rep hit). Home/apprentice days prevent the crisis and the sick-call incident. No roster, no morale meter — the fiction carries the state.
-- **Delight pass (Sept 19) — five features, one spine**: `web/js/director.js` runs ordered modulation layers *after* `world.updateTimeOfDay`/`sky.update`/`audio.update` overwrite their targets each frame (read-modify-write, replace-by-id, try/catch per layer). **Vitality** (`vitality.js`: `0.65·awareness + 0.35·reputation/100`, lerped) is the audiovisual skin only — pendants, lamps, windows and the sign dim and brighten, the sky's sun and stars follow, the street murmur and pad sink with it — and provably never touches `demand.spawnMul()`. **Guidance halo** (`nextAction.js` + `halo.js`): one pure priority rule feeds both the brass `#goal` strip and a pulsing ground ring under the right object (chalkboard, mailbox, till) after ~5s idle — the words and the light cannot drift apart. **Kit arrival beat** (`kitArrival.js` + `districtGen.onGrown`): when a seed's generated kit finishes growing on a first visit, a cart rolls in and the lanterns light one by one before the toast. **Idris's letter arrives as theater**: `letters` gains `dir`/`action`/`from`/`createdAt` + a `by_campaign_dir_created` index; `latestInbox` + a read-only `GET /agentmail/inbox` mirror the mailbox for the client; `mailTheater.js` polls it, triple-knocks, raises the flag and drops an envelope on the pavement — the server's `handleInbound` stays the only applier (mirror ≠ second writer). **Stamped share card** (`shareCard.js`): `doPhoto` now captures *after* `postfx.render`, so the printed card carries the same bloom and vignette the player saw. Six new test suites pin all of it.
-- **Performance**: auto-`lite` (`hardwareConcurrency≤4`/`deviceMemory≤4`), dynamic `lite` after 3×>32ms frames, shadow budget at `queue>40`, GLB cross-fade (`opacity 0→1`), RAF slot discipline (`requestAnimationFrame(loop)` re-arms first, receipt + loader use `setTimeout` in headless so the game loop isn't stolen), `tabular-nums` till, staggered receipt — fixed two real regressions (reputation `NaN` via sparse `opContagion`, RAF steal at close) — both caught by the headless gate.
-- **Managed decision protocol + modal system**: connected runs play the same week through `convexSync`'s per-run queue (`begin → prepare → stage → commit → finish` over `POST /sync/plan`, 32-byte run token hashed server-side). The Brief stages the plan, `OPEN` commits it — `decisions.ts` holds an immutable per-day record, so a browser click and an Idris email reply race to one winner and every retry returns that result; `finishDay` mirrors the closing state and upserts the stand. A lost response is safe to retry, a reset abandons the run and rotates the token, and `start a local-only week` is an explicit choice — never a silent fallback. Local simulation stays client-side (the commit record is not an anti-cheat boundary). Modals share one controller (`modals.js`): focus trap + wrap, stacked inert underlayers with real z-order, Escape/shortcut routing to the top layer only, focus restored on close.
-- Still to do: Convex Auth, Nebius voicing of the 11:00 ask (gossip pipe already serves it), prod deploy, social post + submission. Demo video v1 lives in `videos/grunds-demo` — recorded gameplay + HyperFrames; `npm run render` re-renders, captures/renders are gitignored.
-
-See `hackathon.md` for the build log.
-
-## Current build (Oct 1) — first-morning orientation pass
-
-A context-first rewrite of the first Morning Brief. Day 1 now opens on people
-and place — the stand's name, Idris's word ("a good café starts with people"),
-Ruth's automatic bar, Sam across the road — and asks for exactly one meaningful
-choice: how to meet the 14:00 matcha rush (**starter batch** recommended /
-**matcha deal** / **wait and see**, each with cost and trade-off in one line).
-`1`/`2`/`3` select, the choice is free to change until open, and `Enter`/`OPEN
-THE CAFÉ` only commit once a real choice exists (guided opening;
-`?skipTutorial`/`?demo`/headless keep the ungated path — the commit API itself
-is unchanged). Economics arrive when they're real: the nut, cellar, menu, hedge
-row, and wire live inside a collapsed **Explore the full plan** drawer on day 1,
-the day-1 footer names only the plan's opening cash plus any staged
-advanced spend (contract fee / settlement / tab-funded cellar estimate, all
-from `quoteDayPlan`/`resolveDecision`) while bills stay "counted at closing"
-with the amount inside the folded full plan, and from day 2 a one-line
-`economicsLesson()` surfaces the actual top concern (empty house → tab →
-staffing → yesterday's market) and force-opens the drawer when it's urgent —
-stored closed preferences can't hide a dry cellar. The coach's first card now
-settles the player in ("Ruth has the bar…") only after the Brief closes, and a
-once-only craft note quotes the real served count before 11:00. Goal strip and
-queue bar got honest wording (`they may leave`), and an empty house at close
-prints the restock lesson on the receipt.
-
-Coverage: `web/test/orientation.mjs` plus the focused suites (coach,
-brief-staged-prep, next-action, modals, lifecycle-accounting, identity,
-menu-pricing, time-locked-levers, showfloor-autoplay) — all pass in a temp
-mirror; full non-balance suite gate also green (65 suites), `tsc --noEmit`
-clean. Code-only verification; no browser evidence this pass. Published for playtesting
-at https://striped-anaconda-746.convex.site from commit `f3e0d18`. Live HTTP
-checks matched the upload artifact; deployed gameplay and human engagement
-remain unverified.
-
-## Current build (Oct 1b) — Morning Brief curriculum + versioned staging
-
-The collapsed **Explore the full plan** drawer is gone: `#brief-more` is
-deleted and a flat `#brief-tools` stack replaces it. `web/js/curriculum.js`
-(pure) decides which tools appear each morning — day 1 shows only the prep
-choice, then one tool gets a full "New today" card per day (coffee → menu →
-street → insurance, scheduled days 2–5) while need-driven essentials (empty or
-low house stock → coffee, a live tab → settle) appear immediately as one-line
-`New ·` notes inside their rows — except an empty or low house stock with
-coffee still unintroduced, which takes the day's full card instead. A live market threat pulls insurance forward
-of schedule. Once introduced a tool stays visible forever; the introduced set
-persists in `localStorage` (`grunds.curriculum`) only on successful commits,
-and campaign close marks every tool introduced so veterans see the full brief
-next run. `unlockAll = headless || demo || !wantTutorial` keeps every control
-visible for existing fixtures, and the headless-only
-`testState({ curriculum: true })` seam drives the gated path in tests.
-Receipts gained a `lessons` band (between summary and ledger) quoting real
-per-day counters: `pouredByLotToday` for the coffee payoff, `servedByDrinkToday`
-for the menu line, the actual `ops.total` for the day-1 running-cost line.
-
-Step 1 of the character/consequence/pacing roadmap (see `ARCHITECTURE.md`)
-landed in `df82b4f`: any named person opens a profile card —
-`web/js/cast.js` (pure) supplies bio/wants/feeling-in-words/history, floor
-clicks (queue or table) and regulars-board rows open it, and a once-per-day
-`Say hello` replaces the uncapped click-to-wave exploit.
-
-`npm run stage:site -- --out <dir>` (`tools/stage-site.mjs`) builds a
-release-versioned static artifact outside the repo: copies `web/` runtime
-assets plus `api/schedule.json` (preferring `out/wave_schedule.json`, else the
-existing `dist/api/schedule.json`), stamps `?v=<commit>[-dirty-<hash>]` on every
-relative ES-module specifier and the `main.js` script tag, fails closed on any
-unversioned or missing target, and writes `release.json` with per-file
-SHA-256s. No network, no build, no deploy — it exists because the host
-cache-busts index.html but serves unversioned `/js/*.js` for 4h.
-
-Coverage: new `curriculum.mjs` (22 pure checks) and `stage-site.mjs` (16
-checks) suites, rewritten `orientation.mjs` curriculum assertions on the real
-markup, plus the focused regression list and a 65-suite non-balance gate — all
-green in a temp mirror; `tsc --noEmit` clean. Code-only verification; no
-browser evidence this pass. `c2e4684` + `df82b4f` are published to the dev
-site https://striped-anaconda-746.convex.site as the first release-versioned
-artifact (`?v=df82b4f`, 67-suite gate green on the committed tree); live HTTP
-checks matched the artifact, while deployed gameplay and human engagement
-remain unverified.
-
-## Current build (Oct 1c) — soft opening slice
-
-New players (`wantTutorial` and the curriculum not fully introduced) now get
-one cosy **soft opening** day before the five-day week: the same day-1 engine
-under a `softDay` flag with a thinned, seeded crowd (`SOFT_MUL`, ~59
-walk-ins), only Mara/Pip/Olu on the floor (Mara guaranteed by 08:10, Olu by
-12:30, Pip arriving with her 24-student study group at 14:00 via a rewritten
-11:00 ask), the day closing at 17:00 with a practice-ledger receipt
-(served/walked/takings — no costs, nut, debt or forecast) and a "practice
-money" lesson. `beginWeek()` then carries only relationships forward —
-roster opinion/visits/events relabelled `soft opening — …` plus the walk-in
-pool's met faces — and resets everything else to the tested fresh campaign
-start, landing on an `OPENING WEEK` brief with ungated choices and no coach
-(the coach spent itself on the soft day). The soft day never touches Convex.
-Veterans, `?skipTutorial`, demo and headless keep the straight-to-week path.
-The soft morning itself is staged: a two-step `#softintro` card (stand name →
-`Step inside` → Ruth's portrait → `Open the doors`) replaces the brief so the
-14:00 plan is never spoiled early; accepting Pip's ask surfaces an in-context
-`plan` moment whose batch/deal buttons read live costs from `leverState()` and
-expire at 14:00. Day-1 choices now render as one-liners with a merged
-`what's the difference?` details on every Day-1 brief.
-
-Coverage: `soft-opening.mjs` (79 checks: softintro steps/dots/skip/Escape,
-thinned walk-in band, cast restriction and arrival times, Pip's 24-person
-party on accept vs none on decline, the plan card's live costs, expiry,
-priority and lever wiring, receipt shape with no evening letter, beginWeek
-equal to a fresh start with only the
-social layer carried, the skip button, and the veteran bypass) plus the
-focused suites and a 72-suite non-balance gate — all green in a temp mirror;
-`tsc --noEmit` clean. Code-only verification; no browser evidence this pass.
-Shipped in `cbdc424` and published to the dev site
-https://striped-anaconda-746.convex.site (`?v=cbdc424`); live HTTP checks
-matched the artifact, while deployed gameplay and human engagement remain
-unverified.
-
-Working tree (Oct 1, uncommitted): the same disclosure model now holds
-everywhere — `card = introduction, row = tool`. The pitch licence is a
-three-step `#softintro`-style card (name+stand → backgrounds → sign; Enter
-advances, Escape inert), every Brief tool row folds with a `· change ›`
-summary persisted per drawer, and the wire row auto-opens only on a signal
-day (`the wire — a warning in it`); wire sources moved desk-only.
-
-## Previous build (Sept 30) — gameplay-intuitiveness pass
-
-**The goal today:** keep the café **viable for five days**. Beating Sam's cup count
-is a bonus, and regulars are their own reward — the title, brief, and verdict all
-say so. This build is published **for playtesting**; submissions, store, the mobile
-shell, and upsell/paywall surface work are **paused** until fresh players prove
-clarity and engagement. Paywall and sponsor strips stay hidden during normal play.
-
-What the pass made legible:
-
-- **One ruleset for both levers** (`nextAction.js` `leverState`) shared by the
-  buttons, the keyboard, and the goal strip — invalid presses are free no-ops
-  with a stated reason, and the strip discloses the real cost before a
-  late-switch press — a first late **batch** is £44.20 (£40 stock + £4.20),
-  a first late **price cut** is £4.20, and both cost named regulars warmth;
-  a routine in-wave top-up is £40 with no penalty.
-- **Morning prep is a real choice**: hold / pre-batch / cut price are mutually
-  exclusive pills; the matcha price in the brief is read-only (it follows the
-  plan — the other drinks keep their steppers).
-- **Honest wave feedback**: the 14:00 coach pause, the low-stock nudge, and the
-  evening debrief all quote actual counts (`served`, `walked`, batch cups
-  poured, dry-time) — a discount reads "lowers queue-abandonment odds", never
-  "they stayed".
-- **Cellar truth**: an empty house lot auto-opens the lot drawer; restock is
-  tab-funded but **credit-capped — the unfunded remainder is not fronted**, and
-  a fully dry cellar pays 1.5× spot at the bar. Beating the bill needs a
-  restock *and* a settle, which the morning quote now prices honestly.
-- **Patron identity is real**: rolled order ids are never rewritten by identity
-  attachment (a named regular's "flat white" is a label, not a menu id); each
-  walk-in face appears once per day; visit outcomes and WOM credit apply once
-  per patron per day; returning first-timers read **"warming up"**, and the
-  board/dossier show stage + feeling words. Milk deliveries follow yesterday's
-  pour +10%, rounded to 10, floored at 120, capped at 4,000 (the day-1 wave
-  estimate) — the old 400-cap starved day 2.
-- **The scene stays out of the way**: the cutaway hides camera-side walls during
-  management play, the camera sits higher and wider, one bubble at a time, and
-  phones get a real layout — levers as a 44px grid, system controls folded
-  behind a More row, the coach card bounded between the HUD and the controls.
-  The manual customer-center view is retained.
-
-Verified by Node fixture suites (all passing — 64 non-balance suites plus
-`tsc --noEmit`), including new runtime coverage for stock/order/cost/opinion and
-coach pause ownership. These are mechanical checks, not engagement proof —
-human playtests are still outstanding; see `EVAL.md` for the readiness criteria.
-
-## Recent updates (post-Sept 22) — RevenueCat depth + Ship-a-ton surface
-
-Eleven PRs landed in one stretch — each with its own headless suite. The build log
-tells the story in chronological order; this block is the field guide.
-
-### Game-design passes
-
-- **Asymmetric bias clamp + pity split.** The Linkup bias no longer compresses
-  variance — a high bias passes through, a low bias still floors at 0.2×
-  (so the deck never stops entirely). Pity timer is now gated on `day < 4`
-  so the first three days are learnable, the last two are the gamble.
-  `web/test/clamp-asymmetry.mjs`.
-- **Perk nerfs.** `ex-accountant` 0.85 → 0.90, `newcomer` opWarm 0.25 →
-  0.18. Real measured spread across the four perks is **£132** — well below
-  the £1,500 perk-spread ceiling (not the supplier tab — that cap is £3,500). `web/test/perk-balance.mjs`.
-- **Time-locked levers (revised Sept 30).** The pre-batch bought in the Morning
-  Brief is **reserved for 14:00** — 40 sealed cups that go live the moment the
-  student wave lands, not an instant queue fix. During the wave a routine press
-  is a **£40 top-up** with no fee or opinion hit; the **first unstaged post-noon
-  batch** costs **£44.20** (£40 stock + £4.20 fee), while a late **price cut**
-  costs **£4.20**. Either late change costs regulars warmth. Cutting
-  the price locks prep for the day (and vice-versa); both levers close at
-  **16:00**. The same `leverState()` rules drive the buttons, the keys, and the
-  goal strip, so guidance can never advise an illegal press.
-  `web/test/time-locked-levers.mjs`, `web/test/lever-state.mjs`,
-  `web/test/coach.mjs`.
-- **Visible cohort rituals.** Each cohort now declares a `props` rig, a
-  preferred table, a `dwellMul`, and a `walkSpeed`. The five cohorts read as
-  five rooms — commuters walk fastest and stay shortest, creatives linger,
-  elders walk slowest and claim the same table, students carry backpacks,
-  tourists carry cameras. `_afterServe` consults the cohort's seat preference
-  before falling back to a random free seat. `web/test/cohort-rituals.mjs`.
-
-### Sponsor + per-beat attribution
-
-- **Five per-beat "powered by" captions.** Brief, offer, wave, evening,
-  verdict — each now carries its sponsor tag in a `.beat-powered` slot.
-  `web/test/sponsor-captions.mjs`.
-
-### RevenueCat surface (Ship-a-ton depth)
-
-- **Yearly tier + free trial** in `web/js/billing.js`. `ENTITLEMENTS`,
-  `PRODUCTS`, `TIER_PRICING` map; `_pickPackage()` with identifier
-  heuristics so the Web Test Store and the native SDK converge on the same
-  SKUs. `web/test/billing-products.mjs`.
-- **Founder entitlement + SOLD-sign gating.** A one-time lifetime SKU
-  (`district_founder`) unlocks a `SEED_OVERRIDE` for replay-with-the-same-seed,
-  a gold-leaf stamp on the share card, and a SOLD finale. `web/test/founder-edge.mjs`.
-- **Multi-placement paywall.** The Insider upsell surfaces in the brief, the
-  offer, and the verdict; the Founder upsell in the player center — not as
-  blocking modals but as `#*upsell` strips wired to `billing.onChange()`.
-  `web/test/paywall-placements.mjs`.
-- **Web Customer Center embed.** `#customer-center` modal: status header,
-  restore button, test-cancel button, portal link. Tier-label contract is
-  `founder > insider > free`. `web/test/customer-center.mjs`.
-- **Convex backend sync.** `convex/revenuecat.ts` + new `entitlements` table
-  (indexed by `appUserId`). `POST /revenuecat/webhook` (bearer-auth, returns
-  503 when `REVENUECAT_WEBHOOK_SECRET` is unconfigured) accepts the dashboard's
-  event stream; `billing.configure()` polls `GET /sync/entitlements?appUserId=…`
-  on boot to carry a pass across devices, and Test Store grants push back via
-  `POST /sync/setEntitlement`. Idempotent by `event.id`, stale-guarded by the
-  event date — and the manual grant path closes itself the moment the webhook
-  secret is configured. `web/test/revenuecat-sync.mjs`.
-
-### The rivalry (Sept 27) — Sam across the street plays back
-
-- **Visible rivalry.** The Morning Brief shows yesterday's served counts
-  side-by-side, Sam's chalkboard strategy, a mid-day "you vs Sam" line, and
-  a week-end verdict receipt. `web/test/visible-rivalry.mjs`.
-- **Reactive AI.** Pre-batch and Sam grinds harder (+1.5 rival credit); cut
-  the price and he undercuts by £0.10 on his chalkboard — replayed tomorrow
-  morning via `rivalReactLog`. `web/test/rival-reactivity.mjs`.
-- **Weekly stakes.** `campaignClose` settles the week: player wins → FOR LEASE
-  on Sam's spot; Sam wins → Sam absorbs; tie → DEUCE.
-  `web/test/weekly-stakes.mjs`.
-- **Sam's reactive cameo.** Undercut him and his silhouette walks to the
-  chalkboard and flips it on camera — ~1.9s window, sine-pulse lean, camera
-  push-in, BOARD FLIPPED chapter card. The pre-batch react stays invisible
-  by design (his grind isn't a visible move). `web/test/sam-reactive-cameo.mjs`.
-
-### Morning-prep polish (Sept 28) — radio picker + seated props
-
-- **Radio-style staged prep.** The Brief's two prep toggles become a pick-one
-  radio: `hold steady` / `pre-batch 40 cups` / `cut matcha to £4.20`.
-  `applyStagedPrep()` simplifies to two direct fires.
-  `web/test/brief-staged-prep.mjs`.
-- **Seated prop poses.** A seated creative's laptop drops to the lap and tilts
-  forward; a seated tourist's camera rises to eye level. Standing pose
-  unchanged. `web/test/cohort-prop-rigs.mjs`.
-
-### Demo
-
-- **`?demo=1` showfloor autoplay.** A one-key self-running demo for the
-  showfloor screen — resolves brief/offer/evening/letter/paywall/desk/
-  licence modals with a 1.5s grace, fires `doPhoto()` at dayMin 1080, and
-  yields to any keypress. `web/test/showfloor-autoplay.mjs`.
-
-### Ship-a-ton honest read
-
-The RevenueCat **surface** is submission-ready: full entitlement
-state machine, multi-tier pricing, multi-placement paywall, customer center,
-idempotent backend webhook, share-card founder tier. What gates the
-Ship-a-ton submission is the **mobile shell** — a Capacitor wrap of the
-existing web build, an App Store / Play Store listing, and the native
-RevenueCat SDK in place of the Web Test Store. None of that needs new game
-logic — it's a wrap + a listing + a SDK swap.
-
-### Roadmap — depth rebuild (adopted Sept 28)
-
-Playtest verdict: liked, not loved — thin character connection, visuals need
-craft, the coffee economy needs teeth. The 6-phase rebuild plan lives in
-`ARCHITECTURE.md` ("Depth rebuild roadmap") and is fully shipped as of
-Sept 28: art lock + portraits → patron identity, life stages and dossiers →
-named lots with freshness decay → drink menu, roast program, surfaced waste →
-Ruth/Idris/Sam story arcs → animation, particles and readable interiors →
-week autopsy + teeth calibration. Guiding rule: surface the simulation.
-The mobile shell runs in parallel with Phase 0.
-
-### Roadmap — verification (adopted Sept 28, next)
-
-The rebuild shipped and the verdict is still "liked, not loved", so the next
-bottleneck is evidence, not features: 63 headless suites gate every merge and
-**all of them stub DOM/GL/audio**, so nothing proves the game renders or plays.
-The V0–V5 plan lives in `ARCHITECTURE.md` ("Verification roadmap"), with
-discipline borrowed from [`majidmanzarpour/threejs-game-skills`](https://github.com/majidmanzarpour/threejs-game-skills)
-(MIT).
-
-*Status (Oct 7): V0 and V4 are measured and landed — see `ARCHITECTURE.md`
-for the full record. The gate is 385 Node tests plus focused re-runs; manual
-browser exploration ran separately and was stopped before full coverage;
-fresh human playtests are still pending.*
-
-Ordered by dependency, not desirability:
-
-- ~~**V0 seed the cosmetic RNG**~~ — **done** (`2aebcdf`): patron decision
-  draws and spawn paint ride separate seeded streams (+17/+29), FX and
-  floor noise have their own (+23/+19), the dawn save round-trips every
-  stream position, and resumed weeks replay byte-identically (`4e7a7e1`).
-- **V1 bot playtest on real input** — `videos/grunds-demo/scripts/record{,2}.mjs`
-  already drive the live site through the whole week via Playwright, but make
-  zero assertions and catch no console errors. Redirect that at `__grunds.stats()`.
-- **V2 `renderer.info` budget gate** — the renderer's own counters are read
-  nowhere, so every perf claim is frame-time heuristics. Measure the mobile
-  budget *before* the Capacitor wrap.
-- **V3 screenshot baselines** — the four hero states, desktop + mobile.
-- ~~**V4 teeth at both ends**~~ — **measured** (`6e15153`): `optimal` lands
-  8×held at £7,723 mean vs passive £1,541; a 300ms reaction lag costs −5.7%.
-  Pressure is real, headroom is thin, and the contract hedge is now buyable
-  past day 1 (`fa89e50` fee+interest gate — was unreachable under the old
-  debt-total gate).
-- **V5 score the scorecard** — turn `ART.md`'s "conform or be rejected" into a
-  number, and get recorded motion evidence for Phase 5's gait work.
-
-Also specified there: the three game-feel pieces actually missing (hitstop,
-object-level squash, FOV punch), and the parts of the borrowed pack we are
-deliberately *not* adopting — including its warning against cream panels,
-monospace labels, and pill buttons, all three of which are our locked idiom.
-
----
+## Docs
+
+| Doc | What it is |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Systems, contracts, roadmaps (timeless) |
+| [hackathon.md](hackathon.md) | The dated build log — every pass, deploy, and verification state |
+| [EVAL.md](EVAL.md) | Playtest protocol, balance evidence, readiness criteria |
+| [ART.md](ART.md) | Art direction and asset rules |
+| [AGENTS.md](AGENTS.md) | Working notes for coding agents |
+| [TRIPOTHON.md](TRIPOTHON.md) | 3D asset generation saga (Tripo/Mint/Grove) |
 
 Built at Founders Inc., San Francisco. Sept 5, 2026.

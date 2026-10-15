@@ -13,6 +13,50 @@ transform.py ──→ square_item_sales.csv ──→ ingest ──→ spatial 
                                                           price drift, contracts, debt)
 ```
 
+## Repo layout
+
+```
+grunds/
+├── README.md                    # front door: play link, pillar, systems, how to run
+├── ARCHITECTURE.md              # this file — timeless contracts + roadmaps
+├── hackathon.md                 # the dated build log (single source of build history)
+├── EVAL.md                      # playtest protocol + balance evidence
+├── pyproject.toml / transform.py / cli.py   # deterministic data engine
+├── package.json                 # npm run typecheck / build:dist / stage:site / deploy:site
+├── convex/                      # live backend (cloud dev deployment)
+│   ├── schema.ts                # campaigns, marketEvents, regulars, friendships,
+│   │                            #   letters, stands, apiCache, planSessions, dayDecisions,
+│   │                            #   lots, entitlements, tripoAssets
+│   ├── gameConfig.ts            # drift, event deck, roster, seeded RNG (mirrors web/js/config.js)
+│   ├── exchange.ts              # dawns, contracts, debt — drift-then-pity-roll
+│   ├── decisions.ts             # managed per-day commit records, browser+email arbitration
+│   ├── regulars.ts / letters.ts / apiCache.ts / openai.ts / firecrawl.ts / linkup.ts
+│   ├── nebius.ts / mint.ts / tripo.ts / revenuecat.ts
+│   ├── agentmail.ts + http.ts   # Svix-signed webhook + /sync/* + /ai/* + static catch-all
+│   └── convex.config.ts         # registers @convex-dev/static-hosting
+├── tools/
+│   ├── build-dist.sh            # web/ → dist/ + schedule snapshot
+│   ├── stage-site.mjs           # release-versioned static artifact (see staging contract)
+│   └── mirror-assets.mjs        # Convex-storage objects → Grove, rewrites js/groveAssets.js
+├── data/coffee_shop_sales.xlsx  # source   ·   out/square_item_sales.csv — generated
+├── grunds/                      # python: ingest, spatial, agent, precedent, eval
+├── web/                         # the game — vanilla Three.js ES modules, no bundler
+│   ├── index.html               # shell, HUD, story overlays
+│   ├── js/                      # main.js runs the campaign; modules by system:
+│   │   ├── world/sky/postfx/camera/patrons/fx/textures  # the floor
+│   │   ├── exchange/regulars/gentrification/demand/lots/rival/staffing  # the sim
+│   │   ├── decision/nextAction/lever (via nextAction)/curriculum/orientation/
+│   │   │   consequences/pace  # planning + disclosure (pure modules)
+│   │   ├── letter/desk/billing/convexSync/mailTheater  # connected-mode surface
+│   │   ├── districtGen/loader/groveAssets  # generated 3D kits + asset mirrors
+│   │   └── floorStock/vitals/shareCard/modals/analytics  # presentation
+│   ├── test/                    # one suite per contract — headers carry one-liners
+│   ├── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)
+│   └── assets/                  # CC0/CC-BY props + audio, provenance in SOURCES.md
+├── benchmark_corpus.json        # UK café COGS benchmarks (anchors the Exchange math)
+└── locality_packs.json          # London district locality data
+```
+
 ## Systems
 
 | System | Responsibility | Phase |
@@ -429,135 +473,75 @@ Every decision logs to `out/audit.jsonl`:
 {"ts": "...", "type": "gossip", "from": "patron_17", "to": "patron_23", "opinion": "-0.6"}
 ```
 
-## October 1 — first-morning orientation (context-first Brief)
+## Brief disclosure contract (orientation → curriculum → staging)
 
-The first Morning Brief was a business form; this pass makes it an
-orientation. Architecture is unchanged — same `#brief` modal, same pause/inert
-contract, same commit pipeline; nothing about economics, constants, or scoring
-moved.
+The Morning Brief discloses progressively and state-driven. The architecture is
+one modal with a pause/inert contract, and disclosure never changes economics:
+`stageDayPlan` stays permissive so connected-mode plans aren't shadow-banned.
 
-- **`orientation.js`** (pure, no deps) exports `firstMorningCopy()` (the settled
-  day-1 copy) and `economicsLesson(snapshot)` — one honest line chosen by real
-  state: empty/low house stock first, then live debt, then a Ruth staffing
-  decision, then yesterday's market tier, else a calm default. Rendered into
-  `#brief-learning` from day 2 on (suppressed when a curriculum card covers
-  the same tool).
-- **Day-1 Brief**: heading "YOUR FIRST MORNING", kicker `Day 1 of 5 · before
-  opening`, `#brief-intro` renders stand name via `textContent` plus
-  `portraitCanvas` roles for Idris (`creatives`) and Ruth (`commuters`) at 48px.
-  `.first-morning` right-aligns a 460px paper over a lightly-blurred café;
-  ≤640px it centres full-width.
+- **`orientation.js`** (pure, no deps): `firstMorningCopy()` (settled day-1 copy —
+  heading "YOUR FIRST MORNING", stand name via `textContent`, Idris/Ruth
+  portraits at 48px) and `economicsLesson(snapshot)` — one honest line chosen by
+  real state (empty/low house stock → live debt → staffing → yesterday's market
+  tier → calm default), returning a `tool` id so it yields to a same-tool
+  curriculum card. Rendered into `#brief-learning` from day 2.
 - **Guided opening** (`guidedOpening = wantTutorial`, `firstPrepChosen`): day-1
   prep renders three full-width choices (batch → deal → wait) with no
-  pre-selection; `OPEN THE CAFÉ` and `Enter` are inert until a real pick, and
-  keys `1`/`2`/`3` target the choices — never the folded hedge row. Same
-  `stagedPrep`/`applyStagedPrep` contract underneath; headless/demo/skip
-  bypass the gate and the headless-only `testState({openingGuidance})` seam
-  drives it in tests.
-- **Progressive disclosure** (superseded by the Oct-1b curriculum — see below):
-  `#brief-risk`/`-nut`/`-lots`/`-menu`/`-actions`/`-context` lived inside a
-  `#brief-more` drawer on day 1. The day-1 footer (via `updateBriefFooter`)
-  shows the chosen prep's cash at opening plus any staged advanced spend —
-  contract fee, settlement, tab-funded cellar estimate — computed from the real
-  `quoteDayPlan`/`resolveDecision` result; the nut reads "bills counted at
-  closing".
-- **Coach order**: `coachBegin` only prepares state; the first card ("Ruth has
-  the bar…") reveals on the first trading tick after the Brief closes, and a
-  once-only craft card quotes the actual served count and a real named walk-in
-  when five cups have poured before 11:00. Wave/low-stock pauses unchanged.
-- **Goal copy**: `computeNextAction` gets `day` + `guidedOpening` and returns a
-  settling beat on calm day-1 mornings; the queue bar says "they may leave",
-  and an empty house at close prepends the restock lesson to the receipt
-  summary.
+  pre-selection; `OPEN THE CAFÉ`/`Enter` are inert until a real pick; keys
+  `1`/`2`/`3` target the choices only. Headless/demo/skip bypass the gate; the
+  headless-only `testState({openingGuidance})` seam drives it in tests. The
+  day-1 footer shows the plan's opening cash plus any staged advanced spend,
+  computed from the real `quoteDayPlan`/`resolveDecision` result; bills read
+  "counted at closing".
+- **`curriculum.js`** (pure, DOM-free):
+  `planTools({day, introduced, houseStock, lastPour, debt, contract,
+  threatToday, threatYesterday, unlockAll})` → `{visible, newToday,
+  essentialNew}`. A flat `#brief-tools` slot stack; at most one "New today"
+  card per day (coffee ≥2, menu ≥3, street ≥4, insurance ≥5 or any
+  threat/contract). Needs beat schedule: an unintroduced needed coffee takes the
+  day's card; a live tab renders as a `New ·` note inside its row. The
+  introduced set persists to `localStorage['grunds.curriculum']` only on a
+  successful commit; campaign close marks every tool so veterans see the full
+  brief. `unlockAll = headless || demoMode || !wantTutorial`;
+  `testState({ curriculum: true })` switches to an in-memory introduced set for
+  tests. Day-2+ digit shortcuts reach only rendered `#brief-actions` buttons —
+  hidden tools never render.
+- **Receipt `lessons` band**: read-only counters `pouredByLotToday` /
+  `servedByDrinkToday` plus the real `ops.total` feed `fx.receipt` into
+  `#r-lessons`.
+- **Release-versioned staging** (`tools/stage-site.mjs`, `npm run stage:site --
+  --out <dir>`): copies `web/` runtime files + `api/schedule.json` (prefers
+  `out/wave_schedule.json`, else `dist/api/schedule.json`), rewrites every
+  relative `.js` ES-module specifier and the `main.js` script tag with
+  `?v=<commit>[-dirty-<8 hex>]`, fails closed on unversioned specifiers or
+  missing targets, and writes `release.json` (version, source commit, schedule
+  source, per-file SHA-256). No build, network, or deploy — it exists because
+  the host cache-busts `index.html` but serves unversioned `/js/*.js` for 4h.
 
-Verified by `orientation.mjs` + the focused suites and a full 65-suite
-non-balance gate in a fresh mirror (`tsc --noEmit` clean). No browser evidence
-was gathered this pass — by instruction — so the first-morning surface is
-asserted only through a headless fixture that parses the real `index.html`
-markup (no layout, paint, or focus-behavior proof). Commit `f3e0d18` was
-published to the existing Convex dev site; HTTP file checks matched the upload
-artifact, which does not establish deployed gameplay or engagement.
+Pass-by-pass history, gates and deploy states live in `hackathon.md`.
 
-## October 1b — Morning Brief curriculum + versioned staging
+## Presentation contracts
 
-The `#brief-more` drawer is deleted; a flat `#brief-tools` container holds the
-slots in order (`brief-new`, `brief-lots`, `brief-menu`, `brief-demand`,
-`brief-actions`, `brief-context`, `brief-nut`, `brief-risk`). `curriculum.js`
-is pure and DOM-free: `planTools({day, introduced, houseStock, lastPour, debt,
-contract, threatToday, threatYesterday, unlockAll})` returns `{visible,
-newToday, essentialNew}`. Scheduled discovery is at most one card per day
-(coffee ≥2, menu ≥3, street ≥4, insurance ≥5 or any threat/contract); essential
-tools (empty/low coffee → `coffee`, live tab → `tab`) bypass the daily limit:
-an unintroduced needed coffee takes the day's card, while `tab` and coffee
-needs past introduction render as `New ·` notes inside their rows instead. Introductions are
-persisted to `localStorage['grunds.curriculum']` only on a successful commit
-(`applyCommittedPlan`) and all tools are marked at `campaignClose`;
-`unlockAll = headless || demoMode || !wantTutorial`, with
-`testState({ curriculum: true })` switching to an in-memory introduced set for
-tests. `economicsLesson` returns a `tool` id so the learning line can yield to
-a same-tool card. New read-only counters `pouredByLotToday` /
-`servedByDrinkToday` feed a receipt `lessons` band rendered by `fx.receipt`
-into `#r-lessons`. Day-2+ digit shortcuts `1–5` only reach rendered
-`#brief-actions` buttons because hidden tools never render.
-
-`tools/stage-site.mjs` (`npm run stage:site -- --out <dir>`) stages a
-release-versioned static artifact outside the repo: copies `web/index.html`,
-`web/js`, `web/vendor`, `web/assets` and `api/schedule.json`
-(`out/wave_schedule.json` preferred, else `dist/api/schedule.json`), rewrites
-every relative `.js` ES-module specifier and the `main.js` script tag with
-`?v=<commit>[-dirty-<8 hex>]`, fails closed on unversioned specifiers or
-missing targets, and writes `release.json` (version, source commit, schedule
-source, per-file SHA-256). It never rebuilds `dist`, uploads, or deploys.
-
-Verified by `curriculum.mjs`, `stage-site.mjs`, the rewritten
-`orientation.mjs`, the focused regression list, and a 65-suite non-balance
-gate in a fresh mirror (`tsc --noEmit` clean). Code-only verification; no
-browser evidence, nothing deployed, human playtests outstanding.
-
-## September 30 — current gameplay pass + verification state
-
-A gameplay-intuitiveness pass landed on top of the depth rebuild. Architecture
-is unchanged (vanilla Three.js, `web/` is the dist); the work is contract and
-presentation, not balance — the sole quantitative correction is the milk
-**delivery scale** bug (the 400-cap starved day 2); no difficulty constants
-were retuned:
-
-- **`nextAction.js` `leverState()`** is the one shared ruleset — buttons, keys,
-  and the goal strip all read it. `computeNextAction` order: evening/rush
-  fast-forward → mail → closed/non-trading → 16:00 status → repriced →
-  reserved-batch status → in-wave stock decisions → queue reads → hold.
+- **Honest observation only**: wave cards, coach pauses and the debrief quote
+  live `waveServed`/`waveBalked`/`waveBatchServed`/`waveStockoutAt`; discount
+  copy describes reduced queue-abandonment odds, never "they stayed". The
+  receipt prints the real ledger; nothing invents saved cups or revenue.
+- **Patron identity**: rolled drink ids survive identity attachment (`p.drink`
+  is always a real `DRINKS` id; `wantsMatcha`, milk, price and points key off
+  it); walk-ins draw once per face per day; visit outcomes and WOM credit apply
+  once per patron per day; returning first-timers read "warming up".
 - **Inline day-1 coach** (`#coach`, `coachBegin/Tick/Pause/Skip`): a paper card
-  that owns its own pauses — the 14:00 pause fires before the first reserved
-  serve at exactly `dayMin === 840`, low-stock triggers at the real 8-cup
-  threshold, and a player-owned pause can never be released by coach dismissal
-  or skip. Cleared at close/evening/reset; silent from day 2 on.
-- **Honest observation only**: wave cards and the debrief quote live
-  `waveServed`/`waveBalked`/`waveBatchServed`/`waveStockoutAt`; the discount
-  route describes reduced queue-abandonment odds, not prevented walks.
-- **Patron contracts**: rolled drink ids survive identity attachment
-  (`p.drink` is always a real `DRINKS` id; `wantsMatcha`, milk, price, and
-  points all key off it); walk-ins draw once per face per day; visit outcomes
-  and WOM credit apply once per patron per day; `stageLabel` renders
-  "warming up" for returning first-timers.
+  that owns its own pauses — the 14:00 pause fires at exactly `dayMin === 840`
+  before the first reserved serve, low-stock at the real 8-cup threshold, and a
+  player-owned pause can never be released by coach dismissal or skip. Cleared
+  at close/evening/reset; silent from day 2 on.
 - **Supplies**: milk delivery is `min(4000, max(120, round10(lastMilky·1.1)))`
   — the old 400 ceiling starved day 2 of milk. Cellar restock rides the tab
   with a hard credit cap; the quote prices funded cups via the real
   `resolveDecision` result and says the rest stays unbought.
-- **Mobile ≤640px**: `#sys` is a measured row above a 2-column 44px lever
-  grid, camera/photo/20×/mute fold behind a More toggle, the coach card is
-  bounded between HUD and controls, flavor toasts and the notebook hide while
-  guidance is up, and the chapter card yields to the floor.
-
-**Verification state, honestly.** The automated gate evidence is Node fixture
-suites plus `tsc --noEmit` — 64 non-balance suites pass in a temp mirror against the
-existing `dist` schedule snapshot, including new runtime checks for
-stock/order/cost/opinion consistency and coach pause ownership. Exploratory browser checks
-(manual desktop batch/discount/pause/receipt, limited 375px phone rects) ran
-before the final UI edits and were then stopped at the user's request;
-**320px, the wave-state phone layout, physical devices, and the deployed
-build are not yet verified**, and human playtests remain outstanding. See
-`EVAL.md` for the lead-owned readiness probes and fixed measurement fixtures —
-no numerical benchmarks are authored in this pass.
+- **Mobile ≤640px**: `#sys` is a measured row above a 2-column 44px lever grid,
+  camera/photo/20×/mute fold behind a More toggle, the coach card bounded
+  between HUD and controls, one speech bubble at a time.
 
 ## Character, consequence, and pacing roadmap (adopted Oct 1)
 
@@ -575,7 +559,8 @@ ledger lines, not people.
    thing between you, friends — from the floor (queue or table) or the regulars
    board. One small gesture per person per day with its real effect; the
    uncapped wave exploit is removed.
-2. **Consequences through people (shipped `fb787d3`; absence pacing being tuned; empty regular seats still to be surfaced).** Ambient street life — pavement walkers, neighbour door peeks, the bench, park sitters, and Row hub/draw visitors — is on the floor and off the till (`streetLife.js`). Surface the existing
+2. **Consequences through people (shipped `fb787d3`; empty-seat line + Ruth moment
+   shipped `7e25fe2`; absence pacing tuned).** Ambient street life — pavement walkers, neighbour door peeks, the bench, park sitters, and Row hub/draw visitors — is on the floor and off the till (`streetLife.js`). Surface the existing
    opinion/footfall model as people: who isn't coming today and why, empty
    regular seats, lost regulars seen at Glasshouse, happy regulars bringing
    named friends, a bad review thinning tomorrow's crowd, street events you
@@ -586,13 +571,12 @@ ledger lines, not people.
    walkouts/companions, and `incidentCost` scaling incidents to the live
    till.
 3. **Pacing (shipped `a18bb28`: quiet auto-pace + four non-modal
-   moments; a Ruth moment is not yet built).** Either there is a decision, or the clock moves quickly:
+   moments; the Ruth moment landed in `7e25fe2`).** Either there is a decision, or the clock moves quickly:
    `pace.js` `isQuiet` accelerates the wall-clock rate in decision-free
    windows (`QUIET_MUL = 4`, capped at 20×, HUD `#paceflag`), and `#moment`
    cards surface a returning regular, a regular at the counter, a building
-   line, and Sam poaching — non-modal, 45 game-minute lifetimes, priority
-   returning > sam > line > counter, one of each per day. Ruth needing a
-   call is not yet built.
+   line, Sam poaching, and Ruth needing a minute — non-modal, 45 game-minute
+   lifetimes, one of each per day.
 4. **Economy scale.** Decide between a smaller, intimate café (tens of visible
    customers) and costs scaled to the current crowd — only after 1–3,
    measured before and after with fixed seeds and policies, never eyeballed.
@@ -645,10 +629,10 @@ signal is in it.
 
 ## October 10 — asset-led readability and remaining options
 
-### Implemented locally
+### Implemented (`6591a2e` + `8fbfb20`)
 
-*Implemented in source — not a deployment or merged-PR claim. Verification
-for this pass is code/headless only; live visual and listening review remains open.*
+*Verification for this pass is code/headless only; live visual and listening
+review remains open.*
 
 - **Pastry stock display.** The case keeps six persistent parent Groups;
   `floorStock.stockDisplayCount(stock, capacity, slots)` maps stock to slot
@@ -705,14 +689,10 @@ for this pass is code/headless only; live visual and listening review remains op
   to a new style; OGA is so far used only for the traffic bed (a sound,
   distinct from any future art source).
 
-Verification for this pass: the focused commands in the README test block —
-the floor-stock/audio/brief-icons/vitals checks and the stage-site +
-deterministic resume checks — all pass under Node; later local-fit and
-hidden-tab fixes re-passed the floor/audio files. No new full-suite claim:
-the earlier full run before these readability additions had a
-`moments.mjs` quiet-morning pacing failure that passed standalone, and this
-pass deliberately used narrow checks. No visual or audition claims and no
-deployment claim are made here.
+Verification for this pass: the focused Node suites — `floor-stock`, `audio`,
+`brief-icons`, `vitals`, plus the `stage-site` + deterministic `replay-resume`
+checks. No visual or audition claims and no deployment claim are made here;
+full-gate history lives in `hackathon.md`.
 
 ## Depth rebuild roadmap (adopted Sept 28)
 
@@ -837,10 +817,12 @@ Needs Phases 1–3 (arcs bite into systems, not air).
 
 ## Verification roadmap (adopted Sept 28, post-depth-rebuild)
 
-*Status note (Sept 30): the Sept-30 gameplay pass is covered by the Node
-gate described in "September 30 — current gameplay pass + verification state"
-above; this roadmap's render/play/browser-proof items remain open, and human
-playtests are still pending.*
+*Status note (Oct 15): the Node gate for the Sept-30 → Oct-1 presentation work
+is described under "Presentation contracts" and "Brief disclosure contract"
+above and in `hackathon.md`. Of this roadmap: V0 and V4 are measured and
+landed; V1 has a real-key day-1 close gate (`2ff96a8`) but no assertions yet;
+V2, V3 and V5 remain open. Fresh human playtests are still pending — current
+evidence is mechanical, not engagement proof.*
 
 The depth rebuild shipped all six phases, and the playtest verdict is still
 "liked, not loved". The next bottleneck is not features — it is that we cannot
