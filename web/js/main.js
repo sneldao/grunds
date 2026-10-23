@@ -168,6 +168,10 @@ if (cityPackPromise) cityPackPromise.then(pack => {
   if (pack.barista && !(rivalGhost && (rivalGhost.playerName || '').trim())) COPY.rivalBarista = pack.barista;
   if (pack.names?.length) seedCityNames(pack.names);
   if (pack.district && world) world.districtLabel = pack.district.toUpperCase().slice(0, 40);
+  if (pack.display) {
+    const kicker = $('licence')?.querySelector('.l-kicker');
+    if (kicker && city) kicker.textContent = `one week, one stand · ${pack.display}`;
+  }
   const hint = $('lic-city-hint');
   if (!hint) return;
   const bits = [];
