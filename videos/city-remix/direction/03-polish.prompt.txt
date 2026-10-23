@@ -1,0 +1,1 @@
+Approved, with one change. The opening subtitle's second line, "Keep it until coffee cools.", reads oddly — a letter isn't kept until coffee cools. Replace only that line with one that sets up the letter in Lisbon's voice (wry, warm, ≤ 42 characters, same timing). Return the full JSON in the same schema with every other field unchanged, nothing else.

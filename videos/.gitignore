@@ -3,3 +3,7 @@
 **/renders/
 **/fonts/
 **/.media/
+**/review/
+*.mp4
+*.webm
+*.mov
