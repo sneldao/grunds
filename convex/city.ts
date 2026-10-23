@@ -144,7 +144,7 @@ export const pack = action({
           // reasoning_content budget before emitting content — 1400 starved
           // it to finish_reason "length" with an empty answer. The JSON
           // itself is ~300 tokens; the rest is the model's scratchpad.
-          max_tokens: 4000,
+          max_tokens: 8000,
           temperature: 0.4,
         }),
       });

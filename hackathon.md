@@ -63,6 +63,13 @@ video's call-to-action lands on a live feature, not a demo of one.
   `.env.example` document it; `web/test/city.mjs` locks seed determinism,
   URL canonicality, and the end-to-end wiring contracts. 430 tests green,
   `tsc --noEmit` clean, Lisbon's 6-slot kit is growing on providers.
+- **Shipped + pre-lit.** Committed `5b65547`, deployed the site from a clean
+  worktree (`~/grunds-deploy` — the dirty-tree staging hazard is real), and
+  minted six flagship cities: Lisbon, New York, London, Tokyo, Lagos, São
+  Paulo — all growing their kits on providers. São Paulo needed
+  `max_tokens` 8000 (M3.1's reasoning budget is high-variance — 4000 still
+  starved it twice). Note: the model resolved bare "lagos" to Lagos,
+  *Portugal* — flag if the flagship list meant Nigeria.
 
 ### 2026-10-15 - docs restructure
 
