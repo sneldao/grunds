@@ -100,7 +100,7 @@ const fails = [];
   const main = read('web/js/main.js');
   assert.ok(main.includes('const OFFERS'), 'offers table exists');
   const offersBlock = main.slice(main.indexOf('const OFFERS'), main.indexOf('// The floor bites back'));
-  assert.equal((offersBlock.match(/who: '/g) || []).length, 5, 'five rotating offers');
+  assert.equal((offersBlock.match(/who: /g) || []).length, 5, 'five rotating offers');
   assert.ok(main.includes('dayMin >= 660'), 'offer fires at 11:00');
   assert.ok(main.includes('oluPayoutAt = 750'), 'Olu’s 12:30 payout is deferred');
   assert.ok(main.includes('officeRunAt = 900'), 'Mara’s 15:00 queue check is deferred');

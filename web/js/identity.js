@@ -70,6 +70,31 @@ export function seedCityNames(list) {
   }
 }
 
+// The canon regulars — the eight authored faces. Their canon names stay the
+// identity key everywhere (rows, saves, replays); `castName` only repaints
+// the display. A pack's `cast` list localizes the cast on a city street.
+export const CANON_CAST = ['Mara', 'Tomas', 'Pip', 'Olu', 'Gwen', 'Yuki', 'Dev', 'Esther'];
+const castAliases = new Map();
+export function castName(canon) {
+  return castAliases.get(canon) ?? canon;
+}
+// All-or-nothing: eight usable local names or none — a half-local cast
+// reads worse than none. `avoid` keeps walk-in/rival names off the cast.
+export function seedCastNames(list, avoid = []) {
+  castAliases.clear();
+  if (!Array.isArray(list)) return;
+  const taken = new Set(avoid.map(n => String(n).trim().toLowerCase()));
+  const local = [];
+  for (const n of list) {
+    const t = String(n).trim();
+    if (!t || t.length > 14 || taken.has(t.toLowerCase())) continue;
+    taken.add(t.toLowerCase());
+    local.push(t);
+  }
+  if (local.length < CANON_CAST.length) { castAliases.clear(); return; }
+  CANON_CAST.forEach((canon, i) => castAliases.set(canon, local[i]));
+}
+
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 // stageFor(visits, op) → stage. Promotion needs visits AND warmth (the op

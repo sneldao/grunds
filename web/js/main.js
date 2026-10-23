@@ -25,7 +25,7 @@ import { AudioEngine } from './audio.js';
 import { Exchange, seeded } from './exchange.js';
 import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict, weekStanding, standingNudge, VERDICT_GATES } from './economy.js';
 import { Regulars } from './regulars.js';
-import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS, seedCityNames } from './identity.js';
+import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS, seedCityNames, seedCastNames, castName } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
@@ -171,9 +171,11 @@ if (cityPackPromise) cityPackPromise.then(pack => {
   setMoneyRate(pack.price, ECON.matchaFull);
   if (pack.barista && !(rivalGhost && (rivalGhost.playerName || '').trim())) COPY.rivalBarista = pack.barista;
   if (pack.names?.length) seedCityNames(pack.names);
+  if (pack.cast?.length) seedCastNames(pack.cast, [pack.barista, ...(pack.names || [])]);
   // Money changed after first paint — re-render whatever is already up.
   try { paintStaticCopy(); updateVitals(); } catch {}
   try { if (phase === 'planning') { if (softDay) showSoftIntro(0); else showMorningBrief(); } } catch {}
+  try { if ($('regulars') && !$('regulars').hidden) renderBoard(); } catch {}
   if (pack.district && world) world.districtLabel = pack.district.toUpperCase().slice(0, 40);
   if (pack.display) {
     const kicker = $('licence')?.querySelector('.l-kicker');
@@ -1292,7 +1294,7 @@ function beats() {
     patrons.partyActive = true;
     for (let i = 0; i < 4; i++) patrons.spawn('elders', 'counter');
     patrons.partyActive = dayMin >= 840 && dayMin <= 1020;
-    fx.toast(`Olu’s bridge club lands — +${fmt(9, 0)}, four more in your line`, 'good');
+    fx.toast(`${castName('Olu')}’s bridge club lands — +${fmt(9, 0)}, four more in your line`, 'good');
   }
   if (officeRunAt && dayMin >= officeRunAt) {
     officeRunAt = 0;
@@ -1754,8 +1756,8 @@ function closeDay() {
   }
   for (const r of regulars.regulars) {
     for (const ev2 of r.events) {
-      if (ev2.day === day && ev2.outcome === 'balked') lessons.push(`${r.name} walked out of the line.`);
-      else if (ev2.day === day && ev2.outcome === 'defected') lessons.push(`${r.name} crossed to Glasshouse.`);
+      if (ev2.day === day && ev2.outcome === 'balked') lessons.push(`${castName(r.name)} walked out of the line.`);
+      else if (ev2.day === day && ev2.outcome === 'defected') lessons.push(`${castName(r.name)} crossed to Glasshouse.`);
     }
   }
   for (const c of (patrons.companionsToday || [])) lessons.push(`${c.name} brought ${c.friend}.`);
@@ -3594,10 +3596,10 @@ function showMorningBrief() {
     let womLine = null;
     if (day >= 2) {
       for (const r of regulars.regulars) {
-        if (r.justLost) pl.push(`${r.name} has started going to Glasshouse.`);
-        else if (r.absence === 'away') pl.push(`${r.name} isn’t coming in today — ${r.absentReason}.`);
-        else if (r.absence === 'returning') pl.push(`${r.name} is giving you another chance today. Say hello if you see them.`);
-        else if (r.absence === 'lost') pl.push(`${r.name}’s seat is empty — they go to Glasshouse now.`);
+        if (r.justLost) pl.push(`${castName(r.name)} has started going to Glasshouse.`);
+        else if (r.absence === 'away') pl.push(`${castName(r.name)} isn’t coming in today — ${r.absentReason}.`);
+        else if (r.absence === 'returning') pl.push(`${castName(r.name)} is giving you another chance today. Say hello if you see them.`);
+        else if (r.absence === 'lost') pl.push(`${castName(r.name)}’s seat is empty — they go to Glasshouse now.`);
       }
       for (const c of companionsYesterday) pl.push(`${c.name} brought ${c.friend} in yesterday.`);
       const pct = Math.round((regulars.footfallMul - 1) * 100);
@@ -4494,7 +4496,7 @@ function startTradingDay(d) {
       body: JSON.stringify({ name: reg.name, cohort: reg.coh, context }),
     }).then(r => (r.ok ? r.json() : null)).then(data => {
       if (data && !data.fallback && data.text)
-        pendingGossip = { name: reg.name, text: `${reg.name}: ${data.text}` };
+        pendingGossip = { name: reg.name, text: `${castName(reg.name)}: ${localCast(data.text)}` };
     }).catch(() => {});
   }
   // chalkboard: matcha day-price reflects the gentrification curve (4.80 → 5.40)
@@ -4576,7 +4578,7 @@ function startTradingDay(d) {
   try { world._onCatMeow = () => { try { audio.meow(); } catch {} }; } catch {}
   // gesha persists: Gwen's request lingers as a brass forecast stripe next day
   if (exchange.geshaUnlocked && day > 1) {
-    fx.toast('Gwen\'s still asking about the gesha — GRUNDS unlocked', 'warn');
+    fx.toast(`${castName('Gwen')}'s still asking about the gesha — GRUNDS unlocked`, 'warn');
   }
   vitality.recompute();   // dawn re-skins the block with the fresh numbers
   phase = 'trading';
@@ -4730,6 +4732,11 @@ function campaignClose(insolvent = false) {
 }
 
 // ---- HUD -----------------------------------------------------------------------
+// Prose that may embed canon names (dossier bios, friend lists) still
+// names them — localize any canon token the alias map knows.
+const localCast = (t) => typeof t === 'string' && t
+  ? t.replace(/\b(Mara|Tomas|Pip|Olu|Gwen|Yuki|Dev|Esther)\b/g, (m) => castName(m))
+  : t;
 const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : n + 'th');
 
 // District leaderboard — every mirrored stand races the same week on Convex.
@@ -4878,7 +4885,7 @@ function updateHUD() {
     const na = currentAction();
     let html = na.id === 'mail' ? `📬 ${na.text}` : na.text;
     if (party && !party.declined && dayMin >= 840 && dayMin < 1020) {
-      html += `<br><span class="dim"><b>${party.name}</b> · ${party.served} stayed · ${party.walked} walked</span>`;
+      html += `<br><span class="dim"><b>${castName(party.name)}</b> · ${party.served} stayed · ${party.walked} walked</span>`;
     }
     $('goal').innerHTML = html;
   }
@@ -5110,20 +5117,20 @@ function doReprice(opts = {}) {
 // you answer. Consequences land deferred (12:30 payout, 15:00 queue check,
 // dawn charge) so the deal has a tail.
 const OFFERS = [
-  { who: 'Pip',    line: '“Mind if the study group lands at 14:00? Twenty of us — all matcha.”',
-    effect: 'say yes → the wave runs ~20% bigger — and Pip’s group is counted on the evening card', yes: 'say yes',
+  { who: castName('Pip'),    line: '“Mind if the study group lands at 14:00? Twenty of us — all matcha.”',
+    effect: 'say yes → the wave runs ~20% bigger — and ' + castName('Pip') + '’s group is counted on the evening card', yes: 'say yes',
     accept() { offerWaveMul = 1.22; party = { name: 'Pip', cohort: 'students', left: 20, served: 0, walked: 0 }; },
     decline() { party = { name: 'Pip', cohort: 'students', left: 0, served: 0, walked: 0, declined: true }; } },
-  { who: 'Esther', line: `“A stamp card for the week — ${fmt(15)} today, and my cup’s on the house from tomorrow.”`,
+  { who: castName('Esther'), line: `“A stamp card for the week — ${fmt(15)} today, and my cup’s on the house from tomorrow.”`,
     effect: `say yes → +${fmt(15, 0)} now · her cup’s free at every dawn after`, yes: `take the ${fmt(15, 0)}`,
     accept() { till += 15; estherCard = true; } },
-  { who: 'Olu',    line: '“Bridge club wants the corner at half twelve. We nurse our cups — but we pay up front.”',
+  { who: castName('Olu'),    line: '“Bridge club wants the corner at half twelve. We nurse our cups — but we pay up front.”',
     effect: `say yes → +${fmt(9, 0)} at 12:30 · four elders in your line, counted on the evening card`, yes: 'book them in',
     accept() { oluPayoutAt = 750; party = { name: 'Olu', cohort: 'elders', left: 4, served: 0, walked: 0 }; } },
-  { who: 'Gwen',   line: `“My matcha plug can do twenty units for ${fmt(6.4)} — today only, cash.”`,
+  { who: castName('Gwen'),   line: `“My matcha plug can do twenty units for ${fmt(6.4)} — today only, cash.”`,
     effect: `say yes → −${fmt(6.4)} · 20 cups warming now (locks the price cut)`, yes: 'take the units',
     accept() { till -= 6.4; batchSpend += 6.4; ctx.batchUnits += 20; ctx.prebatched = true; prebatched = true; } },
-  { who: 'Mara',   line: `“Office run — ten flat whites at 15:00. ${fmt(28, 0)}, but only if the line’s under six when we land.”`,
+  { who: castName('Mara'),   line: `“Office run — ten flat whites at 15:00. ${fmt(28, 0)}, but only if the line’s under six when we land.”`,
     effect: `say yes → queue under 6 at 15:00 pays +${fmt(28, 0)} · miss it and they cross the road`, yes: 'tell her yes',
     accept() { officeRunAt = 900; } },
 ];
@@ -5131,7 +5138,7 @@ const OFFERS = [
 function showOffer() {
   const o = softDay ? { ...OFFERS[0],
     line: '“Mind if the study group lands at 14:00? Twenty-four of us — all matcha.”',
-    effect: 'say yes → twenty-four students arrive at 14:00 for matcha — Pip’s group is counted on the evening card',
+    effect: 'say yes → twenty-four students arrive at 14:00 for matcha — ' + castName('Pip') + '’s group is counted on the evening card',
     accept() { party = { name: 'Pip', cohort: 'students', left: 24, served: 0, walked: 0 }; momentEnqueue('plan', 'plan', { expiresAt: 840 }); },
   } : OFFERS[(day - 1) % OFFERS.length];
   presentBeat(o, 'a regular asks · y / n', false);
@@ -5214,7 +5221,7 @@ function showIncident() {
 
 function presentBeat(o, kicker, incident) {
   activeBeat = o;
-  $('offer-who').textContent = o.who.toUpperCase();
+  $('offer-who').textContent = castName(o.who).toUpperCase();
   $('offer-kicker').textContent = kicker;
   $('offer-line').textContent = o.line;
   $('offer-effect').textContent = o.effect;
@@ -5251,8 +5258,8 @@ function resolveOffer(said) {
   const wasIncident = $('offer').classList.contains('incident');
   modals.close('offer'); $('offer').classList.remove('incident');
   if (!offerWasPaused) { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
-  if (said) { o.accept(); fx.toast(o.who + ': ' + o.yes, 'good'); }
-  else { if (o.decline) o.decline(); fx.toast(wasIncident ? o.who + ' — you take the hit as it comes' : o.who + ' shrugs — maybe tomorrow', wasIncident ? 'warn' : ''); }
+  if (said) { o.accept(); fx.toast(castName(o.who) + ': ' + o.yes, 'good'); }
+  else { if (o.decline) o.decline(); fx.toast(wasIncident ? castName(o.who) + ' — you take the hit as it comes' : castName(o.who) + ' shrugs — maybe tomorrow', wasIncident ? 'warn' : ''); }
   try { analytics.track(said ? (wasIncident ? 'incident_paid' : 'offer_accepted') : (wasIncident ? 'incident_risked' : 'offer_declined'), { day, who: o.who }); } catch {}
   activeBeat = null;
   if (!wasIncident) offerResolved = true;
@@ -5452,7 +5459,7 @@ function showHover(p, x, y) {
   const friends = view && view.friends ? view.friends.replace(/^friends here: /, '') : '';
   // Mouse: "click to meet them". Touch: "tap to meet them".
   const verb = touchPrimary() ? 'tap' : 'click';
-  el.innerHTML = `<b>${name}</b>${view ? ` · ${view.stage}` : ''}${quirk ? ` — ${quirk}` : ''}${feel ? `<br>${feel}` : ''}${friends ? `<br><span style="opacity:.7">friends: ${friends}</span>` : ''}<br><span style="opacity:.6">${view ? `${verb} to meet them` : `${verb} to wave`}</span>`;
+  el.innerHTML = `<b>${castName(name)}</b>${view ? ` · ${view.stage}` : ''}${quirk ? ` — ${quirk}` : ''}${feel ? `<br>${feel}` : ''}${friends ? `<br><span style="opacity:.7">friends: ${friends}</span>` : ''}<br><span style="opacity:.6">${view ? `${verb} to meet them` : `${verb} to wave`}</span>`;
   el.style.left = Math.min(innerWidth - 230, x + 14) + 'px';
   el.style.top = Math.min(innerHeight - 80, y + 14) + 'px';
   el.classList.add('show');
@@ -5513,7 +5520,7 @@ function greet(ident, isCast, patron) {
     const head = walkins.get(ident.pid);
     if (head) head._op = Math.min(1, (head._op ?? 0) + 0.06);
   }
-  if (patron) fx.bubble(patron, isCast ? `hey ${ident.name} — welcome back` : 'hey — welcome', 'good');
+  if (patron) fx.bubble(patron, isCast ? `hey ${castName(ident.name)} — welcome back` : 'hey — welcome', 'good');
 }
 
 // Phase 1 — dossier: click a sitter, meet them. Portrait + stage + history,
@@ -5543,14 +5550,14 @@ function openProfile(ident, { op = null, friends = [], faceSeed = 'stranger', co
   const head = $('dossier-heading');
   if (head) head.textContent = view.heading;
   const nm = $('dossier-name');
-  if (nm) nm.textContent = `${view.name} — ${view.stage}`;
+  if (nm) nm.textContent = `${castName(view.name)} — ${view.stage}`;
   const set = (id, txt) => { const el = $(id); if (el) { el.textContent = txt || ''; el.style.display = txt ? '' : 'none'; } };
-  set('dossier-bio', view.bio);
+  set('dossier-bio', localCast(view.bio));
   set('dossier-wants', view.wants ? `Wants: ${view.wants}` : null);
   set('dossier-usual', view.usual ? `Usual: ${view.usual}` : null);
   set('dossier-feeling', view.feeling);
   set('dossier-last', view.lastBetween);
-  set('dossier-friends', view.friends);
+  set('dossier-friends', localCast(view.friends));
   const lines = $('dossier-lines');
   if (lines) { lines.textContent = ''; for (const l of view.history) { const d = document.createElement('div'); d.textContent = l; lines.appendChild(d); } }
   const hello = $('dossier-hello');
@@ -5585,7 +5592,7 @@ function boardRow({ name, stage, visits, drink, op, friends, faceSeed, cohort, e
     : last.outcome === 'balked' ? `${when} — walked out (the line)`
     : last.outcome === 'defected' ? `${when} — crossed to Glasshouse`
     : null;
-  t.innerHTML = `<b>${name}</b> <span class="b-stage">${stageLabel({ stage, visits })}</span><br><span style="opacity:.65">${visits} visit${visits === 1 ? '' : 's'} · ${drink} · ${ABSENCE_WORD[absence] || feeling(op)}</span>${lastLine ? `<br><span style="opacity:.5">${lastLine}</span>` : ''}${friends && friends.length ? `<br><span style="opacity:.5">friends: ${friends.slice(0, 3).join(', ')}</span>` : ''}`;
+  t.innerHTML = `<b>${castName(name)}</b> <span class="b-stage">${stageLabel({ stage, visits })}</span><br><span style="opacity:.65">${visits} visit${visits === 1 ? '' : 's'} · ${drink} · ${ABSENCE_WORD[absence] || feeling(op)}</span>${lastLine ? `<br><span style="opacity:.5">${lastLine}</span>` : ''}${friends && friends.length ? `<br><span style="opacity:.5">friends: ${friends.slice(0, 3).join(', ')}</span>` : ''}`;
   row.appendChild(t);
   return row;
 }
@@ -5809,7 +5816,7 @@ addEventListener('keydown', e => {
     if (_konami.includes('GRUNDS') && !_geshaUnlocked) {
       _geshaUnlocked = true;
       exchange.geshaUnlocked = true;
-      fx.toast(`Gwen winks — gesha reserve (${fmt(7.8)}) on the board`, 'good');
+      fx.toast(`${castName('Gwen')} winks — gesha reserve (${fmt(7.8)}) on the board`, 'good');
       try { world.setMatchaPrice('7.80', false); setTimeout(() => world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced), 4200); } catch {}
     }
   }
@@ -6314,7 +6321,7 @@ function coachTick() {
     coach.craftObserved = true;
     const head = (walkins.heads || []).find(h => (h.events || []).some(e => e.day === day && e.outcome === 'served'));
     const ev = head ? (head.events || []).find(e => e.day === day && e.outcome === 'served') : null;
-    const named = head ? ` ${head.name} stopped in for a ${(ev && ev.drink) || head.drink || 'coffee'}.` : '';
+    const named = head ? ` ${castName(head.name)} stopped in for a ${(ev && ev.drink) || head.drink || 'coffee'}.` : '';
     coachShow(
       `<b>Ruth has served ${served} drinks automatically.</b>${named} Watch the counter, then the tables — the room tells you how the morning is going.`,
       [
@@ -6432,17 +6439,17 @@ function momentShow(m) {
   clearEl(body); clearEl(row);
   const b = document.createElement('b');
   if (m.type === 'returning') {
-    b.textContent = `${m.name} is back.`;
+    b.textContent = `${castName(m.name)} is back.`;
     body.append(b, ` Giving you another chance after ${m.why}.`);
     if (!greetedToday.has(`cast:${m.name}`))
       row.appendChild(momentBtn('Say hello', () => { greet({ name: m.name }, true, m.patron); momentAct(m); }));
     row.appendChild(momentBtn('Leave it', () => momentAct(m)));
   } else if (m.type === 'counter') {
-    b.textContent = `${m.name} is at the counter.`;
+    b.textContent = `${castName(m.name)} is at the counter.`;
     body.append(b, ` ${CAST_PROFILES[m.name] ? CAST_PROFILES[m.name].wants : ''}`);
     if (!greetedToday.has(`cast:${m.name}`))
       row.appendChild(momentBtn('Say hello', () => { greet({ name: m.name }, true, m.patron); momentAct(m); }));
-    row.appendChild(momentBtn(`Meet ${m.name}`, () => {
+    row.appendChild(momentBtn(`Meet ${castName(m.name)}`, () => {
       const r = regulars.regulars[m.idx];
       if (r) openProfile({ name: r.name, stage: r.stage, visits: r.visits, drink: r.drink, events: r.events },
         { op: r.op, friends: r.friends || [], faceSeed: r.name, cohort: r.coh, isCast: true, quirk: r.quirk, patron: m.patron, absence: r.absence });

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { citySeed, cityFromSearch, cityUrl, cityDisplay, normalizeCityName, MONEY, setMoneySymbol, setMoneyRate, fmt } from '../js/city.js';
-import { seedCityNames, NAME_POOLS, WalkinPool } from '../js/identity.js';
+import { seedCityNames, seedCastNames, castName, CANON_CAST, NAME_POOLS, WalkinPool } from '../js/identity.js';
 
 test('citySeed — same city, same street, every machine', () => {
   assert.equal(citySeed('lisbon'), citySeed('lisbon'));
@@ -119,4 +119,24 @@ test('seedCityNames — ≥6 local names own the pools; thin packs only append',
   } finally {
     for (const k of Object.keys(NAME_POOLS)) { NAME_POOLS[k].length = 0; NAME_POOLS[k].push(...backup[k]); }
   }
+});
+
+test('seedCastNames — canon-order map, avoid-list honored, all-or-nothing', () => {
+  const local = ['Zé', 'Inês', 'Rui', 'Marta', 'Nuno', 'Lúcia', 'Tiago', 'Bia'];
+  seedCastNames(local, ['Inês', 'joão']);
+  // 7 usable after Inês is avoided → nothing applies, every name is identity.
+  for (const c of CANON_CAST) assert.equal(castName(c), c, `${c} unaliased on a thin list`);
+
+  seedCastNames(local, ['joão', 'maria']);
+  assert.equal(castName('Mara'), 'Zé', 'maps in CANON_CAST order');
+  assert.equal(castName('Esther'), 'Bia');
+  assert.equal(castName('Sam'), 'Sam', 'canon key outside the cast untouched');
+  // Case-insensitive avoid.
+  seedCastNames([...local], ['ZÉ']);
+  assert.equal(castName('Mara'), 'Mara', 'avoided first name → under 8 → no alias');
+  // Round-trip: keys stay canon, only the display differs.
+  const roster = CANON_CAST.map(name => ({ name, visits: 1 }));
+  assert.deepEqual(roster.map(r => r.name), CANON_CAST, 'canon keys unchanged');
+  seedCastNames([]);
+  assert.equal(castName('Mara'), 'Mara', 'empty map → identity');
 });

@@ -5,6 +5,7 @@
 import { LETTER, CAMPAIGN } from './config.js';
 import { hedgeTerms, debtInterestFor, VERDICT_GATES } from './economy.js';
 import { fmt } from './city.js';
+import { castName } from './identity.js';
 
 const gbp = n => fmt(Math.max(0, n));
 
@@ -135,7 +136,7 @@ function idrisRoastLine(s) {
 function idrisRegularLine(s) {
   const m = s.idris;
   if (!m || !m.topRegular) return '';
-  return `${m.topRegular.name}’s been in ${m.topRegular.visits} days running. Look after them — regulars like that are the whole business.`;
+  return `${castName(m.topRegular.name)}’s been in ${m.topRegular.visits} days running. Look after them — regulars like that are the whole business.`;
 }
 function idrisLoyalLine(s) {
   const m = s.idris;

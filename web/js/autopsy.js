@@ -5,6 +5,7 @@
 // rows under a "lost because:" header so a lost week reads as fair, not cruel.
 // The caller shapes the data, this module shapes the sentences.
 import { fmt } from './city.js';
+import { castName } from './identity.js';
 const LOT_SHORT = {
   cerrado: 'Cerrado',
   huila: 'Huila',
@@ -82,8 +83,8 @@ export function buildAutopsy(campaignDays = [], regularsSnapshot = []) {
       .slice(0, 3);
   }
   for (const c of coolers) {
-    if (c.snapshot) lines.push(`${c.name} cooled to ${Number(c.to).toFixed(1)}`);
-    else lines.push(`${c.name} cooled ${Number(c.from).toFixed(1)} → ${Number(c.to).toFixed(1)}`);
+    if (c.snapshot) lines.push(`${castName(c.name)} cooled to ${Number(c.to).toFixed(1)}`);
+    else lines.push(`${castName(c.name)} cooled ${Number(c.from).toFixed(1)} → ${Number(c.to).toFixed(1)}`);
   }
   // The floor's verdict in numbers.
   const balked = days.reduce((n, d) => n + (d.balked || 0), 0);
