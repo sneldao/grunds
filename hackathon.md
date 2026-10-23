@@ -70,6 +70,10 @@ video's call-to-action lands on a live feature, not a demo of one.
   `max_tokens` 8000 (M3.1's reasoning budget is high-variance — 4000 still
   starved it twice). Note: the model resolved bare "lagos" to Lagos,
   *Portugal* — flag if the flagship list meant Nigeria.
+- **UX fix shipped (`016b14e`).** The city field was undiscoverable inside
+  the "other streets" fold — a choice-surfaces violation. It's now a
+  top-level licence field beside name/stand; signing with a typed city
+  re-seats the pitch on that city's canonical street. Redeployed live.
 
 ### 2026-10-15 - docs restructure
 
