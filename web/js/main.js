@@ -25,7 +25,7 @@ import { AudioEngine } from './audio.js';
 import { Exchange, seeded } from './exchange.js';
 import { salePrice, operatingCosts, hedgeTerms, quoteDayPlan, campaignVerdict, weekStanding, standingNudge, VERDICT_GATES } from './economy.js';
 import { Regulars } from './regulars.js';
-import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS } from './identity.js';
+import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS, seedCityNames } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
@@ -46,7 +46,7 @@ import { firstMorningCopy, economicsLesson } from './orientation.js';
 import { FLOOR_CUES, CUE_STEP_CAP, shouldTeachOpening, cueSchedule, advanceElapsed, briefCueCopy, wireTapeLine, pastryTodayLine } from './floorCues.js';
 import { planTools, TOOL_IDS, toolCopy, essentialNote } from './curriculum.js';
 import { initSync } from './convexSync.js';
-import { cityFromSearch, cityDisplay, cityUrl, fetchCityPack, normalizeCityName } from './city.js';
+import { cityFromSearch, cityDisplay, cityUrl, fetchCityPack, normalizeCityName, MONEY, setMoneySymbol } from './city.js';
 import { buildMailTheater } from './mailTheater.js';
 import { calculateCampaignBadge, openShareToX, formatShareText } from './share.js';
 import { buildShareCard, CARD_W, CARD_H } from './shareCard.js';
@@ -160,6 +160,14 @@ let cityPack = null;
 if (cityPackPromise) cityPackPromise.then(pack => {
   if (!pack) return;
   cityPack = pack;
+  // The pack dresses the world, not just the licence — local currency,
+  // a local rival barista (the ghost's real name still wins if it lands),
+  // local first names in the walk-in pools, the neighbourhood on the
+  // ticker. Cosmetic only: the sim's numbers never move.
+  if (pack.currency) setMoneySymbol(pack.currency);
+  if (pack.barista && !(rivalGhost && (rivalGhost.playerName || '').trim())) COPY.rivalBarista = pack.barista;
+  if (pack.names?.length) seedCityNames(pack.names);
+  if (pack.district && world) world.districtLabel = pack.district.toUpperCase().slice(0, 40);
   const hint = $('lic-city-hint');
   if (!hint) return;
   const bits = [];
@@ -4711,7 +4719,7 @@ function campaignClose(insolvent = false) {
 }
 
 // ---- HUD -----------------------------------------------------------------------
-const fmt = n => '£' + n.toFixed(2);
+const fmt = n => MONEY.symbol + n.toFixed(2);
 const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : n + 'th');
 
 // District leaderboard — every mirrored stand races the same week on Convex.

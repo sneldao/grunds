@@ -8,6 +8,7 @@ import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
 import { PREMISES, dressInterior, createCutawayRig } from './premises.js';
 import { BACKDROP_FACADES, vacantRowFronts } from './farSide.js';
 import { setStockVisibility, ingredientDisplay } from './floorStock.js';
+import { MONEY } from './city.js';
 
 const M = {}; // shared materials
 function mat(color, o = {}) {
@@ -125,7 +126,9 @@ export function fitStockProp(g, targetH) {
 export function buildWorld(scene, renderer, lite, opts = {}) {
   const W = { lite };
   // City Remix: the street wears its name — road decal + ticker sub-label.
+  // Mutable on W: the pack's real neighbourhood can repaint the ticker.
   const districtLabel = (opts.district || 'THE DISTRICT').toUpperCase().slice(0, 40);
+  W.districtLabel = districtLabel;
   const glb = GLBLoader();
   const pending = [];                       // async GLB placements, awaited by W.ready
   // Place a Kenney GLB: kick off the load, attach the resolved Group to
@@ -1695,7 +1698,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
       g.strokeStyle = '#c9a227'; g.lineWidth = 3.5; g.strokeRect(8, 8, 496, 304);
       g.strokeStyle = 'rgba(201,162,39,.28)'; g.lineWidth = 1; g.strokeRect(12, 12, 488, 296);
       g.fillStyle = '#c9a227'; g.font = '600 24px Georgia, serif'; g.textAlign = 'center'; g.fillText('ROASTER\u2019S  TICKER', 256, 46);
-      g.fillStyle = 'rgba(201,162,39,.45)'; g.font = '10px ui-monospace, monospace'; g.letterSpacing = '0.2em'; g.fillText(`—  ${districtLabel}  —`, 256, 62);
+      g.fillStyle = 'rgba(201,162,39,.45)'; g.font = '10px ui-monospace, monospace'; g.letterSpacing = '0.2em'; g.fillText(`—  ${W.districtLabel}  —`, 256, 62);
       const up = s.index >= (s.prev ?? s.index);
       const row = (label, val, col, y) => {
         g.fillStyle = '#9a9486'; g.font = '13px ui-monospace, monospace'; g.textAlign = 'left'; g.fillText(label, 28, y);
@@ -1704,9 +1707,9 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
       };
       const arrow = up ? '\u25B2' : '\u25BC';
       const beanCol = s.bias && s.bias > 1 ? '#ff9a7a' : s.bias && s.bias < 1 ? '#9ad89a' : (up ? '#9ad89a' : '#e07a7a');
-      row('BEAN  ' + arrow + (s.bias ? ' \u00b7 WIRE' : ''), '\u00a3' + s.cost.toFixed(2) + '/cup', beanCol, 108);
-      row('LOCKED', s.locked != null ? '\u00a3' + s.locked.toFixed(2) + '/cup' : '\u2014', s.locked != null ? '#7fb3b0' : '#6a6460', 158);
-      row('MARGIN', '\u00a3' + s.margin.toFixed(2) + '/cup', '#e8c46a', 208);
+      row('BEAN  ' + arrow + (s.bias ? ' \u00b7 WIRE' : ''), MONEY.symbol + s.cost.toFixed(2) + '/cup', beanCol, 108);
+      row('LOCKED', s.locked != null ? MONEY.symbol + s.locked.toFixed(2) + '/cup' : '\u2014', s.locked != null ? '#7fb3b0' : '#6a6460', 158);
+      row('MARGIN', MONEY.symbol + s.margin.toFixed(2) + '/cup', '#e8c46a', 208);
       // 5-day sparkline — the bean index history the ticker board actually tracks
       const hist = s.history;
       if (hist && hist.length > 1) {

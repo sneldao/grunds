@@ -54,6 +54,17 @@ export const CANON_DRINKS = {
   Gwen: 'latte', Yuki: 'single-origin', Dev: 'espresso', Esther: 'tea',
 };
 
+// City Remix — a pack's local first names append to every cohort pool, so
+// strangers read as people from your street. Same draw sites, so replay
+// stays deterministic; names only differ once the pack has landed.
+export function seedCityNames(list) {
+  if (!Array.isArray(list)) return;
+  const local = list.map(n => String(n).trim()).filter(n => n && n.length <= 14).slice(0, 8);
+  for (const pool of Object.values(NAME_POOLS)) {
+    for (const n of local) if (!pool.includes(n)) pool.push(n);
+  }
+}
+
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 // stageFor(visits, op) → stage. Promotion needs visits AND warmth (the op

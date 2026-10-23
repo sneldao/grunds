@@ -102,7 +102,8 @@ export function computeNextAction(s = {}) {
   if (queue > 0) return { id: 'watch', target: 'street', text: `line at <b>${queue}</b> — the wave lands at <b>14:00</b> · <b>1</b> reserves ${ECON.batchUnits} cups for it (${fmtMoney(lv.batch.cost)}${lv.batch.changesPlan ? ' · +£4.20 late switch, regulars lose warmth' : ''}) or <b>2</b> cuts the price` };
   return { id: 'hold', target: 'chalk', text: `students at <b>14:00</b> — <b>1</b> buys cups (${fmtMoney(lv.batch.cost)}${lv.batch.changesPlan ? ' · +£4.20 late switch, regulars lose warmth' : ''}) or <b>2</b> cuts the price` };
 }
-function fmtMoney(n) { return `£${n.toFixed(2)}`; }
+import { MONEY } from './city.js';
+function fmtMoney(n) { return `${MONEY.symbol}${n.toFixed(2)}`; }
 
 // monotonic priority proof used by the tests: which id wins
 export const NEXT_ACTION_PRIORITY = ['mail', 'status', 'batch', 'watch', 'hold'];

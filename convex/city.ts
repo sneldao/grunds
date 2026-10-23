@@ -32,7 +32,9 @@ export function normalizeCity(city: string): string {
 }
 
 export function cityCacheKey(city: string): string {
-  return `city:pack:v1:${hashKey(normalizeCity(city))}`;
+  // v2 — the pack grew cultural payload (barista/names/district); bumping
+  // the version re-mints every city once with the richer schema.
+  return `city:pack:v2:${hashKey(normalizeCity(city))}`;
 }
 
 export type CityPack = {
@@ -46,6 +48,9 @@ export type CityPack = {
   landmark: string | null;
   palette: string | null;
   line: string | null;
+  barista: string | null; // a common local first name for the rival
+  names: string[];        // local first names for the walk-in pools
+  district: string | null; // a real neighbourhood for the ticker label
   error?: string; // surfaced on fallbacks so upstream trouble is diagnosable
 };
 
@@ -54,6 +59,7 @@ function fallbackPack(city: string, error?: string): CityPack {
   return {
     fallback: true, cached: false, city, display,
     currency: "£", price: null, cafes: [], landmark: null, palette: null, line: null,
+    barista: null, names: [], district: null,
     ...(error ? { error } : {}),
   };
 }
@@ -82,6 +88,9 @@ function packFrom(city: string, p: Record<string, unknown>): CityPack {
   // M3.1 sometimes honors "number only" literally and emits JSON numbers.
   const price =
     typeof p.price === "number" && Number.isFinite(p.price) ? String(p.price) : str("price");
+  const names = Array.isArray(p.names)
+    ? p.names.filter((c): c is string => typeof c === "string").map((c) => c.trim()).filter((c) => c && c.length <= 14).slice(0, 8)
+    : [];
   return {
     ...base,
     fallback: false,
@@ -92,6 +101,9 @@ function packFrom(city: string, p: Record<string, unknown>): CityPack {
     landmark: str("landmark"),
     palette: str("palette"),
     line: str("line"),
+    barista: str("barista")?.slice(0, 14) ?? null,
+    names,
+    district: str("district")?.slice(0, 40) ?? null,
   };
 }
 
@@ -128,7 +140,10 @@ export const pack = action({
       `  "cafes": ["5 real, independent, currently-trading specialty café names in that city — no chains"],`,
       `  "landmark": "one recognizable small landmark or street-furniture style typical of the city, under 12 words",`,
       `  "palette": "a 3–5 word street palette typical of the city, e.g. \\"whitewash, azulejo blue, terracotta\\"",`,
-      `  "line": "one sentence, under 14 words, the city welcoming a new coffee stand to its street"`,
+      `  "line": "one sentence, under 14 words, the city welcoming a new coffee stand to its street",`,
+      `  "barista": "one common local first name for a rival café barista there — short, no surname",`,
+      `  "names": ["8 common local first names used there — mixed gender, short forms"],`,
+      `  "district": "a real, characterful central neighbourhood name in that city, e.g. \\"Alfama\\" for Lisbon"`,
       `}`,
       `City: ${args.city.trim().slice(0, 60)}`,
     ].join("\n");

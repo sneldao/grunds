@@ -11,6 +11,13 @@
 
 import { baseUrl } from './convexSync.js';
 
+// The street's money symbol — default £, repainted by the pack's currency
+// when a city lands. Read live by fmt/ticker so the flip shows mid-week.
+export const MONEY = { symbol: '£' };
+export function setMoneySymbol(sym) {
+  if (typeof sym === 'string' && sym.trim() && sym.trim().length <= 3) MONEY.symbol = sym.trim();
+}
+
 // fnv-1a 32-bit — same string → same seed, every machine, no tables.
 export function citySeed(name) {
   let h = 0x811c9dc5;
