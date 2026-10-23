@@ -74,6 +74,14 @@ video's call-to-action lands on a live feature, not a demo of one.
   the "other streets" fold — a choice-surfaces violation. It's now a
   top-level licence field beside name/stand; signing with a typed city
   re-seats the pitch on that city's canonical street. Redeployed live.
+- **Cultural dressing round (`fc46ea7`).** Picking a city now re-dresses
+  the world, not just the decal. The pack (cache `v2` — re-mints once)
+  also carries `barista`, `names`, `district`: `fmt` + ticker rows repaint
+  to the local currency symbol, `COPY.rivalBarista` takes the pack's local
+  name (a real ghost week still wins), 8 local first names append to the
+  walk-in `NAME_POOLS`, and the ticker sub-label upgrades to the real
+  neighbourhood — verified live: Lisbon reads €, João, Príncipe Real.
+  Cosmetic only; sim numbers and replay unchanged. Lisbon kit 5/6 grown.
 
 ### 2026-10-15 - docs restructure
 
