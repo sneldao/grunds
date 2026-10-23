@@ -14,6 +14,7 @@ import { FRANCHISE } from './config.js';
 import { GLBLoader } from './loader.js';
 import { fitToSlot } from './districtGen.js';
 import { baseUrl } from './convexSync.js';
+import { fmt } from './city.js';
 
 // A fresh stand is usually ready in about two minutes. Look immediately, then
 // every 10s for six minutes, and keep looking through a failed read or a GLB
@@ -251,7 +252,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
 function gbp(n) {
   const v = Math.round(Number(n) * 100) / 100;
   if (!(v > 0)) return '';
-  return Number.isInteger(v) ? `£${v}` : `£${v.toFixed(2)}`;
+  return Number.isInteger(v) ? fmt(v, 0) : fmt(v);
 }
 
 // What the morning brief should say about The Row. Eligible stands (placed

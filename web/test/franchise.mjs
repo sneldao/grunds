@@ -350,7 +350,7 @@ check('initFranchise called with scene + seed', /initFranchise\(\{[\s\S]*scene, 
 check('arrival toast names the lot', main.includes('${def.name} is open'));
 check('inherited arrival never claims "builders finished"', main.includes('the rent is yours') && main.includes('a previous owner built it') && main.includes('ls && ls.mine'));
 check('a signed inherited stand names its builder', main.includes('`built by ${ls.byline}`') && main.includes('ls && ls.byline'));
-check('card states the £15 ground rent plainly', main.includes('£15 ground rent each dawn'));
+check('card states the £15 ground rent plainly', main.includes('${fmt(15, 0)} ground rent each dawn'));
 check('chosen purpose previews its effect honestly', main.includes('first full day on the street'));
 check('worksite markers live in franchise.js', /new THREE\.Group\(\)/.test(frJs) && frJs.includes('scaffold(l.lot)') && frJs.includes('unscaffold(lotId)'));
 check('markers never appear in dead/classic mode', frJs.includes('dead || !scene'));

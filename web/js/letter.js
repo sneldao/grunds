@@ -4,8 +4,9 @@
 // — the Gamble clock turns. No LLM; every line templated from state.
 import { LETTER, CAMPAIGN } from './config.js';
 import { hedgeTerms, debtInterestFor, VERDICT_GATES } from './economy.js';
+import { fmt } from './city.js';
 
-const gbp = n => '£' + Math.max(0, n).toFixed(2);
+const gbp = n => fmt(Math.max(0, n));
 
 function trendPhrase(rose) {
   if (rose > 0.18) return 'up hard';

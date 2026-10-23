@@ -8,7 +8,7 @@ import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
 import { PREMISES, dressInterior, createCutawayRig } from './premises.js';
 import { BACKDROP_FACADES, vacantRowFronts } from './farSide.js';
 import { setStockVisibility, ingredientDisplay } from './floorStock.js';
-import { MONEY } from './city.js';
+import { fmt } from './city.js';
 
 const M = {}; // shared materials
 function mat(color, o = {}) {
@@ -854,7 +854,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     // Phase 5 — the board renders the actual strategy: display name (not
     // the key) plus one line of what it means on the street.
     const def = stratLine(name);
-    rvStratG.fillText(def.title + ' · £' + (+price).toFixed(2), 256, 34);
+    rvStratG.fillText(def.title + ' · ' + fmt(+price), 256, 34);
     rvStratTex.needsUpdate = true;
   };
   W.setRivalStrategy('BALANCED', 4.50);
@@ -1707,9 +1707,9 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
       };
       const arrow = up ? '\u25B2' : '\u25BC';
       const beanCol = s.bias && s.bias > 1 ? '#ff9a7a' : s.bias && s.bias < 1 ? '#9ad89a' : (up ? '#9ad89a' : '#e07a7a');
-      row('BEAN  ' + arrow + (s.bias ? ' \u00b7 WIRE' : ''), MONEY.symbol + s.cost.toFixed(2) + '/cup', beanCol, 108);
-      row('LOCKED', s.locked != null ? MONEY.symbol + s.locked.toFixed(2) + '/cup' : '\u2014', s.locked != null ? '#7fb3b0' : '#6a6460', 158);
-      row('MARGIN', MONEY.symbol + s.margin.toFixed(2) + '/cup', '#e8c46a', 208);
+      row('BEAN  ' + arrow + (s.bias ? ' \u00b7 WIRE' : ''), fmt(s.cost) + '/cup', beanCol, 108);
+      row('LOCKED', s.locked != null ? fmt(s.locked) + '/cup' : '\u2014', s.locked != null ? '#7fb3b0' : '#6a6460', 158);
+      row('MARGIN', fmt(s.margin) + '/cup', '#e8c46a', 208);
       // 5-day sparkline — the bean index history the ticker board actually tracks
       const hist = s.history;
       if (hist && hist.length > 1) {
@@ -1961,10 +1961,10 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
         const curl = Math.sin(u * Math.PI * 2 + p.phase * 6.2) * 0.38;
         // born inside the room, brightest as it crosses the door, then thins out
         p.sp.position.set(-5.05 + curl, 1.35 + u * 0.85, 4.35 + u * 2.85);
-        p.sp.scale.setScalar(0.85 + u * 1.25);
+        p.sp.scale.setScalar(0.55 + u * 0.75);
         const approach = Math.min(1, u / 0.22);
         const leave = u < 0.8 ? 1 : Math.max(0, 1 - (u - 0.8) / 0.2);
-        p.sm.opacity = 0.16 + approach * leave * 0.7;
+        p.sm.opacity = 0.10 + approach * leave * 0.38;
       }
     }
     if (W.tillDrawer) {

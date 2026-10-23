@@ -1,6 +1,7 @@
 import { CAMPAIGN, ECON } from './config.js';
 import { priceForDay } from './gentrification.js';
 import { utilityCosts } from './utilities.js';
+import { fmt } from './city.js';
 export function salePrice(exchange, repriced = false) {
   return repriced ? ECON.matchaDeal : exchange.matchaPrice ?? priceForDay(Math.max(1, exchange.day));
 }
@@ -53,13 +54,8 @@ export function campaignVerdict(net, rep) {
   return 'lost';
 }
 
-const gbp2 = (n) => {
-  const sign = n < 0 ? '−' : '';
-  const [whole, frac] = Math.abs(n).toFixed(2).split('.');
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return sign + '£' + grouped + '.' + frac;
-};
-const gbpWhole = (n) => '£' + Math.abs(n).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const gbp2 = (n) => (n < 0 ? '−' : '') + fmt(Math.abs(n), undefined, true);
+const gbpWhole = (n) => fmt(Math.abs(n), 0, true);
 
 // What the player needs to hear about cash, regulars, and "held".
 // Display only — does not change campaignVerdict or the net < 0 insolvency check.
@@ -107,21 +103,21 @@ export function weekStanding({ net = 0, rep = 62, day = 1, days = 5, asOf = 'clo
 
   let cashLine;
   if (!books) {
-    cashLine = 'Cash is judged at each close. Below £0, Idris calls the tab and the stand closes — even before Saturday.';
+    cashLine = `Cash is judged at each close. Below ${fmt(0, 0)}, Idris calls the tab and the stand closes — even before Saturday.`;
   } else if (insolvent) {
     const when = asOf === 'last-close'
-      ? 'If the close is still below £0, Idris calls the tab in the morning and the stand is done.'
-      : 'That’s below £0 — the next morning Idris calls the tab and the stand is done.';
+      ? `If the close is still below ${fmt(0, 0)}, Idris calls the tab in the morning and the stand is done.`
+      : `That’s below ${fmt(0, 0)} — the next morning Idris calls the tab and the stand is done.`;
     const prefix = asOf === 'last-close' ? 'On the books so far' : 'Week position';
     cashLine = `${prefix} ${gbp2(net)}. ${when}`;
   } else if (underNut) {
     const prefix = asOf === 'last-close' ? 'On the books so far' : 'Week position';
     const left = morningsLeft > 0 ? ` ${morningsLeft} morning${morningsLeft === 1 ? '' : 's'} left to get there.` : '';
-    cashLine = `${prefix} ${gbp2(net)}. Today’s fixed bills are ${gbp2(nut)} — the week hasn’t banked that yet.${left} Below £0, Idris calls the tab.`;
+    cashLine = `${prefix} ${gbp2(net)}. Today’s fixed bills are ${gbp2(nut)} — the week hasn’t banked that yet.${left} Below ${fmt(0, 0)}, Idris calls the tab.`;
   } else {
     const prefix = asOf === 'last-close' ? 'On the books so far' : 'Week position';
     const cover = nut != null && nut > 0 ? ` Enough on the books for a day’s bills (${gbp2(nut)}).` : '';
-    cashLine = `${prefix} ${gbp2(net)}. Solvent — the tab is called only below £0.${cover}`;
+    cashLine = `${prefix} ${gbp2(net)}. Solvent — the tab is called only below ${fmt(0, 0)}.${cover}`;
   }
 
   let slideLine = null;
@@ -134,7 +130,7 @@ export function weekStanding({ net = 0, rep = 62, day = 1, days = 5, asOf = 'clo
       : (lossStreak >= 2
         ? `The till has gone backward ${lossStreak} mornings running — last close ${amt}.`
         : `The last close went backward (${amt}).`);
-    slideLine = `${lead} One more morning like that crosses £0, and that’s when Idris calls the tab. Not there yet.`;
+    slideLine = `${lead} One more morning like that crosses ${fmt(0, 0)}, and that’s when Idris calls the tab. Not there yet.`;
   }
 
   // The ledger strip is the everyday surface — one line, numbers only.
@@ -152,7 +148,7 @@ export function weekStanding({ net = 0, rep = 62, day = 1, days = 5, asOf = 'clo
   if (sliding) warns.push(slideLine);
   if (repShort) warns.push(repLine);
 
-  const cashTeach = 'Below £0 at a close, Idris calls the tab and the stand closes.';
+  const cashTeach = `Below ${fmt(0, 0)} at a close, Idris calls the tab and the stand closes.`;
   const repTeach = repShort
     ? repLine
     : `Regulars ${repNow}/100 — held needs ${heldRep}. Walk-outs pull this down.`;

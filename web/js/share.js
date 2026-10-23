@@ -1,6 +1,8 @@
 // Grunds — The District: Viral Hooks & Social Share Cards
 // Generates subtle, elegant share summaries and assigns campaign badges.
 
+import { fmt } from './city.js';
+
 export const BASE_URL = 'https://striped-anaconda-746.convex.site';
 
 export function calculateCampaignBadge({
@@ -40,7 +42,7 @@ export function formatShareText({
   served = null,
   beatGlasshouse = null,
 } = {}) {
-  const tillStr = typeof till === 'number' ? `£${till.toFixed(2)}` : till;
+  const tillStr = typeof till === 'number' ? fmt(till) : till;
   const badgeLine = badge ? `\n🏆 Badge: ${badge.icon} ${badge.title}` : '';
   const cleanVerdict = verdict ? `\n"${verdict.replace(/\n/g, ' ')}"` : '';
   // Virality framing: lead with outcomes the player caused (balks saved +

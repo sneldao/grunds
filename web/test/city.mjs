@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { citySeed, cityFromSearch, cityUrl, cityDisplay, normalizeCityName } from '../js/city.js';
+import { citySeed, cityFromSearch, cityUrl, cityDisplay, normalizeCityName, MONEY, setMoneySymbol, setMoneyRate, fmt } from '../js/city.js';
+import { seedCityNames, NAME_POOLS, WalkinPool } from '../js/identity.js';
 
 test('citySeed — same city, same street, every machine', () => {
   assert.equal(citySeed('lisbon'), citySeed('lisbon'));
@@ -68,4 +69,54 @@ test('boot wires the city end to end (source contracts)', async () => {
   const iCity = html.indexOf('id="lic-city"'), iStreets = html.indexOf('id="lic-streets"');
   assert.ok(iCity > 0 && iCity < iStreets, 'the city field is a first-class licence field, not folded');
   assert.match(main, /location\.assign\(cityUrl\(typedCity\)\)/, 'signing with a typed city re-seats the pitch');
+});
+
+test('fmt — default money is byte-identical; a pack price scales + restyles', () => {
+  assert.equal(fmt(4.8), '£4.80');
+  assert.equal(fmt(-37), '£-37.00');
+  assert.equal(fmt(2900), '£2900.00');
+  assert.equal(fmt(2900, 2, true), '£2,900.00', 'grouped opt-in matches the books copy');
+  assert.equal(fmt(0, 0), '£0');
+  assert.equal(fmt(42, 0), '£42');
+  setMoneySymbol('€');
+  setMoneyRate('4', 4.8);            // Lisbon: a matcha there runs about €4
+  assert.equal(fmt(4.8), '€4.00', 'the house matcha reads the quoted local price');
+  assert.equal(fmt(2900), '€2416.67');
+  assert.equal(fmt(2900, 2, true), '€2,416.67');
+  assert.equal(fmt(-37), '€-30.83');
+  setMoneySymbol('¥');
+  setMoneyRate(4000, 4.8);           // Tokyo: rate ≈833 → whole-yen display
+  assert.equal(MONEY.dp, 0);
+  assert.equal(fmt(4.8, 0, true), '¥4,000');
+  assert.equal(fmt(-0.03), '¥-25');
+  setMoneyRate(null, 4.8);           // no pack price → rate 1, symbol only
+  setMoneySymbol('£');
+  assert.equal(MONEY.rate, 1);
+  assert.equal(fmt(4.8), '£4.80');
+});
+
+test('seedCityNames — ≥6 local names own the pools; thin packs only append', () => {
+  const backup = JSON.parse(JSON.stringify(NAME_POOLS));
+  try {
+    const local = ['Ada', 'Tunde', 'Aisha', 'Femi', 'Tolu', 'Chidi', 'Ngozi', 'Emeka'];
+    seedCityNames(local);
+    for (const [cohort, pool] of Object.entries(NAME_POOLS)) {
+      assert.deepEqual(pool, local, `${cohort} pool is fully local`);
+    }
+    // Replacing names never changes the RNG budget: one draw per dealt head,
+    // same stream seed — the head count and draw sites are identical.
+    const pool = new WalkinPool(7);
+    const heads = pool.ensureDay(1);
+    assert.equal(heads.length, 24, 'pool still deals the same head count');
+    assert.ok(heads.every(h => h.name.split(' ')[0].split('.')[0] !== 'Ash'), 'no stock names survive');
+    assert.ok(heads.every(h => local.some(n => h.name.startsWith(n))), 'every walk-in name is local');
+    // A thin pack (<6) appends instead of emptying the street.
+    for (const k of Object.keys(NAME_POOLS)) NAME_POOLS[k].length = 0, NAME_POOLS[k].push(...backup[k]);
+    const before = NAME_POOLS.commuters.length;
+    seedCityNames(['Ines', 'Rui', 'Marta']);
+    assert.ok(NAME_POOLS.commuters.length > before, 'thin list appends');
+    assert.ok(NAME_POOLS.commuters.includes('Ines'));
+  } finally {
+    for (const k of Object.keys(NAME_POOLS)) { NAME_POOLS[k].length = 0; NAME_POOLS[k].push(...backup[k]); }
+  }
 });

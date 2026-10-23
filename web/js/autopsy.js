@@ -3,7 +3,8 @@
 // Pure + DOM-free: buildAutopsy(campaignDays, regularsSnapshot) → string[].
 // Each campaign day pushes one record in closeDay; campaignClose renders the
 // rows under a "lost because:" header so a lost week reads as fair, not cruel.
-// No imports — the caller shapes the data, this module shapes the sentences.
+// The caller shapes the data, this module shapes the sentences.
+import { fmt } from './city.js';
 const LOT_SHORT = {
   cerrado: 'Cerrado',
   huila: 'Huila',
@@ -104,7 +105,7 @@ export function buildAutopsy(campaignDays = [], regularsSnapshot = []) {
 // emergencySpend (billed at 1.5× spot, so a third of it was premium), interest,
 // event, covered (a contract was live or paid out that day).
 const SHOCKS = { frost_minas: 'a frost', drought_ea: 'an East Africa drought' };
-const gbp = (n) => `£${Math.round(n).toLocaleString('en-GB')}`;
+const gbp = (n) => fmt(Math.round(n), 0, true);
 export function turningPoint(campaignDays = []) {
   const days = Array.isArray(campaignDays) ? campaignDays : [];
   const causes = [];

@@ -7,6 +7,7 @@
 // stamp so the card reads DISPATCHED, not screenshotted.
 
 import { BASE_URL } from './share.js';
+import { fmt } from './city.js';
 
 export const CARD_W = 1280;
 export const CARD_H = 720;
@@ -28,7 +29,7 @@ export function cardLayout(w = CARD_W, h = CARD_H) {
 
 export function captionLine({ day = 1, seed = 7, stats = {}, badge = null, founder = false } = {}) {
   const s = stats;
-  const money = (v) => '£' + Math.round(v ?? 0);
+  const money = (v) => fmt(Math.round(v ?? 0), 0);
   const parts = [`Day ${day}/5`, `till ${money(s.till)}`, `rep ${Math.round(s.rep ?? 0)}/100`,
     `${s.served ?? 0} served`, `${s.balked ?? 0} walked`, `seed ${seed}`];
   const head = founder ? `★ DISTRICT FOUNDER · ` : badge ? `${badge.icon} ${badge.title} — ` : '';

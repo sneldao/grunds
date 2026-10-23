@@ -1,3 +1,4 @@
+import { fmt } from './city.js';
 export const TOOL_IDS = ['coffee', 'menu', 'street', 'insurance', 'tab'];
 
 // Loseable day 1, easy-by-default: the menu tool is visible from day 1 so a
@@ -92,6 +93,6 @@ export function toolCopy(id, ctx = {}) {
 
 export function essentialNote(id, ctx = {}) {
   if (id === 'coffee') return 'Your house coffee is running low — choose a coffee and restock it. Supplies go on Idris’s tab.';
-  if (id === 'tab') return `You owe Idris £${(+ctx.debt || 0).toFixed(2)}. Interest is added each day (${(((+ctx.rate) || 0) * 100).toFixed(1)}%) until you settle.`;
+  if (id === 'tab') return `You owe Idris ${fmt(+ctx.debt || 0)}. Interest is added each day (${(((+ctx.rate) || 0) * 100).toFixed(1)}%) until you settle.`;
   return null;
 }

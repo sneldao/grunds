@@ -93,7 +93,7 @@ export const COPY = {
   open: 'STEP INSIDE',
   controls: 'drag to look · scroll to zoom · 1 pre-batch · 2 reprice · M sound · R reset',
   notebookTitle: 'ROASTER’S NOTEBOOK',
-  notebook: `Students arrive at 14:00.\nA matcha takes 4 minutes made to order, and 1 minute if you bought the batch.\nPress 1 to buy ${ECON.batchUnits} cups of matcha for £${ECON.batchCost} — leftovers spoil. Press 2 to sell at £${ECON.matchaDeal.toFixed(2)} instead of the board price.\nPick one. They walk to Glasshouse once the line passes 5.`,
+  notebook: `Students arrive at 14:00.\nA matcha takes 4 minutes made to order, and 1 minute if you bought the batch.\nPress 1 to buy ${ECON.batchUnits} cups of matcha for ¤${ECON.batchCost} — leftovers spoil. Press 2 to sell at ¤${ECON.matchaDeal} instead of the board price.\nPick one. They walk to Glasshouse once the line passes 5.`,
   gossipBad: ['matcha here is a WAIT…', 'queue’s out the door again', 'four minutes. for a latte.', 'the chain across the road is faster', 'they switched roasters, you know'],
   gossipGood: ['worth the queue today', 'pre-batched. genius.', 'best matcha on the street', 'they know my order here'],
   rivalName: 'GLASSHOUSE',

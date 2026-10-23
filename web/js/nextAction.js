@@ -85,11 +85,11 @@ export function computeNextAction(s = {}) {
         ? { id: 'batch', target: 'chalk', text: `only ${batchUnits} cups left — press <b>1</b> to top up the batch (${fmtMoney(ECON.batchCost)})` }
         : { id: 'status', target: 'street', text: `${batchUnits} cups left — the till stays warm` };
     }
-    if (lv.batch.available) return { id: 'batch', target: 'chalk', text: `the wave is on — press <b>1</b> to prep ${ECON.batchUnits} cups (${fmtMoney(lv.batch.cost)}${lv.batch.changesPlan ? ' · +£4.20 late switch, regulars lose warmth' : ''})` };
+    if (lv.batch.available) return { id: 'batch', target: 'chalk', text: `the wave is on — press <b>1</b> to prep ${ECON.batchUnits} cups (${fmtMoney(lv.batch.cost)}${lv.batch.changesPlan ? ` · +${fmt(4.20)} late switch, regulars lose warmth` : ''})` };
     return { id: 'status', text: 'the wave is on — hold the line, the rush passes by 16:00', target: 'street' };
   }
   if (queue > 5 && lv.reprice.available) {
-    return { id: 'watch', target: 'street', text: `the line is long — <b>2</b> cuts matcha to <b>${fmtMoney(ECON.matchaDeal)}</b>: more patience, lower income${lv.reprice.changesPlan ? ' · +£4.20 late switch, regulars lose warmth' : ''} · a batch bought now only reserves for 14:00 (${fmtMoney(lv.batch.cost)}${lv.batch.changesPlan ? ' · +£4.20 late switch, regulars lose warmth' : ''})` };
+    return { id: 'watch', target: 'street', text: `the line is long — <b>2</b> cuts matcha to <b>${fmtMoney(ECON.matchaDeal)}</b>: more patience, lower income${lv.reprice.changesPlan ? ` · +${fmt(4.20)} late switch, regulars lose warmth` : ''} · a batch bought now only reserves for 14:00 (${fmtMoney(lv.batch.cost)}${lv.batch.changesPlan ? ` · +${fmt(4.20)} late switch, regulars lose warmth` : ''})` };
   }
   // a failing line with no cups beats the calendar
   if (queue > 5) return { id: 'watch', target: 'street', text: 'the line is long — ride it out · a batch bought now only reserves for <b>14:00</b>' };
@@ -99,11 +99,11 @@ export function computeNextAction(s = {}) {
     return { id: 'hold', target: 'street', text: 'keep the line under <b>5</b> — a regular asks at <b>11:00</b>' };
   }
   // between the ask and the wave: the read — one lever, not both
-  if (queue > 0) return { id: 'watch', target: 'street', text: `line at <b>${queue}</b> — the wave lands at <b>14:00</b> · <b>1</b> reserves ${ECON.batchUnits} cups for it (${fmtMoney(lv.batch.cost)}${lv.batch.changesPlan ? ' · +£4.20 late switch, regulars lose warmth' : ''}) or <b>2</b> cuts the price` };
-  return { id: 'hold', target: 'chalk', text: `students at <b>14:00</b> — <b>1</b> buys cups (${fmtMoney(lv.batch.cost)}${lv.batch.changesPlan ? ' · +£4.20 late switch, regulars lose warmth' : ''}) or <b>2</b> cuts the price` };
+  if (queue > 0) return { id: 'watch', target: 'street', text: `line at <b>${queue}</b> — the wave lands at <b>14:00</b> · <b>1</b> reserves ${ECON.batchUnits} cups for it (${fmtMoney(lv.batch.cost)}${lv.batch.changesPlan ? ` · +${fmt(4.20)} late switch, regulars lose warmth` : ''}) or <b>2</b> cuts the price` };
+  return { id: 'hold', target: 'chalk', text: `students at <b>14:00</b> — <b>1</b> buys cups (${fmtMoney(lv.batch.cost)}${lv.batch.changesPlan ? ` · +${fmt(4.20)} late switch, regulars lose warmth` : ''}) or <b>2</b> cuts the price` };
 }
-import { MONEY } from './city.js';
-function fmtMoney(n) { return `${MONEY.symbol}${n.toFixed(2)}`; }
+import { fmt } from './city.js';
+function fmtMoney(n) { return fmt(n); }
 
 // monotonic priority proof used by the tests: which id wins
 export const NEXT_ACTION_PRIORITY = ['mail', 'status', 'batch', 'watch', 'hold'];

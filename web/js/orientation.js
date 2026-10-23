@@ -1,4 +1,5 @@
 import { ECON } from './config.js';
+import { fmt } from './city.js';
 
 export function firstMorningCopy() {
   return {
@@ -16,9 +17,9 @@ export function firstMorningCopy() {
     choosePrompt: 'Choose your afternoon plan, then open the café.',
     lateNote:
       'You can change this plan until opening. After noon, choosing your first batch costs ' +
-      `£${(ECON.batchCost + 4.20).toFixed(2)}` +
-      ' (£40 stock + £4.20 change-of-plan fee); choosing a late deal costs £4.20. ' +
-      'Either late change lowers regulars’ warmth. Refilling an existing batch costs £40 without that penalty.',
+      `${fmt(ECON.batchCost + 4.20)}` +
+      ` (${fmt(40, 0)} stock + ${fmt(4.20)} change-of-plan fee); choosing a late deal costs ${fmt(4.20)}. ` +
+      `Either late change lowers regulars’ warmth. Refilling an existing batch costs ${fmt(40, 0)} without that penalty.`,
     diff:
       'A batch is made ahead, so the rush moves faster — leftovers spoil. ' +
       'A deal doesn’t speed Ruth up, but people wait longer before leaving. ' +
@@ -29,14 +30,14 @@ export function firstMorningCopy() {
         id: 'brief-prep-batch',
         label: 'Starter batch',
         tag: 'Recommended for your first day',
-        line: `£${ECON.batchCost.toFixed(2)} now · 40 cups ready at 14:00, served faster`,
+        line: `${fmt(ECON.batchCost)} now · 40 cups ready at 14:00, served faster`,
       },
       {
         key: 'reprice',
         id: 'brief-prep-reprice',
         label: 'Matcha deal',
         tag: '',
-        line: `£${ECON.matchaDeal.toFixed(2)} a cup · they’ll wait longer`,
+        line: `${fmt(ECON.matchaDeal)} a cup · they’ll wait longer`,
       },
       {
         key: 'hold',
@@ -64,7 +65,7 @@ export function economicsLesson(s = {}) {
   if ((s.debt || 0) > 0) {
     return {
       urgent: true, tool: 'tab',
-      text: `Your supplier tab is £${(s.debt).toFixed(2)}. Settling it frees credit for your next delivery; insurance locks a price, not stock.`,
+      text: `Your supplier tab is ${fmt(s.debt)}. Settling it frees credit for your next delivery; insurance locks a price, not stock.`,
     };
   }
   if (s.staffCanChoose) {

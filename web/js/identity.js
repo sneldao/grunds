@@ -54,13 +54,18 @@ export const CANON_DRINKS = {
   Gwen: 'latte', Yuki: 'single-origin', Dev: 'espresso', Esther: 'tea',
 };
 
-// City Remix — a pack's local first names append to every cohort pool, so
-// strangers read as people from your street. Same draw sites, so replay
-// stays deterministic; names only differ once the pack has landed.
+// City Remix — a pack's local first names dress the walk-in pools, so
+// strangers read as people from your street. Six or more → the pools go
+// fully local (a thin list appends instead, so a sparse pack never empties
+// the street). Same draw sites either way — each dealt head still costs one
+// rng() — so replay stays deterministic; names only differ once the pack
+// has landed.
 export function seedCityNames(list) {
   if (!Array.isArray(list)) return;
   const local = list.map(n => String(n).trim()).filter(n => n && n.length <= 14).slice(0, 8);
+  const replace = local.length >= 6;
   for (const pool of Object.values(NAME_POOLS)) {
+    if (replace) { pool.length = 0; pool.push(...local); continue; }
     for (const n of local) if (!pool.includes(n)) pool.push(n);
   }
 }

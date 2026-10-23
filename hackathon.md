@@ -80,6 +80,20 @@ video's call-to-action lands on a live feature, not a demo of one.
   kicker upgrades to the pack's full display once it lands. Verified the
   week-save resume path can't hijack a `?city` link — resume is a manual
   title-screen button, never an auto-override. All pushed + redeployed.
+- **Pre-film craft pass.** Packs stop inventing places: the prompt prefers
+  abstaining to inventing, and internal `city:repack` re-mints one city
+  without busting the rest — Lagos now reads Victoria Island, cafés `[]`
+  rather than made-up names. `tools/mirror-assets.mjs` had silently written
+  nothing (its regex wanted `= {` on one line), so every Oct-23 city kit was
+  falling back to procedural props live; fixed and re-mirrored (`70a8901`).
+  Money is now one formatter (`fmt` in `web/js/city.js`): the pack's quoted
+  matcha price sets a display-only rate so the board's matcha reads the
+  local price (€4 Lisbon, ¥650 Tokyo, whole-unit for ¥/₦); the sim stays in
+  its native numbers and the no-city street is byte-identical. Walk-in pools
+  go fully local when a pack carries ≥ 6 names; the canon regulars (Mara,
+  Tomas, Yuki…) stay authored. Door steam toned down — overlapping sprites
+  read as one white blob on camera. The film's script is directed by M3.1
+  via SandBase; prompts + responses live in `videos/city-remix/direction/`.
 - **Cultural dressing round (`fc46ea7`).** Picking a city now re-dresses
   the world, not just the decal. The pack (cache `v2` — re-mints once)
   also carries `barista`, `names`, `district`: `fmt` + ticker rows repaint

@@ -4,6 +4,7 @@
 // (skipTutorial, or a week that already introduced every tool) never start.
 import { ECON } from './config.js';
 import { DRINKS } from './menu.js';
+import { fmt } from './city.js';
 
 export const CUE_MS = 16000;
 export const CUE_STEP_CAP = 500;
@@ -60,7 +61,7 @@ export function advanceElapsed(elapsedMs, cueMs = CUE_MS) {
 
 export function priceCueBrief() {
   const d = DRINKS;
-  return `Matcha £${d.matcha.base.toFixed(2)} on the board, £${ECON.matchaDeal.toFixed(2)} on the deal. Menu prices move in 20p steps — dear drinks send people to cheaper ones.`;
+  return `Matcha ${fmt(d.matcha.base)} on the board, ${fmt(ECON.matchaDeal)} on the deal. Menu prices move in 20p steps — dear drinks send people to cheaper ones.`;
 }
 
 export function pastryCueBrief(onOrder) {

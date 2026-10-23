@@ -7,9 +7,10 @@
 // loop can call it at ~5Hz without rebuilding DOM every frame.
 import { CAMPAIGN } from './config.js';
 import { LOT_CATALOG, STALE_AFTER, lotSpot } from './lots.js';
+import { fmt } from './city.js';
 
-const money = n => '£' + Math.round(n).toLocaleString('en-GB');
-const money2 = n => '£' + n.toFixed(2);
+const money = n => fmt(n, 0, true);
+const money2 = n => fmt(n);
 const clamp01 = n => Math.max(0, Math.min(1, n));
 
 // Per-cup cost basis at today's market: beans + supplies + flex labour + the

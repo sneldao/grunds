@@ -46,7 +46,7 @@ import { firstMorningCopy, economicsLesson } from './orientation.js';
 import { FLOOR_CUES, CUE_STEP_CAP, shouldTeachOpening, cueSchedule, advanceElapsed, briefCueCopy, wireTapeLine, pastryTodayLine } from './floorCues.js';
 import { planTools, TOOL_IDS, toolCopy, essentialNote } from './curriculum.js';
 import { initSync } from './convexSync.js';
-import { cityFromSearch, cityDisplay, cityUrl, fetchCityPack, normalizeCityName, MONEY, setMoneySymbol } from './city.js';
+import { cityFromSearch, cityDisplay, cityUrl, fetchCityPack, normalizeCityName, setMoneySymbol, setMoneyRate, fmt } from './city.js';
 import { buildMailTheater } from './mailTheater.js';
 import { calculateCampaignBadge, openShareToX, formatShareText } from './share.js';
 import { buildShareCard, CARD_W, CARD_H } from './shareCard.js';
@@ -165,8 +165,15 @@ if (cityPackPromise) cityPackPromise.then(pack => {
   // local first names in the walk-in pools, the neighbourhood on the
   // ticker. Cosmetic only: the sim's numbers never move.
   if (pack.currency) setMoneySymbol(pack.currency);
+  // The quoted local matcha price anchors the display rate — the board's
+  // own matcha then reads exactly what the licence quotes. No price →
+  // rate 1, symbol-only.
+  setMoneyRate(pack.price, ECON.matchaFull);
   if (pack.barista && !(rivalGhost && (rivalGhost.playerName || '').trim())) COPY.rivalBarista = pack.barista;
   if (pack.names?.length) seedCityNames(pack.names);
+  // Money changed after first paint — re-render whatever is already up.
+  try { paintStaticCopy(); updateVitals(); } catch {}
+  try { if (phase === 'planning') { if (softDay) showSoftIntro(0); else showMorningBrief(); } } catch {}
   if (pack.district && world) world.districtLabel = pack.district.toUpperCase().slice(0, 40);
   if (pack.display) {
     const kicker = $('licence')?.querySelector('.l-kicker');
@@ -1215,8 +1222,8 @@ function beats() {
     const nextPrice = priceForDay(2).toFixed(2);
     const nextIdx = (exchange.beanIndex + calculateNonLinearDrift(2)).toFixed(2);
     const fore = exchange.event?.id === 'rumour_frost' || exchange.event?.id === 'frost_minas'
-      ? 'Forecast Day 2: the wire mutters frost — the board drifts toward ' + nextIdx + ' before the dawn card · matcha £' + nextPrice + '. The contract choice comes at closing.'
-      : 'Forecast Day 2: matcha £' + nextPrice + ' on the curve · the board rolls at dawn — the contract choice comes at closing.';
+      ? 'Forecast Day 2: the wire mutters frost — the board drifts toward ' + nextIdx + ' before the dawn card · ' + fmt(+nextPrice) + '. The contract choice comes at closing.'
+      : 'Forecast Day 2: matcha ' + fmt(+nextPrice) + ' on the curve · the board rolls at dawn — the contract choice comes at closing.';
     fx.toast(fore, 'warn');
     try { analytics.track('forecast_shown', { day, dayMin, event: exchange.event?.id || null, nextPrice, nextIdx }); } catch {}
   }
@@ -1285,11 +1292,11 @@ function beats() {
     patrons.partyActive = true;
     for (let i = 0; i < 4; i++) patrons.spawn('elders', 'counter');
     patrons.partyActive = dayMin >= 840 && dayMin <= 1020;
-    fx.toast('Olu’s bridge club lands — +£9, four more in your line', 'good');
+    fx.toast(`Olu’s bridge club lands — +${fmt(9, 0)}, four more in your line`, 'good');
   }
   if (officeRunAt && dayMin >= officeRunAt) {
     officeRunAt = 0;
-    if (patrons.queueLength <= 6) { till += 28; fx.toast('the office run lands clean — +£28', 'good'); }
+    if (patrons.queueLength <= 6) { till += 28; fx.toast(`the office run lands clean — +${fmt(28, 0)}`, 'good'); }
     else fx.toast('the office saw your line — they went to ' + COPY.rivalName, 'bad');
   }
   // the scald claim resolves at 16:30 — contesting was a coin toss
@@ -1297,7 +1304,7 @@ function beats() {
     solicitorAt = 0;
     if (floorRng() < 0.5) {
       till -= solicitorCharge * perkCostMul; regulars.adjustOpinions(-0.1);
-      fx.toast(`the scald claim stuck — −£${solicitorCharge} and the story did the rounds`, 'bad');
+      fx.toast(`the scald claim stuck — −${fmt(solicitorCharge, Number.isInteger(solicitorCharge) ? 0 : undefined)} and the story did the rounds`, 'bad');
     } else fx.toast('the scald claim went away — their solicitor stopped calling', 'good');
   }
   // Ruth breaks — pushed under a fifth of her condition and worked anyway,
@@ -1435,7 +1442,7 @@ function showEveningCall(read) {
     if (day === 1) {
       forecastShown = true;
       morrow.hidden = false;
-      morrow.textContent = 'Tomorrow the board opens near £' + priceForDay(2).toFixed(2) + '.';
+      morrow.textContent = `Tomorrow the board opens near ${fmt(priceForDay(2))}.`;
     } else { morrow.textContent = ''; morrow.hidden = true; }
   }
   const topup = $('evening-topup');
@@ -1698,7 +1705,7 @@ function closeDay() {
   if (day === 1 && day < CAMPAIGN.days) {
     const np = priceForDay(2).toFixed(2);
     const ni = (exchange.beanIndex + calculateNonLinearDrift(2)).toFixed(2);
-    forecast = `Day 2: matcha £${np} on the curve · the board drifts toward ${ni} before the dawn card — the contract choice comes at opening`;
+    forecast = `Day 2: matcha ${fmt(+np)} on the curve · the board drifts toward ${ni} before the dawn card — the contract choice comes at opening`;
   }
   // causal trace — name the contract payoff on the receipt's forecast line
   if (hedgedCups > 0) {
@@ -2371,7 +2378,7 @@ function renderPrepSection() {
 
   const hint = document.createElement('div');
   hint.style.cssText = 'font-size:10.5px;opacity:.6;margin-bottom:6px;font-style:italic';
-  hint.textContent = 'change your plan freely before opening · after noon the first switch costs £4.20 (a late batch adds £40 stock); a routine batch top-up is £40 with no opinion hit';
+  hint.textContent = `change your plan freely before opening · after noon the first switch costs ${fmt(4.2)} (a late batch adds ${fmt(40, 0)} stock); a routine batch top-up is ${fmt(40, 0)} with no opinion hit`;
   hint.style.display = prepHintOpen ? '' : 'none';
   qbtn.onclick = () => { prepHintOpen = !prepHintOpen; hint.style.display = prepHintOpen ? '' : 'none'; };
   wrap.appendChild(hint);
@@ -2397,7 +2404,7 @@ function renderPrepSection() {
     b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     else if (def.key === 'hold') { b.style.opacity = '0.7'; }
-    b.title = 'change your plan freely before opening · after noon the first switch costs £4.20 (a late batch adds £40 stock)';
+    b.title = `change your plan freely before opening · after noon the first switch costs ${fmt(4.2)} (a late batch adds ${fmt(40, 0)} stock)`;
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
     b.onclick = () => {
       // Radio behaviour — clicking sets stagedPrep atomically.
@@ -2416,7 +2423,7 @@ function renderPrepSection() {
     key: 'hold',
     label: 'hold steady',
     cost: null,
-    desc: 'no upfront spend · made-to-order all day · you can still buy in later — £40 + £4.20 late switch',
+    desc: `no upfront spend · made-to-order all day · you can still buy in later — ${fmt(40, 0)} + ${fmt(4.2)} late switch`,
   }));
   pillRow.appendChild(makePill('brief-prep-batch', {
     key: 'batch',
@@ -2441,7 +2448,7 @@ function appendLoanLine(wrap) {
   if (!wrap || softDay) return;
   const line = document.createElement('div');
   line.id = 'brief-loan';
-  line.textContent = stagedLoan > 0 ? `borrow £${stagedLoan} or skip` : 'borrow or skip';
+  line.textContent = stagedLoan > 0 ? `borrow ${fmt(stagedLoan, 0)} or skip` : 'borrow or skip';
   line.style.cssText = 'font-size:11px;margin-top:6px;cursor:pointer';
   line.onclick = () => {
     if (phase !== 'planning') return;
@@ -2464,7 +2471,7 @@ function appendLoanLine(wrap) {
 const ROW_PURPOSES = [
   { id: 'draw',      label: 'a draw',    benefit: `+${FRANCHISE.purposes.draw.awareness.toFixed(2)} awareness at close` },
   { id: 'community', label: 'a hub',     benefit: `+${FRANCHISE.purposes.community.returnees} returnees tomorrow` },
-  { id: 'rent',      label: 'a tenant',  benefit: `+£${FRANCHISE.purposes.rent.rentBonus} rent per dawn` },
+  { id: 'rent',      label: 'a tenant',  benefit: `+${fmt(FRANCHISE.purposes.rent.rentBonus, 0)} rent per dawn` },
 ];
 const ROW_EXAMPLES = ['a tiny ramen counter', 'a vinyl listening bar', 'a flower stall'];
 // Draft state survives re-renders for the SAME lot (a mid-entry status
@@ -2597,7 +2604,7 @@ function renderFranchiseRow() {
   title.textContent = `${vacant.name} is vacant`;
   const why = document.createElement('p');
   why.className = 'row-why';
-  why.textContent = 'describe the stand you want there and the builders grow it — £15 ground rent each dawn, plus whatever its purpose brings the street. first, tell them what the stand is for:';
+  why.textContent = `describe the stand you want there and the builders grow it — ${fmt(15, 0)} ground rent each dawn, plus whatever its purpose brings the street. first, tell them what the stand is for:`;
   card.append(kick, title, why);
 
   const statusEl = document.createElement('div');
@@ -2622,7 +2629,7 @@ function renderFranchiseRow() {
     b.onclick = () => {
       rowPurpose = p.id;
       for (const q of ROW_PURPOSES) purposeBtns[q.id].setAttribute('aria-pressed', q.id === p.id ? 'true' : 'false');
-      statusEl.textContent = `${p.label} — ${p.benefit} · on top of the £15 ground rent, from its first full day on the street`;
+      statusEl.textContent = `${p.label} — ${p.benefit} · on top of the ${fmt(15, 0)} ground rent, from its first full day on the street`;
     };
     purposeBtns[p.id] = b;
     purposes.appendChild(b);
@@ -3411,7 +3418,7 @@ function renderRivalLine() {
   const themChose = y ? (y.rivalChoices || 0) : 0;
   const strat = CAMPAIGN.rivalStrategies[rivalStrategy];
   const stratName = strat ? strat.name.toLowerCase() : '—';
-  const stratPrice = strat ? '£' + strat.price.toFixed(2) : '—';
+  const stratPrice = strat ? fmt(strat.price) : '—';
   // PR-B2 — yesterday's reactivity log gets surfaced in today's brief so the
   // player sees Sam's moves being reactive, not just static.
   const reacts = (rivalReactLog || []).slice(0, 3).map(e => `· ${e.msg}`).join('<br>');
@@ -3823,7 +3830,7 @@ function showMorningBrief() {
     if (mods.suppliesDelta)
       lines.push(`${MACRO_SHOCKS.dairy_crunch.name} — ${MACRO_SHOCKS.dairy_crunch.desc} · ${day === MACRO_SHOCKS.dairy_crunch.day ? 'new today' : 'still active'}`);
     const strat = CAMPAIGN.rivalStrategies[rivalStrategy];
-    const priceLine = `matcha £${priceForDay(day).toFixed(2)} · ${COPY.rivalName} £${strat ? strat.price.toFixed(2) : '—'}`;
+    const priceLine = `matcha ${fmt(priceForDay(day))} · ${COPY.rivalName} ${strat ? fmt(strat.price) : '—'}`;
     if (!lines.length) risk.textContent = priceLine;
     else {
       lines.push(priceLine);
@@ -4507,9 +4514,9 @@ function startTradingDay(d) {
   patrons.ghostPace = ghostPaceFor(d);   // async rival: their ledger sets the day's cups/tick
   if (d >= 2 && rivalStrategy !== 'DEFAULT' && !headless) {
     const stratDef = CAMPAIGN.rivalStrategies[rivalStrategy];
-    if (stratDef) fx.toast(`${COPY.rivalBarista} moves: ${stratDef.name} (£${stratDef.price.toFixed(2)}) — ${COPY.rivalName}'s chalkboard changed`, 'warn');   // PR-B1 — name Sam personally
+    if (stratDef) fx.toast(`${COPY.rivalBarista} moves: ${stratDef.name} (${fmt(stratDef.price)}) — ${COPY.rivalName}'s chalkboard changed`, 'warn');   // PR-B1 — name Sam personally
   }
-  if (estherCard) { till -= 2; fx.toast('esther’s stamp card: −£2', ''); }  // her cup's on the house
+  if (estherCard) { till -= 2; fx.toast(`esther’s stamp card: −${fmt(2, 0)}`, ''); }  // her cup's on the house
   { const fr = franchise.rentDue(d); if (fr) { till += fr; franchiseRentToday = fr; } }  // 14 The Row pays at open
   ctx.pastryStock = pastryOnOrder;
   pastryCaseCap = pastryOnOrder;
@@ -4723,7 +4730,6 @@ function campaignClose(insolvent = false) {
 }
 
 // ---- HUD -----------------------------------------------------------------------
-const fmt = n => MONEY.symbol + n.toFixed(2);
 const ordinal = n => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : n + 'th');
 
 // District leaderboard — every mirrored stand races the same week on Convex.
@@ -4837,10 +4843,10 @@ function updateHUD() {
     else if (!lv.reprice.available) cutSmall.textContent = lv.reprice.reason || 'locked';
     else if (lv.reprice.changesPlan) {
       const board = salePrice(exchange, false);
-      cutSmall.textContent = `down from £${board.toFixed(2)} · ${fmt(LEVER_OVERRIDE_PRICE)} late switch + the room hears it`;
+      cutSmall.textContent = `down from ${fmt(board)} · ${fmt(LEVER_OVERRIDE_PRICE)} late switch + the room hears it`;
     } else {
       const board = salePrice(exchange, false);
-      cutSmall.textContent = `down from £${board.toFixed(2)} · locks prep for today`;
+      cutSmall.textContent = `down from ${fmt(board)} · locks prep for today`;
     }
   }
   const pb = $('prebatch');
@@ -4852,7 +4858,7 @@ function updateHUD() {
     const sub = pb.querySelector('small');
     if (sub) {
       if (!lv.batch.available) sub.textContent = lv.batch.reason || 'locked';
-      else if (lv.batch.changesPlan) sub.textContent = `${fmt(lv.batch.cost)} — £40 stock + £4.20 late switch · the room hears it`;
+      else if (lv.batch.changesPlan) sub.textContent = `${fmt(lv.batch.cost)} — ${fmt(40)} stock + ${fmt(4.2)} late switch · the room hears it`;
       else if (prebatched && ctx.batchUnits > 0) sub.textContent = `${ctx.batchUnits} ready · pay ${fmt(ECON.batchCost)} to top up`;
       else if (inWave) sub.textContent = `pay ${fmt(ECON.batchCost)} · leftovers spoil at close`;
       else sub.textContent = `pay ${fmt(ECON.batchCost)} · reserved for 14:00 · leftovers spoil`;
@@ -4923,7 +4929,7 @@ function updateHUD() {
       const driftTxt = (driftPct >= 0 ? '+' : '') + driftPct + '%';
       const dayPrice = salePrice(exchange, repriced);
       const costBit = day >= 2 ? `costs <b>${driftTxt}</b> · ` : '';
-      $('pressure').innerHTML = `${costBit}matcha <b>£${dayPrice.toFixed(2)}</b>` +
+      $('pressure').innerHTML = `${costBit}matcha <b>${fmt(dayPrice)}</b>` +
         (exchange.debt > 0 ? ` · tab <b>${fmt(exchange.debt)}</b>/${fmt(CAMPAIGN.creditLimit)}` : '');
     }
   }
@@ -5108,17 +5114,17 @@ const OFFERS = [
     effect: 'say yes → the wave runs ~20% bigger — and Pip’s group is counted on the evening card', yes: 'say yes',
     accept() { offerWaveMul = 1.22; party = { name: 'Pip', cohort: 'students', left: 20, served: 0, walked: 0 }; },
     decline() { party = { name: 'Pip', cohort: 'students', left: 0, served: 0, walked: 0, declined: true }; } },
-  { who: 'Esther', line: '“A stamp card for the week — £15 today, and my cup’s on the house from tomorrow.”',
-    effect: 'say yes → +£15 now · her cup’s free at every dawn after', yes: 'take the £15',
+  { who: 'Esther', line: `“A stamp card for the week — ${fmt(15)} today, and my cup’s on the house from tomorrow.”`,
+    effect: `say yes → +${fmt(15, 0)} now · her cup’s free at every dawn after`, yes: `take the ${fmt(15, 0)}`,
     accept() { till += 15; estherCard = true; } },
   { who: 'Olu',    line: '“Bridge club wants the corner at half twelve. We nurse our cups — but we pay up front.”',
-    effect: 'say yes → +£9 at 12:30 · four elders in your line, counted on the evening card', yes: 'book them in',
+    effect: `say yes → +${fmt(9, 0)} at 12:30 · four elders in your line, counted on the evening card`, yes: 'book them in',
     accept() { oluPayoutAt = 750; party = { name: 'Olu', cohort: 'elders', left: 4, served: 0, walked: 0 }; } },
-  { who: 'Gwen',   line: '“My matcha plug can do twenty units for £6.40 — today only, cash.”',
-    effect: 'say yes → −£6.40 · 20 cups warming now (locks the price cut)', yes: 'take the units',
+  { who: 'Gwen',   line: `“My matcha plug can do twenty units for ${fmt(6.4)} — today only, cash.”`,
+    effect: `say yes → −${fmt(6.4)} · 20 cups warming now (locks the price cut)`, yes: 'take the units',
     accept() { till -= 6.4; batchSpend += 6.4; ctx.batchUnits += 20; ctx.prebatched = true; prebatched = true; } },
-  { who: 'Mara',   line: '“Office run — ten flat whites at 15:00. £28, but only if the line’s under six when we land.”',
-    effect: 'say yes → queue under 6 at 15:00 pays +£28 · miss it and they cross the road', yes: 'tell her yes',
+  { who: 'Mara',   line: `“Office run — ten flat whites at 15:00. ${fmt(28, 0)}, but only if the line’s under six when we land.”`,
+    effect: `say yes → queue under 6 at 15:00 pays +${fmt(28, 0)} · miss it and they cross the road`, yes: 'tell her yes',
     accept() { officeRunAt = 900; } },
 ];
 
@@ -5134,13 +5140,13 @@ function showOffer() {
 // a real cost or a real trade, not flavor: slow bar, lost sales, rep hits,
 // deferred risk. Seed-offset so different seeds see different weeks.
 const INCIDENTS = [
-  { who: 'the plumber', base: 45, share: 0.05, line: c => `“Bathroom’s backed up. Emergency callout’s £${c}, cash.”`,
-    effect: c => `pay £${c} · or the floor loses patience — walk-outs run hotter today`,
-    yes: c => `pay the £${c}`, no: 'they can hold it',
+  { who: 'the plumber', base: 45, share: 0.05, line: c => `“Bathroom’s backed up. Emergency callout’s ${fmt(c, Number.isInteger(c) ? 0 : undefined)}, cash.”`,
+    effect: c => `pay ${fmt(c, Number.isInteger(c) ? 0 : undefined)} · or the floor loses patience — walk-outs run hotter today`,
+    yes: c => `pay the ${fmt(c, Number.isInteger(c) ? 0 : undefined)}`, no: 'they can hold it',
     accept() { till -= this._cost * perkCostMul; },
     decline() { patrons.balkMul = 1.6; } },
   { who: 'Ruth, your barista', base: 55, share: 0.06, line: '“So sorry — I’ve woken up with no voice. I can’t make it in.”',
-    effect: c => `£${c} agency cover · or solo shift — the bar runs ~40% slower`,
+    effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} agency cover · or solo shift — the bar runs ~40% slower`,
     yes: 'book the cover', no: 'work it solo',
     accept() {
       till -= this._cost * perkCostMul;
@@ -5154,31 +5160,31 @@ const INCIDENTS = [
     },
     decline() { patrons.staffMul = 0.6; } },
   { who: 'the card machine', base: 25, share: 0.03, line: 'The reader’s dead. Cash only until a 4G dongle lands.',
-    effect: c => `£${c} for the dongle · or a fifth of today’s sales die at the till`,
+    effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} for the dongle · or a fifth of today’s sales die at the till`,
     yes: 'order the dongle', no: 'cash only today',
     accept() { till -= this._cost * perkCostMul; },
     decline() { cashOnly = 0.2; } },
   { who: 'the inspector', base: 30, share: 0.04, line: '“Council. Routine check — that milk needs a dated fridge log.”',
-    effect: c => `£${c} compliance fix now · or −6 reputation when the report lands`,
-    yes: c => `pay the £${c}`, no: 'take the report',
+    effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} compliance fix now · or −6 reputation when the report lands`,
+    yes: c => `pay the ${fmt(c, Number.isInteger(c) ? 0 : undefined)}`, no: 'take the report',
     accept() { till -= this._cost * perkCostMul; },
     decline() { regulars.adjustOpinions(-0.16); } },
   { who: 'a solicitor’s letter', base: 60, share: 0.06, contestShare: 0.14, contestBase: 140,
     line: 'Someone claims a scalded wrist. “Settle and it goes away.”',
-    effect: (c, c2) => `pay £${c} nuisance settlement · or contest — it lands at 16:30, half the time it sticks for £${c2}`,
-    yes: c => `settle the £${c}`, no: 'contest it',
+    effect: (c, c2) => `pay ${fmt(c)} nuisance settlement · or contest — it lands at 16:30, half the time it sticks for ${fmt(c2, Number.isInteger(c2) ? 0 : undefined)}`,
+    yes: c => `settle the ${fmt(c, Number.isInteger(c) ? 0 : undefined)}`, no: 'contest it',
     accept() { till -= this._cost * perkCostMul; },
     decline() { solicitorAt = 990; solicitorCharge = this._contest; } },
   { who: 'the supplier', base: 40, share: 0.04, line: '“Milk van’s here — account’s overdue, it’s cash on delivery today.”',
-    effect: c => `£${c} cash now · or your next contract carries a +£18 fee`,
-    yes: c => `pay the £${c}`, no: 'put it on the account',
+    effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} cash now · or your next contract carries a +${fmt(18, 0)} fee`,
+    yes: c => `pay the ${fmt(c, Number.isInteger(c) ? 0 : undefined)}`, no: 'put it on the account',
     accept() { till -= this._cost * perkCostMul; },
     decline() { contractFeeExtra += 18; } },
   // Phase 3 — the roast can scorch: re-roast fresh for £18 (roast clock
   // resets) or serve it dark and let the room taste it all day.
   { who: 'the roast', base: 18, share: 0.02, line: '“Left the house lot on too long — it’s scorched.” Ruth won’t serve it proud.',
-    effect: c => `£${c} emergency re-roast, fresh clock · or serve it dark — every roast-sensitive cup sours`,
-    yes: c => `re-roast (£${c})`, no: 'serve it dark',
+    effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} emergency re-roast, fresh clock · or serve it dark — every roast-sensitive cup sours`,
+    yes: c => `re-roast (${fmt(c, Number.isInteger(c) ? 0 : undefined)})`, no: 'serve it dark',
     accept() { till -= this._cost * perkCostMul; const e = lotState.entry(lotState.house); if (e) { e.roastedOn = day; e.scorched = false; } },
     decline() { const e = lotState.entry(lotState.house); if (e) e.scorched = true; } },
 ];
@@ -5194,7 +5200,7 @@ function showIncident() {
     if (baristaHomeToday || apprenticeHiredToday || weekHire === HIRE_ROBOT) o = INCIDENTS[(idx + 1) % INCIDENTS.length];
     else if (baristaCondition < 0.4) o = { ...o,
       line: '“I can’t do another one like yesterday.” Ruth’s voice is flat — she’s on fumes.',
-      effect: c => `£${c} agency cover · or she pushes on — the bar runs ~60% slower`,
+      effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} agency cover · or she pushes on — the bar runs ~60% slower`,
       decline() { patrons.staffMul = 0.4; } };
   }
   o = { ...o };
@@ -5803,7 +5809,7 @@ addEventListener('keydown', e => {
     if (_konami.includes('GRUNDS') && !_geshaUnlocked) {
       _geshaUnlocked = true;
       exchange.geshaUnlocked = true;
-      fx.toast('Gwen winks — gesha reserve (£7.80) on the board', 'good');
+      fx.toast(`Gwen winks — gesha reserve (${fmt(7.8)}) on the board`, 'good');
       try { world.setMatchaPrice('7.80', false); setTimeout(() => world.setMatchaPrice(exchange.matchaPrice ? exchange.matchaPrice.toFixed(2) : '4.80', repriced), 4200); } catch {}
     }
   }
@@ -6787,7 +6793,7 @@ try { window.__grunds.analytics = analytics; } catch {}
 function paintStaticCopy() {
   // Keep HTML placeholders in sync with ECON so £40 / £4.20 never drift again.
   const nb = $('notebook-body') || document.querySelector('#notebook p');
-  if (nb) nb.textContent = COPY.notebook;
+  if (nb) nb.textContent = COPY.notebook.replace(/¤\s*(\d+(?:\.\d+)?)/g, (_, v) => fmt(+v));
   const tbody = $('tbody');
   if (tbody && TUT_STEPS[0]) tbody.innerHTML = TUT_STEPS[0].b;
   const pb = $('prebatch');

@@ -11,11 +11,31 @@
 
 import { baseUrl } from './convexSync.js';
 
-// The street's money symbol — default £, repainted by the pack's currency
-// when a city lands. Read live by fmt/ticker so the flip shows mid-week.
-export const MONEY = { symbol: '£' };
+// The street's money — default £ at face value, repainted by the pack's
+// currency + quoted matcha price when a city lands. `rate` scales every
+// displayed amount so the house matcha (£4.80 base) reads as the local
+// price the licence quotes; the sim's GBP numbers never move. `dp` drops
+// to 0 for high-magnitude currencies (¥4,000, not ¥4,000.00). Read live by
+// fmt everywhere money shows, so the flip lands mid-week.
+export const MONEY = { symbol: '£', rate: 1, dp: 2 };
 export function setMoneySymbol(sym) {
   if (typeof sym === 'string' && sym.trim() && sym.trim().length <= 3) MONEY.symbol = sym.trim();
+}
+export function setMoneyRate(localPrice, matchaGbp) {
+  const p = Number(localPrice), base = Number(matchaGbp);
+  if (!Number.isFinite(p) || p <= 0 || !Number.isFinite(base) || base <= 0) {
+    MONEY.rate = 1; MONEY.dp = 2; return;
+  }
+  MONEY.rate = Math.min(Math.max(p / base, 0.01), 100000);
+  MONEY.dp = MONEY.rate >= 20 ? 0 : 2;
+}
+// The one money formatter: symbol + grouped local amount. Negative reads
+// `£-37.00` — the sign stays after the symbol, as the till always had it.
+export function fmt(n, dp = MONEY.dp, grouped = false) {
+  const v = (Number(n) || 0) * MONEY.rate;
+  let s = Math.abs(v).toFixed(dp);
+  if (grouped) s = s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return MONEY.symbol + (v < 0 ? '-' : '') + s;
 }
 
 // fnv-1a 32-bit — same string → same seed, every machine, no tables.
