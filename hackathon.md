@@ -74,6 +74,12 @@ video's call-to-action lands on a live feature, not a demo of one.
   the "other streets" fold — a choice-surfaces violation. It's now a
   top-level licence field beside name/stand; signing with a typed city
   re-seats the pitch on that city's canonical street. Redeployed live.
+- **Flagship + fixes (`58d8385`).** Lisbon confirmed flagship; Lagos re-minted
+  correctly as **Lagos, Nigeria** (Tolu / Ilekji / ₦ — bare `lagos` still
+  resolves to Portugal, kept deliberately as a real second city). Licence
+  kicker upgrades to the pack's full display once it lands. Verified the
+  week-save resume path can't hijack a `?city` link — resume is a manual
+  title-screen button, never an auto-override. All pushed + redeployed.
 - **Cultural dressing round (`fc46ea7`).** Picking a city now re-dresses
   the world, not just the decal. The pack (cache `v2` — re-mints once)
   also carries `barista`, `names`, `district`: `fmt` + ticker rows repaint
