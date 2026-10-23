@@ -304,4 +304,14 @@ export default defineSchema({
     createdAt: v.number(),
     expiresAt: v.number(),
   }).index("by_key", ["key"]),
+
+  // City Remix — every city that minted a locality pack joins the lit map.
+  // One row per canonical city name; written once on pack success
+  // (city.registerLit), listed by /city/list. The pack itself lives in
+  // apiCache (30d TTL) — this row is the permanent claim.
+  cities: defineTable({
+    name: v.string(),      // canonical lowercase — the ?city= param
+    display: v.string(),   // "Lisbon, Portugal"
+    firstLit: v.number(),
+  }).index("by_name", ["name"]),
 });

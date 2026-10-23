@@ -67,8 +67,11 @@ export function fitToSlot(inst, height) {
   inst.position.set(slot.x - center2.x, -box2.min.y, slot.z - center2.z);
 }
 
-export function initDistrictGen({ scene, seed, classic, loader }) {
+export function initDistrictGen({ scene, seed, classic, loader, city }) {
   const state = { live: false, placed: 0, total: Object.keys(SLOTS).length, seed, classic: !!classic };
+  // City Remix: a city name folds into the kit prompts server-side, so a
+  // "Lisbon" street grows its own props instead of sharing seed-7's.
+  const cityQ = city ? `&city=${encodeURIComponent(city)}` : '';
   if (classic) return state; // explicit opt-out — the procedural street carries the demo
   if (typeof globalThis !== 'undefined' && (globalThis.__headless || globalThis.__noGLB)) return state;
   const base = (baseUrl() || '').replace(/\/$/, '');
@@ -116,7 +119,7 @@ export function initDistrictGen({ scene, seed, classic, loader }) {
   async function tick(attempt) {
     let data;
     try {
-      const r = await fetch(`${base}/district/kit?seed=${seed}`);
+      const r = await fetch(`${base}/district/kit?seed=${seed}${cityQ}`);
       if (!r.ok) return;
       data = await r.json();
     } catch {
@@ -142,7 +145,7 @@ export function initDistrictGen({ scene, seed, classic, loader }) {
     state.successCount = successCount;
     if (missing.length && !state.ensured) {
       state.ensured = true;
-      fetch(`${base}/district/ensure?seed=${seed}`, { method: 'POST' }).catch(() => {});
+      fetch(`${base}/district/ensure?seed=${seed}${cityQ}`, { method: 'POST' }).catch(() => {});
     }
     state.live = true;
     state.known = Object.keys(slots).length;

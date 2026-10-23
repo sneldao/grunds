@@ -9,13 +9,60 @@
 - **Frontend:** Convex static hosting
 - **Convex deployment:** https://striped-anaconda-746.convex.cloud
 - **Components:** @convex-dev/static-hosting
-- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /sync/*, /agentmail/webhook, /agentmail/inbox, /district/kit, /district/ensure, /tripo/webhook), crons, static hosting
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /sync/*, /agentmail/webhook, /agentmail/inbox, /district/kit, /district/ensure, /city/pack, /tripo/webhook), crons, static hosting
 - **Auth:** none
-- **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
+- **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-15 (docs restructure; log now current through `daf2fa4`)
+- **Last updated:** 2026-10-23
 
 ## Log
+
+### 2026-10-23 - working tree
+New event entered: **SandBase AI City Remix** (~Oct 29 submission deadline; the
+deliverable is a 60–180 s MP4, 720p+, subtitled, directed with MiniMax M3.1
+flash through the SandBase gateway — each entry "lights up" a city on their
+map). Direction locked and built: the self-serve "your city" path, so the
+video's call-to-action lands on a live feature, not a demo of one.
+
+- **`?city=<name>` is a shareable street.** `web/js/city.js` hashes the name
+  (fnv-1a, canonical lowercase) to the campaign seed — week, walk-ins, market
+  deck and grown kit all replay identically on every machine; `?seed` stays
+  authoritative when both params ride together.
+- **Locality pack = the relatability payload.** `convex/city.ts` `pack`
+  action calls `minimax/minimax-m3.1-flash` through `api.sandbase.ai/v1`
+  (OpenAI-compatible), returns strict JSON — display name, currency, a local
+  matcha price, five real independent cafés, a landmark, a palette, a welcome
+  line — cached 30 days per city in `apiCache`, daily-budget claimed, and
+  falls back cleanly when keyless, over-budget, or unparseable. Served at
+  `GET /city/pack` (`convex/http.ts`). Verified live on the dev deployment:
+  Lisbon returns "Hello, Kristof / The Mill / Campos Coffee", €4.00,
+  "calçada mosaic sidewalks". One fix that mattered: M3.1 flash is a
+  reasoning model — `max_tokens` must cover the reasoning budget plus the
+  answer, or content arrives empty (`finish_reason: "length"`).
+- **The street wears its name.** `buildWorld` takes a district label — road
+  decal + Roaster's Ticker sub-line read `— LISBON —` instead of `— THE
+  DISTRICT —`; kit prompts gain "in the street-furniture style of {city}" so
+  every city grows its own props (new asset keys, same deterministic spec;
+  `?city=` threads through `/district/kit` + `/district/ensure`).
+- **Licence carries the pitch.** The "other streets" fold gains a "your
+  city" field — Enter or "pitch there" opens the canonical `?city=` link
+  (stopPropagation so it never signs the licence); a `?city` arrival names
+  the kicker, pre-fills the field, and paints the pack's "near your pitch:
+  {cafés} · matcha ≈ {price}" line when it lands.
+- **`cities` registry = the lit map.** A pack mint joins `cities` (new
+  table, `by_name` index) via idempotent `registerLit` — runs on fresh mints
+  AND cached reads, so a claim survives a pack expiring from cache.
+  `GET /city/list` serves it; `streets.html` gains a "lit cities" strip of
+  `?city=` cards above the deeds registry. Verified live: Lisbon lit.
+- **The share card carries the city.** `buildShareCard` takes `city` —
+  caption reads `GRUNDS — LISBON`, the stamp swaps `SEED N` for the city,
+  and the printed URL is the canonical `?city=` link: the artifact itself
+  is the distribution mechanic. `document.title` follows the city too, and
+  the pack's welcome line answers the licence signature a beat after.
+- `SANDBASE_API_KEY` set via `convex env set` (dev deployment), `.env` +
+  `.env.example` document it; `web/test/city.mjs` locks seed determinism,
+  URL canonicality, and the end-to-end wiring contracts. 430 tests green,
+  `tsc --noEmit` clean, Lisbon's 6-slot kit is growing on providers.
 
 ### 2026-10-15 - docs restructure
 

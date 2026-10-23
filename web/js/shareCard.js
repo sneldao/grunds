@@ -41,7 +41,7 @@ export function founderStampVariant() {
   return { fill: 'rgba(122,42,24,.94)',  text: 'DISTRICT FOUNDER',  subtitle: '—  NEUE HOUSE  ·  ◆  —' };
 }
 
-export function buildShareCard(ctx, { snapshot, badge = null, seed = 7, stats = {}, day = 1, rng = Math.random, founder = false }) {
+export function buildShareCard(ctx, { snapshot, badge = null, seed = 7, stats = {}, day = 1, rng = Math.random, founder = false, city = null }) {
   const L = cardLayout(ctx.canvas.width, ctx.canvas.height);
   // cream stock + linen grain (rentSign 'let' idiom)
   ctx.fillStyle = '#efe6d3';
@@ -76,11 +76,13 @@ export function buildShareCard(ctx, { snapshot, badge = null, seed = 7, stats = 
   ctx.fillRect(L.bandRect.x, L.bandRect.y, L.bandRect.w, L.bandRect.h);
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.fillStyle = 'rgba(239,230,211,.6)'; ctx.font = '600 17px Georgia, serif';
-  ctx.fillText('GRUNDS — THE DISTRICT', L.bandRect.x + 20, L.stamp.cy - 22);
+  // City Remix: a city street's card prints the canonical ?city= link —
+  // the shareable artifact carries the distribution mechanic.
+  ctx.fillText(city ? `GRUNDS — ${city.toUpperCase()}` : 'GRUNDS — THE DISTRICT', L.bandRect.x + 20, L.stamp.cy - 22);
   ctx.fillStyle = '#efe6d3'; ctx.font = '22px Georgia, serif';
   ctx.fillText(captionLine({ day, seed, stats, badge, founder }), L.bandRect.x + 20, L.stamp.cy + 8);
   ctx.fillStyle = 'rgba(239,230,211,.45)'; ctx.font = '13px ui-monospace, monospace';
-  ctx.fillText(BASE_URL + '?seed=' + seed, L.bandRect.x + 20, L.stamp.cy + 32);
+  ctx.fillText(city ? BASE_URL + '?city=' + encodeURIComponent(city) : BASE_URL + '?seed=' + seed, L.bandRect.x + 20, L.stamp.cy + 32);
   // the rubber stamp — SOLD idiom, dispatched not screenshotted
   ctx.save();
   ctx.translate(L.stamp.cx, L.stamp.cy);
@@ -95,7 +97,7 @@ export function buildShareCard(ctx, { snapshot, badge = null, seed = 7, stats = 
   ctx.strokeRect(-L.stamp.w / 2, -L.stamp.h / 2, L.stamp.w, L.stamp.h);
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
   ctx.font = '700 27px Georgia, serif';
-  ctx.fillText(variant ? `${variant.text}  ·  SEED ${seed}` : 'GRUNDS · SEED ' + seed, 0, -4);
+  ctx.fillText(variant ? `${variant.text}  ·  ${city ? city.toUpperCase() : 'SEED ' + seed}` : (city ? 'GRUNDS · ' + city.toUpperCase() : 'GRUNDS · SEED ' + seed), 0, -4);
   ctx.fillStyle = founder ? 'rgba(201,162,39,.85)' : 'rgba(255,255,255,.55)'; ctx.font = '11px ui-monospace, monospace';
   ctx.fillText(variant?.subtitle || '—  DISTRICT OFFICE  —', 0, 18);
   ctx.restore();

@@ -231,15 +231,32 @@ export const tripoWebhook = httpAction(async (ctx, req) => {
 // mint.generate; the first player on a seed pays, the rest load the cache).
 // Read-only + idempotent, so no auth — same posture as /sync/*.
 export const districtKit = httpAction(async (ctx, req) => {
-  const seed = Number(new URL(req.url).searchParams.get("seed") ?? 7);
+  const p = new URL(req.url).searchParams;
+  const seed = Number(p.get("seed") ?? 7);
   if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
-  return json(await ctx.runQuery(api.district.kit, { seed }));
+  return json(await ctx.runQuery(api.district.kit, { seed, city: p.get("city") ?? undefined }));
 });
 
 export const districtEnsure = httpAction(async (ctx, req) => {
   const seed = Number(new URL(req.url).searchParams.get("seed") ?? 7);
   if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
-  return json(await ctx.runAction(api.district.ensure, { seed }));
+  const city = new URL(req.url).searchParams.get("city") ?? undefined;
+  return json(await ctx.runAction(api.district.ensure, { seed, city }));
+});
+
+// City Remix: /city/pack returns the cached locality pack for a city name —
+// get-or-create inside city.pack (SandBase M3.1 flash, budget-guarded,
+// 30-day cache). Read-mostly and idempotent; same no-auth posture as
+// /district/kit.
+export const cityPack = httpAction(async (ctx, req) => {
+  const city = (new URL(req.url).searchParams.get("city") ?? "").trim();
+  if (!city || city.length > 60) return json({ error: "bad city" }, 400);
+  return json(await ctx.runAction(api.city.pack, { city }));
+});
+
+// The lit map — cities that have minted a pack, oldest claim first.
+export const cityList = httpAction(async (ctx) => {
+  return json(await ctx.runQuery(api.city.list, {}));
 });
 
 // The Franchise — the player's words become a stand on The Row. The brief
@@ -719,6 +736,8 @@ http.route({ path: "/ai/gossip", method: "POST", handler: aiGossip });
 http.route({ path: "/ai/research", method: "GET", handler: aiResearch });
 http.route({ path: "/district/kit", method: "GET", handler: districtKit });
 http.route({ path: "/district/ensure", method: "POST", handler: districtEnsure });
+http.route({ path: "/city/pack", method: "GET", handler: cityPack });
+http.route({ path: "/city/list", method: "GET", handler: cityList });
 http.route({ path: "/franchise/status", method: "GET", handler: franchiseStatus });
 http.route({ path: "/franchise/describe", method: "POST", handler: franchiseDescribe });
 http.route({ path: "/franchise/streets", method: "GET", handler: franchiseStreets });

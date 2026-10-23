@@ -46,6 +46,7 @@ import { firstMorningCopy, economicsLesson } from './orientation.js';
 import { FLOOR_CUES, CUE_STEP_CAP, shouldTeachOpening, cueSchedule, advanceElapsed, briefCueCopy, wireTapeLine, pastryTodayLine } from './floorCues.js';
 import { planTools, TOOL_IDS, toolCopy, essentialNote } from './curriculum.js';
 import { initSync } from './convexSync.js';
+import { cityFromSearch, cityDisplay, cityUrl, fetchCityPack, normalizeCityName } from './city.js';
 import { buildMailTheater } from './mailTheater.js';
 import { calculateCampaignBadge, openShareToX, formatShareText } from './share.js';
 import { buildShareCard, CARD_W, CARD_H } from './shareCard.js';
@@ -69,6 +70,12 @@ const lite = _liteFlag || _autoLite;
 const reducedMotion = !headless && typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
 
+// City Remix (?city=<name>): a city is a shareable street — its name hashes
+// to the campaign seed, so the week, the walk-ins and the grown kit all
+// replay on every machine. ?seed stays authoritative when both are present
+// (existing street links keep meaning what they meant).
+const city = urlParams.get('seed') ? null : cityFromSearch(location.search);
+
 // ---- three.js core -----------------------------------------------------------
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 220);
@@ -90,7 +97,7 @@ function paintLoad(done, total) {
 }
 globalThis.__grundsLoadProgress = paintLoad;
 
-const world = buildWorld(scene, renderer, lite);
+const world = buildWorld(scene, renderer, lite, { district: city ? cityDisplay(city.name) : undefined });
 const sky = buildSky(scene);                          // shader sky dome owns the backdrop
 world.useSky = true; scene.background = null;
 const postfx = buildPostFX(renderer, scene, camera, { lite: lite || headless });
@@ -102,7 +109,7 @@ const impact = createImpact({ reduced: reducedMotion, holdClock: !headless });
 const audio = new AudioEngine();
 
 // ---- the connected campaign: the Gamble + the Regulars -----------------------
-const campaignSeed = urlParams.get('seed') ? +urlParams.get('seed') : 7;
+const campaignSeed = urlParams.get('seed') ? +urlParams.get('seed') : (city ? city.seed : 7);
 const exchange = new Exchange(campaignSeed);
 const regulars = new Regulars();
 const walkins = new WalkinPool(campaignSeed);  // Phase 1 — the day's strangers; dawn ensures the day
@@ -135,7 +142,7 @@ director.add('vitalityGlow', (ctx) => {
 // Optional Convex mirror: offline-first, fire-and-forget. Configure with
 // ?convex=https://<deploy>.convex.site — the floor never blocks on it.
 const sync = initSync();
-const SEED = urlParams.get('seed') ? +urlParams.get('seed') : 7;
+const SEED = urlParams.get('seed') ? +urlParams.get('seed') : (city ? city.seed : 7);
 // PR-4b — founder replay can swap the seed at runtime. reset() seeds the
 // exchange from this variable, so updates flow through the next reset.
 let SEED_OVERRIDE = null;
@@ -144,7 +151,25 @@ const seedNow = () => SEED_OVERRIDE != null ? SEED_OVERRIDE : SEED;
 // via the Convex bridge — fire-and-forget cross-fade on arrival; the classic
 // procedural district is the fallback. No-ops when headless / no-GL / no Convex.
 // ?classicDistrict forces the procedural street (completeness escape hatch).
-const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search) });
+const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search), city: city?.name });
+// City Remix: the cached locality pack (M3.1 flash via SandBase) dresses the
+// licence with real cafés and a local price. Fire-and-forget — no pack, no
+// Convex, offline: the street just speaks generic "district".
+const cityPackPromise = city ? fetchCityPack(city.name) : null;
+let cityPack = null;
+if (cityPackPromise) cityPackPromise.then(pack => {
+  if (!pack) return;
+  cityPack = pack;
+  const hint = $('lic-city-hint');
+  if (!hint) return;
+  const bits = [];
+  if (pack.cafes?.length) bits.push(`near your pitch: ${pack.cafes.slice(0, 3).join(' · ')}`);
+  if (pack.price) bits.push(`a matcha there runs about ${pack.currency}${pack.price}`);
+  if (pack.line && !bits.length) bits.push(pack.line);
+  hint.textContent = bits.join(' — ');
+  hint.hidden = !bits.length;
+});
+if (city && !headless) try { document.title = `Grunds — ${cityDisplay(city.name)}`; } catch {}
 // The Franchise (Tripothon S1 — Tier B): the player's words become stands
 // on The Row — three storefronts unlock across the campaign. Same posture
 // as the district — fire-and-forget, the classic street is the floor.
@@ -5711,7 +5736,7 @@ function doPhoto() {
     snap.getContext('2d').drawImage(src, 0, 0, snap.width, snap.height);
     const card = document.createElement('canvas'); card.width = CARD_W; card.height = CARD_H;
     buildShareCard(card.getContext('2d'), {
-      snapshot: snap, badge, seed: seedNow(), day: day + 1,
+      snapshot: snap, badge, seed: seedNow(), day: day + 1, city: city?.name ?? null,
       stats: { till, rep: regulars.reputation, served: served + servedRetail, balked },
       founder: !!(billing && billing.isFounder && billing.isFounder()),
     });
@@ -5912,6 +5937,12 @@ function showLicence() {
     bgs.appendChild(b);
   });
   if (bgPerk) bgPerk.textContent = LIC_BGS[licBg].perk;
+  // City Remix: a city link pre-names the pitch; the "your city" field
+  // carries it forward so re-pitching the same street is one keystroke.
+  const kicker = el.querySelector('.l-kicker');
+  if (kicker && city) kicker.textContent = `one week, one stand · ${cityDisplay(city.name)}`;
+  const cityEl = $('lic-city');
+  if (cityEl && city && !cityEl.value) cityEl.value = city.name;
   const wrap = $('lic-step');
   if (wrap) { wrap.classList.remove('si-in'); void wrap.offsetWidth; wrap.classList.add('si-in'); }
   modals.open('licence');
@@ -5947,6 +5978,8 @@ function signLicence() {
   modals.close('licence');
   try { analytics.track('licence_signed', { role: playerRole, bg: perkBg, defaults: playerName === 'Sam' && standName === 'THE CORNER CUP' }); } catch {}
   fx.toast('licence signed — ' + LIC_BGS[licBg].label + ' opens ' + standName + ' Monday', 'good');
+  // City Remix: the city answers back — M3.1's welcome line, one beat after.
+  if (city && cityPack?.line) setTimeout(() => { try { fx.toast(cityPack.line, ''); } catch {} }, 1400);
   if (wantTutorial) openTutorial();
   else { started = true; audio.start(); openDay(1); rig.crane(); }
 }
@@ -5967,6 +6000,18 @@ if ($('lic-see-street')) $('lic-see-street').onclick = () => {
   openAway(u.toString());
 };
 if ($('lic-new-street')) $('lic-new-street').onclick = () => { openAway(newStreetUrl()); };
+// City Remix: "pitch there" opens the typed city as a ?city= street — the
+// name hashes to the seed, so the link another tab opens is the same street
+// anyone else gets typing that name.
+const goCity = () => {
+  const v = normalizeCityName($('lic-city') ? $('lic-city').value : '');
+  if (!v) { try { $('lic-city')?.focus(); } catch {} return; }
+  openAway(cityUrl(v));
+};
+if ($('lic-go-city')) $('lic-go-city').onclick = goCity;
+// Enter here pitches the city — stop it reaching the licence-wide
+// Enter-to-sign shortcut for inputs.
+if ($('lic-city')) $('lic-city').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); goCity(); } });
 if ($('lic-sign')) $('lic-sign').onclick = signLicence;
 
 // ---- tutorial: 3 steps, then the floor runs. Headless + ?skipTutorial bypass it.

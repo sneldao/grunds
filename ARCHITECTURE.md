@@ -31,7 +31,7 @@ grunds/
 │   ├── exchange.ts              # dawns, contracts, debt — drift-then-pity-roll
 │   ├── decisions.ts             # managed per-day commit records, browser+email arbitration
 │   ├── regulars.ts / letters.ts / apiCache.ts / openai.ts / firecrawl.ts / linkup.ts
-│   ├── nebius.ts / mint.ts / tripo.ts / revenuecat.ts
+│   ├── nebius.ts / mint.ts / tripo.ts / revenuecat.ts / city.ts  # city.ts: ?city locality packs (SandBase M3.1)
 │   ├── agentmail.ts + http.ts   # Svix-signed webhook + /sync/* + /ai/* + static catch-all
 │   └── convex.config.ts         # registers @convex-dev/static-hosting
 ├── tools/
@@ -49,6 +49,7 @@ grunds/
 │   │   │   consequences/pace  # planning + disclosure (pure modules)
 │   │   ├── letter/desk/billing/convexSync/mailTheater  # connected-mode surface
 │   │   ├── districtGen/loader/groveAssets  # generated 3D kits + asset mirrors
+│   │   ├── city.js                  # ?city=<name> → deterministic street seed + pack fetch
 │   │   └── floorStock/vitals/shareCard/modals/analytics  # presentation
 │   ├── test/                    # one suite per contract — headers carry one-liners
 │   ├── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)

@@ -98,15 +98,25 @@ function pick<T>(rng: () => number, arr: readonly T[]): T {
 
 // seed → five precise prompts + names. Pure; export for the offline
 // pre-warm tool (tools/mint-pipeline.mjs) and future tests.
-export function kitSpecForSeed(seed: number): Record<SlotName, { prompt: string; name: string }> {
+// `city` (City Remix): an optional style hint folded into every prompt —
+// "Lisbon" streets grow azulejo-blue props, not the London default. The hint
+// is a plain string concat (no rng draws), so the same seed+city is still
+// bit-deterministic, and the differing prompt keys fresh assets per city.
+export function kitSpecForSeed(
+  seed: number,
+  city?: string,
+): Record<SlotName, { prompt: string; name: string }> {
   const rng = mulberry32(Math.imul(seed | 0, 2654435761) ^ 0x9e3779b9);
   const palette = pick(rng, PALETTES);
+  // Canonical form (lowercase) — 'Lisbon' and 'lisbon' must key the same kit.
+  const cityKey = city ? city.trim().toLowerCase().replace(/\s+/g, " ").slice(0, 60) : "";
+  const where = cityKey ? `, in the street-furniture style of ${cityKey}` : "";
   const spec = {} as Record<SlotName, { prompt: string; name: string }>;
   for (const slot of DISTRICT_SLOTS) {
     const desc = pick(rng, WORDS[slot]);
     spec[slot] = {
-      prompt: `${desc}, ${palette} fittings, ${HOUSE_STYLE}`,
-      name: `${slot} · district ${seed}`,
+      prompt: `${desc}, ${palette} fittings${where}, ${HOUSE_STYLE}`,
+      name: `${slot} · ${cityKey || "district"} ${seed}`,
     };
   }
   return spec;
@@ -231,13 +241,13 @@ export function shouldFallBack(g: { fallback?: boolean; status: string } | null 
 // Floor read: full kit status for a seed, one query. The client polls this
 // while any slot is "processing"; "success" rows cross-fade in on arrival.
 export const kit = query({
-  args: { seed: v.number() },
+  args: { seed: v.number(), city: v.optional(v.string()) },
   handler: async (ctx, args): Promise<{
     seed: number;
     preset: string;
     slots: Record<string, KitSlot>;
   }> => {
-    const spec = kitSpecForSeed(args.seed);
+    const spec = kitSpecForSeed(args.seed, args.city);
     const slots = {} as Record<string, KitSlot>;
     const byKey = (key: string) =>
       ctx.db.query("tripoAssets").withIndex("by_key", (q) => q.eq("key", key)).unique();
@@ -273,12 +283,12 @@ type KitSlot = {
 // everyone. Budget-guarded inside each provider's generate. Never throws on
 // provider trouble: an un-grown slot reads "missing" → classic stand-in.
 export const ensure = action({
-  args: { seed: v.number() },
+  args: { seed: v.number(), city: v.optional(v.string()) },
   handler: async (ctx, args): Promise<{
     seed: number;
     slots: Record<string, EnsureSlot>;
   }> => {
-    const spec = kitSpecForSeed(args.seed);
+    const spec = kitSpecForSeed(args.seed, args.city);
     const slots = {} as Record<string, EnsureSlot>;
     for (const slot of DISTRICT_SLOTS) {
       const tripoSpec = tripoSpecForSlot(args.seed, slot, spec[slot]);

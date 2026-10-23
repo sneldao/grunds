@@ -10,6 +10,7 @@
 
 import type * as agentmail from "../agentmail.js";
 import type * as apiCache from "../apiCache.js";
+import type * as city from "../city.js";
 import type * as crons from "../crons.js";
 import type * as decisions from "../decisions.js";
 import type * as district from "../district.js";
@@ -40,6 +41,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   agentmail: typeof agentmail;
   apiCache: typeof apiCache;
+  city: typeof city;
   crons: typeof crons;
   decisions: typeof decisions;
   district: typeof district;

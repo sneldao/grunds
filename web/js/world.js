@@ -122,8 +122,10 @@ export function fitStockProp(g, targetH) {
   return g;
 }
 
-export function buildWorld(scene, renderer, lite) {
+export function buildWorld(scene, renderer, lite, opts = {}) {
   const W = { lite };
+  // City Remix: the street wears its name — road decal + ticker sub-label.
+  const districtLabel = (opts.district || 'THE DISTRICT').toUpperCase().slice(0, 40);
   const glb = GLBLoader();
   const pending = [];                       // async GLB placements, awaited by W.ready
   // Place a Kenney GLB: kick off the load, attach the resolved Group to
@@ -1661,7 +1663,7 @@ export function buildWorld(scene, renderer, lite) {
   // street decal — faint district name at the zebra
   const decalTex = (() => { const [dc, dg] = [document.createElement('canvas'), null]; dc.width = 512; dc.height = 64;
     const gg = dc.getContext('2d'); gg.fillStyle = 'rgba(0,0,0,0)'; gg.clearRect(0, 0, 512, 64);
-    gg.fillStyle = 'rgba(232,220,170,.18)'; gg.font = '700 22px ui-monospace, monospace'; gg.textAlign = 'center'; gg.fillText('—  THE DISTRICT  —', 256, 38); gg.fillStyle = 'rgba(232,220,170,.08)'; gg.fillRect(0, 48, 512, 1);
+    gg.fillStyle = 'rgba(232,220,170,.18)'; gg.font = '700 22px ui-monospace, monospace'; gg.textAlign = 'center'; gg.fillText(`—  ${districtLabel}  —`, 256, 38); gg.fillStyle = 'rgba(232,220,170,.08)'; gg.fillRect(0, 48, 512, 1);
     const tt = new THREE.CanvasTexture(dc); tt.colorSpace = THREE.SRGBColorSpace; return tt; })();
   const decalMat = new THREE.MeshStandardMaterial({ map: decalTex, transparent: true, opacity: 0.9, roughness: 0.98, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
   const decal = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.52), decalMat); decal.rotation.x = -Math.PI / 2; decal.position.set(LAYOUT.crossX, 0.031, 13.4); scene.add(decal);
@@ -1693,7 +1695,7 @@ export function buildWorld(scene, renderer, lite) {
       g.strokeStyle = '#c9a227'; g.lineWidth = 3.5; g.strokeRect(8, 8, 496, 304);
       g.strokeStyle = 'rgba(201,162,39,.28)'; g.lineWidth = 1; g.strokeRect(12, 12, 488, 296);
       g.fillStyle = '#c9a227'; g.font = '600 24px Georgia, serif'; g.textAlign = 'center'; g.fillText('ROASTER\u2019S  TICKER', 256, 46);
-      g.fillStyle = 'rgba(201,162,39,.45)'; g.font = '10px ui-monospace, monospace'; g.letterSpacing = '0.2em'; g.fillText('—  THE DISTRICT  —', 256, 62);
+      g.fillStyle = 'rgba(201,162,39,.45)'; g.font = '10px ui-monospace, monospace'; g.letterSpacing = '0.2em'; g.fillText(`—  ${districtLabel}  —`, 256, 62);
       const up = s.index >= (s.prev ?? s.index);
       const row = (label, val, col, y) => {
         g.fillStyle = '#9a9486'; g.font = '13px ui-monospace, monospace'; g.textAlign = 'left'; g.fillText(label, 28, y);

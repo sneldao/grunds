@@ -340,6 +340,12 @@
   .lic-perk { font-size: 11px; font-style: italic; color: #7a2a18; opacity: .85; margin: 8px 0 2px; min-height: 1.2em; }
   #lic-sign, #lic-next { width: 100%; margin-top: 0; letter-spacing: .16em; border-color: var(--brass); }
   .lic-hint { text-align: center; font-size: 10px; opacity: .5; margin-top: 8px; font-style: italic; }
+  .lic-cityrow { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .lic-cityrow input { flex: 1; min-width: 0; background: none; border: none;
+    border-bottom: 1.5px solid rgba(42,36,28,.4); font-family: var(--serif); font-size: 15px;
+    color: #2a241c; padding: 2px 0; letter-spacing: .04em; }
+  .lic-cityrow input:focus { outline: none; border-bottom-color: #7a2a18; }
+  .lic-cityrow button { flex: none; font-size: 11px; }
   #lic-dots { display: flex; justify-content: center; gap: 6px; margin-top: 14px; }
   #lic-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(58,50,38,.22); }
   #lic-dots span.on { background: var(--brass); }
@@ -951,6 +957,11 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
               <button id="lic-see-street" type="button">see a built street</button>
               <button id="lic-new-street" type="button">build your own street</button>
               <a href="/streets.html" target="_blank" rel="noopener">browse the streets</a>
+              <div class="lic-cityrow">
+                <input id="lic-city" maxlength="60" placeholder="your city" autocomplete="off">
+                <button id="lic-go-city" type="button">pitch there</button>
+              </div>
+              <p class="lic-hint" id="lic-city-hint" hidden></p>
             </details>
           </div>
         </div>
