@@ -1,4 +1,5 @@
-import { action, mutation, query } from "./_generated/server";
+import { action, internalAction, mutation, query } from "./_generated/server";
+import type { ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { hashKey } from "./apiCache";
@@ -126,62 +127,80 @@ export const pack = action({
       } catch { /* corrupt cache row — regenerate below */ }
     }
 
-    const envBudget = Number(process.env.SANDBASE_DAILY_BUDGET);
-    const budget = Number.isFinite(envBudget) && envBudget > 0 ? envBudget : SANDBASE_DAILY_BUDGET;
-    const used = await ctx.runMutation(api.apiCache.claimDaily, { name: "sandbase" });
-    if (used > budget) return fallbackPack(city);
-
-    const prompt = [
-      `You build locality data for a stylized coffee-district game. For the city below return ONLY a JSON object — no markdown, no prose:`,
-      `{`,
-      `  "display": "the city's proper name with country, e.g. \\"Lisbon, Portugal\\"",`,
-      `  "currency": "the local currency symbol, e.g. \\"€\\"",`,
-      `  "price": "a typical specialty matcha latte or flat white price there, number only",`,
-      `  "cafes": ["5 real, independent, currently-trading specialty café names in that city — no chains"],`,
-      `  "landmark": "one recognizable small landmark or street-furniture style typical of the city, under 12 words",`,
-      `  "palette": "a 3–5 word street palette typical of the city, e.g. \\"whitewash, azulejo blue, terracotta\\"",`,
-      `  "line": "one sentence, under 14 words, the city welcoming a new coffee stand to its street",`,
-      `  "barista": "one common local first name for a rival café barista there — short, no surname",`,
-      `  "names": ["8 common local first names used there — mixed gender, short forms"],`,
-      `  "district": "a real, characterful central neighbourhood name in that city, e.g. \\"Alfama\\" for Lisbon"`,
-      `}`,
-      `City: ${args.city.trim().slice(0, 60)}`,
-    ].join("\n");
-
-    try {
-      const res = await fetch(SANDBASE_ENDPOINT, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: process.env.SANDBASE_MODEL ?? SANDBASE_MODEL,
-          messages: [{ role: "user", content: prompt }],
-          // Reasoning-model headroom: M3.1 flash spends a variable
-          // reasoning_content budget before emitting content — 1400 starved
-          // it to finish_reason "length" with an empty answer. The JSON
-          // itself is ~300 tokens; the rest is the model's scratchpad.
-          max_tokens: 8000,
-          temperature: 0.4,
-        }),
-      });
-      if (!res.ok) return fallbackPack(city, `sandbase ${res.status}`);
-      const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-      const raw = data.choices?.[0]?.message?.content;
-      const parsed = raw ? parsePack(raw) : null;
-      if (!parsed) return fallbackPack(city, `unparseable completion: ${JSON.stringify(data).slice(0, 300)}`);
-      const result = packFrom(city, parsed);
-      await ctx.runMutation(api.apiCache.cachePut, {
-        key: cacheKey,
-        value: JSON.stringify(result),
-        ttlMs: PACK_TTL_MS,
-      });
-      // Join the lit map — first successful pack mints the claim.
-      await ctx.runMutation(api.city.registerLit, { name: city, display: result.display });
-      return result;
-    } catch (e) {
-      return fallbackPack(city, `sandbase fetch: ${e instanceof Error ? e.message : "threw"}`);
-    }
+    return mintPack(ctx, city, args.city);
   },
 });
+
+// Force a fresh mint, overwriting the cached pack — internal escape hatch for
+// packs the model invented. Same budget claim, same write path as pack.
+export const repack = internalAction({
+  args: { city: v.string() },
+  handler: async (ctx, args): Promise<CityPack> => {
+    const city = normalizeCity(args.city);
+    if (!city) return fallbackPack("the district");
+    return mintPack(ctx, city, args.city);
+  },
+});
+
+async function mintPack(ctx: ActionCtx, city: string, rawCity: string): Promise<CityPack> {
+  const envBudget = Number(process.env.SANDBASE_DAILY_BUDGET);
+  const budget = Number.isFinite(envBudget) && envBudget > 0 ? envBudget : SANDBASE_DAILY_BUDGET;
+  const used = await ctx.runMutation(api.apiCache.claimDaily, { name: "sandbase" });
+  if (used > budget) return fallbackPack(city);
+
+  const key = process.env.SANDBASE_API_KEY;
+  if (!key) return fallbackPack(city);
+
+  const prompt = [
+    `You build locality data for a stylized coffee-district game. For the city below return ONLY a JSON object — no markdown, no prose:`,
+    `{`,
+    `  "display": "the city's proper name with country, e.g. \\"Lisbon, Portugal\\"",`,
+    `  "currency": "the local currency symbol, e.g. \\"€\\"",`,
+    `  "price": "a typical specialty matcha latte or flat white price there, number only",`,
+    `  "cafes": ["up to 5 real, independent, currently-trading specialty café names in that city that you are highly confident exist — no chains. Fewer is better than invented; return [] if unsure"],`,
+    `  "landmark": "one recognizable small landmark or street-furniture style typical of the city, under 12 words",`,
+    `  "palette": "a 3–5 word street palette typical of the city, e.g. \\"whitewash, azulejo blue, terracotta\\"",`,
+    `  "line": "one sentence, under 14 words, the city welcoming a new coffee stand to its street",`,
+    `  "barista": "one common local first name for a rival café barista there — short, no surname",`,
+    `  "names": ["8 common local first names used there — mixed gender, short forms"],`,
+    `  "district": "a well-known central neighbourhood a local would instantly recognise, spelled exactly as locals spell it, e.g. \\"Alfama\\" for Lisbon"`,
+    `}`,
+    `City: ${rawCity.trim().slice(0, 60)}`,
+  ].join("\n");
+
+  try {
+    const res = await fetch(SANDBASE_ENDPOINT, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.SANDBASE_MODEL ?? SANDBASE_MODEL,
+        messages: [{ role: "user", content: prompt }],
+        // Reasoning-model headroom: M3.1 flash spends a variable
+        // reasoning_content budget before emitting content — 1400 starved
+        // it to finish_reason "length" with an empty answer. The JSON
+        // itself is ~300 tokens; the rest is the model's scratchpad.
+        max_tokens: 8000,
+        temperature: 0.4,
+      }),
+    });
+    if (!res.ok) return fallbackPack(city, `sandbase ${res.status}`);
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const raw = data.choices?.[0]?.message?.content;
+    const parsed = raw ? parsePack(raw) : null;
+    if (!parsed) return fallbackPack(city, `unparseable completion: ${JSON.stringify(data).slice(0, 300)}`);
+    const result = packFrom(city, parsed);
+    await ctx.runMutation(api.apiCache.cachePut, {
+      key: cityCacheKey(city),
+      value: JSON.stringify(result),
+      ttlMs: PACK_TTL_MS,
+    });
+    // Join the lit map — first successful pack mints the claim.
+    await ctx.runMutation(api.city.registerLit, { name: city, display: result.display });
+    return result;
+  } catch (e) {
+    return fallbackPack(city, `sandbase fetch: ${e instanceof Error ? e.message : "threw"}`);
+  }
+}
 
 // A city joins the lit map when its first pack lands — idempotent upsert,
 // so replays never bump firstLit or rewrite the display.

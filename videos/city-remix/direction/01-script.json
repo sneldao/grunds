@@ -1,0 +1,264 @@
+{
+  "title": "Dear Newcomer: This Is Lisbon",
+  "logline": "Lisbon writes a wry letter to a newcomer opening a coffee stand, then turns the film toward the viewer and asks which city comes next.",
+  "total_seconds": 94,
+  "scenes": [
+    {
+      "id": "01",
+      "start": 0.0,
+      "duration": 4.0,
+      "shot": "C-open",
+      "action": "Hold a warm dark typography card while Lisbon opens the letter.",
+      "subtitles": [
+        {
+          "at": 0.4,
+          "dur": 3.1,
+          "text": "Dear newcomer,\nI wrote you from my street."
+        }
+      ],
+      "card_text": "LISBON, PORTUGAL\nA LETTER BEFORE THE FIRST COFFEE"
+    },
+    {
+      "id": "02",
+      "start": 4.0,
+      "duration": 3.0,
+      "shot": "S1",
+      "action": "Hold on the Grunds title screen for a clean visual breath.",
+      "subtitles": [
+        {
+          "at": 4.2,
+          "dur": 2.8,
+          "text": "Licences, rivals, and one\nvery short week."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "03",
+      "start": 7.0,
+      "duration": 6.0,
+      "shot": "S2",
+      "action": "Type Lisbon into the city field, sign the licence, and submit it.",
+      "subtitles": [
+        {
+          "at": 7.3,
+          "dur": 4.2,
+          "text": "Type Lisbon. Sign the licence.\nI re-dress the street."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "04",
+      "start": 13.0,
+      "duration": 9.0,
+      "shot": "S3",
+      "action": "Hold on the licence as Nicolau Lisboa, Hello Kristof, Seagull Method, Fábrica Coffee Roasters, and Dear Breakfast appear with the €4 matcha price and welcome line.",
+      "subtitles": [
+        {
+          "at": 13.1,
+          "dur": 5.1,
+          "text": "Lisbon welcomes your new coffee stand\nwith warm light and curious regulars."
+        },
+        {
+          "at": 18.3,
+          "dur": 3.7,
+          "text": "Five independent cafés nearby.\nMatcha latte, about €4."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "05",
+      "start": 22.0,
+      "duration": 9.0,
+      "shot": "S4",
+      "action": "Slowly orbit the generated Lisbon-style furniture around the LISBON road decal.",
+      "subtitles": [
+        {
+          "at": 22.2,
+          "dur": 4.8,
+          "text": "My name sits on the road.\nBlack-and-white calçada portuguesa paving."
+        },
+        {
+          "at": 27.2,
+          "dur": 3.8,
+          "text": "Whitewash, azulejo blue,\nterracotta, ochre: my palette."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "06",
+      "start": 31.0,
+      "duration": 5.0,
+      "shot": "S5",
+      "action": "Push in on the PRÍNCIPE REAL ticker and the euro-denominated prices.",
+      "subtitles": [
+        {
+          "at": 31.3,
+          "dur": 4.4,
+          "text": "The ticker says PRÍNCIPE REAL.\nEvery price is painted in euros."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "07",
+      "start": 36.0,
+      "duration": 6.0,
+      "shot": "S6",
+      "action": "Open the dawn commodity brief and pause over the choice on its news card.",
+      "subtitles": [
+        {
+          "at": 36.3,
+          "dur": 3.5,
+          "text": "At dawn, my commodity brief\nasks for a decision."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "08",
+      "start": 42.0,
+      "duration": 5.0,
+      "shot": "S7",
+      "action": "Track patrons walking up and queueing beneath their Portuguese name tags.",
+      "subtitles": [
+        {
+          "at": 42.3,
+          "dur": 4.4,
+          "text": "Maria. Ana. Miguel. Sofia.\nCurious regulars, with memory."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "09",
+      "start": 47.0,
+      "duration": 4.0,
+      "shot": "C-mid",
+      "action": "Cut to a warm dark midpoint card as Lisbon turns the letter toward the viewer.",
+      "subtitles": [
+        {
+          "at": 47.3,
+          "dur": 3.5,
+          "text": "Your city is next.\nWhat will its street become?"
+        }
+      ],
+      "card_text": "YOUR CITY IS NEXT"
+    },
+    {
+      "id": "10",
+      "start": 51.0,
+      "duration": 5.0,
+      "shot": "S8",
+      "action": "Frame the rival stand across the street and settle on its barista, João.",
+      "subtitles": [
+        {
+          "at": 51.3,
+          "dur": 3.8,
+          "text": "Back on my street,\nJoão runs the rival stand."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "11",
+      "start": 56.0,
+      "duration": 6.0,
+      "shot": "S9",
+      "action": "Hold on the euro till as the total ticks upward while the day races ahead.",
+      "subtitles": [
+        {
+          "at": 56.2,
+          "dur": 2.2,
+          "text": "They choose where to buy."
+        },
+        {
+          "at": 58.7,
+          "dur": 3.3,
+          "text": "The euro till ticks up;\nthe day runs fast."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "12",
+      "start": 62.0,
+      "duration": 8.0,
+      "shot": "S10",
+      "action": "Present the end-of-week GRUNDS — LISBON card with its printed city link.",
+      "subtitles": [
+        {
+          "at": 62.3,
+          "dur": 4.2,
+          "text": "My week ends on a card:\nGRUNDS — LISBON, ?city=lisbon."
+        },
+        {
+          "at": 66.8,
+          "dur": 2.9,
+          "text": "Same link, same seeded week,\nfor everyone."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "13",
+      "start": 70.0,
+      "duration": 6.0,
+      "shot": "S11",
+      "action": "Pan across the public lit-cities map and its six city cards.",
+      "subtitles": [
+        {
+          "at": 70.3,
+          "dur": 4.2,
+          "text": "Lisbon joins New York, London,\nTokyo, Lagos, and São Paulo."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "14",
+      "start": 76.0,
+      "duration": 8.0,
+      "shot": "S12",
+      "action": "Replace Lisbon with a different city in the link and let the newly generated street arrive.",
+      "subtitles": [
+        {
+          "at": 76.2,
+          "dur": 3.8,
+          "text": "Now type a different city.\nWatch another street arrive."
+        },
+        {
+          "at": 80.3,
+          "dur": 2.7,
+          "text": "Lisbon was my letter.\nNow type your own."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "15",
+      "start": 84.0,
+      "duration": 10.0,
+      "shot": "C-end",
+      "action": "Hold the warm dark end card with the city link and the lit-map invitation.",
+      "subtitles": [
+        {
+          "at": 84.3,
+          "dur": 3.4,
+          "text": "grunds.trustfall.xyz/?city=yourcity"
+        },
+        {
+          "at": 88.2,
+          "dur": 4.2,
+          "text": "Every city typed joins the lit map."
+        }
+      ],
+      "card_text": "YOUR CITY\ngrunds.trustfall.xyz/?city=yourcity\nEvery city typed joins the lit map."
+    }
+  ],
+  "music": "A wordless, warm acoustic instrumental with nylon-string guitar, soft percussion, and upright bass; it gains a small pulse at the midpoint, then thins to leave the final link and map line clear.",
+  "director_notes": "1. Let the licence and licence facts sit; this is where the letter earns trust. 2. Use the orbit as the slowest move, then cut briskly through brief, queue, rival, and till. 3. Treat the midpoint card as a gear change, and hold the final invitation for a full ten seconds."
+}

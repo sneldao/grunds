@@ -1,0 +1,51 @@
+You are the director of a 60–180 second film for the SandBase "AI City Remix" event ("Pick a city. Let AI tell its story."). The film is a demo of a real, live tool. Write the script and shot list.
+
+THE TOOL — Grunds (https://grunds.trustfall.xyz)
+A playable 3D coffee-district game in the browser. You sign a licence for a small coffee stand and run one week on a street: AI patrons with memory decide where to buy, a rival café across the street competes, commodity news arrives in a morning brief, and the week ends with a printable share card.
+The City Remix feature: add ?city=<any city> to the link (or type a city on the licence). You — MiniMax M3.1 flash, via SandBase — mint a "locality pack" for that city and the street is re-dressed:
+- the road decal and ticker name the city and a real neighbourhood
+- every price repaints to the local currency
+- the rival barista and the walk-in patrons carry local first names
+- the 3D street furniture (cart, fountain, lantern, planter, sign, stall) is generated in that city's style
+- the licence lists real independent cafés near your pitch and the local price of a matcha latte
+- the city's name is hashed into the seed, so everyone who opens the same city link plays the identical week — the link is a shareable street
+- the share card prints the city and the link; every city minted joins a public "lit cities" map
+
+THE CITY — Lisbon. Pack you minted (use these facts, invent no others):
+display "Lisbon, Portugal"; currency €; matcha latte ≈ €4; district "Príncipe Real"; landmark "black-and-white calçada portuguesa paving"; palette "whitewash, azulejo blue, terracotta, ochre"; rival barista "João"; local names João, Maria, Ana, Miguel, Sofia, Inês, Rui, Teresa; cafés nearby: Nicolau Lisboa, Hello Kristof, Seagull Method, Fábrica Coffee Roasters, Dear Breakfast; welcome line "Lisbon welcomes your new coffee stand with warm light and curious regulars."
+
+ANGLE (the event suggests it): the city speaks in the first person — Lisbon writes a letter to the newcomer opening a stand on its street. The letter is the subtitle track. Around the midpoint the film turns to the viewer: your city is next.
+
+SHOTS YOU MAY USE — only these exist as real screen captures; do not invent others:
+S1  title screen of the game
+S2  typing "Lisbon" into the city field on the licence, signing it
+S3  the licence showing "near your pitch: <cafés> · matcha ≈ €4" and the welcome line
+S4  slow orbit of the 3D street: road decal "LISBON", generated Lisbon-style props
+S5  ticker close-up: "— PRÍNCIPE REAL —" sub-label and € prices
+S6  morning brief at dawn (commodity news card, a decision to make)
+S7  patrons walking up and queueing; name tags with Portuguese names
+S8  the rival stand across the street (João)
+S9  the till ticking up in €; the day running fast
+S10 end-of-week share card "GRUNDS — LISBON" with the printed ?city=lisbon link
+S11 the "lit cities" map: Lisbon, New York, London, Tokyo, Lagos, São Paulo cards
+S12 typing a different city into the link (the viewer's turn) and a new street arriving
+Designed cards (pure typography over a warm dark background, #0A0806 / cream #EFE6D3 / gold #C9A227) are also allowed: C-open, C-mid, C-end.
+
+CONSTRAINTS
+- Total 85–100 seconds. English. Subtitles are the only text track; no voiceover.
+- Each subtitle: at most 2 lines, at most 42 characters per line, on screen at least 2.2 seconds (reading speed ≤ 15 characters/second).
+- Voice: warm, specific, a little wry; a city that has seen many cafés open. Concrete sensory detail from the pack only. No marketing clichés ("revolutionary", "seamless", "unlock", "immersive", "journey").
+- Honesty: never claim anything not listed above. Do not say the cafés are partners or that the game is set in a real map of Lisbon.
+- The last 10 seconds: the call to action is the literal link grunds.trustfall.xyz/?city=yourcity and the line that every city typed joins the lit map.
+
+OUTPUT — return ONLY a JSON object, no markdown:
+{
+  "title": "...",
+  "logline": "one sentence",
+  "total_seconds": N,
+  "scenes": [
+    { "id": "01", "start": 0.0, "duration": 5.0, "shot": "S1|...|C-open", "action": "what the camera/player does, one sentence", "subtitles": [ { "at": 0.4, "dur": 2.6, "text": "line one\nline two" } ], "card_text": "only for C-* shots, else null" }
+  ],
+  "music": "one sentence brief for the music bed",
+  "director_notes": "3 short notes on pacing and cuts"
+}

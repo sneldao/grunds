@@ -1,0 +1,10 @@
+You directed the draft below. As the editor, I have notes. Revise it and return the full JSON in the same schema, nothing else.
+
+NOTES
+1. Structure: let the letter finish before the turn. Lisbon's letter runs from the open through the share card (S10). The turn to the viewer comes after that: S11 lit map, S12 a new city typed, C-end. Drop the C-mid card entirely.
+2. Less inventory, more letter. Several lines read like a feature list ("Every price is painted in euros", "my palette", "Black-and-white calçada portuguesa paving." as a fragment). Every line must sound like the city speaking to one person — wry, warm, specific, sensory. The features should be shown by the shot, not narrated. A line may nod at what we see (the euro, the name on the road) but in the city's voice.
+3. Accuracy: the licence shows three of the nearby cafés, not five. Do not narrate café names. The price line is "a matcha there runs about €4".
+4. One subtitle per idea; no two consecutive scenes may repeat the same idea. S12 currently says the same thing twice.
+5. Keep the hard limits: ≤ 2 lines, ≤ 42 characters per line, each on screen ≥ 2.2 s and ≤ 15 characters/second, total 85–100 s, last ~10 s is C-end with the literal link grunds.trustfall.xyz/?city=yourcity and "Every city typed joins the lit map."
+6. Sign the letter. The last line of the letter (on S10) is a sign-off from Lisbon.
+7. Same shot vocabulary as before (S1–S12, C-open, C-end). Invent no facts beyond the pack.

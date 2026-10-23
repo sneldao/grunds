@@ -32,8 +32,8 @@ function detectType(buf) {
 function existingManifest() {
   if (!fs.existsSync(MANIFEST)) return {};
   const src = fs.readFileSync(MANIFEST, 'utf8');
-  const m = src.match(/GROVE_ASSETS = (\{[\s\S]*?\});/);
-  return m ? JSON.parse(m[1].replace(/'/g, '"')) : {};
+  const m = src.match(/GROVE_ASSETS =\s*(\{[\s\S]*?\});/);
+  return m ? JSON.parse(m[1].replace(/'/g, '"').replace(/,\s*}/, '}')) : {};
 }
 
 const rows = execFileSync('npx', ['convex', 'data', 'tripoAssets',
@@ -75,5 +75,5 @@ fs.rmSync(tmp, { recursive: true, force: true });
 const src = fs.readFileSync(MANIFEST, 'utf8');
 const map = '{\n' + Object.keys(manifest).sort()
   .map((k) => `  '${k}': '${manifest[k]}',`).join('\n') + '\n}';
-fs.writeFileSync(MANIFEST, src.replace(/GROVE_ASSETS = \{[\s\S]*?\};/, `GROVE_ASSETS = ${map};`));
+fs.writeFileSync(MANIFEST, src.replace(/GROVE_ASSETS =\s*\{[\s\S]*?\};/, `GROVE_ASSETS = ${map};`));
 console.log(`mirrored ${uploaded} new object(s), ${failed} failed, ${Object.keys(manifest).length} total — review web/js/groveAssets.js`);
