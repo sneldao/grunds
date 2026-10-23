@@ -90,10 +90,25 @@ video's call-to-action lands on a live feature, not a demo of one.
   matcha price sets a display-only rate so the board's matcha reads the
   local price (€4 Lisbon, ¥650 Tokyo, whole-unit for ¥/₦); the sim stays in
   its native numbers and the no-city street is byte-identical. Walk-in pools
-  go fully local when a pack carries ≥ 6 names; the canon regulars (Mara,
-  Tomas, Yuki…) stay authored. Door steam toned down — overlapping sprites
-  read as one white blob on camera. The film's script is directed by M3.1
-  via SandBase; prompts + responses live in `videos/city-remix/direction/`.
+  go fully local when a pack carries ≥ 6 names. Door steam toned down —
+  overlapping sprites read as one white blob on camera. The film's script is
+  directed by M3.1 via SandBase; prompts + responses live in
+  `videos/city-remix/direction/` (locked draft `04-final.json`, ~94 s,
+  Lisbon writes to the newcomer — every shot a real capture).
+- **Local cast (`6599b09`).** Packs gain a `cast` list — 8 more local names
+  for the canon regulars, distinct from walk-in `names` and `barista` so a
+  walk-in Maria never sits beside a regular Maria. Internal
+  `city:extendPack` backfills `cast` into a cached pack without re-minting
+  the rest; all 7 lit cities extended (Lisbon: Zé, Bia, Tiago, Rita, Nuno,
+  Sara, Diogo, Marta). `castName` repaints every displayed regular —
+  counter prompt, toasts, offers, dossier, board, gossip text — while canon
+  names stay the key for rows/saves/replays. All-or-nothing: < 8 usable
+  names → cast stays authored. Lagos (Portugal) repacked — "ChSé" → Centro
+  Histórico. Known flake: `web/test/smoke.mjs` fails under CPU load —
+  `runDay` drives a fixed frame budget on wall-clock dt, so a busy machine
+  never reaches closing; deterministic repro by saturating cores, passes on
+  an idle machine. Hardening suggestion on file (registry `?.get` or loop to
+  `phase === 'review'`) — not applied.
 - **Cultural dressing round (`fc46ea7`).** Picking a city now re-dresses
   the world, not just the decal. The pack (cache `v2` — re-mints once)
   also carries `barista`, `names`, `district`: `fmt` + ticker rows repaint
