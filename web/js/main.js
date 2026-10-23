@@ -5973,6 +5973,12 @@ function signLicence() {
     localStorage.setItem('grunds.identity', JSON.stringify({ playerName, standName, playerRole, perkBg }));
     localStorage.setItem('grunds.owner', standName);   // the district board lists the stand, not a hash
   } catch {}
+  // City Remix: a typed city re-seats the pitch — the licence form is
+  // honest: name, stand, city, then sign. Different city → navigate to its
+  // canonical street (identity is already persisted above); same or blank
+  // stays put. The link another tab opens is the same street anyone gets.
+  const typedCity = normalizeCityName($('lic-city')?.value || '');
+  if (typedCity && (!city || typedCity !== city.name)) { location.assign(cityUrl(typedCity)); return; }
   applyPerk();
   try { applyPaywallPlacements(); } catch {}
   modals.close('licence');
@@ -6008,10 +6014,9 @@ const goCity = () => {
   if (!v) { try { $('lic-city')?.focus(); } catch {} return; }
   openAway(cityUrl(v));
 };
-if ($('lic-go-city')) $('lic-go-city').onclick = goCity;
-// Enter here pitches the city — stop it reaching the licence-wide
-// Enter-to-sign shortcut for inputs.
-if ($('lic-city')) $('lic-city').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); goCity(); } });
+if ($('lic-go-city')) $('lic-go-city').onclick = e => { e.preventDefault(); goCity(); };
+// Enter in the city field just signs — signLicence re-seats the pitch when
+// the typed city differs, so the field reads as part of the licence.
 if ($('lic-sign')) $('lic-sign').onclick = signLicence;
 
 // ---- tutorial: 3 steps, then the floor runs. Headless + ?skipTutorial bypass it.

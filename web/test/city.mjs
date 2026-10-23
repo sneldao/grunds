@@ -64,4 +64,8 @@ test('boot wires the city end to end (source contracts)', async () => {
   assert.match(card, /\?city=' \+ encodeURIComponent\(city\)/, 'the share card prints the canonical city link');
   const streets = await read('../streets.html');
   assert.match(streets, /\/city\/list/, 'the gallery lists lit cities');
+  const html = await read('../index.html');
+  const iCity = html.indexOf('id="lic-city"'), iStreets = html.indexOf('id="lic-streets"');
+  assert.ok(iCity > 0 && iCity < iStreets, 'the city field is a first-class licence field, not folded');
+  assert.match(main, /location\.assign\(cityUrl\(typedCity\)\)/, 'signing with a typed city re-seats the pitch');
 });
