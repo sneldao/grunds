@@ -175,7 +175,7 @@ if (cityPackPromise) cityPackPromise.then(pack => {
   // Money changed after first paint — re-render whatever is already up.
   try { paintStaticCopy(); updateVitals(); } catch {}
   try { if (phase === 'planning') { if (softDay) showSoftIntro(0); else showMorningBrief(); } } catch {}
-  try { if ($('regulars') && !$('regulars').hidden) renderBoard(); } catch {}
+  try { if ($('regulars')?.classList.contains('show')) renderBoard(); } catch {}
   if (pack.district && world) world.districtLabel = pack.district.toUpperCase().slice(0, 40);
   if (pack.display) {
     const kicker = $('licence')?.querySelector('.l-kicker');
