@@ -1,0 +1,261 @@
+You directed the approved 94-second film below. The edit is now being graded, so the editor returns with two notes about what the film is spending its seconds on. Revise it and return the full JSON in the same schema, nothing else.
+
+THE SCORECARD THE EDIT IS JUDGED ON
+- 25% "Story & craft": the story is a moving "me and this city" — the city as a real, specific place, not a product tour.
+- 25% "Accuracy": facts, places, names, dates.
+- 30% "AI workflow": the direction is yours.
+
+EDITOR'S NOTES
+
+1. STOP SPENDING HALF THE FILM ON INTERFACE PANELS.
+   The current cut holds on licence cards, tickers, the morning brief, the till, the share card, the lit map, and link-typing for about 52 of its 94 seconds. The street is the film. Restructure so that the sum of all frames dominated by a UI panel (S2, S3, S5, S6, S9, S10, S11, S12) is AT MOST 40 seconds, and no single UI hold exceeds 7 seconds.
+   - Use the saved time on the world: S4 (the street orbit) may appear twice with a different action each time — e.g. once a wide orbit that keeps the LISBON road decal in frame, once a low, slower move that looks down at the calçada paving and the Lisbon-style props. Give those beats 8–11 seconds each and let them breathe.
+   - Give the street the opening third. The viewer should see the city itself by about 20 seconds, not at 40. Put the first S4 beat straight after the licence, and keep the licence hold down to the welcome line plus one price line.
+   - S2 (typing into the licence) is the one UI panel that is genuinely the story: the act of naming the city. Keep it, but 4–5 seconds, not 6.
+   - S1 (the game's title screen) gets 2–3 seconds at most. S9 (the till) is atmosphere, not information: 3 seconds.
+   - S7 (patrons queueing under their names), S8 (the rival stand, João) and both S4 beats are the human, place-bound heart of the film. Do not cut them.
+
+2. ACCURACY IS NOW SCORED, SO NARROW THE CLAIMS TO WHAT THE PACK ACTUALLY SUPPORTS.
+   - Never name the nearby cafés in a subtitle, and never imply they sit in Príncipe Real — they are real independent cafés scattered across central Lisbon, not a cluster on this street. The licence shot may show them; the letter may not narrate them.
+   - The price line stays "about €4" — the word "about" is required. Never print a fixed price.
+   - Príncipe Real is a real Lisbon district and the ticker names it; that is fine. Do not extend it into a claim about a specific address or a real map.
+   - João, the patron names, and the welcome line are things the tool minted for this city; they are characters and generated copy, not real people or real quotations. Keep the letter's voice first-person but do not have Lisbon vouch for facts it cannot know.
+
+KEEP (unchanged, hard limits)
+- Letter from the city, first person, warm and a little wry; the turn to the viewer comes after the letter signs off (S11, S12, C-end).
+- Total 88–100 seconds, English, subtitles are the only text track, no voiceover.
+- Every subtitle: at most 2 lines, at most 42 characters per line, on screen at least 2.2 seconds, reading speed at most 15 characters per second.
+- Shot vocabulary unchanged: S1–S12, C-open, C-end. S4 may be used twice. Invent no shots and no facts.
+- The last ~10 seconds: C-end with the literal link grunds.trustfall.xyz/?city=yourcity and the line that every city typed joins the lit map.
+- The letter signs off on the share card (S10) with a sign-off from Lisbon.
+
+THE APPROVED SCRIPT (JSON)
+{
+  "title": "Dear Newcomer: A Letter from Lisbon",
+  "logline": "Lisbon writes a warm, wry letter to a newcomer opening a coffee stand before inviting the viewer to add their own city to the public lit map.",
+  "total_seconds": 94,
+  "scenes": [
+    {
+      "id": "01",
+      "start": 0,
+      "duration": 4,
+      "shot": "C-open",
+      "action": "Hold a warm dark typography card as Lisbon begins the letter.",
+      "subtitles": [
+        {
+          "at": 0.3,
+          "dur": 3.4,
+          "text": "A letter from Lisbon.\nI have seen many cafés open."
+        }
+      ],
+      "card_text": "LISBON, PORTUGAL\nA LETTER FROM LISBON"
+    },
+    {
+      "id": "02",
+      "start": 4,
+      "duration": 3,
+      "shot": "S1",
+      "action": "Hold on the Grunds title screen before the licence begins.",
+      "subtitles": [
+        {
+          "at": 4.2,
+          "dur": 2.7,
+          "text": "Hello, newcomer.\nMind the first coffee."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "03",
+      "start": 7,
+      "duration": 6,
+      "shot": "S2",
+      "action": "Type Lisbon into the city field, sign the licence, and submit it.",
+      "subtitles": [
+        {
+          "at": 7.3,
+          "dur": 4.6,
+          "text": "You typed my name.\nI like the sound of Lisbon."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "04",
+      "start": 13,
+      "duration": 9,
+      "shot": "S3",
+      "action": "Hold on the licence with three nearby cafés, the €4 matcha price, and the welcome line visible.",
+      "subtitles": [
+        {
+          "at": 13.2,
+          "dur": 4,
+          "text": "Here is my welcome.\nThe regulars are curious already."
+        },
+        {
+          "at": 17.5,
+          "dur": 4.2,
+          "text": "A matcha here runs about €4.\nA fair morning, I think."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "05",
+      "start": 22,
+      "duration": 9,
+      "shot": "S4",
+      "action": "Slowly orbit the generated street, keeping the LISBON decal, calçada portuguesa paving, and Lisbon-style props in view.",
+      "subtitles": [
+        {
+          "at": 22.2,
+          "dur": 5,
+          "text": "Whitewash and blue watch you pass\nas the road says LISBON."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "06",
+      "start": 31,
+      "duration": 5,
+      "shot": "S5",
+      "action": "Push in on the PRÍNCIPE REAL ticker and the euro-denominated prices.",
+      "subtitles": [
+        {
+          "at": 31.2,
+          "dur": 4.3,
+          "text": "Príncipe Real, says the ticker.\nI enjoy hearing it said."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "07",
+      "start": 36,
+      "duration": 6,
+      "shot": "S6",
+      "action": "Open the dawn commodity brief and pause over the decision on its news card.",
+      "subtitles": [
+        {
+          "at": 36.2,
+          "dur": 4.6,
+          "text": "At dawn, the brief arrives\nwith one question attached."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "08",
+      "start": 42,
+      "duration": 5,
+      "shot": "S7",
+      "action": "Follow the patrons as they walk up and queue beneath their Portuguese name tags.",
+      "subtitles": [
+        {
+          "at": 42.2,
+          "dur": 4.3,
+          "text": "They remember where they bought.\nGive them a reason to return."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "09",
+      "start": 47,
+      "duration": 5,
+      "shot": "S8",
+      "action": "Frame the rival stand across the street and settle on its barista, João.",
+      "subtitles": [
+        {
+          "at": 47.2,
+          "dur": 4.3,
+          "text": "Across the street: João.\nI suggest you wave first."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "10",
+      "start": 52,
+      "duration": 6,
+      "shot": "S9",
+      "action": "Hold on the euro till as the total ticks upward and the day races ahead.",
+      "subtitles": [
+        {
+          "at": 52.2,
+          "dur": 4.4,
+          "text": "The euro till is counting.\nThe day won't wait."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "11",
+      "start": 58,
+      "duration": 10,
+      "shot": "S10",
+      "action": "Present the end-of-week share card with the GRUNDS — LISBON title and printed ?city=lisbon link.",
+      "subtitles": [
+        {
+          "at": 58.2,
+          "dur": 4.2,
+          "text": "One card holds our week:\nGRUNDS — LISBON."
+        },
+        {
+          "at": 62.8,
+          "dur": 4.5,
+          "text": "Keep the warm light on.\nYours from here, Lisbon."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "12",
+      "start": 68,
+      "duration": 6,
+      "shot": "S11",
+      "action": "Move across the lit-cities map, with Lisbon among the six city cards.",
+      "subtitles": [
+        {
+          "at": 68.2,
+          "dur": 4.4,
+          "text": "Lisbon is on the lit map.\nYour city could be next."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "13",
+      "start": 74,
+      "duration": 10,
+      "shot": "S12",
+      "action": "Replace Lisbon in the link with a different city and let the newly generated street arrive.",
+      "subtitles": [
+        {
+          "at": 74.2,
+          "dur": 6,
+          "text": "Type another city into the link.\nWatch its street arrive."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "14",
+      "start": 84,
+      "duration": 10,
+      "shot": "C-end",
+      "action": "Hold the warm dark end card with the city link and the lit-map invitation.",
+      "subtitles": [],
+      "card_text": "YOUR CITY\ngrunds.trustfall.xyz/?city=yourcity\nEvery city typed joins the lit map."
+    }
+  ],
+  "music": "A wordless acoustic bed of nylon guitar, brushed drums, and upright bass that remains warm and restrained beneath the letter.",
+  "director_notes": "1. Let S3 and S4 breathe; establish place before plot. 2. Cut quicker through brief, regulars, rival, and till. 3. Sign off cleanly on S10, then reserve the final ten seconds for the invitation.",
+  "editor_edits": [
+    "S3: 'there' -> 'here' (the city is speaking)",
+    "C-end: subtitles dropped; the card text carries the same words"
+  ]
+}
+
+OUTPUT — return ONLY the JSON object, same schema, nothing else.

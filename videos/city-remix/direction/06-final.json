@@ -1,0 +1,251 @@
+{
+  "title": "Dear Newcomer: A Letter from Lisbon",
+  "logline": "Lisbon writes a warm, wry letter to a newcomer opening a coffee stand before inviting the viewer to add their own city to the public lit map.",
+  "total_seconds": 90.3,
+  "scenes": [
+    {
+      "id": "01",
+      "start": 0,
+      "duration": 3.5,
+      "shot": "C-open",
+      "action": "Open on a warm dark typography card; let Lisbon begin before any game interface.",
+      "subtitles": [
+        {
+          "at": 0.1,
+          "dur": 3.4,
+          "text": "A letter from Lisbon.\nI have seen many cafés open."
+        }
+      ],
+      "card_text": "LISBON, PORTUGAL\nA LETTER FROM LISBON"
+    },
+    {
+      "id": "02",
+      "start": 3.5,
+      "duration": 2.8,
+      "shot": "S1",
+      "action": "Keep the Grunds title screen brief, a clean threshold into the act of naming the city.",
+      "subtitles": [
+        {
+          "at": 3.6,
+          "dur": 2.7,
+          "text": "Hello, newcomer.\nMind the first coffee."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "03",
+      "start": 6.3,
+      "duration": 4.5,
+      "shot": "S2",
+      "action": "Type Lisbon into the city field, sign the generated licence, and submit; keep the act of naming legible.",
+      "subtitles": [
+        {
+          "at": 6.4,
+          "dur": 4.3,
+          "text": "You typed my name.\nI like the sound of Lisbon."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "04",
+      "start": 10.8,
+      "duration": 5,
+      "shot": "S3",
+      "action": "Hold the licence with the generated welcome line and the price “about €4” legible; the café names remain incidental only.",
+      "subtitles": [
+        {
+          "at": 10.9,
+          "dur": 2.5,
+          "text": "My welcome: the regulars are curious."
+        },
+        {
+          "at": 13.5,
+          "dur": 2.3,
+          "text": "A matcha here runs about €4."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "05",
+      "start": 15.8,
+      "duration": 11,
+      "shot": "S4",
+      "action": "Start a wide, measured orbit of the generated street, keeping the LISBON road decal, calçada portuguesa paving, and Lisbon-style props continuously in view.",
+      "subtitles": [
+        {
+          "at": 16,
+          "dur": 5,
+          "text": "Whitewash and blue watch you pass\nas the road says LISBON."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "06",
+      "start": 26.8,
+      "duration": 4,
+      "shot": "S5",
+      "action": "Give the PRÍNCIPE REAL ticker one brief push-in with euro prices; the district reads only as ticker copy, not as a mapped address.",
+      "subtitles": [
+        {
+          "at": 27,
+          "dur": 3.8,
+          "text": "Príncipe Real, says the ticker.\nI enjoy hearing it."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "07",
+      "start": 30.8,
+      "duration": 4,
+      "shot": "S6",
+      "action": "Open the dawn commodity brief and pause only for the single decision to register.",
+      "subtitles": [
+        {
+          "at": 31,
+          "dur": 3.8,
+          "text": "At dawn, my brief arrives\nwith one question attached."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "08",
+      "start": 34.8,
+      "duration": 8,
+      "shot": "S7",
+      "action": "Follow the tool-minted patrons as they arrive and queue beneath their Portuguese name tags; let the human rhythm build.",
+      "subtitles": [
+        {
+          "at": 35,
+          "dur": 3.8,
+          "text": "They queue beneath their names."
+        },
+        {
+          "at": 39.1,
+          "dur": 3.4,
+          "text": "Give them a reason to return."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "09",
+      "start": 42.8,
+      "duration": 8,
+      "shot": "S8",
+      "action": "Frame the tool-minted rival stand across the street and settle on its generated barista, João; hold long enough for the wry glance.",
+      "subtitles": [
+        {
+          "at": 43,
+          "dur": 4.3,
+          "text": "Across the street: João.\nI suggest you wave first."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "10",
+      "start": 50.8,
+      "duration": 11,
+      "shot": "S4",
+      "action": "Drop low and move more slowly across calçada paving and Lisbon-style props, then look just far enough up to keep the street's daily movement around them.",
+      "subtitles": [
+        {
+          "at": 51,
+          "dur": 5,
+          "text": "Look down: calçada underfoot.\nI know every pale tile."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "11",
+      "start": 61.8,
+      "duration": 3,
+      "shot": "S9",
+      "action": "Hold three seconds on the euro till as the total climbs; use it as atmosphere, not information.",
+      "subtitles": [
+        {
+          "at": 62,
+          "dur": 2.8,
+          "text": "My euro till counts.\nThe day won't wait."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "12",
+      "start": 64.8,
+      "duration": 6.5,
+      "shot": "S10",
+      "action": "Present the end-of-week share card with GRUNDS — LISBON and the printed ?city=lisbon link; keep the sign-off in Lisbon's voice.",
+      "subtitles": [
+        {
+          "at": 65,
+          "dur": 2.8,
+          "text": "One card, one week:\nGRUNDS — LISBON."
+        },
+        {
+          "at": 68,
+          "dur": 3.3,
+          "text": "Keep the warm light on.\nYours from here, Lisbon."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "13",
+      "start": 71.3,
+      "duration": 4,
+      "shot": "S11",
+      "action": "Move across the game's lit-cities map, with Lisbon among the six city cards, and only now turn toward the viewer.",
+      "subtitles": [
+        {
+          "at": 71.5,
+          "dur": 3.8,
+          "text": "Lisbon is on the lit map.\nYour city could be next."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "14",
+      "start": 75.3,
+      "duration": 5,
+      "shot": "S12",
+      "action": "Replace Lisbon in the link with a different city and let the newly generated street arrive.",
+      "subtitles": [
+        {
+          "at": 75.5,
+          "dur": 4.8,
+          "text": "Type another city into the link.\nWatch its street arrive."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "15",
+      "start": 80.3,
+      "duration": 10,
+      "shot": "C-end",
+      "action": "Hold the warm dark end card for the full final ten seconds, with the literal city link and lit-map invitation legible.",
+      "subtitles": [],
+      "card_text": "YOUR CITY\ngrunds.trustfall.xyz/?city=yourcity\nEvery city typed joins the lit map."
+    }
+  ],
+  "music": "A wordless acoustic bed of nylon guitar, brushed drums, and upright bass that remains warm and restrained beneath the letter.",
+  "director_notes": "1. The street arrives at 15.8 seconds and owns the opening third: the first S4 is an 11-second wide orbit, the second an 11-second low paving-and-props move. 2. Keep UI-dominant material to 36.0 seconds: S2 4.5, S3 5, S5 4, S6 4, S9 3, S10 6.5, S11 4, and S12 5; no UI hold exceeds 6.5 seconds. 3. Let S7 and S8 run eight seconds each, with quiet visual tails after their captions. 4. Treat Príncipe Real only as ticker copy, João and the patrons only as tool-generated characters, and keep the price at 'about €4.' 5. End the letter on S10 with Lisbon's sign-off; only S11, S12, and C-end turn outward, and C-end holds the full final ten seconds.",
+  "editor_edits": [
+    "Moved S4 directly after S3 and expanded it into two distinct 11-second street beats.",
+    "Reduced total UI-panel time from about 52 seconds to 36.0 seconds; capped S9 at 3 seconds and every UI hold at 6.5 seconds or less.",
+    "Trimmed S1 to 2.8 seconds and S2 to 4.5 seconds; moved the street arrival to 15.8 seconds.",
+    "Kept only the generated welcome line and 'about €4' on the licence, with no café names or unsupported location claims.",
+    "Marked João and the patrons as tool-generated in the shot directions; kept Príncipe Real confined to ticker copy.",
+    "Kept the S10 sign-off from Lisbon and reserved the final ten seconds for the literal link and lit-map invitation."
+  ]
+}
