@@ -2304,5 +2304,351 @@
     "page": "https://polyfork.dev/asset/brownstone-row-house-e58392",
     "glb": "brownstone-row-house-e58392.glb",
     "glb_bytes": 202964
+  },
+  "coffee-kiosk-406d3e": {
+    "title": "Coffee Kiosk",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 886,
+    "size_m": {
+      "x": 4,
+      "y": 3.2,
+      "z": 4
+    },
+    "origin_y": 0,
+    "zones": {
+      "clad": "#E0A96D",
+      "roof": "#E4C98A",
+      "trim": "#C97B4A",
+      "joinery": "#8A6E4E",
+      "plinth": "#6B5137",
+      "inside": "#4A3B2B",
+      "deck": "#7A8285",
+      "glass": "#2E3330"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "oak",
+        "options": [
+          "oak",
+          "walnut",
+          "sage",
+          "terracotta",
+          "ash"
+        ]
+      },
+      "hatch": {
+        "type": "choice",
+        "default": "open",
+        "options": [
+          "open",
+          "shut"
+        ]
+      },
+      "overhang": {
+        "type": "range",
+        "default": 0.15,
+        "min": 0.08,
+        "max": 0.3
+      },
+      "windows": {
+        "type": "range",
+        "default": 3,
+        "min": 2,
+        "max": 4
+      },
+      "boardPitch": {
+        "type": "range",
+        "default": 0.22,
+        "min": 0.16,
+        "max": 0.34
+      },
+      "tone": {
+        "type": "range",
+        "default": 0.35,
+        "min": 0,
+        "max": 1
+      }
+    },
+    "night": {
+      "inside": {
+        "albedo": "#4a3b2b",
+        "color": "#e4c98a",
+        "intensity": 0.75
+      }
+    },
+    "pivots": [
+      "counter-shelf",
+      "door-back"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/coffee-kiosk-406d3e",
+    "glb": "coffee-kiosk-406d3e.glb",
+    "glb_bytes": 103920
+  },
+  "campus-coffee-kiosk-ec2395": {
+    "title": "Campus Coffee Kiosk",
+    "kit": "university-959b66",
+    "triangles": 638,
+    "size_m": {
+      "x": 2,
+      "y": 2.8,
+      "z": 2.55
+    },
+    "origin_y": 0,
+    "zones": {
+      "cladding": "#c59a73",
+      "posts": "#936e4b",
+      "counter": "#a37d5b",
+      "zinc": "#70757e",
+      "deck": "#9d9287",
+      "signFrame": "#8a8278",
+      "lit": "#efeae3",
+      "pane": "#404349",
+      "steel": "#5b4f45",
+      "bay": "#523f34",
+      "cups": "#eae2dc",
+      "jar": "#758992",
+      "syrupA": "#f0b051",
+      "syrupB": "#558955"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "pale-timber",
+        "options": [
+          "pale-timber",
+          "charred",
+          "sage",
+          "limewash"
+        ]
+      },
+      "term": {
+        "type": "range",
+        "default": 0.6,
+        "min": 0,
+        "max": 1
+      },
+      "hatchWidth": {
+        "type": "range",
+        "default": 0.7,
+        "min": 0.5,
+        "max": 0.72
+      },
+      "panes": {
+        "type": "range",
+        "default": 3,
+        "min": 1,
+        "max": 4
+      }
+    },
+    "night": {
+      "lit": {
+        "albedo": "#efeae3",
+        "color": "#ffe3b8",
+        "intensity": 0.9
+      }
+    },
+    "pivots": [
+      "awning-flap",
+      "strut-r",
+      "strut-l",
+      "counter-leaf",
+      "door-back"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/campus-coffee-kiosk-ec2395",
+    "glb": "campus-coffee-kiosk-ec2395.glb",
+    "glb_bytes": 79400
+  },
+  "refreshment-kiosk-406f65": {
+    "title": "Refreshment Kiosk",
+    "kit": "stadium-5db167",
+    "triangles": 1086,
+    "size_m": {
+      "x": 3,
+      "y": 3.16,
+      "z": 2.96
+    },
+    "origin_y": 0,
+    "zones": {
+      "cladding": "#e4e5e1",
+      "plinth": "#7a6444",
+      "roof": "#4a5760",
+      "deck": "#a8ada6",
+      "shutter": "#1a5fb4",
+      "steel": "#9ba3a6",
+      "trim": "#33383c",
+      "board": "#f6f7f5",
+      "counter": "#e8e6e1",
+      "interior": "#66757f",
+      "lamp": "#edf5ff",
+      "cups": "#fff2d8",
+      "box": "#d8c79a",
+      "timber": "#8b5e37",
+      "chalkboard": "#1d2024",
+      "lettering": "#f2a71b"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "municipal",
+        "options": [
+          "municipal",
+          "pitch-green",
+          "claret",
+          "cream-block"
+        ]
+      },
+      "matchday": {
+        "type": "range",
+        "default": 0.6,
+        "min": 0,
+        "max": 1
+      },
+      "width": {
+        "type": "range",
+        "default": 3,
+        "min": 3,
+        "max": 5
+      },
+      "hatch": {
+        "type": "range",
+        "default": 1.5,
+        "min": 1,
+        "max": 1.8
+      },
+      "sign": {
+        "type": "choice",
+        "default": "none",
+        "options": [
+          "none",
+          "teas",
+          "snacks",
+          "kiosk"
+        ]
+      }
+    },
+    "night": {
+      "interior": {
+        "albedo": "#66757f",
+        "color": "#fff2d8",
+        "intensity": 0.6
+      },
+      "lamp": {
+        "albedo": "#edf5ff",
+        "color": "#fff2d8",
+        "intensity": 1
+      }
+    },
+    "pivots": [
+      "shutter-barrel"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/refreshment-kiosk-406f65",
+    "glb": "refreshment-kiosk-406f65.glb",
+    "glb_bytes": 125920
+  },
+  "container-snack-kiosk-7036e5": {
+    "title": "Container Snack Kiosk",
+    "kit": "skatepark-0922a9",
+    "triangles": 1918,
+    "size_m": {
+      "x": 6,
+      "y": 3,
+      "z": 2
+    },
+    "origin_y": 0,
+    "zones": {
+      "blue": "#2d8fbf",
+      "yellow": "#f4c430",
+      "plinth": "#2f2f33",
+      "hardware": "#8d969e",
+      "counter": "#e4e7e9",
+      "interior": "#45443f",
+      "lamp": "#f3f0e9",
+      "ink1": "#ff4f8b",
+      "ink2": "#ff7a1f",
+      "ink3": "#9bd23c",
+      "ink4": "#3ec7c1",
+      "ink5": "#7d4cc9",
+      "ink6": "#d2383a",
+      "vinyl": "#f9f6f0"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "fresh-paint",
+        "options": [
+          "fresh-paint",
+          "weathered",
+          "night-session"
+        ]
+      },
+      "paint": {
+        "type": "choice",
+        "default": "park-blue",
+        "options": [
+          "park-blue",
+          "safety-yellow",
+          "sticker-bombed"
+        ]
+      },
+      "flap": {
+        "type": "choice",
+        "default": "open",
+        "options": [
+          "open",
+          "closed"
+        ]
+      },
+      "hatch": {
+        "type": "range",
+        "default": 3.6,
+        "min": 2.4,
+        "max": 4.4
+      },
+      "snacks": {
+        "type": "toggle",
+        "default": true
+      },
+      "helmets": {
+        "type": "toggle",
+        "default": true
+      },
+      "stickers": {
+        "type": "range",
+        "default": 7,
+        "min": 0,
+        "max": 10
+      },
+      "arrangement": {
+        "type": "range",
+        "default": 1,
+        "min": 1,
+        "max": 12
+      }
+    },
+    "night": {
+      "interior": {
+        "albedo": "#45443f",
+        "color": "#ffd9a0",
+        "intensity": 0.6
+      },
+      "lamp": {
+        "albedo": "#f3f0e9",
+        "color": "#fff1d6",
+        "intensity": 1
+      }
+    },
+    "pivots": [
+      "flap",
+      "door-front",
+      "door-back"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/container-snack-kiosk-7036e5",
+    "glb": "container-snack-kiosk-7036e5.glb",
+    "glb_bytes": 222716
   }
 }

@@ -63,6 +63,17 @@ const PF_SLOTS = {
   fountain: ['campus-plaza-fountain-a0cab1', 'plaza-fountain-5a5f6e'],
 };
 
+// Seeded canopy/stripe variants — passed to loadPF as tint overrides; zones
+// an asset doesn't carry are ignored, so the table is safe across all
+// candidates. {} keeps the authored paint.
+const PF_TINT_VARIANTS = [
+  { stripeA: '#c9a227', stripeB: '#f6efe0' },   // brass & cream
+  { stripeA: '#86a860', stripeB: '#f6efe0' },   // matcha & cream
+  { stripeA: '#7fb3b0', stripeB: '#efe6d3' },   // teal & paper
+  { stripeA: '#d0603b', stripeB: '#f6efe0' },   // terracotta & cream
+  {},
+];
+
 // Cheap string hash so ?city=Lisbon steers the same seeded picks.
 function strHash(s) {
   let h = 0x811c9dc5;
@@ -159,7 +170,8 @@ export function initDistrictGen({ scene, seed, classic, loader, city, polyfork }
       const cands = PF_SLOTS[slot] || [];
       if (!cands.length) { settle(); continue; }
       const id = cands[Math.floor(rng() * cands.length)];
-      loadPF(glb, id, { position: s.position, rotationY: s.rotationY, height: s.height, night: 'street' })
+      const tint = PF_TINT_VARIANTS[Math.floor(rng() * PF_TINT_VARIANTS.length)];
+      loadPF(glb, id, { position: s.position, rotationY: s.rotationY, height: s.height, night: 'street', tint })
         .then((inst) => {
           if (!inst?.userData?.placeholder) {
             placed.add(slot);

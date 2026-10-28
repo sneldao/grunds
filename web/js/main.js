@@ -195,7 +195,7 @@ if (city && !headless) try { document.title = `Grunds — ${cityDisplay(city.nam
 // on The Row — three storefronts unlock across the campaign. Same posture
 // as the district — fire-and-forget, the classic street is the floor.
 const franchise = initFranchise({
-  scene, seed: SEED, classic: districtOptOut(location.search),
+  scene, seed: SEED, classic: districtOptOut(location.search), polyfork: districtPolyforkOpt(location.search),
   onArrived: (inst, def, ls) => fx.toast(ls && ls.mine
     ? `the builders finished — ${def.name} is open`
     : `${def.name} is open — ${ls && ls.byline ? `built by ${ls.byline}` : 'a previous owner built it'}; the rent is yours`, 'good'),

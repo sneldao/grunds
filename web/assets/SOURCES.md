@@ -48,7 +48,10 @@ web/js/polyforkManifest.js are generated; re-run the vendor script to update.
 - yard-sign-f1882f — Neighborhood Pathways kit
 - ice-cream-kiosk-on-40a568 — Coast and Boardwalk kit
 - sopaipilla-cart-712632 — Chile: Fiestas Patrias kit
-- campus-plaza-fountain-a0cab1 — University kit
+- campus-plaza-fountain-a0cab1, campus-coffee-kiosk-ec2395 — University kit
+- coffee-kiosk-406d3e — Modern Restaurant Cafe kit
+- refreshment-kiosk-406f65 — Stadium kit
+- container-snack-kiosk-7036e5 — Skatepark kit
 
 Full zips (not committed): kept outside the repo during setup; re-download from
 the URLs above. Considered but deferred: Quaternius Sushi Restaurant Kit,

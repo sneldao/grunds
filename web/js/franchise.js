@@ -13,6 +13,8 @@ import * as THREE from '../vendor/three.module.js';
 import { FRANCHISE } from './config.js';
 import { GLBLoader } from './loader.js';
 import { fitToSlot } from './districtGen.js';
+import { loadPF } from './polyfork.js';
+import { seeded } from './exchange.js';
 import { baseUrl } from './convexSync.js';
 import { fmt } from './city.js';
 
@@ -23,7 +25,7 @@ import { fmt } from './city.js';
 export const FRANCHISE_POLL_MS = 10000;
 export const FRANCHISE_MAX_POLLS = 36;
 
-export function initFranchise({ scene, seed, classic, loader, onArrived, onStatus }) {
+export function initFranchise({ scene, seed, classic, loader, onArrived, onStatus, polyfork }) {
   const state = {
     seed,
     live: false,        // a status read has landed at least once
@@ -174,8 +176,53 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
 
   // The brief's describe button. Returns the server's verdict so the caller
   // can flip the line to "sent" or surface the invalid-prompt hint.
+  // ?district=polyfork: the player's words map to a curated stand archetype
+  // (vendored Polyfork GLB) and land instantly — no provider call. Keywords
+  // first, seeded pick over generic stands as the fallback.
+  const PF_STANDS = [
+    [/coffee|espresso|caf[eé]|barista|flat white|brew/, 'coffee-kiosk-406d3e'],
+    [/campus|student|uni/, 'campus-coffee-kiosk-ec2395'],
+    [/juice|lemonade|smoothie|refresh|drink/, 'refreshment-kiosk-406f65'],
+    [/container|snack/, 'container-snack-kiosk-7036e5'],
+    [/ramen|noodle|yatai|soup/, 'ramen-yatai-stall-53974b'],
+    [/mercado|mexic|taco/, 'mercado-stall-6e6ba3'],
+    [/elote|corn/, 'elote-cart-a8fb49'],
+    [/hot.?dog|sausage|frank/, 'hot-dog-cart-115192'],
+    [/ice.?cream|gelato|sorbet|popsicle|sundae/, 'ice-cream-kiosk-on-40a568'],
+    [/sopaipilla|empanada|fried|chile/, 'sopaipilla-cart-712632'],
+    [/news|paper|magazine|book/, 'newsstand-6dfd65'],
+    [/market|farm|fruit|veg|produce|flower/, 'market-stall-94937d'],
+  ];
+  function pfStandId(text, lotId) {
+    const w = String(text || '').toLowerCase();
+    for (const [re, id] of PF_STANDS) if (re.test(w)) return id;
+    let h = 0; for (const c of String(lotId)) h = (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0;
+    const rng = seeded((seed >>> 0) + h + 31);
+    return ['market-stall-94937d', 'mercado-stall-6e6ba3', 'newsstand-6dfd65'][Math.floor(rng() * 3)];
+  }
+  async function pfDescribe(lotId, text, dayNow, purpose, byline) {
+    const ls = lotState(lotId), def = lotDef(lotId);
+    if (!def || ls.placed) return { status: 'locked' };
+    const id = pfStandId(text, lotId);
+    const inst = await loadPF(glb, id, {
+      position: def.position.slice(), rotationY: def.rotationY,
+      height: FRANCHISE.height, night: 'street',
+    });
+    if (inst?.userData?.placeholder) { ls.status = 'missing'; return { status: 'error', error: 'stand asset missing' }; }
+    ls.status = 'success'; ls.prompt = text;
+    ls.describedDay = dayNow || state.day;
+    ls.purpose = purpose ?? null; ls.byline = byline ?? null; ls.mine = true;
+    ls.placed = true;
+    scene.add(inst); unscaffold(lotId);
+    ls.placedDay = dayNow || state.day || 0;
+    if (state.onArrived) state.onArrived(inst, def, ls);
+    return { status: 'success', prompt: text, purpose, byline, claimed: true };
+  }
+
   state.describe = async (lotId, text, dayNow, purpose, byline) => {
-    if (dead || !base) return { status: 'error', error: 'the builders could not be reached' };
+    if (dead) return { status: 'error', error: 'the builders could not be reached' };
+    if (polyfork) return pfDescribe(lotId, text, dayNow, purpose, byline);
+    if (!base) return { status: 'error', error: 'the builders could not be reached' };
     try {
       const r = await fetch(
         `${base}/franchise/describe?seed=${seed}&lot=${encodeURIComponent(lotId)}&day=${dayNow || state.day || 0}&prompt=${encodeURIComponent(text)}` +
