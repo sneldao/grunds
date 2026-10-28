@@ -106,6 +106,10 @@ const plan = film.scenes.map((s) => {
   check(!file || existsSync(file), `scene ${s.id}: take file missing on disk: ${file}`);
   check(!take || take.hold >= s.duration - 0.05,
     `scene ${s.id}: take hold ${take?.hold}s shorter than scene duration ${s.duration}s`);
+  if (s.shot === 'S10') {
+    check(existsSync(join(CAPTURE, 'shots', 'share-card.png')),
+      `scene ${s.id}: no printed card artifact (capture/shots/share-card.png) — re-shoot s10-card`);
+  }
   return { scene: s, kind: 'take', take: takeName, file };
 });
 if (problems.length) {
@@ -141,6 +145,17 @@ for (const { scene } of plan) {
     });
     overlays.push({ png: out, at: sub.at, dur: sub.dur, id: scene.id });
   }
+}
+// S10 — the printed card rides as a centered overlay (the genuine artifact
+// the rig saved via pc-save during the take).
+const s10 = plan.find((p) => p.scene.shot === 'S10');
+const cardArtifact = join(CAPTURE, 'shots', 'share-card.png');
+if (s10) {
+  check(existsSync(cardArtifact), 'S10: no printed card artifact — re-shoot s10-card');
+  overlays.push({
+    png: cardArtifact, at: s10.scene.start + 0.4, dur: s10.scene.duration - 0.8,
+    scale: 860, id: 'card-artifact',
+  });
 }
 
 // ── 3. card specs ──────────────────────────────────────────────────────────
@@ -228,7 +243,12 @@ const bedIdx = plan.length;      // bed.wav is the input after all scene clips
 overlays.forEach((o, i) => {
   const next = `v${i + 1}`;
   const pngIdx = bedIdx + 1 + i; // subtitle PNGs follow the bed input
-  fc.push(`[${label}][${pngIdx}:v]overlay=enable='between(t,${o.at.toFixed(2)},${(o.at + o.dur).toFixed(2)})'[${next}]`);
+  if (o.scale) {
+    fc.push(`[${pngIdx}:v]scale=${o.scale}:-1[ov${i}]`);
+    fc.push(`[${label}][ov${i}]overlay=x=(W-w)/2:y=(H-h)/2:enable='between(t,${o.at.toFixed(2)},${(o.at + o.dur).toFixed(2)})'[${next}]`);
+  } else {
+    fc.push(`[${label}][${pngIdx}:v]overlay=enable='between(t,${o.at.toFixed(2)},${(o.at + o.dur).toFixed(2)})'[${next}]`);
+  }
   label = next;
 });
 fc.push(`[${bedIdx}:a]atrim=0:${total.toFixed(2)},afade=t=out:st=${fadeStart}:d=3.2,volume=0.55,aformat=sample_rates=48000:channel_layouts=stereo[aout]`);

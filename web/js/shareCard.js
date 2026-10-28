@@ -79,11 +79,11 @@ export function buildShareCard(ctx, { snapshot, badge = null, seed = 7, stats = 
   ctx.fillStyle = 'rgba(239,230,211,.6)'; ctx.font = '600 17px Georgia, serif';
   // City Remix: a city street's card prints the canonical ?city= link —
   // the shareable artifact carries the distribution mechanic.
-  ctx.fillText(city ? `GRUNDS — ${city.toUpperCase()}` : 'GRUNDS — THE DISTRICT', L.bandRect.x + 20, L.stamp.cy - 22);
+  ctx.fillText(city ? `GRUNDS — ${city.toUpperCase()}` : 'GRUNDS — THE DISTRICT', L.bandRect.x + 20, L.stamp.cy - 26);
   ctx.fillStyle = '#efe6d3'; ctx.font = '22px Georgia, serif';
-  ctx.fillText(captionLine({ day, seed, stats, badge, founder }), L.bandRect.x + 20, L.stamp.cy + 8);
+  ctx.fillText(captionLine({ day, seed, stats, badge, founder }), L.bandRect.x + 20, L.stamp.cy + 6);
   ctx.fillStyle = 'rgba(239,230,211,.45)'; ctx.font = '13px ui-monospace, monospace';
-  ctx.fillText(city ? BASE_URL + '?city=' + encodeURIComponent(city) : BASE_URL + '?seed=' + seed, L.bandRect.x + 20, L.stamp.cy + 32);
+  ctx.fillText(city ? BASE_URL + '?city=' + encodeURIComponent(city) : BASE_URL + '?seed=' + seed, L.bandRect.x + 20, L.stamp.cy + 26);
   // the rubber stamp — SOLD idiom, dispatched not screenshotted
   ctx.save();
   ctx.translate(L.stamp.cx, L.stamp.cy);

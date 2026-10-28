@@ -3,7 +3,12 @@
 
 import { fmt } from './city.js';
 
-export const BASE_URL = 'https://striped-anaconda-746.convex.site';
+// The canonical share URL — whatever domain is actually serving (the trustfall
+// mirror in production), falling back to the Convex host for headless/test use.
+export const BASE_URL = (typeof location !== 'undefined' && /^https?:\/\//.test(location.origin || '')
+  && !/convex\.site$/.test(location.origin))
+  ? location.origin
+  : 'https://striped-anaconda-746.convex.site';
 
 export function calculateCampaignBadge({
   netWorth = 0,
