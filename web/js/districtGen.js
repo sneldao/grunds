@@ -15,6 +15,8 @@
 import * as THREE from '../vendor/three.module.js';
 import { GLBLoader } from './loader.js';
 import { baseUrl } from './convexSync.js';
+import { seeded } from './exchange.js';
+import { loadPF } from './polyfork.js';
 
 // Slot → street position (pavement band z≈5.6–7.6, clear of the café door
 // at z≈8 x -5..0 and the ticker post at x 13.6) + target height in metres.
@@ -39,6 +41,33 @@ const MAX_POLLS = 8; // ~4 min at 30 s — a young district; older ones hit the 
 // the gate is testable without a DOM.
 export function districtOptOut(search) {
   return /(^|[?&])(classicDistrict|noDistrict|nogen)($|[=&])/.test(search || '');
+}
+
+// ?district=polyfork (also ?pfDistrict) — the seeded-vendored district: each
+// slot picks from a curated pool of Polyfork GLBs via the campaign seed, so
+// the street is distinct per seed yet identical every replay, instantly,
+// with no provider call and no Convex egress. Candidates exclude the ids the
+// world.js pilot set already pins to fixed spots.
+export function districtPolyforkOpt(search) {
+  return /(^|[?&])(district=polyfork|pfDistrict)($|[=&])/.test(search || '');
+}
+
+// Slot -> vendored candidate ids. Picked with a seeded LCG stream
+// (seed + 977), city folded in so a named street still grows its own props.
+const PF_SLOTS = {
+  lantern: ['street-lamp-136745', 'lantern-post-f47665', 'paper-lantern-3387e9'],
+  planter: ['planter-trough-divider-1b0ead', 'flower-planter-550bfb', 'potted-olive-tree-7eee05'],
+  stall: ['ramen-yatai-stall-53974b', 'mercado-stall-6e6ba3'],
+  sign: ['sandwich-board-sign-cb5e7c', 'hanging-shop-sign-18d2b0', 'yard-sign-f1882f', 'street-sign-pole-1e9551'],
+  cart: ['hot-dog-cart-115192', 'elote-cart-a8fb49', 'ice-cream-kiosk-on-40a568', 'sopaipilla-cart-712632'],
+  fountain: ['campus-plaza-fountain-a0cab1', 'plaza-fountain-5a5f6e'],
+};
+
+// Cheap string hash so ?city=Lisbon steers the same seeded picks.
+function strHash(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h >>> 0;
 }
 
 // Fit a loaded GLB to the slot's target height and ground it (arbitrary
@@ -67,15 +96,14 @@ export function fitToSlot(inst, height) {
   inst.position.set(slot.x - center2.x, -box2.min.y, slot.z - center2.z);
 }
 
-export function initDistrictGen({ scene, seed, classic, loader, city }) {
+export function initDistrictGen({ scene, seed, classic, loader, city, polyfork }) {
   const state = { live: false, placed: 0, total: Object.keys(SLOTS).length, seed, classic: !!classic };
   // City Remix: a city name folds into the kit prompts server-side, so a
   // "Lisbon" street grows its own props instead of sharing seed-7's.
   const cityQ = city ? `&city=${encodeURIComponent(city)}` : '';
   if (classic) return state; // explicit opt-out — the procedural street carries the demo
   if (typeof globalThis !== 'undefined' && (globalThis.__headless || globalThis.__noGLB)) return state;
-  const base = (baseUrl() || '').replace(/\/$/, '');
-  if (!base || !scene) return state;
+  if (!scene) return state;
   const glb = loader || GLBLoader();
   const placed = new Set();
   state.grown = false;
@@ -116,7 +144,46 @@ export function initDistrictGen({ scene, seed, classic, loader, city }) {
     }
   }
 
+  // Seeded Polyfork district (?district=polyfork): pick one vendored
+  // candidate per slot with the campaign seed (+ city hash) and place them
+  // all at once — no fetch, no provider, fully offline. loadPF already
+  // box-normalizes to the slot height via opts.height.
+  function growPfDistrict() {
+    const rng = seeded((seed >>> 0) + 977 + (city ? strHash(city) : 0));
+    const slots = Object.entries(SLOTS);
+    let settled = 0;
+    const settle = () => {
+      if (++settled >= slots.length) { state.pending = false; maybeMarkGrown(); }
+    };
+    for (const [slot, s] of slots) {
+      const cands = PF_SLOTS[slot] || [];
+      if (!cands.length) { settle(); continue; }
+      const id = cands[Math.floor(rng() * cands.length)];
+      loadPF(glb, id, { position: s.position, rotationY: s.rotationY, height: s.height, night: 'street' })
+        .then((inst) => {
+          if (!inst?.userData?.placeholder) {
+            placed.add(slot);
+            scene.add(inst);
+            state.placed++;
+            state.successCount++;
+            state.grownSlots.push({ slot, inst, pfId: id });
+            if (state.onPlaced) state.onPlaced(slot, inst);
+          }
+          settle();
+        }, settle);
+    }
+    state.live = true;
+    state.known = slots.length;
+  }
+
+  if (polyfork) {
+    growPfDistrict();
+    return state;
+  }
+
   async function tick(attempt) {
+    const base = (baseUrl() || '').replace(/\/$/, '');
+    if (!base) { state.pending = false; return; }
     let data;
     try {
       const r = await fetch(`${base}/district/kit?seed=${seed}${cityQ}`);

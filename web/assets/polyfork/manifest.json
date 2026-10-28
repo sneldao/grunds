@@ -1,0 +1,2308 @@
+{
+  "street-lamp-136745": {
+    "title": "Street Lamp",
+    "kit": "nyc-city-kit-fbca88",
+    "triangles": 344,
+    "size_m": {
+      "x": 2.56,
+      "y": 6,
+      "z": 0.9
+    },
+    "origin_y": 0,
+    "zones": {
+      "paint": "#3d6b52",
+      "glass": "#322d2c",
+      "lens": "#cfc6b9"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "municipal-green",
+        "options": [
+          "municipal-green",
+          "gotham-black",
+          "granite-grey",
+          "signal-red"
+        ]
+      },
+      "tallness": {
+        "type": "range",
+        "default": 1,
+        "min": 0.85,
+        "max": 1.12
+      },
+      "reach": {
+        "type": "range",
+        "default": 1,
+        "min": 0.6,
+        "max": 1.6
+      },
+      "facets": {
+        "type": "choice",
+        "default": "standard",
+        "options": [
+          "chunky",
+          "standard",
+          "smooth"
+        ]
+      }
+    },
+    "night": {
+      "lens": {
+        "albedo": "#cfc6b9",
+        "color": "#ffcf87",
+        "intensity": 1
+      },
+      "glass": {
+        "albedo": "#322d2c",
+        "color": "#c98f45",
+        "intensity": 0.55
+      }
+    },
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/street-lamp-136745",
+    "glb": "street-lamp-136745.glb",
+    "glb_bytes": 40560
+  },
+  "lantern-post-f47665": {
+    "title": "Lantern Post",
+    "kit": "nature-forest-kit-f29d6a",
+    "triangles": 482,
+    "size_m": {
+      "x": 0.47,
+      "y": 2.4,
+      "z": 0.93
+    },
+    "origin_y": 0,
+    "zones": {
+      "timber": "#8c6a47",
+      "endGrain": "#c2a479",
+      "frame": "#a5855e",
+      "roof": "#75563b",
+      "iron": "#57544e",
+      "pane": "#f8f3ec"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "oak-lantern",
+        "options": [
+          "oak-lantern",
+          "weathered-grey",
+          "creosote-pine",
+          "ranger-green"
+        ]
+      },
+      "postHeight": {
+        "type": "range",
+        "default": 2.4,
+        "min": 1.75,
+        "max": 2.56
+      },
+      "timberGirth": {
+        "type": "range",
+        "default": 1,
+        "min": 0.75,
+        "max": 1.35
+      },
+      "armReach": {
+        "type": "range",
+        "default": 0.6,
+        "min": 0.42,
+        "max": 0.92
+      },
+      "chainLinks": {
+        "type": "range",
+        "default": 4,
+        "min": 2,
+        "max": 5
+      },
+      "lanternSize": {
+        "type": "range",
+        "default": 1,
+        "min": 0.8,
+        "max": 1.22
+      }
+    },
+    "night": {
+      "pane": {
+        "albedo": "#f8f3ec",
+        "color": "#ffd9a0",
+        "intensity": 0.85
+      }
+    },
+    "pivots": [
+      "lantern"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/lantern-post-f47665",
+    "glb": "lantern-post-f47665.glb",
+    "glb_bytes": 56608
+  },
+  "paper-lantern-3387e9": {
+    "title": "Paper Lantern",
+    "kit": "japanese-suburban-city-street-baa482",
+    "triangles": 608,
+    "size_m": {
+      "x": 0.35,
+      "y": 0.5,
+      "z": 0.35
+    },
+    "origin_y": 0,
+    "zones": {
+      "paper": "#F0EFEC",
+      "stripe": "#D6452F",
+      "ink": "#2E3134",
+      "wood": "#63503C",
+      "interior": "#B9A88C",
+      "cord": "#8C7355"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "festival-red",
+        "options": [
+          "festival-red",
+          "matsuri-gold",
+          "sakura-pink",
+          "izakaya-night"
+        ]
+      },
+      "tallness": {
+        "type": "range",
+        "default": 1,
+        "min": 0.9,
+        "max": 1.25
+      },
+      "facets": {
+        "type": "range",
+        "default": 12,
+        "min": 8,
+        "max": 14
+      },
+      "belly": {
+        "type": "range",
+        "default": 1.8,
+        "min": 1.4,
+        "max": 3
+      },
+      "lettering": {
+        "type": "toggle",
+        "default": true
+      }
+    },
+    "night": {
+      "paper": {
+        "albedo": "#f0efec",
+        "color": "#ffd9a0",
+        "intensity": 0.9
+      },
+      "stripe": {
+        "albedo": "#d6452f",
+        "color": "#e8853a",
+        "intensity": 0.8
+      },
+      "interior": {
+        "albedo": "#b9a88c",
+        "color": "#f0c24b",
+        "intensity": 1
+      }
+    },
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/paper-lantern-3387e9",
+    "glb": "paper-lantern-3387e9.glb",
+    "glb_bytes": 70664
+  },
+  "planter-trough-divider-1b0ead": {
+    "title": "Planter Trough Divider",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 332,
+    "size_m": {
+      "x": 2,
+      "y": 0.64,
+      "z": 0.34
+    },
+    "origin_y": 0,
+    "zones": {
+      "shell": "#DADEDF",
+      "shellInner": "#4A4F52",
+      "feet": "#7A8285",
+      "soil": "#3B2C1E",
+      "foliage": "#7E8F6B",
+      "foliageShade": "#5C6E52",
+      "bloom": "#F8F1E7"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "galvanised",
+        "options": [
+          "galvanised",
+          "black-steel",
+          "brass-terrace",
+          "terracotta"
+        ]
+      },
+      "planting": {
+        "type": "choice",
+        "default": "hedge",
+        "options": [
+          "hedge",
+          "grasses",
+          "trailing",
+          "bare"
+        ]
+      },
+      "length": {
+        "type": "range",
+        "default": 2,
+        "min": 1,
+        "max": 3
+      },
+      "troughHeight": {
+        "type": "range",
+        "default": 0.3,
+        "min": 0.22,
+        "max": 0.42
+      },
+      "ribs": {
+        "type": "toggle",
+        "default": false
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/planter-trough-divider-1b0ead",
+    "glb": "planter-trough-divider-1b0ead.glb",
+    "glb_bytes": 39140
+  },
+  "flower-planter-550bfb": {
+    "title": "Flower Planter",
+    "kit": "japanese-suburban-city-street-baa482",
+    "triangles": 564,
+    "size_m": {
+      "x": 1,
+      "y": 0.48,
+      "z": 0.4
+    },
+    "origin_y": 0,
+    "zones": {
+      "concrete": "#D8DADD",
+      "plinth": "#6B7278",
+      "soil": "#42352A",
+      "stem": "#2F6B4F",
+      "blossomPink": "#F2A8BE",
+      "blossomLight": "#F7F5EF",
+      "blossomDeep": "#E07E9E"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "sakura-concrete",
+        "options": [
+          "sakura-concrete",
+          "warm-stone",
+          "charcoal-street",
+          "summer-green"
+        ]
+      },
+      "boxLength": {
+        "type": "range",
+        "default": 1,
+        "min": 0.66,
+        "max": 1.32
+      },
+      "bloomsPerClump": {
+        "type": "range",
+        "default": 6,
+        "min": 4,
+        "max": 7
+      },
+      "bloomSpread": {
+        "type": "range",
+        "default": 1,
+        "min": 0.7,
+        "max": 1.3
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/flower-planter-550bfb",
+    "glb": "flower-planter-550bfb.glb",
+    "glb_bytes": 65680
+  },
+  "potted-olive-tree-7eee05": {
+    "title": "Potted Olive Tree",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 547,
+    "size_m": {
+      "x": 1.42,
+      "y": 2,
+      "z": 1.22
+    },
+    "origin_y": 0,
+    "zones": {
+      "pot": "#C9B79A",
+      "potInner": "#A98F6F",
+      "soil": "#3B2C1E",
+      "trunk": "#8A6E4E",
+      "canopy": "#9FB89A",
+      "sprig": "#7E8F6B"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "terrace-concrete",
+        "options": [
+          "terrace-concrete",
+          "terracotta",
+          "charcoal-steel",
+          "limewash-oak"
+        ]
+      },
+      "potForm": {
+        "type": "choice",
+        "default": "collared",
+        "options": [
+          "collared",
+          "flowerpot",
+          "crate"
+        ]
+      },
+      "height": {
+        "type": "range",
+        "default": 2,
+        "min": 1.6,
+        "max": 2.4
+      },
+      "clumps": {
+        "type": "range",
+        "default": 3,
+        "min": 2,
+        "max": 5
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [
+      {
+        "name": "tick",
+        "seconds": 4
+      }
+    ],
+    "page": "https://polyfork.dev/asset/potted-olive-tree-7eee05",
+    "glb": "potted-olive-tree-7eee05.glb",
+    "glb_bytes": 73784
+  },
+  "ramen-yatai-stall-53974b": {
+    "title": "Ramen Yatai Stall",
+    "kit": "japanese-suburban-city-street-baa482",
+    "triangles": 886,
+    "size_m": {
+      "x": 1.87,
+      "y": 2.1,
+      "z": 1.23
+    },
+    "origin_y": 0,
+    "zones": {
+      "timber": "#8C7355",
+      "frame": "#63503C",
+      "canopy": "#D6452F",
+      "curtain": "#B5462F",
+      "tabs": "#B9A88C",
+      "iron": "#2E3134",
+      "flue": "#6B7278",
+      "glass": "#4E5459",
+      "embers": "#1B1D20"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "shoyu-red",
+        "options": [
+          "shoyu-red",
+          "indigo-night",
+          "matcha-cream",
+          "sakura"
+        ]
+      },
+      "state": {
+        "type": "choice",
+        "default": "open",
+        "options": [
+          "packed",
+          "raised",
+          "open"
+        ]
+      },
+      "length": {
+        "type": "range",
+        "default": 1.8,
+        "min": 1.8,
+        "max": 2.5
+      },
+      "screen": {
+        "type": "toggle",
+        "default": true
+      },
+      "tone": {
+        "type": "range",
+        "default": 0.4,
+        "min": 0,
+        "max": 1
+      }
+    },
+    "night": {
+      "embers": {
+        "albedo": "#1b1d20",
+        "color": "#e8853a",
+        "intensity": 0.9
+      }
+    },
+    "pivots": [
+      "wheel-front",
+      "wheel-back"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/ramen-yatai-stall-53974b",
+    "glb": "ramen-yatai-stall-53974b.glb",
+    "glb_bytes": 103768
+  },
+  "mercado-stall-6e6ba3": {
+    "title": "Mercado Stall",
+    "kit": "dia-de-muertos-f2f8f8",
+    "triangles": 800,
+    "size_m": {
+      "x": 2,
+      "y": 2.2,
+      "z": 1
+    },
+    "origin_y": 0,
+    "zones": {
+      "stripe": "#b03a6e",
+      "cloth": "#f8f5ed",
+      "steel": "#56504a",
+      "timber": "#7a5335",
+      "pine": "#cf9f6a",
+      "petate": "#cdc2a6",
+      "bloom": "#f59a1e",
+      "ember": "#c4530a",
+      "stem": "#6f9a52",
+      "bread": "#c98b3a",
+      "sugar": "#f7e7c3",
+      "fiestaA": "#e0348a",
+      "fiestaB": "#7b3fa0",
+      "fiestaC": "#2f5fa8",
+      "glass": "#7d7568",
+      "wax": "#f5f1e5",
+      "wick": "#2a2a30",
+      "flame": "#ffc23d",
+      "petal": "#e3760f",
+      "petalDry": "#8c4529"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "rosa",
+        "options": [
+          "rosa",
+          "anil",
+          "verde"
+        ]
+      },
+      "vigil": {
+        "type": "choice",
+        "default": "ofrenda",
+        "options": [
+          "before",
+          "ofrenda",
+          "dawn"
+        ]
+      },
+      "goods": {
+        "type": "choice",
+        "default": "flowers",
+        "options": [
+          "flowers",
+          "bread",
+          "skulls"
+        ]
+      },
+      "display": {
+        "type": "choice",
+        "default": "counter",
+        "options": [
+          "counter",
+          "floor"
+        ]
+      },
+      "crates": {
+        "type": "toggle",
+        "default": true
+      },
+      "lit": {
+        "type": "toggle",
+        "default": true
+      },
+      "pitch": {
+        "type": "range",
+        "default": 2.2,
+        "min": 1.95,
+        "max": 2.45
+      },
+      "tone": {
+        "type": "range",
+        "default": 0.45,
+        "min": 0,
+        "max": 1
+      }
+    },
+    "night": {
+      "flame": {
+        "albedo": "#ffc23d",
+        "color": "#ffd9a0",
+        "intensity": 1
+      }
+    },
+    "pivots": [],
+    "clips": [
+      {
+        "name": "tick",
+        "seconds": 44
+      }
+    ],
+    "page": "https://polyfork.dev/asset/mercado-stall-6e6ba3",
+    "glb": "mercado-stall-6e6ba3.glb",
+    "glb_bytes": 137172
+  },
+  "sandwich-board-sign-cb5e7c": {
+    "title": "Sandwich Board Sign",
+    "kit": "japanese-suburban-city-street-baa482",
+    "triangles": 362,
+    "size_m": {
+      "x": 0.7,
+      "y": 1,
+      "z": 0.5
+    },
+    "origin_y": 0,
+    "zones": {
+      "frame": "#7E4B33",
+      "board": "#3C4145",
+      "panel": "#8FB4C9",
+      "chalk": "#F7F5EF",
+      "hinge": "#E4E6E6"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "walnut-slate",
+        "options": [
+          "walnut-slate",
+          "cedar-cream",
+          "vermilion-tea",
+          "noir-steel",
+          "sakura-board"
+        ]
+      },
+      "tallness": {
+        "type": "range",
+        "default": 1,
+        "min": 0.8,
+        "max": 1.35
+      },
+      "panes": {
+        "type": "range",
+        "default": 2,
+        "min": 1,
+        "max": 3
+      },
+      "menuRows": {
+        "type": "range",
+        "default": 4,
+        "min": 0,
+        "max": 6
+      },
+      "stance": {
+        "type": "range",
+        "default": 0.5,
+        "min": 0.36,
+        "max": 0.66
+      }
+    },
+    "night": {},
+    "pivots": [
+      "board-front",
+      "board-back"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/sandwich-board-sign-cb5e7c",
+    "glb": "sandwich-board-sign-cb5e7c.glb",
+    "glb_bytes": 43072
+  },
+  "hot-dog-cart-115192": {
+    "title": "Hot Dog Cart",
+    "kit": "nyc-city-kit-fbca88",
+    "triangles": 764,
+    "size_m": {
+      "x": 1.9,
+      "y": 2.33,
+      "z": 2.03
+    },
+    "origin_y": 0,
+    "zones": {
+      "body": "#b5aea0",
+      "iron": "#3f4247",
+      "stripe": "#e8a825",
+      "canvas": "#f5f1e7",
+      "bread": "#f5f1e7",
+      "food": "#a34a38",
+      "mustard": "#e8a825"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "stainless-yellow",
+        "options": [
+          "stainless-yellow",
+          "papaya-red",
+          "sidewalk-blue",
+          "charcoal-green",
+          "chestnut-cream"
+        ]
+      },
+      "cartLength": {
+        "type": "range",
+        "default": 1,
+        "min": 0.85,
+        "max": 1.2
+      },
+      "canopySpread": {
+        "type": "range",
+        "default": 1,
+        "min": 0.8,
+        "max": 1.15
+      },
+      "wheelSize": {
+        "type": "range",
+        "default": 1,
+        "min": 0.8,
+        "max": 1.15
+      },
+      "umbrella": {
+        "type": "toggle",
+        "default": true
+      }
+    },
+    "night": {},
+    "pivots": [
+      "wheel-left",
+      "wheel-right"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/hot-dog-cart-115192",
+    "glb": "hot-dog-cart-115192.glb",
+    "glb_bytes": 90324
+  },
+  "elote-cart-a8fb49": {
+    "title": "Elote Cart",
+    "kit": "dia-de-muertos-f2f8f8",
+    "triangles": 2596,
+    "size_m": {
+      "x": 2,
+      "y": 2.7,
+      "z": 0.92
+    },
+    "origin_y": 0,
+    "zones": {
+      "body": "#2f5fa8",
+      "rosa": "#d94f8c",
+      "deck": "#eee9e0",
+      "steel": "#9b9383",
+      "iron": "#2a2a30",
+      "brass": "#c98b3a",
+      "glass": "#cdc2a6",
+      "flame": "#ffd9a0",
+      "wick": "#0f1428",
+      "corn": "#ffc23d",
+      "husk": "#6f9a52",
+      "steam": "#f8f5ed",
+      "chilli": "#8f2233",
+      "lime": "#2f7a4a",
+      "cheese": "#f5f1e5",
+      "clay": "#b5613c",
+      "petal": "#e3760f",
+      "petalDry": "#8c4529",
+      "paperA": "#7b3fa0",
+      "paperB": "#e0348a",
+      "paperC": "#f59a1e"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "cobalto-rosa",
+        "options": [
+          "cobalto-rosa",
+          "verde-hacienda",
+          "rosa-mexicano",
+          "azul-noche",
+          "ocre-colonial"
+        ]
+      },
+      "vigil": {
+        "type": "choice",
+        "default": "ofrenda",
+        "options": [
+          "before",
+          "ofrenda",
+          "dawn"
+        ]
+      },
+      "lit": {
+        "type": "toggle",
+        "default": true
+      },
+      "steaming": {
+        "type": "toggle",
+        "default": true
+      },
+      "cobs": {
+        "type": "range",
+        "default": 8,
+        "min": 5,
+        "max": 12
+      },
+      "wheelSize": {
+        "type": "range",
+        "default": 0.64,
+        "min": 0.56,
+        "max": 0.72
+      },
+      "harvested": {
+        "type": "toggle",
+        "default": false
+      },
+      "tone": {
+        "type": "range",
+        "default": 0.45,
+        "min": 0,
+        "max": 1
+      }
+    },
+    "night": {
+      "flame": {
+        "albedo": "#ffd9a0",
+        "color": "#ffd9a0",
+        "intensity": 1
+      },
+      "glass": {
+        "albedo": "#cdc2a6",
+        "color": "#f59a1e",
+        "intensity": 0.6
+      }
+    },
+    "pivots": [
+      "lid",
+      "wheel-l",
+      "wheel-r"
+    ],
+    "clips": [
+      {
+        "name": "tick",
+        "seconds": 12
+      }
+    ],
+    "page": "https://polyfork.dev/asset/elote-cart-a8fb49",
+    "glb": "elote-cart-a8fb49.glb",
+    "glb_bytes": 352408
+  },
+  "ice-cream-kiosk-on-40a568": {
+    "title": "Ice Cream Kiosk on Wheels",
+    "kit": "coast-and-boardwalk-d883fd",
+    "triangles": 1934,
+    "size_m": {
+      "x": 1.99,
+      "y": 2.84,
+      "z": 4
+    },
+    "origin_y": 0,
+    "zones": {
+      "paint": "#9FC6C2",
+      "roof": "#D7DFDC",
+      "trim": "#F5F2EB",
+      "check": "#E9B6A4",
+      "panel": "#F8F6F0",
+      "iron": "#8A4B32",
+      "tyre": "#5C4F42",
+      "glass": "#474540",
+      "interior": "#6B665E",
+      "timber": "#A28E74",
+      "finial": "#D6C49C",
+      "sand": "#E8D9B5"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "mint",
+        "options": [
+          "mint",
+          "strawberry",
+          "blueberry",
+          "pistachio"
+        ]
+      },
+      "tide": {
+        "type": "range",
+        "default": 0.4,
+        "min": 0,
+        "max": 1
+      },
+      "weather": {
+        "type": "range",
+        "default": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "arch": {
+        "type": "range",
+        "default": 0.34,
+        "min": 0.22,
+        "max": 0.5
+      },
+      "hatch": {
+        "type": "range",
+        "default": 1.4,
+        "min": 1,
+        "max": 1.8
+      }
+    },
+    "night": {},
+    "pivots": [
+      "wheel-l",
+      "wheel-r",
+      "flap",
+      "shelf"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/ice-cream-kiosk-on-40a568",
+    "glb": "ice-cream-kiosk-on-40a568.glb",
+    "glb_bytes": 222392
+  },
+  "campus-plaza-fountain-a0cab1": {
+    "title": "Campus Plaza Fountain",
+    "kit": "university-959b66",
+    "triangles": 689,
+    "size_m": {
+      "x": 3,
+      "y": 2.43,
+      "z": 3
+    },
+    "origin_y": 0,
+    "zones": {
+      "stone": "#b4a9a3",
+      "trim": "#eae2dc",
+      "timber": "#936e4b",
+      "water": "#4cc7dc",
+      "cup": "#a37d5b",
+      "lid": "#523f34",
+      "tote": "#758992",
+      "strap": "#efeae3"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "as-founded",
+        "options": [
+          "as-founded",
+          "weathered-grey",
+          "honey-sandstone",
+          "dark-granite"
+        ]
+      },
+      "founded": {
+        "type": "choice",
+        "default": "1960",
+        "options": [
+          "1890",
+          "1960",
+          "2010"
+        ]
+      },
+      "term": {
+        "type": "range",
+        "default": 0.6,
+        "min": 0,
+        "max": 1
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [
+      {
+        "name": "tick",
+        "seconds": 9
+      }
+    ],
+    "page": "https://polyfork.dev/asset/campus-plaza-fountain-a0cab1",
+    "glb": "campus-plaza-fountain-a0cab1.glb",
+    "glb_bytes": 234660
+  },
+  "plaza-fountain-5a5f6e": {
+    "title": "Plaza Fountain",
+    "kit": "dia-de-muertos-f2f8f8",
+    "triangles": 760,
+    "size_m": {
+      "x": 2.5,
+      "y": 1.58,
+      "z": 2.5
+    },
+    "origin_y": 0,
+    "zones": {
+      "stone": "#eee9e0",
+      "stain": "#b5613c",
+      "water": "#2f5fa8",
+      "glass": "#f8f5ed",
+      "wax": "#f7e7c3",
+      "wick": "#2a2a30",
+      "flame": "#ffc23d",
+      "petal": "#e3760f",
+      "petalDry": "#8c4529",
+      "leaf": "#6f9a52"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "cantera-rosa",
+        "options": [
+          "cantera-rosa",
+          "cantera-dorada",
+          "recinto",
+          "tezontle"
+        ]
+      },
+      "vigil": {
+        "type": "choice",
+        "default": "ofrenda",
+        "options": [
+          "before",
+          "ofrenda",
+          "dawn"
+        ]
+      },
+      "lit": {
+        "type": "toggle",
+        "default": true
+      },
+      "tiers": {
+        "type": "range",
+        "default": 2,
+        "min": 1,
+        "max": 2
+      },
+      "rimHeight": {
+        "type": "range",
+        "default": 0.6,
+        "min": 0.5,
+        "max": 0.75
+      },
+      "tone": {
+        "type": "range",
+        "default": 0.45,
+        "min": 0,
+        "max": 1
+      },
+      "scale": {
+        "type": "range",
+        "default": 1,
+        "min": 1,
+        "max": 3.55
+      }
+    },
+    "night": {
+      "flame": {
+        "albedo": "#ffc23d",
+        "color": "#ffc23d",
+        "intensity": 1
+      },
+      "glass": {
+        "albedo": "#f8f5ed",
+        "color": "#f59a1e",
+        "intensity": 0.6
+      }
+    },
+    "pivots": [],
+    "clips": [
+      {
+        "name": "tick",
+        "seconds": 44
+      }
+    ],
+    "page": "https://polyfork.dev/asset/plaza-fountain-5a5f6e",
+    "glb": "plaza-fountain-5a5f6e.glb",
+    "glb_bytes": 160060
+  },
+  "_generated": "2026-10-28",
+  "_source": "https://polyfork.dev — free low-poly catalogue; licence: commercial use, no attribution, no redistribution as assets",
+  "hanging-shop-sign-18d2b0": {
+    "title": "Hanging Shop Sign",
+    "kit": "frontier-town-a0085b",
+    "triangles": 590,
+    "size_m": {
+      "x": 0.1,
+      "y": 1.07,
+      "z": 1.6
+    },
+    "origin_y": 2.232,
+    "zones": {
+      "panel": "#6b4a2f",
+      "frame": "#a57c4d",
+      "iron": "#33312f",
+      "rustTone": "#8a4a30",
+      "bunting": "#2f3d55",
+      "buntingPale": "#f6f2eb"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "oiled-pine",
+        "options": [
+          "oiled-pine",
+          "cream-lettered",
+          "black-board",
+          "silvered-grey"
+        ]
+      },
+      "boardShape": {
+        "type": "choice",
+        "default": "canted",
+        "options": [
+          "canted",
+          "plain",
+          "arched"
+        ]
+      },
+      "boardWidth": {
+        "type": "range",
+        "default": 1.2,
+        "min": 1,
+        "max": 1.4
+      },
+      "weather": {
+        "type": "range",
+        "default": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "rust": {
+        "type": "range",
+        "default": 0.15,
+        "min": 0,
+        "max": 1
+      },
+      "boomtown": {
+        "type": "range",
+        "default": 0.6,
+        "min": 0,
+        "max": 1
+      },
+      "scale": {
+        "type": "range",
+        "default": 1,
+        "min": 0.3,
+        "max": 1
+      }
+    },
+    "night": {},
+    "pivots": [
+      "sign-board"
+    ],
+    "clips": [
+      {
+        "name": "tick",
+        "seconds": 12.8
+      }
+    ],
+    "page": "https://polyfork.dev/asset/hanging-shop-sign-18d2b0",
+    "glb": "hanging-shop-sign-18d2b0.glb",
+    "glb_bytes": 73592
+  },
+  "yard-sign-f1882f": {
+    "title": "Yard Sign",
+    "kit": "neighborhood-pathways-kit-a992cf",
+    "triangles": 330,
+    "size_m": {
+      "x": 0.69,
+      "y": 1.1,
+      "z": 0.08
+    },
+    "origin_y": 0,
+    "zones": {
+      "post": "#7B8A93",
+      "board": "#E7EAEA",
+      "field": "#F8F6EE",
+      "legend": "#3D6B92",
+      "rider": "#F2F1EE",
+      "panel": "#4A3927",
+      "hardware": "#55636D"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "realtor-cream",
+        "options": [
+          "realtor-cream",
+          "open-house-blue",
+          "campaign-red",
+          "contractor-green"
+        ]
+      },
+      "face": {
+        "type": "choice",
+        "default": "for-sale",
+        "options": [
+          "for-sale",
+          "open-house",
+          "contractor",
+          "garage-sale",
+          "political"
+        ]
+      },
+      "riders": {
+        "type": "range",
+        "default": 1,
+        "min": 0,
+        "max": 2
+      },
+      "lean": {
+        "type": "range",
+        "default": 0,
+        "min": 0,
+        "max": 10
+      },
+      "placeholderText": {
+        "type": "toggle",
+        "default": true
+      },
+      "scale": {
+        "type": "range",
+        "default": 1,
+        "min": 0.3,
+        "max": 1
+      }
+    },
+    "night": {},
+    "pivots": [
+      "rider"
+    ],
+    "clips": [
+      {
+        "name": "tick",
+        "seconds": 3.2
+      }
+    ],
+    "page": "https://polyfork.dev/asset/yard-sign-f1882f",
+    "glb": "yard-sign-f1882f.glb",
+    "glb_bytes": 41668
+  },
+  "street-sign-pole-1e9551": {
+    "title": "Street Sign Pole",
+    "kit": "nyc-city-kit-fbca88",
+    "triangles": 353,
+    "size_m": {
+      "x": 1.34,
+      "y": 3,
+      "z": 1.24
+    },
+    "origin_y": 0,
+    "zones": {
+      "iron": "#322d2c",
+      "blade": "#3d6b52",
+      "trim": "#cfc6b9",
+      "ink": "#211f1d"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "municipal-green",
+        "options": [
+          "municipal-green",
+          "gotham-black",
+          "brooklyn-blue",
+          "historic-brown"
+        ]
+      },
+      "tallness": {
+        "type": "range",
+        "default": 1,
+        "min": 0.85,
+        "max": 1.15
+      },
+      "bladeLength": {
+        "type": "range",
+        "default": 1,
+        "min": 0.74,
+        "max": 1.32
+      },
+      "finial": {
+        "type": "choice",
+        "default": "ball",
+        "options": [
+          "ball",
+          "acorn",
+          "cap"
+        ]
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/street-sign-pole-1e9551",
+    "glb": "street-sign-pole-1e9551.glb",
+    "glb_bytes": 42292
+  },
+  "sopaipilla-cart-712632": {
+    "title": "Sopaipilla Cart",
+    "kit": "chile-fiestas-patrias-87e847",
+    "triangles": 898,
+    "size_m": {
+      "x": 1.6,
+      "y": 2.07,
+      "z": 1.6
+    },
+    "origin_y": 0,
+    "zones": {
+      "body": "#c5192e",
+      "panel": "#e0dee1",
+      "steel": "#999eb4",
+      "iron": "#20243b",
+      "glass": "#8289a9",
+      "oil": "#b8855a",
+      "sopaipilla": "#bb623b",
+      "mustard": "#bdac45",
+      "pebre": "#801310",
+      "herb": "#707843",
+      "wood": "#774329",
+      "tyre": "#362019",
+      "canopyRed": "#d33035",
+      "canopyWhite": "#e8e6e6",
+      "canopyBlue": "#434d97"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "rojo-fonda",
+        "options": [
+          "rojo-fonda",
+          "azul-marino",
+          "verde-campo",
+          "crema-patria"
+        ]
+      },
+      "frying": {
+        "type": "choice",
+        "default": "frying",
+        "options": [
+          "idle",
+          "frying"
+        ]
+      },
+      "umbrella": {
+        "type": "choice",
+        "default": "open",
+        "options": [
+          "none",
+          "open"
+        ]
+      },
+      "spokes": {
+        "type": "range",
+        "default": 8,
+        "min": 6,
+        "max": 14
+      },
+      "wear": {
+        "type": "range",
+        "default": 0.2,
+        "min": 0,
+        "max": 1
+      }
+    },
+    "night": {},
+    "pivots": [
+      "wheel-front",
+      "wheel-back"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/sopaipilla-cart-712632",
+    "glb": "sopaipilla-cart-712632.glb",
+    "glb_bytes": 105072
+  },
+  "espresso-machine-a2db84": {
+    "title": "Espresso Machine",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 668,
+    "size_m": {
+      "x": 0.74,
+      "y": 0.71,
+      "z": 0.58
+    },
+    "origin_y": 0,
+    "zones": {
+      "shell": "#F8F1E7",
+      "cheek": "#6B5137",
+      "metal": "#DADEDF",
+      "hardware": "#2E3330",
+      "wood": "#A98F6F",
+      "button": "#ECEFF0",
+      "cup": "#FFFFFF"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "linen-oak",
+        "options": [
+          "linen-oak",
+          "black-steel",
+          "chrome",
+          "terracotta-brass"
+        ]
+      },
+      "groups": {
+        "type": "range",
+        "default": 2,
+        "min": 1,
+        "max": 3
+      },
+      "cupRack": {
+        "type": "range",
+        "default": 2,
+        "min": 0,
+        "max": 4
+      },
+      "cupRail": {
+        "type": "toggle",
+        "default": true
+      }
+    },
+    "night": {
+      "button": {
+        "albedo": "#eceff0",
+        "color": "#e4c98a",
+        "intensity": 0.7
+      }
+    },
+    "pivots": [
+      "portafilter-a",
+      "steam-wand-l",
+      "steam-wand-r"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/espresso-machine-a2db84",
+    "glb": "espresso-machine-a2db84.glb",
+    "glb_bytes": 80656
+  },
+  "coffee-grinder-6f962a": {
+    "title": "Coffee Grinder",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 492,
+    "size_m": {
+      "x": 0.26,
+      "y": 0.45,
+      "z": 0.31
+    },
+    "origin_y": 0,
+    "zones": {
+      "shell": "#F8F1E7",
+      "base": "#C97B4A",
+      "metal": "#DADEDF",
+      "steel": "#2E3330",
+      "glass": "#4A4F52",
+      "bean": "#4A3825"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "cream-enamel",
+        "options": [
+          "cream-enamel",
+          "matt-black",
+          "chrome",
+          "brass-cafe"
+        ]
+      },
+      "hopperFill": {
+        "type": "range",
+        "default": 0.55,
+        "min": 0,
+        "max": 1
+      },
+      "hopperHeight": {
+        "type": "range",
+        "default": 0.134,
+        "min": 0.108,
+        "max": 0.16
+      },
+      "fork": {
+        "type": "toggle",
+        "default": true
+      }
+    },
+    "night": {},
+    "pivots": [
+      "dial",
+      "hopper-slide"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/coffee-grinder-6f962a",
+    "glb": "coffee-grinder-6f962a.glb",
+    "glb_bytes": 60388
+  },
+  "batch-brew-urn-f54a3b": {
+    "title": "Batch Brew Urn",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 424,
+    "size_m": {
+      "x": 0.32,
+      "y": 0.65,
+      "z": 0.34
+    },
+    "origin_y": 0,
+    "zones": {
+      "steel": "#DADEDF",
+      "trim": "#ECEFF0",
+      "base": "#4A4F52",
+      "grate": "#7A8285",
+      "timber": "#8A6E4E",
+      "glass": "#2E3330",
+      "brew": "#4A3825"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "brushed-steel",
+        "options": [
+          "brushed-steel",
+          "matte-black",
+          "cream-brass",
+          "copper-cafe"
+        ]
+      },
+      "size": {
+        "type": "choice",
+        "default": "single",
+        "options": [
+          "single",
+          "twin"
+        ]
+      },
+      "gaugeFill": {
+        "type": "range",
+        "default": 0.6,
+        "min": 0,
+        "max": 1
+      },
+      "facets": {
+        "type": "range",
+        "default": 10,
+        "min": 8,
+        "max": 12
+      }
+    },
+    "night": {},
+    "pivots": [
+      "tap-lever"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/batch-brew-urn-f54a3b",
+    "glb": "batch-brew-urn-f54a3b.glb",
+    "glb_bytes": 51584
+  },
+  "pos-terminal-f1273c": {
+    "title": "POS Terminal",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 610,
+    "size_m": {
+      "x": 0.47,
+      "y": 0.43,
+      "z": 0.35
+    },
+    "origin_y": 0,
+    "zones": {
+      "shell": "#E4C98A",
+      "screen": "#1C1F1E",
+      "rows": "#ECEFF0",
+      "caseDark": "#6B5137",
+      "paper": "#FFFFFF",
+      "hardware": "#2E3330",
+      "keys": "#DADEDF",
+      "keyStop": "#B33A3A",
+      "keyClear": "#C9A227",
+      "keyGo": "#5C6E52"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "oak-slate",
+        "options": [
+          "oak-slate",
+          "black-steel",
+          "linen-brass",
+          "terracotta"
+        ]
+      },
+      "screenState": {
+        "type": "choice",
+        "default": "dark",
+        "options": [
+          "order-list",
+          "dark"
+        ]
+      },
+      "screenTilt": {
+        "type": "range",
+        "default": 22,
+        "min": 8,
+        "max": 40
+      },
+      "standHeight": {
+        "type": "range",
+        "default": 0.44,
+        "min": 0.34,
+        "max": 0.5
+      },
+      "receipt": {
+        "type": "range",
+        "default": 0.16,
+        "min": 0,
+        "max": 0.16
+      },
+      "scale": {
+        "type": "range",
+        "default": 1,
+        "min": 0.45,
+        "max": 1
+      }
+    },
+    "night": {
+      "screen": {
+        "albedo": "#1c1f1e",
+        "color": "#9bd5e0",
+        "intensity": 0.75
+      },
+      "rows": {
+        "albedo": null,
+        "color": "#f8f1e7",
+        "intensity": 1
+      }
+    },
+    "pivots": [
+      "swivel",
+      "screen",
+      "printer-lid"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/pos-terminal-f1273c",
+    "glb": "pos-terminal-f1273c.glb",
+    "glb_bytes": 71972
+  },
+  "takeaway-coffee-cup-1fd6dd": {
+    "title": "Takeaway Coffee Cup",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 381,
+    "size_m": {
+      "x": 0.09,
+      "y": 0.12,
+      "z": 0.09
+    },
+    "origin_y": 0,
+    "zones": {
+      "paper": "#F8F5EF",
+      "sleeve": "#A85436",
+      "print": "#7D3A24",
+      "lid": "#DADEDF",
+      "interior": "#4A3825"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "kraft-cream",
+        "options": [
+          "kraft-cream",
+          "black-lid",
+          "olive-house",
+          "signal-red"
+        ]
+      },
+      "size": {
+        "type": "choice",
+        "default": "regular",
+        "options": [
+          "small",
+          "regular",
+          "large"
+        ]
+      },
+      "lidStyle": {
+        "type": "choice",
+        "default": "domed",
+        "options": [
+          "domed",
+          "flat",
+          "none"
+        ]
+      },
+      "sleeveArt": {
+        "type": "choice",
+        "default": "plain",
+        "options": [
+          "plain",
+          "two-tone",
+          "stripes"
+        ]
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/takeaway-coffee-cup-1fd6dd",
+    "glb": "takeaway-coffee-cup-1fd6dd.glb",
+    "glb_bytes": 45628
+  },
+  "pastry-display-case-8bcce5": {
+    "title": "Pastry Display Case",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 336,
+    "size_m": {
+      "x": 1.55,
+      "y": 1.42,
+      "z": 0.87
+    },
+    "origin_y": 0,
+    "zones": {
+      "steel": "#DADEDF",
+      "plinth": "#2E3330",
+      "trim": "#4A4F52",
+      "deckFloor": "#E0A96D",
+      "glass": "#9BD5E0",
+      "shelf": "#7A8285",
+      "lamp": "#F8F1E7"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "brushed-steel",
+        "options": [
+          "brushed-steel",
+          "black-steel",
+          "cream-oak",
+          "brass-patisserie"
+        ]
+      },
+      "width": {
+        "type": "range",
+        "default": 1.55,
+        "min": 1.07,
+        "max": 2.03
+      },
+      "front": {
+        "type": "choice",
+        "default": "curved",
+        "options": [
+          "curved",
+          "square",
+          "open"
+        ]
+      },
+      "shelves": {
+        "type": "range",
+        "default": 2,
+        "min": 1,
+        "max": 3
+      },
+      "lit": {
+        "type": "toggle",
+        "default": true
+      }
+    },
+    "night": {
+      "lamp": {
+        "albedo": "#f8f1e7",
+        "color": "#fff1d4",
+        "intensity": 0.85
+      }
+    },
+    "pivots": [
+      "rear-panel"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/pastry-display-case-8bcce5",
+    "glb": "pastry-display-case-8bcce5.glb",
+    "glb_bytes": 41756
+  },
+  "shop-coffee-roaster-c6a2b5": {
+    "title": "Shop Coffee Roaster",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 736,
+    "size_m": {
+      "x": 0.58,
+      "y": 1.2,
+      "z": 0.8
+    },
+    "origin_y": 0,
+    "zones": {
+      "shell": "#B33A3A",
+      "frame": "#4A4F52",
+      "steel": "#2E3330",
+      "brass": "#C9A227",
+      "bright": "#DADEDF",
+      "glass": "#1C1F1E",
+      "bean": "#6B5137"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "red-enamel",
+        "options": [
+          "red-enamel",
+          "matt-black",
+          "brass-trim",
+          "cream-enamel"
+        ]
+      },
+      "size": {
+        "type": "range",
+        "default": 1,
+        "min": 0.85,
+        "max": 1.2
+      },
+      "flue": {
+        "type": "range",
+        "default": 0.28,
+        "min": 0.18,
+        "max": 0.42
+      },
+      "tray": {
+        "type": "choice",
+        "default": "empty",
+        "options": [
+          "empty",
+          "cooling",
+          "full"
+        ]
+      }
+    },
+    "night": {
+      "glass": {
+        "albedo": "#1c1f1e",
+        "color": "#e0a96d",
+        "intensity": 0.65
+      }
+    },
+    "pivots": [
+      "door",
+      "tray"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/shop-coffee-roaster-c6a2b5",
+    "glb": "shop-coffee-roaster-c6a2b5.glb",
+    "glb_bytes": 86804
+  },
+  "chalkboard-menu-board-a24d9d": {
+    "title": "Chalkboard Menu Board",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 194,
+    "size_m": {
+      "x": 1.02,
+      "y": 1.12,
+      "z": 0.16
+    },
+    "origin_y": 1.4,
+    "zones": {
+      "frame": "#A98F6F",
+      "board": "#2E3330",
+      "chalk": "#F8F5EF",
+      "chalkAccent": "#E4C98A",
+      "chalkStickB": "#9BD5E0"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "oak-slate",
+        "options": [
+          "oak-slate",
+          "walnut-slate",
+          "black-steel",
+          "sage-painted"
+        ]
+      },
+      "panels": {
+        "type": "range",
+        "default": 1,
+        "min": 1,
+        "max": 3
+      },
+      "rows": {
+        "type": "range",
+        "default": 7,
+        "min": 5,
+        "max": 9
+      },
+      "menuDensity": {
+        "type": "range",
+        "default": 0.6,
+        "min": 0,
+        "max": 1
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/chalkboard-menu-board-a24d9d",
+    "glb": "chalkboard-menu-board-a24d9d.glb",
+    "glb_bytes": 25080
+  },
+  "bistro-table-877a6d": {
+    "title": "Bistro Table",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 208,
+    "size_m": {
+      "x": 0.7,
+      "y": 0.75,
+      "z": 0.7
+    },
+    "origin_y": 0,
+    "zones": {
+      "top": "#E0A96D",
+      "column": "#A98F6F",
+      "base": "#4A3825"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "oak-black",
+        "options": [
+          "oak-black",
+          "marble-brass",
+          "noir-steel",
+          "terracotta-walnut",
+          "sage-terrace"
+        ]
+      },
+      "topShape": {
+        "type": "choice",
+        "default": "square",
+        "options": [
+          "square",
+          "round",
+          "oval"
+        ]
+      },
+      "baseStyle": {
+        "type": "choice",
+        "default": "plinth",
+        "options": [
+          "plinth",
+          "four-star",
+          "disc",
+          "cross"
+        ]
+      },
+      "topSize": {
+        "type": "range",
+        "default": 0.7,
+        "min": 0.58,
+        "max": 0.82
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/bistro-table-877a6d",
+    "glb": "bistro-table-877a6d.glb",
+    "glb_bytes": 25024
+  },
+  "bistro-chair-7c354d": {
+    "title": "Bistro Chair",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 624,
+    "size_m": {
+      "x": 0.46,
+      "y": 0.88,
+      "z": 0.56
+    },
+    "origin_y": 0,
+    "zones": {
+      "frame": "#C9B79A",
+      "seat": "#C97B4A",
+      "linen": "#B33A3A"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "beech-terracotta",
+        "options": [
+          "beech-terracotta",
+          "walnut-cream",
+          "black-steel",
+          "olive-oak",
+          "bistro-red"
+        ]
+      },
+      "style": {
+        "type": "choice",
+        "default": "twin-hoop",
+        "options": [
+          "twin-hoop",
+          "spindle",
+          "cane",
+          "shell",
+          "slat"
+        ]
+      },
+      "cushion": {
+        "type": "choice",
+        "default": "none",
+        "options": [
+          "none",
+          "tied-pad"
+        ]
+      },
+      "backHeight": {
+        "type": "range",
+        "default": 0.86,
+        "min": 0.74,
+        "max": 0.92
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/bistro-chair-7c354d",
+    "glb": "bistro-chair-7c354d.glb",
+    "glb_bytes": 72540
+  },
+  "market-stall-94937d": {
+    "title": "Market Stall",
+    "kit": "medieval-village-kit-ca0b43",
+    "triangles": 592,
+    "size_m": {
+      "x": 1.96,
+      "y": 2.02,
+      "z": 1.13
+    },
+    "origin_y": 0,
+    "zones": {
+      "wood": "#8c6a4a",
+      "counter": "#b89b72",
+      "stripeA": "#9a3b32",
+      "stripeB": "#c2a87e",
+      "underside": "#6f4e37",
+      "crate": "#7a563d",
+      "apple": "#a5423a",
+      "greenLt": "#7d8a5a",
+      "greenDk": "#4a6a4f",
+      "cream": "#e8dcc0"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "market-day",
+        "options": [
+          "market-day",
+          "harvest-fair",
+          "greengrocer",
+          "slate-market"
+        ]
+      },
+      "width": {
+        "type": "range",
+        "default": 1.96,
+        "min": 1.4,
+        "max": 2.44
+      },
+      "canopy": {
+        "type": "range",
+        "default": 2.02,
+        "min": 1.8,
+        "max": 2.3
+      },
+      "crateCount": {
+        "type": "range",
+        "default": 3,
+        "min": 1,
+        "max": 4
+      },
+      "heap": {
+        "type": "range",
+        "default": 0.35,
+        "min": 0,
+        "max": 1
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/market-stall-94937d",
+    "glb": "market-stall-94937d.glb",
+    "glb_bytes": 68224
+  },
+  "newsstand-6dfd65": {
+    "title": "Newsstand",
+    "kit": "nyc-city-kit-fbca88",
+    "triangles": 560,
+    "size_m": {
+      "x": 2.5,
+      "y": 2.3,
+      "z": 1.65
+    },
+    "origin_y": 0,
+    "zones": {
+      "green": "#3d6b52",
+      "recess": "#3f4247",
+      "metal": "#b5aea0",
+      "cover1": "#a34a38",
+      "cover2": "#e8a825",
+      "cover3": "#6f8fa0",
+      "cover4": "#f5f1e7",
+      "cover5": "#8a5a44"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "kiosk-green",
+        "options": [
+          "kiosk-green",
+          "news-red",
+          "taxi-yellow",
+          "harbor-blue"
+        ]
+      },
+      "width": {
+        "type": "range",
+        "default": 2.5,
+        "min": 1.9,
+        "max": 2.66
+      },
+      "magRows": {
+        "type": "range",
+        "default": 3,
+        "min": 2,
+        "max": 4
+      },
+      "shutter": {
+        "type": "choice",
+        "default": "open",
+        "options": [
+          "open",
+          "closed"
+        ]
+      }
+    },
+    "night": {
+      "recess": {
+        "albedo": "#3f4247",
+        "color": "#ffc16b",
+        "intensity": 0.6
+      }
+    },
+    "pivots": [
+      "awning"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/newsstand-6dfd65",
+    "glb": "newsstand-6dfd65.glb",
+    "glb_bytes": 65424
+  },
+  "projecting-shop-sign-aa1867": {
+    "title": "Projecting Shop Sign",
+    "kit": "nyc-city-kit-fbca88",
+    "triangles": 464,
+    "size_m": {
+      "x": 0.51,
+      "y": 2.4,
+      "z": 1.02
+    },
+    "origin_y": 0,
+    "zones": {
+      "body": "#97614a",
+      "recess": "#564e4a",
+      "lens": "#e8e4de",
+      "iron": "#322d2c",
+      "plate": "#9f9890"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "rust-brown",
+        "options": [
+          "rust-brown",
+          "diner-red",
+          "slate-blue",
+          "stone-grey"
+        ]
+      },
+      "shape": {
+        "type": "choice",
+        "default": "rectangle",
+        "options": [
+          "rectangle",
+          "stepped",
+          "arrow"
+        ]
+      },
+      "bays": {
+        "type": "range",
+        "default": 3,
+        "min": 2,
+        "max": 4
+      },
+      "lit": {
+        "type": "toggle",
+        "default": true
+      }
+    },
+    "night": {
+      "lens": {
+        "albedo": "#e8e4de",
+        "color": "#ffd8a2",
+        "intensity": 0.9
+      }
+    },
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/projecting-shop-sign-aa1867",
+    "glb": "projecting-shop-sign-aa1867.glb",
+    "glb_bytes": 54240
+  },
+  "globe-lamp-346cb6": {
+    "title": "Globe Lamp",
+    "kit": "nyc-city-kit-fbca88",
+    "triangles": 486,
+    "size_m": {
+      "x": 0.88,
+      "y": 3.98,
+      "z": 0.84
+    },
+    "origin_y": 0,
+    "zones": {
+      "iron": "#3d6b52",
+      "globe": "#f5f1e7"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "park-green",
+        "options": [
+          "park-green",
+          "city-black",
+          "harbor-blue",
+          "oxblood",
+          "brownstone"
+        ]
+      },
+      "globeSize": {
+        "type": "range",
+        "default": 1,
+        "min": 0.85,
+        "max": 1.2
+      },
+      "ribs": {
+        "type": "range",
+        "default": 4,
+        "min": 3,
+        "max": 6
+      },
+      "postGirth": {
+        "type": "range",
+        "default": 1,
+        "min": 0.8,
+        "max": 1.3
+      },
+      "finial": {
+        "type": "toggle",
+        "default": false
+      }
+    },
+    "night": {
+      "globe": {
+        "albedo": null,
+        "color": "#ffd9a0",
+        "intensity": 0.9
+      }
+    },
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/globe-lamp-346cb6",
+    "glb": "globe-lamp-346cb6.glb",
+    "glb_bytes": 57460
+  },
+  "brownstone-row-house-e58392": {
+    "title": "Brownstone Row House",
+    "kit": "nyc-city-kit-fbca88",
+    "triangles": 1756,
+    "size_m": {
+      "x": 8,
+      "y": 13,
+      "z": 8
+    },
+    "origin_y": 0,
+    "zones": {
+      "stone": "#b69582",
+      "trim": "#c1b0a1",
+      "granite": "#463b37",
+      "iron": "#322d2c",
+      "glass": "#7b8b8f",
+      "door": "#b63735",
+      "sash": "#e8e4de"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "brownstone",
+        "options": [
+          "brownstone",
+          "red-brick",
+          "greystone",
+          "slate-front"
+        ]
+      },
+      "floors": {
+        "type": "choice",
+        "default": "4",
+        "options": [
+          "2",
+          "3",
+          "4"
+        ]
+      },
+      "brackets": {
+        "type": "range",
+        "default": 6,
+        "min": 4,
+        "max": 10
+      },
+      "areaway": {
+        "type": "toggle",
+        "default": true
+      }
+    },
+    "night": {
+      "glass": {
+        "albedo": "#7b8b8f",
+        "color": "#ffc978",
+        "intensity": 0.6
+      }
+    },
+    "pivots": [
+      "door-left",
+      "door-right"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/brownstone-row-house-e58392",
+    "glb": "brownstone-row-house-e58392.glb",
+    "glb_bytes": 202964
+  }
+}

@@ -2,6 +2,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { cosmeticRandom } from './cosmetic.js';
 import { PAL, LAYOUT, COPY } from './config.js';
+import { loadPF } from './polyfork.js';
 import { woodFloor, pavement, road, awning, menuBoard, softSprite, streakSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction } from './textures.js';
 import { GLBLoader } from './loader.js';
 import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
@@ -147,6 +148,20 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     });
     return p;
   }
+  // Place a vendored Polyfork GLB (web/assets/polyfork/): same fire-and-
+  // forget contract as place(), plus albedo-zone tinting and night-glow
+  // zone extraction (polyfork.js). inst.userData.pfNight entries register
+  // into W.pfNight so updateTimeOfDay can drive their opacity.
+  function placePF(parent, id, opts = {}) {
+    const p = loadPF(glb, id, opts).then((g) => {
+      parent.add(g); applyDistrictFogTree(g);
+      if (g.userData.pfNight) W.pfNight.push(...g.userData.pfNight);
+      return g;
+    });
+    pending.push(p);
+    return p;
+  }
+  W.pfNight = [];
   W._glbLoader = glb;                       // exposed for tests / disposal
   renderer.shadowMap.enabled = !lite;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -408,11 +423,14 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   // The GLB is roughly 1 m in the kit. Scale matches the shortened bar
   // (C.w); the procedural walnut shell above keeps it continuous.
   place(bar, 'kitchenBar.glb', { position: [C.x, 1.05, C.z], scale: C.w, rotationY: 0 });
-  // Kenney kitchenCoffeeMachine.glb replaces the procedural espresso machine.
-  place(bar, 'kitchenCoffeeMachine.glb', { position: [-6.35, 1.05, -5.5], scale: 1.6, rotationY: 0 });
-  // grinder hopper + body (procedural; no matching Kenney GLB)
-  cyl(bar, 0.16, 0.2, 0.5, 0x8a4f2e, -7.55, 1.35, -5.5, { rough: 0.5 });            // grinder hopper
-  box(bar, 0.4, 0.5, 0.4, 0x3a3d40, -7.55, 1.28, -5.5, { metal: 0.5, rough: 0.5 });
+  // Polyfork espresso-machine-a2db84 replaces the Kenney machine (and the
+  // procedural before it). Walnut cheeks via PF_TINT; the 'pend' night
+  // zone lights the dose buttons under the pendants; portafilter/steam-
+  // wand pivots stay named on W.pfEspresso for animation hooks.
+  placePF(bar, 'espresso-machine-a2db84', { position: [-6.35, 1.106, -5.5], rotationY: 0, height: 0.55, night: 'pend' })
+    .then((g) => { W.pfEspresso = g; });
+  // Polyfork coffee-grinder-6f962a replaces the procedural hopper+body.
+  placePF(bar, 'coffee-grinder-6f962a', { position: [-7.55, 1.106, -5.5], rotationY: 0, height: 0.45 });
   // 3 bar stools at the customer-side of the bar (Kenney stoolBar.glb)
   for (const dx of [-2.2, 0, 2.2]) {
     place(scene, 'stoolBar.glb', { position: [C.x + dx, 0, C.z + C.d / 2 + 1.0], scale: 1.0, rotationY: Math.PI });
@@ -748,6 +766,33 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     ms.position.set((i - 1) * 0.16, 0.12 + Math.abs(i - 1) * 0.05, (i % 2 ? 0.1 : -0.08));
     W.plantGroup.add(ms); W.plantMats.push(pm);
   }
+
+  // ---- polyfork pilot set ---------------------------------------------------
+  // Vendored free Polyfork models (tools/vendor-polyfork.mjs). Additive
+  // dressing only — nothing here owns sim state; a failed load is a
+  // placeholder cube via the loader, same contract as the Kenney props.
+  // Bar-top dressing sits on the counter surface (y = counterTop).
+  placePF(bar, 'batch-brew-urn-f54a3b', { position: [-3.15, counterTop, -5.9], rotationY: 0, height: 0.5 });
+  placePF(bar, 'pos-terminal-f1273c', { position: [-1.05, counterTop, -5.45], rotationY: 0, height: 0.4, night: 'pend' });
+  placePF(bar, 'takeaway-coffee-cup-1fd6dd', { position: [-1.6, counterTop, -4.95], rotationY: 0.4 });
+  // Floor props: roaster by the left wall, display case beside it — both
+  // read through the cutaway as back-bar furniture.
+  placePF(scene, 'shop-coffee-roaster-c6a2b5', { position: [-7.85, 0, -3.8], rotationY: Math.PI / 2, height: 1.2, night: 'pend' });
+  placePF(scene, 'pastry-display-case-8bcce5', { position: [-7.75, 0, -0.9], rotationY: Math.PI / 2, height: 1.35, night: 'pend' });
+  // Pavement café set + chalkboard, right of the door queue path.
+  placePF(scene, 'chalkboard-menu-board-a24d9d', { position: [-2.7, 0, 6.6], rotationY: -0.2, height: 1.1 });
+  placePF(scene, 'bistro-table-877a6d', { position: [1.9, 0, 6.75], rotationY: 0, height: 0.75 });
+  placePF(scene, 'bistro-chair-7c354d', { position: [1.15, 0, 6.8], rotationY: Math.PI / 2, height: 0.85 });
+  placePF(scene, 'bistro-chair-7c354d', { position: [2.6, 0, 6.55], rotationY: -Math.PI / 2, height: 0.85 });
+  // Street dressing down the pavement: stall west, newsstand + lamp east.
+  placePF(scene, 'market-stall-94937d', { position: [-16.5, 0, 7.1], rotationY: 0.2, height: 2.1 });
+  placePF(scene, 'newsstand-6dfd65', { position: [12.8, 0, 7.2], rotationY: -0.15, height: 2.3, night: 'street' });
+  placePF(scene, 'globe-lamp-346cb6', { position: [16.8, 0, 8.85], rotationY: 0, height: 3.9, night: 'street' });
+  // Wall-mounted shop sign on the café front (authored at install height).
+  placePF(scene, 'projecting-shop-sign-aa1867', { position: [2.6, 0, 4.15], rotationY: 0, night: 'street' });
+  // Far-row massing west of the backdrop blocks; windows warm up at night.
+  placePF(scene, 'brownstone-row-house-e58392', { position: [-17.8, 0, 19.2], rotationY: Math.PI, height: 13, night: 'street' });
+
   // god rays — a tall translucent quad behind the café that fades with mist; used for frost/harvest mood
   W.godRayMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
   const godGeo = new THREE.PlaneGeometry(18, 14);
@@ -2018,6 +2063,9 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     for (const ll of W.lampLights) ll.intensity = street * 12;
     // pools track the lamps: full at open and close, gone when street is 0 (midday)
     for (const pm of W.lampPoolMats) pm.opacity = street * 0.62;
+    // Polyfork night zones (espresso buttons, lamp globes, lit windows):
+    // overlay meshes whose opacity follows the same street/pendant factors.
+    for (const n of W.pfNight) n.mat.opacity = (n.driver === 'pend' ? pend : street) * n.intensity;
     W.signMat.emissiveIntensity = 0.25 + street * 0.9;
     const shownHeat = (W._rivalHeat || 0) + (W._demandHeat || 0);
     W.rivalSignMat.emissiveIntensity = 0.2 + street * 1.1 + Math.min(0.6, shownHeat * 0.05);

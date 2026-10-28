@@ -14,6 +14,25 @@
   exits 0. `~/grunds-deploy` works; symlink in `node_modules`, `out/`, `.env`,
   `.env.local` first.
 
+## Polyfork assets
+- `tools/vendor-polyfork.mjs` vendors free Polyfork GLBs into
+  `web/assets/polyfork/` + regenerates `web/js/polyforkManifest.js`
+  (zones / night-glow zones / pivots). Pass ids to add more; the manifest
+  merges, so id-scoped runs don't clobber. List every id in
+  `web/assets/SOURCES.md` (Polyfork licence: commercial use, no attribution,
+  no redistribution as assets — not CC0).
+- `web/js/polyfork.js` `loadPF(glb, id, opts)` loads through the shared
+  GLBLoader, tints COLOR_0 zones via `PF_TINT`, extracts `night` zones into
+  emissive overlays driven by updateTimeOfDay's street/pend factors
+  (`opts.night: 'street'|'pend'`), and exposes rigged pivots on
+  `userData.pfParts`.
+- District: `?district=polyfork` (or `?pfDistrict`) picks slot candidates
+  via `seeded(seed + 977 + hash(city))` in districtGen.js `PF_SLOTS` —
+  instant, deterministic, Convex-free. Candidates must not collide with ids
+  pinned at fixed spots in `world.js`.
+- Screenshot harness: `tools/pf-shots.mjs` (PF_SEED / PF_DIST env) →
+  `/tmp/pf-shots/`; drives `__grunds.rig` + a `director` dusk layer.
+
 ## Generated assets (Grove mirror)
 - Convex data-egress is the constraint: generated GLBs + previews are mirrored
   to Grove (immutable, `chain_id` 232) and the client rewrites

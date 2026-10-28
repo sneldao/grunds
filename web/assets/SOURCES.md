@@ -3,7 +3,10 @@
 GLBs under `assets/` (root + `Textures/`) and `audio/` are CC0 1.0 Universal
 (https://creativecommons.org/publicdomain/zero/1.0/) — no attribution required.
 `icons/` is CC BY 3.0 — attribution required, and it ships in the Brief's art
-credits. Do not commit other packs' files here without listing them.
+credits. `polyfork/` is the Polyfork free catalogue licence (commercial use,
+modification, no attribution; do not redistribute the files themselves as
+assets — in-game use is fine). Do not commit other packs' files here without
+listing them.
 
 **As of 2026-09-09 every asset in this directory was loaded by `web/js/world.js`
 via the vendored GLTFLoader (see `web/js/loader.js`).** That was true when only
@@ -20,6 +23,32 @@ the root so the texture resolves.
 - Kenney Food Kit (200 files) — https://kenney.nl/assets/food-kit
   - cup-coffee.glb, croissant.glb, cake.glb, mug.glb, carton.glb, bag.glb
   - Textures/colormap.png (required external texture for the food GLBs)
+
+## polyfork/ — Polyfork free catalogue (vendored by tools/vendor-polyfork.mjs)
+
+Per-asset pages and licence: https://polyfork.dev (free low-poly tier:
+commercial use, no attribution; not CC0 — see header note). manifest.json +
+web/js/polyforkManifest.js are generated; re-run the vendor script to update.
+
+- espresso-machine-a2db84, coffee-grinder-6f962a, batch-brew-urn-f54a3b,
+  pos-terminal-f1273c, takeaway-coffee-cup-1fd6dd, pastry-display-case-8bcce5,
+  shop-coffee-roaster-c6a2b5, chalkboard-menu-board-a24d9d,
+  bistro-table-877a6d, bistro-chair-7c354d, planter-trough-divider-1b0ead,
+  potted-olive-tree-7eee05 — Modern Restaurant Cafe kit
+- market-stall-94937d — Medieval Village kit
+- newsstand-6dfd65, projecting-shop-sign-aa1867, globe-lamp-346cb6,
+  brownstone-row-house-e58392, street-lamp-136745, hot-dog-cart-115192,
+  street-sign-pole-1e9551 — New York City kit
+- lantern-post-f47665 — Nature & Forest kit
+- paper-lantern-3387e9, ramen-yatai-stall-53974b — Little Tokyo kit
+- mercado-stall-6e6ba3, elote-cart-a8fb49, plaza-fountain-5a5f6e — Día de Muertos kit
+- flower-planter-550bfb — Little Tokyo kit
+- sandwich-board-sign-cb5e7c — Little Tokyo kit
+- hanging-shop-sign-18d2b0 — Frontier Town kit
+- yard-sign-f1882f — Neighborhood Pathways kit
+- ice-cream-kiosk-on-40a568 — Coast and Boardwalk kit
+- sopaipilla-cart-712632 — Chile: Fiestas Patrias kit
+- campus-plaza-fountain-a0cab1 — University kit
 
 Full zips (not committed): kept outside the repo during setup; re-download from
 the URLs above. Considered but deferred: Quaternius Sushi Restaurant Kit,

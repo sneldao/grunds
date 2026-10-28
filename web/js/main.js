@@ -5,7 +5,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS, FRANCHISE } from './config.js';
 import { buildWorld, chalkPopScale } from './world.js';
-import { initDistrictGen, districtOptOut } from './districtGen.js';
+import { initDistrictGen, districtOptOut, districtPolyforkOpt } from './districtGen.js';
 import { initFranchise, morningFranchiseLines } from './franchise.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
@@ -151,7 +151,7 @@ const seedNow = () => SEED_OVERRIDE != null ? SEED_OVERRIDE : SEED;
 // via the Convex bridge — fire-and-forget cross-fade on arrival; the classic
 // procedural district is the fallback. No-ops when headless / no-GL / no Convex.
 // ?classicDistrict forces the procedural street (completeness escape hatch).
-const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search), city: city?.name });
+const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search), city: city?.name, polyfork: districtPolyforkOpt(location.search) });
 // City Remix: the cached locality pack (M3.1 flash via SandBase) dresses the
 // licence with real cafés and a local price. Fire-and-forget — no pack, no
 // Convex, offline: the street just speaks generic "district".
