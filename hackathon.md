@@ -17,6 +17,32 @@
 
 ## Log
 
+### 2026-10-28 - film assembled, full suite green (SandBase AI City Remix)
+**"Dear Newcomer: A Letter from Lisbon" is assembled:**
+`videos/city-remix/dist/final.mp4` — 90.30 s, 1920×1080 h264 + aac, 18
+subtitle strips + 2 letter cards burned from PIL renders, seeded synth bed
+mixed at −19.7 dB mean. All 15 review stills QC'd against FACTS.md: "about
+€4" only, no café names in the subtitle track, João/patrons shown only as
+game characters, no partnership or geography claims.
+
+- The 11:00 regular's ask (dayMin ≥ 660) kept landing inside kept windows.
+  Fixes in the rig: `s10-card` now freezes the floor with
+  `__grunds.togglePause()` *before* pressing photo — `doPhoto` only
+  unpauses on exit when the floor was live, so the sim can never reach the
+  ask — lets the morning trade until till ≥ €150 or 10:20 for a non-blank
+  card, then waits out each 6 s photo session before re-pressing (per-call
+  `finish` timers duel otherwise). `s4-low`/`s5-ticker`/`s7-patrons`/
+  `s8-rival` re-shot behind a new `clearAsk` (waits for the ask, answers
+  no, then the hold can never contain it) plus an in-hold `askGuard`.
+- The printed share card overlaid on S10 is the genuine `pc-save`
+  artifact: "GRUNDS — LISBON · District Survivor — Day 2/5 · till €163 ·
+  rep 68/100 · 59 served · https://grunds.trustfall.xyz?city=lisbon".
+- Assembler fix: `[08:v]`/`[09:v]` concat labels parsed as octal-ish
+  stream specifiers and bound nothing — filtergraph indices are unpadded;
+  unfinalized webms now fail with a clear re-shoot error instead of NaN.
+- `npm test`: **433/433 pass** (~17 min under load), including the
+  wall-clock smoke suite that flakes under CPU pressure.
+
 ### 2026-10-28 - 1f9b80a (SandBase AI City Remix — film + entry)
 Built and captured the submission film **"Dear Newcomer: A Letter from
 Lisbon"** (90.3 s, 15 scenes, `videos/city-remix/direction/06-final.json` —

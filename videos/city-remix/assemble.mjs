@@ -215,6 +215,9 @@ for (const [i, p] of plan.entries()) {
     console.log(`card ${p.scene.id} → ${out}`);
   } else {
     const dur = Number(ffprobeJson(p.file).format.duration);
+    if (!Number.isFinite(dur)) {
+      throw new Error(`scene ${p.scene.id}: ${p.take}.webm has no duration — the recording was killed before its container was finalized; re-shoot it`);
+    }
     const ss = Math.max(0, dur - TAIL - p.scene.duration);
     sh('ffmpeg', ['-y', '-v', 'error',
       '-ss', ss.toFixed(2), '-i', p.file, '-t', p.scene.duration.toFixed(2),
@@ -236,7 +239,9 @@ const total = film.total_seconds;
 if (bedDur < total - 0.5) throw new Error(`bed ${bedDur}s < film ${total}s — regenerate with --secs ${Math.ceil(total)}`);
 const fadeStart = Math.max(0, total - 3.2).toFixed(2);
 const fc = [];
-fc.push(plan.map((_, i) => `[${pad2(i)}:v]`).join('') +
+// NB: no zero-padding inside the filtergraph — ffmpeg parses [08:v]/[09:v]
+// as octal-ish stream specifiers and binds nothing.
+fc.push(plan.map((_, i) => `[${i}:v]`).join('') +
   `concat=n=${plan.length}:v=1:a=0[v0]`);
 let label = 'v0';
 const bedIdx = plan.length;      // bed.wav is the input after all scene clips
