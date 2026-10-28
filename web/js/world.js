@@ -784,12 +784,9 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   placePF(scene, 'bistro-table-877a6d', { position: [1.9, 0, 6.75], rotationY: 0, height: 0.75 });
   placePF(scene, 'bistro-chair-7c354d', { position: [1.15, 0, 6.8], rotationY: Math.PI / 2, height: 0.85 });
   placePF(scene, 'bistro-chair-7c354d', { position: [2.6, 0, 6.55], rotationY: -Math.PI / 2, height: 0.85 });
-  // Street dressing down the pavement: stall west, newsstand + lamp east.
-  placePF(scene, 'market-stall-94937d', { position: [-16.5, 0, 7.1], rotationY: 0.2, height: 2.1 });
-  placePF(scene, 'newsstand-6dfd65', { position: [12.8, 0, 7.2], rotationY: -0.15, height: 2.3, night: 'street' });
-  placePF(scene, 'globe-lamp-346cb6', { position: [16.8, 0, 8.85], rotationY: 0, height: 3.9, night: 'street' });
-  // Wall-mounted shop sign on the café front (authored at install height).
-  placePF(scene, 'projecting-shop-sign-aa1867', { position: [2.6, 0, 4.15], rotationY: 0, night: 'street' });
+  // Street-life props (stalls, signs, lamps, stands) live in the district
+  // kit instead: PF_SLOTS in districtGen.js owns them so seeded picks can
+  // vary the street rather than pinning one demo set.
   // Far-row massing west of the backdrop blocks; windows warm up at night.
   placePF(scene, 'brownstone-row-house-e58392', { position: [-17.8, 0, 19.2], rotationY: Math.PI, height: 13, night: 'street' });
 

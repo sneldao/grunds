@@ -6598,6 +6598,14 @@ function loop(now) {
   vitality.tick();
   try { world.setRivalHeat(patrons.rivalQ.length + Math.min(6, Math.round(patrons.ghostPace * 4))); } catch {}
   world.updateTimeOfDay(dayMin);
+  // Polyfork espresso: steam wands sway while the rush is on (pivots exposed
+  // by loadPF; ±20° stays inside their authored [-46°,0] range).
+  const _pfE = world.pfEspresso?.userData?.pfParts;
+  if (_pfE) {
+    const wob = rushFast ? Math.sin(now * 0.006) * 0.35 : 0;
+    if (_pfE['steam-wand-l']) _pfE['steam-wand-l'].rotation.y = wob;
+    if (_pfE['steam-wand-r']) _pfE['steam-wand-r'].rotation.y = -wob;
+  }
   sky.update(dayMin, null, vitality.current);
   director.update({ dt, now, dayMin, night: world.night || 0, vitality: vitality.current });
   kitBeat.update(dt, now);

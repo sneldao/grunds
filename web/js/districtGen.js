@@ -55,10 +55,10 @@ export function districtPolyforkOpt(search) {
 // Slot -> vendored candidate ids. Picked with a seeded LCG stream
 // (seed + 977), city folded in so a named street still grows its own props.
 const PF_SLOTS = {
-  lantern: ['street-lamp-136745', 'lantern-post-f47665', 'paper-lantern-3387e9'],
+  lantern: ['street-lamp-136745', 'lantern-post-f47665', 'paper-lantern-3387e9', 'globe-lamp-346cb6'],
   planter: ['planter-trough-divider-1b0ead', 'flower-planter-550bfb', 'potted-olive-tree-7eee05'],
-  stall: ['ramen-yatai-stall-53974b', 'mercado-stall-6e6ba3'],
-  sign: ['sandwich-board-sign-cb5e7c', 'hanging-shop-sign-18d2b0', 'yard-sign-f1882f', 'street-sign-pole-1e9551'],
+  stall: ['ramen-yatai-stall-53974b', 'mercado-stall-6e6ba3', 'market-stall-94937d', 'newsstand-6dfd65'],
+  sign: ['sandwich-board-sign-cb5e7c', 'hanging-shop-sign-18d2b0', 'yard-sign-f1882f', 'street-sign-pole-1e9551', 'projecting-shop-sign-aa1867', 'chalkboard-menu-board-a24d9d'],
   cart: ['hot-dog-cart-115192', 'elote-cart-a8fb49', 'ice-cream-kiosk-on-40a568', 'sopaipilla-cart-712632'],
   fountain: ['campus-plaza-fountain-a0cab1', 'plaza-fountain-5a5f6e'],
 };
