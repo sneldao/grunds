@@ -13,9 +13,39 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-23
+- **Last updated:** 2026-10-28
 
 ## Log
+
+### 2026-10-28 - 1f9b80a (SandBase AI City Remix — film + entry)
+Built and captured the submission film **"Dear Newcomer: A Letter from
+Lisbon"** (90.3 s, 15 scenes, `videos/city-remix/direction/06-final.json` —
+shot list, letter, subtitles and timing authored by MiniMax M3.1 Flash via
+SandBase, prompts/responses archived in `direction/`). New pipeline:
+- `videos/city-remix/assemble.mjs` — validates the script (60–180 s,
+  subtitle ≤42 chars/line, ≤15 cps, in-scene windows), renders cards +
+  subtitle strips via PIL (`render_text.py`; local ffmpeg 8.1 has no
+  drawtext/libass), trims each take's scripted hold window, concatenates,
+  burns subtitles as timed PNG overlays, mixes the seeded synth music bed,
+  and emits QC stills + loudness. Smoke-tested end to end.
+- `videos/city-remix/capture/record-city-shots.mjs` — 13 real gameplay
+  takes of the live `?city=` street at 1080p: licence typing, minted
+  Lisbon facts (about-€4 hint), wide/low orbits over the LISBON decal,
+  euro ticker, morning brief, patron rush, rival swing, till, the printed
+  share card, the lit-cities map, and a Tokyo street arriving from a typed
+  link. Hardened with goto retries; camera moves ride inside the hold
+  window so the end-trim keeps the motion.
+- Real product bugs found and fixed while filming: (1) a city pack landing
+  auto-opened the REGULARS board over the title/brief/share card (bad
+  `.hidden` test — `8fffc1f`); (2) the share card printed the Convex origin
+  instead of the serving domain (`share.js` BASE_URL now honors
+  `location.origin`) and its mono link line overflowed the ink band onto
+  cream paper (`1f9b80a`); the film's s10 take saves the genuine printed
+  card via `pc-save` and the edit overlays that artifact.
+- Both kits (Lisbon + Tokyo, 6 slots each) regenerated server-side and
+  mirrored to Grove (`tools/mirror-assets.mjs`, +52 objects — `ed24e00`);
+  deployed from the clean worktree so the live street serves the mirrored
+  GLBs.
 
 ### 2026-10-23 - working tree
 New event entered: **SandBase AI City Remix** (~Oct 29 submission deadline; the
