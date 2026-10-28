@@ -1,0 +1,49 @@
+{
+  "title": "smoke",
+  "logline": "assembler smoke test — not a submission",
+  "total_seconds": 9.9,
+  "scenes": [
+    {
+      "id": "01",
+      "start": 0,
+      "duration": 3.6,
+      "shot": "C-open",
+      "action": "card",
+      "subtitles": [
+        {
+          "at": 0.2,
+          "dur": 3.3,
+          "text": "A letter from Lisbon.\nI have seen many cafés open."
+        }
+      ],
+      "card_text": "LISBON, PORTUGAL\nA LETTER FROM LISBON"
+    },
+    {
+      "id": "02",
+      "start": 3.6,
+      "duration": 2.8,
+      "shot": "S1",
+      "action": "title take",
+      "subtitles": [
+        {
+          "at": 3.7,
+          "dur": 2.6,
+          "text": "Hello, newcomer.\nMind the first coffee."
+        }
+      ],
+      "card_text": null
+    },
+    {
+      "id": "03",
+      "start": 6.4,
+      "duration": 3.5,
+      "shot": "C-end",
+      "action": "card",
+      "subtitles": [],
+      "card_text": "YOUR CITY\ngrunds.trustfall.xyz/?city=yourcity\nEvery city typed joins the lit map."
+    }
+  ],
+  "music": "smoke",
+  "director_notes": "smoke",
+  "editor_edits": []
+}

@@ -27,8 +27,6 @@ const WORK = join(HERE, 'work');
 const DIST = join(HERE, 'dist');
 const REVIEW = join(HERE, 'review', 'edit');
 const CAPTURE = join(HERE, 'capture');
-const FONT_SERIF = join(HERE, '..', 'grunds-demo', 'fonts', 'iowan.ttc');
-const FONT_MONO = '/System/Library/Fonts/Menlo.ttc';
 
 const args = process.argv.slice(2);
 const flag = (name) => {
@@ -53,13 +51,6 @@ const ffprobeJson = (path) => {
   const r = sh('ffprobe', ['-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', path]);
   return JSON.parse(r.stdout);
 };
-const esc = (t) => t
-  .replace(/\\/g, '\\\\')
-  .replace(/:/g, '\\:')
-  .replace(/'/g, "\\'")
-  .replace(/,/g, '\\,')
-  .replace(/\[/g, '\\[')
-  .replace(/\]/g, '\\]');
 
 // ── 1. load + validate the script ───────────────────────────────────────────
 const scriptPath = join(HERE, 'direction', SCRIPT);
@@ -70,7 +61,8 @@ const byName = new Map(manifest.map((m) => [m.name, m]));
 const problems = [];
 const check = (ok, msg) => { if (!ok) problems.push(msg); };
 
-check(film.total_seconds >= 60 && film.total_seconds <= 180,
+const isSmoke = SCRIPT.startsWith('00-');
+check(isSmoke || (film.total_seconds >= 60 && film.total_seconds <= 180),
   `total ${film.total_seconds}s outside 60–180`);
 let cursor = 0;
 for (const s of film.scenes) {
@@ -125,91 +117,87 @@ console.log(`script OK: ${film.scenes.length} scenes, ${film.total_seconds}s, ${
 for (const p of plan) console.log(`  ${p.scene.id} ${p.scene.shot.padEnd(6)} ${String(p.scene.duration).padStart(4)}s  ${p.kind === 'card' ? '→ card' : `→ ${p.take}`}`);
 if (DRY) { console.log('dry run — stopping before build.'); process.exit(0); }
 
-// ── 2. work dirs + ASS subtitles ────────────────────────────────────────────
+// ── 2. text rendering (cards + subtitles via render_text.py + overlays) ────
 for (const d of [WORK, DIST, REVIEW]) rmSync(d, { recursive: true, force: true });
 for (const d of [WORK, DIST, REVIEW]) mkdirSync(d, { recursive: true });
 
 const pad2 = (n) => String(n).padStart(2, '0');
-const assTime = (sec) => {
-  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
-  return `${h}:${pad2(m)}:${s.toFixed(2).padStart(5, '0')}`;
-};
-const CREAM = '&HD5E8F2';   // #F2E8D5 in BGR
-const OUTL = '&H100F17';    // #171310 in BGR
-const assLines = [];
+const jobs = [];      // render_text.py jobs: cards + subtitle strips
+const overlays = [];  // {png, at, dur} — burned on the final concat
+
+const H = 1080;
+const SUB_H = 62;     // subtitle line height at 50px Iowan
+const SUB_SIZE = 50;
 for (const { scene } of plan) {
   for (const sub of scene.subtitles) {
-    const start = sub.at - scene.start;
-    assLines.push(
-      `Dialogue: 0,${assTime(start)},${assTime(start + sub.dur)},Letter,,0,0,0,,` +
-      sub.text.split('\n').join('\\N'),
-    );
+    const lines = sub.text.split('\n');
+    const out = join(WORK, `sub-${pad2(scene.id)}.png`);
+    jobs.push({
+      out,
+      lines: lines.map((text, i) => ({
+        text, size: SUB_SIZE, color: 'cream', font: 'serif',
+        y: H - 64 - (lines.length - i) * SUB_H,
+      })),
+    });
+    overlays.push({ png: out, at: sub.at, dur: sub.dur, id: scene.id });
   }
 }
-const ass = `[Script Info]
-ScriptType: v4.00+
-PlayResX: 1920
-PlayResY: 1080
-WrapStyle: 2
-ScaledBorderAndShadow: yes
 
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Letter,Iowan Old Style,50,${CREAM},&HFFFFFF,${OUTL},&H80000000,0,0,0,0,100,100,0,0,1,3,1,2,140,140,64,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-${assLines.join('\n')}
-`;
-const assPath = join(WORK, 'subs.ass');
-writeFileSync(assPath, ass);
-console.log(`subtitles: ${assLines.length} dialogue lines → work/subs.ass`);
-
-// ── 3. cards ────────────────────────────────────────────────────────────────
-// One warm-dark card per C-scene; text drawn from card_text with the first
-// line as the small brass kicker and the rest in cream, centered.
-function buildCard(scene, out) {
-  const lines = scene.card_text.split('\n');
-  const H = 1080, W = 1920;
-  const filters = [];
-  const startY = (base) => base;
-  if (lines.length >= 2) {
-    filters.push(`drawtext=fontfile='${esc(FONT_SERIF)}':text='${esc(lines[0])}':` +
-      `fontsize=42:fontcolor=0xB08D57:x=(w-text_w)/2:y=${startY(H / 2 - 128)}`);
-    filters.push(`drawtext=fontfile='${esc(FONT_SERIF)}':text='${esc(lines[1])}':` +
-      `fontsize=88:fontcolor=0xF2E8D5:x=(w-text_w)/2:y=${startY(H / 2 - 44)}`);
-  } else {
-    filters.push(`drawtext=fontfile='${esc(FONT_SERIF)}':text='${esc(lines[0])}':` +
-      `fontsize=76:fontcolor=0xF2E8D5:x=(w-text_w)/2:y=(h-text_h)/2`);
-  }
-  // third/fourth lines: the link (mono, brass) + invitation (cream, smaller)
-  if (lines[2]) {
-    const mono = existsSync(FONT_MONO) ? FONT_MONO : FONT_SERIF;
-    filters.push(`drawtext=fontfile='${esc(mono)}':text='${esc(lines[2])}':` +
-      `fontsize=40:fontcolor=0xB08D57:x=(w-text_w)/2:y=${startY(H / 2 + 120)}`);
-  }
-  if (lines[3]) {
-    filters.push(`drawtext=fontfile='${esc(FONT_SERIF)}':text='${esc(lines[3])}':` +
-      `fontsize=36:fontcolor=0xF2E8D5:x=(w-text_w)/2:y=${startY(H / 2 + 210)}`);
-  }
-  filters.push(`drawbox=x=(w-560)/2:y=${startY(H / 2 + 36)}:w=560:h=2:color=0xB08D57@0.9:t=fill`);
-  filters.push('fade=t=in:st=0:d=0.7');
-  if (scene.duration > 4) filters.push(`fade=t=out:st=${(scene.duration - 0.9).toFixed(2)}:d=0.9`);
-  const vf = filters.join(',');
-  sh('ffmpeg', ['-y', '-v', 'error',
-    '-f', 'lavfi', '-i', `color=c=0x171310:s=${W}x${H}:r=30:d=${scene.duration}`,
-    '-vf', vf, '-c:v', 'libx264', '-preset', 'medium', '-crf', '16',
-    '-pix_fmt', 'yuv420p', '-an', out]);
-  console.log(`card ${scene.id} → ${out}`);
+// ── 3. card specs ──────────────────────────────────────────────────────────
+// Warm-dark typography cards in the game's idiom: brass kicker, cream title,
+// brass rule, mono link. Layout per card kind, not generic.
+const CARD_SPECS = {
+  'C-open': (lines) => {
+    if (lines.length !== 2) throw new Error(`C-open card_text wants 2 lines, got ${lines.length}`);
+    return {
+      lines: [
+        { text: lines[0], size: 42, color: 'brass', font: 'serif', y: 412 },
+        { text: lines[1], size: 88, color: 'cream', font: 'serif', y: 496 },
+      ],
+      rule: 596,
+    };
+  },
+  'C-end': (lines) => {
+    if (lines.length !== 3) throw new Error(`C-end card_text wants 3 lines, got ${lines.length}`);
+    return {
+      lines: [
+        { text: lines[0], size: 84, color: 'cream', font: 'serif', y: 400 },
+        { text: lines[1], size: 42, color: 'brass', font: 'mono', y: 604 },
+        { text: lines[2], size: 34, color: 'cream', font: 'serif', y: 692 },
+      ],
+      rule: 520,
+    };
+  },
+};
+for (const p of plan) {
+  if (p.kind !== 'card') continue;
+  const spec = CARD_SPECS[p.scene.shot](p.scene.card_text.split('\n'));
+  jobs.push({ out: join(WORK, `card-${pad2(p.scene.id)}.png`), ground: true, ...spec });
 }
 
-// ── 4. trim + normalize takes ───────────────────────────────────────────────
+const jobsPath = join(WORK, 'text-jobs.json');
+writeFileSync(jobsPath, JSON.stringify(jobs, null, 2));
+sh('python3', [join(HERE, 'render_text.py'), jobsPath]);
+console.log(`text: ${jobs.length} PNGs rendered (${overlays.length} subtitle strips + ${plan.filter((p) => p.kind === 'card').length} cards)`);
+
+// ── 4. scene clips ─────────────────────────────────────────────────────────
+// Cards: the rendered PNG looped for the scene's duration (fades on long
+// holds). Takes: the last `hold` seconds of the take, minus the TAIL teardown.
 const TAIL = 1.5;
 const inputs = [];
 for (const [i, p] of plan.entries()) {
   const out = join(WORK, `scene-${pad2(i + 1)}.mp4`);
   if (p.kind === 'card') {
-    buildCard(p.scene, out);
+    const png = join(WORK, `card-${pad2(p.scene.id)}.png`);
+    const fades = [`fade=t=in:st=0:d=0.7`];
+    if (p.scene.duration > 4) fades.push(`fade=t=out:st=${(p.scene.duration - 0.9).toFixed(2)}:d=0.9`);
+    sh('ffmpeg', ['-y', '-v', 'error',
+      '-loop', '1', '-i', png,
+      '-t', p.scene.duration.toFixed(2), '-r', '30',
+      '-vf', fades.join(','),
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '16',
+      '-pix_fmt', 'yuv420p', '-an', out]);
+    console.log(`card ${p.scene.id} → ${out}`);
   } else {
     const dur = Number(ffprobeJson(p.file).format.duration);
     const ss = Math.max(0, dur - TAIL - p.scene.duration);
@@ -226,23 +214,31 @@ for (const [i, p] of plan.entries()) {
   inputs.push(out);
 }
 
-// ── 5. concat + burn subs + mix bed ────────────────────────────────────────
+// ── 5. concat + burn subtitle overlays + mix bed ──────────────────────────
 const bed = join(CAPTURE, 'audio', 'bed.wav');
 const bedDur = Number(ffprobeJson(bed).format.duration);
 const total = film.total_seconds;
 if (bedDur < total - 0.5) throw new Error(`bed ${bedDur}s < film ${total}s — regenerate with --secs ${Math.ceil(total)}`);
 const fadeStart = Math.max(0, total - 3.2).toFixed(2);
 const fc = [];
-plan.forEach((_, i) => fc.push(`[${pad2(i)}:v]`));
-fc.push(`concat=n=${plan.length}:v=1:a=0[v]`);
-fc.push(`[v]ass=${esc(assPath)}:fontsdir=${esc(dirname(FONT_SERIF))}[vout]`);
-fc.push(`[${plan.length}:a]atrim=0:${total.toFixed(2)},afade=t=out:st=${fadeStart}:d=3.2,volume=0.55,aformat=sample_rates=48000:channel_layouts=stereo[aout]`);
+fc.push(plan.map((_, i) => `[${pad2(i)}:v]`).join('') +
+  `concat=n=${plan.length}:v=1:a=0[v0]`);
+let label = 'v0';
+const bedIdx = plan.length;      // bed.wav is the input after all scene clips
+overlays.forEach((o, i) => {
+  const next = `v${i + 1}`;
+  const pngIdx = bedIdx + 1 + i; // subtitle PNGs follow the bed input
+  fc.push(`[${label}][${pngIdx}:v]overlay=enable='between(t,${o.at.toFixed(2)},${(o.at + o.dur).toFixed(2)})'[${next}]`);
+  label = next;
+});
+fc.push(`[${bedIdx}:a]atrim=0:${total.toFixed(2)},afade=t=out:st=${fadeStart}:d=3.2,volume=0.55,aformat=sample_rates=48000:channel_layouts=stereo[aout]`);
 const finalPath = join(DIST, OUT);
 sh('ffmpeg', ['-y', '-v', 'error',
   ...inputs.map((f) => ['-i', f]).flat(),
   '-i', bed,
+  ...overlays.map((o) => ['-i', o.png]).flat(),
   '-filter_complex', fc.join(';'),
-  '-map', '[vout]', '-map', '[aout]',
+  '-map', `[${label}]`, '-map', '[aout]',
   '-c:v', 'libx264', '-preset', 'medium', '-crf', '17', '-pix_fmt', 'yuv420p',
   '-c:a', 'aac', '-b:a', '192k',
   '-movflags', '+faststart', '-t', total.toFixed(2), finalPath]);
