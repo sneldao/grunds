@@ -4397,7 +4397,7 @@ function prepareDay(d) {
   rivalStrategy = strategyForDay(d, exchange.event?.tier);
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
-  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false;
+  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false; _pfRushCam = false; _pfCloseCam = false;
   nudgedStanding = false;
   turnaways = 0; turnawayToastDone = false;
   leversTimeLocked = false; leverOverrideCount = 0;
@@ -6610,10 +6610,10 @@ function loop(now) {
     if (_pfE['steam-wand-l']) _pfE['steam-wand-l'].rotation.y = wob;
     if (_pfE['steam-wand-r']) _pfE['steam-wand-r'].rotation.y = -wob;
   }
-  // Camera grammar: the rush gets the inside-the-machine insert; the close
-  // pins the match-cut frame so the morning crane departs the same shot.
-  if (rushFast && !_pfRushCam) { _pfRushCam = true; try { rig.shot?.('espressoIns', world); } catch {} }
-  else if (!rushFast) _pfRushCam = false;
+  // Camera grammar: a real queue surge (or the rush skip) earns the
+  // inside-the-machine insert once per day; the close pins the match-cut
+  // frame so the morning crane departs the same shot.
+  if ((rushFast || patrons.queueLength >= 6) && !_pfRushCam) { _pfRushCam = true; try { rig.shot?.('espressoIns', world); } catch {} }
   if (closed && !_pfCloseCam) { _pfCloseCam = true; try { rig.queueShot?.('matchcut', world, 30); } catch {} }
   // Delivery moped loops the road: east→west every ~26 s, deterministic
   // clock loop (cosmetic, no sim RNG).
