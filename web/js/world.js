@@ -789,6 +789,9 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   // vary the street rather than pinning one demo set.
   // Far-row massing west of the backdrop blocks; windows warm up at night.
   placePF(scene, 'brownstone-row-house-e58392', { position: [-17.8, 0, 19.2], rotationY: Math.PI, height: 13, night: 'street' });
+  // Delivery moped — drives the road band; main.js moves it each frame.
+  placePF(scene, 'delivery-moped-1aa2ce', { position: [-22, 0, 11.7], rotationY: -Math.PI / 2, height: 1.35, night: 'street' })
+    .then((g) => { W.pfMoped = g; });
 
   // god rays — a tall translucent quad behind the café that fades with mist; used for frost/harvest mood
   W.godRayMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });

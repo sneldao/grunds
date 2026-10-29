@@ -52,6 +52,7 @@ web/js/polyforkManifest.js are generated; re-run the vendor script to update.
 - coffee-kiosk-406d3e — Modern Restaurant Cafe kit
 - refreshment-kiosk-406f65 — Stadium kit
 - container-snack-kiosk-7036e5 — Skatepark kit
+- delivery-moped-1aa2ce — Little Tokyo kit
 
 Full zips (not committed): kept outside the repo during setup; re-download from
 the URLs above. Considered but deferred: Quaternius Sushi Restaurant Kit,

@@ -6606,6 +6606,14 @@ function loop(now) {
     if (_pfE['steam-wand-l']) _pfE['steam-wand-l'].rotation.y = wob;
     if (_pfE['steam-wand-r']) _pfE['steam-wand-r'].rotation.y = -wob;
   }
+  // Delivery moped loops the road: east→west every ~26 s, deterministic
+  // clock loop (cosmetic, no sim RNG).
+  const _pfM = world.pfMoped;
+  if (_pfM) {
+    const u = ((now * 0.001 / 26) % 1);
+    _pfM.position.x = 24 - u * 48;
+    _pfM.position.y = Math.abs(Math.sin(now * 0.008)) * 0.02;
+  }
   sky.update(dayMin, null, vitality.current);
   director.update({ dt, now, dayMin, night: world.night || 0, vitality: vitality.current });
   kitBeat.update(dt, now);

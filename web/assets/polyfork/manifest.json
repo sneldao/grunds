@@ -1044,7 +1044,7 @@
     "glb": "plaza-fountain-5a5f6e.glb",
     "glb_bytes": 160060
   },
-  "_generated": "2026-10-28",
+  "_generated": "2026-10-29",
   "_source": "https://polyfork.dev — free low-poly catalogue; licence: commercial use, no attribution, no redistribution as assets",
   "hanging-shop-sign-18d2b0": {
     "title": "Hanging Shop Sign",
@@ -2650,5 +2650,87 @@
     "page": "https://polyfork.dev/asset/container-snack-kiosk-7036e5",
     "glb": "container-snack-kiosk-7036e5.glb",
     "glb_bytes": 222716
+  },
+  "delivery-moped-1aa2ce": {
+    "title": "Delivery Moped",
+    "kit": "japanese-suburban-city-street-baa482",
+    "triangles": 1752,
+    "size_m": {
+      "x": 0.66,
+      "y": 1.33,
+      "z": 1.79
+    },
+    "origin_y": 0,
+    "zones": {
+      "body": "#3F8A5E",
+      "trim": "#F0EFEC",
+      "tyre": "#2E3134",
+      "rim": "#D8DADD",
+      "engine": "#6B7278",
+      "seat": "#3C4145",
+      "boxShell": "#B5462F",
+      "lens": "#E3EDF2",
+      "tail": "#D6452F",
+      "indicator": "#F0C24B"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "sage-green",
+        "options": [
+          "sage-green",
+          "post-red",
+          "city-blue",
+          "cream-white"
+        ]
+      },
+      "cargo": {
+        "type": "choice",
+        "default": "food-box",
+        "options": [
+          "food-box",
+          "crate",
+          "frame"
+        ]
+      },
+      "wheelFacets": {
+        "type": "range",
+        "default": 12,
+        "min": 8,
+        "max": 16
+      },
+      "wheelbase": {
+        "type": "range",
+        "default": 1.2,
+        "min": 1.05,
+        "max": 1.35
+      },
+      "windscreen": {
+        "type": "toggle",
+        "default": false
+      }
+    },
+    "night": {
+      "lens": {
+        "albedo": "#e3edf2",
+        "color": "#fff1ce",
+        "intensity": 1
+      },
+      "tail": {
+        "albedo": "#d6452f",
+        "color": "#ff4a38",
+        "intensity": 0.55
+      }
+    },
+    "pivots": [
+      "wheel-rear",
+      "kickstand",
+      "steer-front",
+      "wheel-front"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/delivery-moped-1aa2ce",
+    "glb": "delivery-moped-1aa2ce.glb",
+    "glb_bytes": 200464
   }
 }

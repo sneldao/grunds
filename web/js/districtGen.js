@@ -71,6 +71,8 @@ const PF_TINT_VARIANTS = [
   { stripeA: '#86a860', stripeB: '#f6efe0' },   // matcha & cream
   { stripeA: '#7fb3b0', stripeB: '#efe6d3' },   // teal & paper
   { stripeA: '#d0603b', stripeB: '#f6efe0' },   // terracotta & cream
+  { stripeA: '#3d5243', stripeB: '#efe6d3' },   // ok-ink & paper
+  { stripeA: '#4a3423', stripeB: '#e0a96d' },   // walnut & honey
   {},
 ];
 
