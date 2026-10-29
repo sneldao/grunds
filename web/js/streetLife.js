@@ -14,19 +14,19 @@
 import * as THREE from '../vendor/three.module.js';
 import { COHORTS, COHORT_KEYS, LAYOUT, FRANCHISE } from './config.js';
 
-export const STREET_CAP = { full: 16, lite: 7 };
+export const STREET_CAP = { full: 26, lite: 10 };
 export const STREET_LIMITS = {
-  pavement: 8,
-  neighbor: 4,
-  park: 3,
-  bench: 2,
-  glasshouse: 4,
-  prop: 3,
-  rowPerLot: 3,
-  rowTotal: 5,
+  pavement: 12,
+  neighbor: 8,
+  park: 4,
+  bench: 3,
+  glasshouse: 8,
+  prop: 4,
+  rowPerLot: 4,
+  rowTotal: 7,
 };
 export const STREET_SEED = { full: 7, lite: 3 };
-export const STREET_EVERY = { full: 11, lite: 24 };
+export const STREET_EVERY = { full: 9, lite: 20 };
 
 const PEOPLE = COHORT_KEYS.filter(k => k !== 'rival');
 const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];

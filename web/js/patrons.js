@@ -705,6 +705,15 @@ export class PatronSystem {
     if (p.pos.z < LAYOUT.door.z - 0.15) out.push(V3(LAYOUT.door.x + (this.random() - 0.5) * 2, 0, LAYOUT.door.z + 0.5)); // still inside — head for the door
     if (this.walkMul > 1.5) {
       out.push(V3(LAYOUT.door.x + (this.random() - 0.5) * 6, 0, LAYOUT.pavementZ + 0.6)); // step off-camera, bow out
+    } else if (this.cosmetic() < 0.45) {
+      // They went shopping elsewhere — not a lost sale to the void. Cross at
+      // the zebra, pass the far-row shopfronts, leave along the far pavement.
+      // Cosmetic stream: leave-path shape feeds no sim decision.
+      const shopX = [-9, -4, 1.5, 6, 11][(this.cosmetic() * 5) | 0];
+      out.push(V3(LAYOUT.crossX, 0, LAYOUT.pavementZ));
+      out.push(V3(LAYOUT.crossX, 0, LAYOUT.farSideZ));
+      out.push(V3(shopX + (this.cosmetic() - 0.5) * 1.5, 0, LAYOUT.farSideZ - 0.4));
+      out.push(V3(shopX < LAYOUT.crossX ? -18 : 18, 0, LAYOUT.farSideZ));
     } else {
       const exitL = this.random() < 0.5;
       out.push(V3(exitL ? LAYOUT.spawnL.x : LAYOUT.spawnR.x, 0, LAYOUT.pavementZ + (this.random() - 0.5)));
@@ -963,7 +972,9 @@ export class PatronSystem {
         const t = p.path[0];
         const dx = t.x - p.pos.x, dz = t.z - p.pos.z;
         const dist = Math.hypot(dx, dz);
-        const step = p.speed * walkMul * dt;
+        // Transit walkers stroll (≤4×): queue-slide keeps its own 3× catch-up
+        // so lines still clear at 20×, but nobody sprints across the pavement.
+        const step = p.speed * Math.min(walkMul, 4) * dt;
         if (dist <= Math.max(step, 0.06)) {
           p.pos.set(t.x, 0, t.z); p.path.shift();
           if (!p.path.length) { this._onArrive(p); if (!p.active) continue; }
