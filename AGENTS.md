@@ -41,10 +41,11 @@
    objects (espresso/pastry-case/till pivots known via pfParts), extreme
    low angle (phi → ~1.5), match cuts across the day boundary. Needs an
    r<18 exemption for SHOTS.insert — don't relax it globally.
-3. Conversion mechanic — cosmetic half shipped: ~30% of pavement walkers
-   pause and face the door (buildRoute 'pavement' branch). Open sim half:
-   promote a hesitator into a real patron via awareness/reputation/price
-   pull — needs a patrons.spawn near the door + walk-ins accounting.
+3. Conversion mechanic — shipped both halves: ~30% of pavement walkers
+   pause and face the door (buildRoute); a hesitator in dwell near the door
+   converts to a real patron on patronsConvRng (seed+43) at
+   awareness×reputation×3, max 3/day (main.js frame loop). Awareness and
+   rep are now visible on the pavement.
 4. Seasons — a week-climate envelope: demand reweight (iced vs hot),
    street restyle (umbrellas/caps), sky/palette keyframes. Rides the
    existing event-deck grammar.

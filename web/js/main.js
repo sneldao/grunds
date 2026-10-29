@@ -328,6 +328,7 @@ function currentAction() {
 let patronsRng = seeded(seedNow() + 17);
 let floorRng = seeded(seedNow() + 19);
 let patronsCosRng = seeded(seedNow() + 29);
+let patronsConvRng = seeded(seedNow() + 43);   // frontage conversions only
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx, { random: patronsRng, cosmetic: patronsCosRng });
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
 // Cosmetic street life. Own meshes, own random stream — never a café wave.
@@ -591,6 +592,7 @@ let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false, nudgedStanding
 
 let eveningCallShown = false, eveningFast = false, rushFast = false;
 let _pfRushCam = false, _pfCloseCam = false;   // camera-grammar one-shots
+let _pfConvN = 0;                              // frontage conversions today
 let paceTest = false, momentsTest = false;
 let momentPending = [], momentActive = null;
 const momentDone = new Set(), momentSeen = new Set();
@@ -4397,7 +4399,7 @@ function prepareDay(d) {
   rivalStrategy = strategyForDay(d, exchange.event?.tier);
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
-  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false; _pfRushCam = false; _pfCloseCam = false;
+  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false; _pfRushCam = false; _pfCloseCam = false; _pfConvN = 0;
   nudgedStanding = false;
   turnaways = 0; turnawayToastDone = false;
   leversTimeLocked = false; leverOverrideCount = 0;
@@ -6615,6 +6617,22 @@ function loop(now) {
   // frame so the morning crane departs the same shot.
   if ((rushFast || patrons.queueLength >= 6) && !_pfRushCam) { _pfRushCam = true; try { rig.shot?.('espressoIns', world); } catch {} }
   if (closed && !_pfCloseCam) { _pfCloseCam = true; try { rig.queueShot?.('matchcut', world, 30); } catch {} }
+  // Frontage conversion: a hesitator reading the front may come in —
+  // awareness × reputation rolls on its own stream (max 3/day).
+  if (phase === 'trading' && _pfConvN < 3) {
+    const aw = (demand?.awareness ?? 0) / 100, rep = (regulars.reputation ?? 0) / 100;
+    for (const a of street.agents) {
+      if (a.kind !== 'pavement' || a.state !== 'dwell' || a._convRolled) continue;
+      a._convRolled = true;
+      if (Math.abs(a.pos.x - LAYOUT.door.x) < 2.6 && a.pos.z > 7 && patronsConvRng() < aw * rep * 3) {
+        _pfConvN++;
+        street._despawn(a);
+        const np = patrons.spawn(a.cohort, 'counter', false);
+        if (np) { np.pos.set(a.pos.x, 0, a.pos.z); np.path = [new THREE.Vector3(LAYOUT.door.x, 0, LAYOUT.door.z)]; }
+        break;
+      }
+    }
+  }
   // Delivery moped loops the road: east→west every ~26 s, deterministic
   // clock loop (cosmetic, no sim RNG).
   const _pfM = world.pfMoped;
