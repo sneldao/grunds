@@ -33,6 +33,21 @@
 - Screenshot harness: `tools/pf-shots.mjs` (PF_SEED / PF_DIST env) →
   `/tmp/pf-shots/`; drives `__grunds.rig` + a `director` dusk layer.
 
+## Street / camera roadmap (post-feedback, agreed order)
+1. Street vignettes — busker+crowd & chatting pairs in streetLife.js
+   (waypoint dwell+face groups; one live group, members share the cap).
+   Next: dog walker needs its own rig; delivery/hand-truck vignette.
+2. Camera grammar — Breaking-Bad register: named insert shots from inside
+   objects (espresso/pastry-case/till pivots known via pfParts), extreme
+   low angle (phi → ~1.5), match cuts across the day boundary. Needs an
+   r<18 exemption for SHOTS.insert — don't relax it globally.
+3. Conversion mechanic — ambient streetLife agents pause at the frontage
+   and convert to patrons via awareness/reputation/price pull (despawn →
+   spawn at the door). Awareness levers become visible dials.
+4. Seasons — a week-climate envelope: demand reweight (iced vs hot),
+   street restyle (umbrellas/caps), sky/palette keyframes. Rides the
+   existing event-deck grammar.
+
 ## Generated assets (Grove mirror)
 - Convex data-egress is the constraint: generated GLBs + previews are mirrored
   to Grove (immutable, `chain_id` 232) and the client rewrites

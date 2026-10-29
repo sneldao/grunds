@@ -28,6 +28,14 @@ export const STREET_LIMITS = {
 export const STREET_SEED = { full: 7, lite: 3 };
 export const STREET_EVERY = { full: 9, lite: 20 };
 
+// Street vignettes — choreographed moments so the pavement is a place people
+// use, not just cross. One live group at a time, members share the cap as
+// 'vignette' agents. Spots clear of the door (-5,4) and the counter queue.
+export const VIGNETTE_SPOTS = [
+  { x: -12.5, z: 6.9 }, { x: -8.6, z: 6.55 }, { x: 3.6, z: 6.9 },
+  { x: 7.6, z: 6.5 }, { x: 12.2, z: 7.0 },
+];
+
 const PEOPLE = COHORT_KEYS.filter(k => k !== 'rival');
 const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];
 const LEGS = [0x2a2c34, 0x3a3230, 0x24303a];
@@ -587,6 +595,53 @@ export class StreetLife {
     this._since = 0;
     if (this.count >= this.cap) return;
     this._spawnOne();
+    // Vignettes: one choreographed group at a time (busker+crowd or a
+    // chatting pair), only in full mode and only when the cap has room.
+    if (!this.lite && !this._vgAnchor && this.free.length >= 4 && this.rng() < 0.2) this._spawnVignette();
+  }
+
+  // Street vignettes — a small group choreographed around a pavement spot.
+  // Members are ordinary agents with synthetic walk->dwell->walk routes;
+  // the anchor holds the spot until it leaves, and _vgAnchor gates the next
+  // group so vignettes stay sparse.
+  _spawnVignette() {
+    const free = VIGNETTE_SPOTS.map((s, i) => ({ s, i })).filter(({ i }) => !this.holds.has(`vg:${i}`));
+    if (!free.length) return null;
+    const pick = free[(this.rng() * free.length) | 0];
+    const spot = pick.s, hold = `vg:${pick.i}`;
+    const edge = () => (this.rng() < 0.5 ? LAYOUT.spawnL.x : LAYOUT.spawnR.x);
+    const mkMember = (gx, gz, dwell, face, vg, entry, exit, vHold) => {
+      const route = {
+        kind: 'vignette', lotId: null, hold: vHold || null, doorId: null, economic: false,
+        points: [pt(entry, LAYOUT.pavementZ), pt(gx, gz, { dwell, face }), pt(exit, LAYOUT.pavementZ)],
+      };
+      if (routeBlocked(route.points)) return null;
+      const a = this._activate(route, false);
+      if (a) a.vg = vg;
+      return a;
+    };
+    const base = 20 + this.rng() * 14;
+    if (this.rng() < 0.5) {
+      // Busker faces the road; the crowd arcs in front and peels off one by
+      // one (staggered dwell) — a gathering that forms and dissolves.
+      const anchor = mkMember(spot.x, spot.z, base + 14, 0, 'busker', edge(), edge(), hold);
+      if (!anchor) return null;
+      this._vgAnchor = anchor;
+      const n = 2 + ((this.rng() * 2) | 0);
+      for (let i = 0; i < n; i++) {
+        const th = -0.9 + (i / Math.max(1, n - 1)) * 1.8;
+        const gx = spot.x + Math.sin(th) * 0.95;
+        const gz = spot.z + Math.cos(th) * 0.75 + 0.4;
+        mkMember(gx, gz, base - i * 4, Math.atan2(spot.x - gx, spot.z - gz), 'crowd', edge(), edge());
+      }
+    } else {
+      // Two neighbours stop to talk — guaranteed to part opposite ways.
+      const a1 = mkMember(spot.x - 0.38, spot.z, base * 0.7, Math.PI / 2, 'chat', LAYOUT.spawnL.x, LAYOUT.spawnR.x);
+      const a2 = mkMember(spot.x + 0.38, spot.z, base * 0.7, -Math.PI / 2, 'chat', LAYOUT.spawnR.x, LAYOUT.spawnL.x);
+      if (!a1 && !a2) return null;
+      this._vgAnchor = a1 || a2;
+    }
+    return true;
   }
 
   // A high-speed defection already joined Sam's queue. This walker only
@@ -917,6 +972,7 @@ export class StreetLife {
   _despawn(agent) {
     if (!agent || !agent.active) return;
     agent.active = false;
+    if (agent === this._vgAnchor) this._vgAnchor = null;
     if (agent.hold) this.holds.delete(agent.hold);
     for (const part of Object.values(this.parts)) {
       part.setMatrixAt(agent.idx, ZERO);

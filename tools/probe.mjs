@@ -20,11 +20,11 @@ await p.evaluate(() => window.__grunds.togglePause());
 await p.waitForTimeout(2000);
 await p.evaluate(() => {
   const g = window.__grunds;
-  g.world.setEspressoGroups(3);
+  for (let i = 0; i < 3; i++) g.street && g.street._spawnVignette && g.street._spawnVignette();
   g.rig.beat = null;
   g.rig.target.set(-5.8, 1.15, -5.4); g.rig.r = 6; g.rig.theta = -0.4; g.rig.phi = 1.15;
 });
 await p.waitForTimeout(2000);
-await p.screenshot({ path: '/tmp/pf-shots/espresso-g3.png' });
+await p.screenshot({ path: '/tmp/pf-shots/vignette.png' });
 console.log('ERRS:', errs);
 await b.close(); server.kill();
