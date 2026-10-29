@@ -327,6 +327,13 @@ export function buildRoute(plan, rng) {
       points.push(pt(plan.seat.x, plan.seat.z, {
         dwell: 8 + roll() * 7, sit: true, face: plan.seat.face,
       }));
+    } else if (roll() < 0.3) {
+      // Frontage hesitation: a share of passers-by stop and read the front —
+      // the door is a thing to pass, not just a spawn target. Converting the
+      // pause into a real patron is the sim half (roadmap item 3, still open).
+      points.push(pt(LAYOUT.door.x + (roll() - 0.5) * 2.4, LAYOUT.pavementZ, {
+        dwell: 1.6 + roll() * 1.6, face: Math.PI,
+      }));
     }
     points.push(pavementEnd(endX, roll));
   } else if (plan.kind === 'bench' && plan.seat) {
