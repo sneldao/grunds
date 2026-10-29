@@ -27,7 +27,8 @@ try {
   const errs = [];
   page.on('pageerror', e => errs.push(String(e.stack || e).slice(0, 600)));
   page.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text().slice(0, 200)); });
-  await page.goto(`${BASE}/?skipTutorial&seed=${process.env.PF_SEED || '7'}&district=${process.env.PF_DIST || 'classicDistrict'}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  page.on('framenavigated', f => { if (f === page.mainFrame()) errs.push('nav: ' + f.url().slice(0, 140)); });
+  await page.goto(`${BASE}/?skipTutorial&seed=${process.env.PF_SEED || '7'}&${process.env.PF_EXTRA || 'district=polyfork'}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForSelector('#open:not([disabled])', { timeout: 90000 });
   await page.$eval('#open', el => el.click());
   for (let i = 0; i < 40; i++) {

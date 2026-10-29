@@ -215,8 +215,39 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     ls.placed = true;
     scene.add(inst); unscaffold(lotId);
     ls.placedDay = dayNow || state.day || 0;
+    pfRemember(lotId, id, ls);
     if (state.onArrived) state.onArrived(inst, def, ls);
     return { status: 'success', prompt: text, purpose, byline, claimed: true };
+  }
+
+  // Local hydration marker: polyfork stands are client-side, so a reload
+  // re-places them from localStorage keyed to this seed — no server needed.
+  const PF_LS_KEY = `grunds-pf-stands-${seed}`;
+  function pfRemember(lotId, pfId, ls) {
+    try {
+      const all = JSON.parse(localStorage.getItem(PF_LS_KEY) || '{}');
+      all[lotId] = { pfId, prompt: ls.prompt, day: ls.placedDay, purpose: ls.purpose, byline: ls.byline };
+      localStorage.setItem(PF_LS_KEY, JSON.stringify(all));
+    } catch {}
+  }
+  async function pfHydrate() {
+    let all = {};
+    try { all = JSON.parse(localStorage.getItem(PF_LS_KEY) || '{}'); } catch {}
+    for (const [lotId, s] of Object.entries(all)) {
+      const ls = lotState(lotId), def = lotDef(lotId);
+      if (!def || ls.placed || !s?.pfId) continue;
+      const inst = await loadPF(glb, s.pfId, {
+        position: def.position.slice(), rotationY: def.rotationY,
+        height: FRANCHISE.height, night: 'street',
+      });
+      if (inst?.userData?.placeholder) continue;
+      Object.assign(ls, { status: 'success', prompt: s.prompt, describedDay: s.day, purpose: s.purpose ?? null, byline: s.byline ?? null, mine: true, placed: true, placedDay: s.day || 0 });
+      scene.add(inst); unscaffold(lotId);
+    }
+    state.live = true;
+    // Defer: initFranchise runs before main.js finishes declaring `phase`,
+    // so a synchronous onStatus would throw in TDZ.
+    queueMicrotask(() => { try { state.onStatus && state.onStatus(); } catch {} });
   }
 
   state.describe = async (lotId, text, dayNow, purpose, byline) => {
@@ -292,6 +323,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     return null;
   };
 
+  if (polyfork) pfHydrate();
   state.refresh(0);
   return state;
 }

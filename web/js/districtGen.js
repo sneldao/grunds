@@ -49,7 +49,12 @@ export function districtOptOut(search) {
 // with no provider call and no Convex egress. Candidates exclude the ids the
 // world.js pilot set already pins to fixed spots.
 export function districtPolyforkOpt(search) {
-  return /(^|[?&])(district=polyfork|pfDistrict)($|[=&])/.test(search || '');
+  // Default: the seeded-vendored district. ?district=tripo (or ?convexDistrict)
+  // routes back to the provider path; ?classicDistrict still escapes to the
+  // procedural street.
+  if (/(^|[?&])(district=tripo|district=convex|convexDistrict)($|[=&])/.test(search || '')) return false;
+  if (districtOptOut(search)) return false;
+  return true;
 }
 
 // Slot -> vendored candidate ids. Picked with a seeded LCG stream

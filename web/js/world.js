@@ -435,20 +435,17 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   for (const dx of [-2.2, 0, 2.2]) {
     place(scene, 'stoolBar.glb', { position: [C.x + dx, 0, C.z + C.d / 2 + 1.0], scale: 1.0, rotationY: Math.PI });
   }
-  // pastry case
+  // pastry case — Polyfork display case on the bar; the stock slots are
+  // children of pc so setPastryStock keeps working unchanged.
   const pc = new THREE.Group(); pc.position.set(-4.3, 1.1, -5.4); bar.add(pc);
-  box(pc, 1.7, 0.1, 0.8, PAL.walnutDark, 0, 0.05, 0);
-  const glassMat = new THREE.MeshStandardMaterial({ color: PAL.glass, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.25 });
-  box(pc, 1.7, 0.62, 0.8, 0xffffff, 0, 0.42, 0, { mat: glassMat, cast: false });
-  box(pc, 1.6, 0.03, 0.7, 0xd8d2c0, 0, 0.38, 0, { cast: false });
+  placePF(pc, 'pastry-display-case-8bcce5', { position: [0, 0, 0], height: 0.8, night: 'pend' });
   const pastryCols = [0xd89a5a, 0xc46a7a, 0x9a6a3a, 0xe0c47a, 0x8a5a3a, 0xd87f9a];
   // Pastry items: 3 croissants (procedural torus -> Kenney croissant.glb)
-  // and 3 cakes (procedural box -> Kenney cake.glb). The case frame stays
-  // procedural because the GLB kit has no display case.
+  // and 3 cakes (procedural box -> Kenney cake.glb).
   const pastrySlots = [];
   pastryCols.forEach((col, i) => {
     const slot = new THREE.Group(); pc.add(slot); pastrySlots.push(slot);
-    const px = -0.6 + (i % 3) * 0.6, py = i < 3 ? 0.16 : 0.46, pz = -0.15 + (i % 2) * 0.3;
+    const px = -0.32 + (i % 3) * 0.32, py = i < 3 ? 0.14 : 0.42, pz = -0.1 + (i % 2) * 0.2;
     if (i % 3 === 0) {
       // croissant.glb replaces the procedural torus donut
       place(slot, 'croissant.glb', { position: [px, py, pz], scale: 0.7, rotationY: Math.PI / 4 });
