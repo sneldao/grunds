@@ -590,6 +590,7 @@ let coached = false;   // day-1 lever hint, once per campaign
 let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false, nudgedStanding = false;
 
 let eveningCallShown = false, eveningFast = false, rushFast = false;
+let _pfRushCam = false, _pfCloseCam = false;   // camera-grammar one-shots
 let paceTest = false, momentsTest = false;
 let momentPending = [], momentActive = null;
 const momentDone = new Set(), momentSeen = new Set();
@@ -6609,6 +6610,11 @@ function loop(now) {
     if (_pfE['steam-wand-l']) _pfE['steam-wand-l'].rotation.y = wob;
     if (_pfE['steam-wand-r']) _pfE['steam-wand-r'].rotation.y = -wob;
   }
+  // Camera grammar: the rush gets the inside-the-machine insert; the close
+  // pins the match-cut frame so the morning crane departs the same shot.
+  if (rushFast && !_pfRushCam) { _pfRushCam = true; try { rig.shot?.('espressoIns', world); } catch {} }
+  else if (!rushFast) _pfRushCam = false;
+  if (closed && !_pfCloseCam) { _pfCloseCam = true; try { rig.queueShot?.('matchcut', world, 30); } catch {} }
   // Delivery moped loops the road: east→west every ~26 s, deterministic
   // clock loop (cosmetic, no sim RNG).
   const _pfM = world.pfMoped;
