@@ -429,6 +429,21 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   // wand pivots stay named on W.pfEspresso for animation hooks.
   placePF(bar, 'espresso-machine-a2db84', { position: [-6.35, 1.106, -5.5], rotationY: 0, height: 0.55, night: 'pend' })
     .then((g) => { W.pfEspresso = g; });
+  // Parametric upgrade arc: the machine grows group heads with the team.
+  // Groups are baked into remixed GLBs (-g2/-g3) vendored by the script.
+  let _espGroups = 1;
+  W.setEspressoGroups = (n) => {
+    if (n === _espGroups) return;
+    _espGroups = n;
+    const old = W.pfEspresso;
+    if (old) {
+      W.pfNight = W.pfNight.filter((e) => !(old.userData.pfNight || []).includes(e));
+      bar.remove(old);
+    }
+    const id = 'espresso-machine-a2db84' + (n >= 3 ? '-g3' : n === 2 ? '-g2' : '');
+    placePF(bar, id, { position: [-6.35, 1.106, -5.5], rotationY: 0, height: 0.55, night: 'pend' })
+      .then((g) => { W.pfEspresso = g; });
+  };
   // Polyfork coffee-grinder-6f962a replaces the procedural hopper+body.
   placePF(bar, 'coffee-grinder-6f962a', { position: [-7.55, 1.106, -5.5], rotationY: 0, height: 0.45 });
   // 3 bar stools at the customer-side of the bar (Kenney stoolBar.glb)

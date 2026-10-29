@@ -6598,6 +6598,9 @@ function loop(now) {
   vitality.tick();
   try { world.setRivalHeat(patrons.rivalQ.length + Math.min(6, Math.round(patrons.ghostPace * 4))); } catch {}
   world.updateTimeOfDay(dayMin);
+  // The espresso machine grows group heads with the team — solo Ruth runs
+  // one group, an apprentice or the robot adds one each.
+  world.setEspressoGroups?.(1 + (apprenticeHiredToday ? 1 : 0) + (onRobotHire() ? 1 : 0));
   // Polyfork espresso: steam wands sway while the rush is on (pivots exposed
   // by loadPF; ±20° stays inside their authored [-46°,0] range).
   const _pfE = world.pfEspresso?.userData?.pfParts;

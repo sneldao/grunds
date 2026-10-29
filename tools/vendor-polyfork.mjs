@@ -95,7 +95,26 @@ async function vendor(id, manifest) {
   console.log(`  ${id}  ${(glb.length / 1024).toFixed(0)} KB  zones:${Object.keys(zones).length} night:${Object.keys(night).join(',') || '-'}`);
 }
 
+// Remix variant: `vendorRemix(id, params, suffix)` — the CDN bakes geometry
+// knobs into a GLB at {id}-remix.glb?p={json}; zone/night metadata aliases
+// the base asset's entry under `{id}-{suffix}`.
+async function vendorRemix(id, params, suffix, manifest) {
+  const base = manifest[id] || await (async () => { await vendor(id, manifest); return manifest[id]; })();
+  const q = encodeURIComponent(JSON.stringify(params));
+  const r = await fetch(`${CDN}${id}-remix.glb?p=${q}`);
+  if (!r.ok) throw new Error(`${id}-remix.glb?p=${q} -> ${r.status}`);
+  const glb = Buffer.from(await r.arrayBuffer());
+  const rid = `${id}-${suffix}`;
+  writeFileSync(join(OUT, `${rid}.glb`), glb);
+  manifest[rid] = { ...base, glb: `${rid}.glb`, glb_bytes: glb.length, remix_of: id, remix_params: params };
+  console.log(`  ${rid}  ${(glb.length / 1024).toFixed(0)} KB  remix of ${id}`);
+}
+
 const ids = process.argv.slice(2).length ? process.argv.slice(2) : PILOT;
+const REMIXES = {
+  // Espresso machine group-head variants — the machine grows with the team.
+  'espresso-machine-a2db84': [{ groups: 2 }, { groups: 3 }],
+};
 mkdirSync(OUT, { recursive: true });
 const manifestPath = join(OUT, 'manifest.json');
 const jsPath = new URL('../web/js/polyforkManifest.js', import.meta.url).pathname;
@@ -104,6 +123,12 @@ let manifest = {};
 try { manifest = JSON.parse(readFileSync(manifestPath, 'utf8')); } catch {}
 console.log(`Vendoring ${ids.length} Polyfork assets -> ${OUT}`);
 for (const id of ids) await vendor(id, manifest);
+if (process.env.PF_NO_REMIX !== '1') {
+  for (const [id, variants] of Object.entries(REMIXES)) {
+    if (!ids.includes(id)) continue;
+    for (const [i, p] of variants.entries()) await vendorRemix(id, p, `g${i + 2}`, manifest);
+  }
+}
 manifest._generated = new Date().toISOString().slice(0, 10);
 manifest._source = 'https://polyfork.dev — free low-poly catalogue; licence: commercial use, no attribution, no redistribution as assets';
 const json = JSON.stringify(manifest, null, 2) + '\n';

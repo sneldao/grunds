@@ -2732,5 +2732,141 @@
     "page": "https://polyfork.dev/asset/delivery-moped-1aa2ce",
     "glb": "delivery-moped-1aa2ce.glb",
     "glb_bytes": 200464
+  },
+  "espresso-machine-a2db84-g2": {
+    "title": "Espresso Machine",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 668,
+    "size_m": {
+      "x": 0.74,
+      "y": 0.71,
+      "z": 0.58
+    },
+    "origin_y": 0,
+    "zones": {
+      "shell": "#F8F1E7",
+      "cheek": "#6B5137",
+      "metal": "#DADEDF",
+      "hardware": "#2E3330",
+      "wood": "#A98F6F",
+      "button": "#ECEFF0",
+      "cup": "#FFFFFF"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "linen-oak",
+        "options": [
+          "linen-oak",
+          "black-steel",
+          "chrome",
+          "terracotta-brass"
+        ]
+      },
+      "groups": {
+        "type": "range",
+        "default": 2,
+        "min": 1,
+        "max": 3
+      },
+      "cupRack": {
+        "type": "range",
+        "default": 2,
+        "min": 0,
+        "max": 4
+      },
+      "cupRail": {
+        "type": "toggle",
+        "default": true
+      }
+    },
+    "night": {
+      "button": {
+        "albedo": "#eceff0",
+        "color": "#e4c98a",
+        "intensity": 0.7
+      }
+    },
+    "pivots": [
+      "portafilter-a",
+      "steam-wand-l",
+      "steam-wand-r"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/espresso-machine-a2db84",
+    "glb": "espresso-machine-a2db84-g2.glb",
+    "glb_bytes": 54396,
+    "remix_of": "espresso-machine-a2db84",
+    "remix_params": {
+      "groups": 2
+    }
+  },
+  "espresso-machine-a2db84-g3": {
+    "title": "Espresso Machine",
+    "kit": "modern-restaurant-cafe-01ea4c",
+    "triangles": 668,
+    "size_m": {
+      "x": 0.74,
+      "y": 0.71,
+      "z": 0.58
+    },
+    "origin_y": 0,
+    "zones": {
+      "shell": "#F8F1E7",
+      "cheek": "#6B5137",
+      "metal": "#DADEDF",
+      "hardware": "#2E3330",
+      "wood": "#A98F6F",
+      "button": "#ECEFF0",
+      "cup": "#FFFFFF"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "linen-oak",
+        "options": [
+          "linen-oak",
+          "black-steel",
+          "chrome",
+          "terracotta-brass"
+        ]
+      },
+      "groups": {
+        "type": "range",
+        "default": 2,
+        "min": 1,
+        "max": 3
+      },
+      "cupRack": {
+        "type": "range",
+        "default": 2,
+        "min": 0,
+        "max": 4
+      },
+      "cupRail": {
+        "type": "toggle",
+        "default": true
+      }
+    },
+    "night": {
+      "button": {
+        "albedo": "#eceff0",
+        "color": "#e4c98a",
+        "intensity": 0.7
+      }
+    },
+    "pivots": [
+      "portafilter-a",
+      "steam-wand-l",
+      "steam-wand-r"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/espresso-machine-a2db84",
+    "glb": "espresso-machine-a2db84-g3.glb",
+    "glb_bytes": 62496,
+    "remix_of": "espresso-machine-a2db84",
+    "remix_params": {
+      "groups": 3
+    }
   }
 }

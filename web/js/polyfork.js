@@ -49,8 +49,15 @@ function readColors(geom) {
   if (!a) return null;
   const item = a.itemSize;
   const out = new Float32Array(a.count * item);
-  if (a.array instanceof Float32Array) out.set(a.array);
-  else for (let i = 0; i < a.count * item; i++) out[i] = a.array[i] / (a.normalized ? 255 : 1);
+  if (a.array instanceof Float32Array && a.array.length === out.length && !a.isInterleavedBufferAttribute) {
+    out.set(a.array);
+  } else {
+    // Interleaved/padded accessors (remix GLBs) — read per component via the
+    // attribute getters (stride/offset safe), divide out integer normalization.
+    const div = a.normalized && !(a.array instanceof Float32Array) ? 255 : 1;
+    const get = [a.getX.bind(a), a.getY.bind(a), a.getZ.bind(a), a.getW.bind(a)];
+    for (let i = 0; i < a.count; i++) for (let c = 0; c < item; c++) out[i * item + c] = get[c](i) / div;
+  }
   return { arr: out, item };
 }
 
@@ -201,7 +208,7 @@ export async function loadPF(glb, id, opts = {}) {
   if (!entry || inst.userData.placeholder) return inst;
   inst.userData.pfId = id;
 
-  const tint = Object.assign({}, PF_TINT[id], opts.tint);
+  const tint = Object.assign({}, PF_TINT[entry.remix_of || id] || PF_TINT[id], opts.tint);
   const hasNight = Object.keys(entry.night || {}).length && opts.night !== false;
   if (Object.keys(tint).length || hasNight) {
     const plan = buildPlan(entry, tint, hasNight);
