@@ -6,6 +6,7 @@ import * as THREE from '../vendor/three.module.js';
 import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS, FRANCHISE } from './config.js';
 import { buildWorld, chalkPopScale } from './world.js';
 import { initDistrictGen, districtOptOut, districtPolyforkOpt } from './districtGen.js';
+import { pickClimate } from './climates.js';
 import { initFranchise, morningFranchiseLines } from './franchise.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
@@ -335,6 +336,8 @@ const patrons = new PatronSystem(scene, world, regulars, exchange, fx, { random:
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
 // Cosmetic street life. Own meshes, own random stream — never a café wave.
 const street = new StreetLife(scene, { lite });
+const climate = pickClimate(SEED, city?.name);
+street.climate = climate;
 patrons.onCosmeticCross = (from) => street.mirrorCrossing(from);
 fx.patrons = patrons;
 const barStaff = buildBarStaff(scene);

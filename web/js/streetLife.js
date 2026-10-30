@@ -464,7 +464,10 @@ export class StreetLife {
     for (let i = STREET_CAP.full - 1; i >= 0; i--) this.free.push(i);
   }
 
-  get cap() { return this.lite ? STREET_CAP.lite : STREET_CAP.full; }
+  get cap() {
+    // Climate envelope: rain thins the street, heat crowds it.
+    return Math.round((this.lite ? STREET_CAP.lite : STREET_CAP.full) * (this.climate?.streetMul || 1));
+  }
   get count() { return this.agents.length; }
 
   census() {
@@ -597,7 +600,7 @@ export class StreetLife {
   tick() {
     if (!this.live) return;
     this._since += 1;
-    const every = this.lite ? STREET_EVERY.lite : STREET_EVERY.full;
+    const every = (this.lite ? STREET_EVERY.lite : STREET_EVERY.full) * (this.climate?.everyMul || 1);
     if (this._since < every) return;
     this._since = 0;
     if (this.count >= this.cap) return;
