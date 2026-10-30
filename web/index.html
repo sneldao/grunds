@@ -460,6 +460,7 @@
   #softintro-step.si-in, #lic-step.si-in { animation: siIn .26s ease-out; }
   @keyframes siIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { #softintro-step.si-in, #lic-step.si-in { animation: none; } }
+  .brief-climate { font-size: 12px; line-height: 1.45; color: #4a514d; border-left: 2px solid #7fb3b0; padding: 5px 9px; margin: 0 0 10px; }
   #brief-intro { font-family: var(--serif); font-size: 13.5px; line-height: 1.55; color: #2a241c; }
   #brief-intro .fm-quote { font-style: italic; opacity: .85; margin: 4px 0 10px; }
   #brief-intro p { margin: 0 0 8px; }
@@ -865,6 +866,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
         <div class="l-kicker" id="brief-objective" style="display:none; font-style: normal; letter-spacing: .02em;"></div>
         <div id="brief-standing" hidden></div>
         <div class="beat-powered" id="brief-powered"></div>
+        <div id="brief-climate" class="brief-climate"></div>
       </header>
 
       <!-- Tier 2: Scrollable Progressive Drawers -->

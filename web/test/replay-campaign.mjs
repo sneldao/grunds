@@ -139,6 +139,7 @@ async function child(seed, cosmeticSeed, frameMs = 100) {
 
   const r2 = x => Math.round(x * 1e6) / 1e6;
   const days = [];
+  const rigCheck = {};
   let crash = null;
   try {
   document.getElementById('open').click();
@@ -155,9 +156,22 @@ async function child(seed, cosmeticSeed, frameMs = 100) {
     let res = await game.commitDayPlan();
     if (!res.ok && hedge !== 'hold') { game.stageDayPlan({ hedge: 'hold', staffing: 'work', marketing: {} }); res = await game.commitDayPlan(); }
     assert.equal(res.ok, true, JSON.stringify(res));
-    let frames = 0;
+    if (day === 2) rigCheck.crane = game.rig.mode === 'crane' && !game.rig.beat?.hold;
+    let frames = 0, pauseProbe = null;
     while (game.phase === 'trading' && frames++ < 1000) {
       if (game.paused && game.modals.top() === 'offer') document.getElementById('offer-no').click();
+      if (!pauseProbe && !game.paused && game.frontage.pending) {
+        const probe = { count: game.frontage.count, rng: game.frontage.random.state(), pending: game.frontage.pending };
+        game.togglePause();
+        for (let i = 0; i < 12; i++) { const cb = raf; raf = null; now += frameMs; cb(now); }
+        probe.samePending = game.frontage.pending === probe.pending;
+        probe.sameRng = game.frontage.random.state() === probe.rng;
+        probe.countAfter = game.frontage.count;
+        probe.hadPending = !!probe.pending;
+        delete probe.pending;
+        game.togglePause();
+        pauseProbe = probe;
+      }
       const cb = raf; raf = null; now += frameMs; cb(now);
     }
     const s = game.stats(), receipt = game.lastDayReceipt || {};
@@ -171,18 +185,56 @@ async function child(seed, cosmeticSeed, frameMs = 100) {
       netToday: r2(receipt.netToday ?? NaN), operatingNet: r2(receipt.operatingNet ?? NaN),
       debt: r2(s.debt), rep: s.rep, satisfaction: r2(s.satisfaction), awareness: r2(s.awareness),
       index: r2(s.index), hedgeSavings: r2(s.hedgeSavings), staffCondition: r2(s.staffCondition),
+      frontageConv: game.frontage.count, convRng: game.frontage.random.state(), pauseProbe,
+      climate: game.climate.id,
     });
     if (game.phase !== 'review') break;
+    if (day === 1) {
+      rigCheck.heldAtClose = game.rig.beat?.hold === true;
+      for (let i = 0; i < 300; i++) { now += 16; game.rig.update(1 / 60, now); }
+      rigCheck.stillHeld = game.rig.beat?.hold === true;
+    }
     game.continueFromReview();
+    if (day === 1) {
+      rigCheck.planningHold = game.phase === 'planning' && game.rig.beat?.hold === true;
+    }
     if (game.phase === 'finale') break;
   }
   } catch (err) {
     crash = String(err && err.message || err);
   }
   const end = game.stats();
+  let resetDay = null;
+  if (!crash && game.phase === 'finale') {
+    try {
+      game.reset(false);
+      if (game.phase !== 'planning') {
+        resetDay = { error: 'reset left phase ' + game.phase };
+      } else {
+        game.stageMenu({ prices: { latte: 3.6, flat: 3.4 }, offered: { mocha: false } });
+        game.stagePastryCut(0.5);
+        game.stageCellar({ topup: 'restock' });
+        game.stageDayPlan({ hedge: 'contract_light', staffing: 'work', marketing: {} });
+        const res = await game.commitDayPlan();
+        if (!res.ok) {
+          resetDay = { error: JSON.stringify(res) };
+        } else {
+          let frames = 0;
+          while (game.phase === 'trading' && frames++ < 1000) {
+            if (game.paused && game.modals.top() === 'offer') document.getElementById('offer-no').click();
+            const cb = raf; raf = null; now += frameMs; cb(now);
+          }
+          const s = game.stats();
+          resetDay = { till: r2(s.till), served: s.served, balked: s.balked, defections: s.defections, frontageConv: game.frontage.count, climate: game.climate.id };
+        }
+      }
+    } catch (e) {
+      resetDay = { error: String(e && e.message || e) };
+    }
+  }
   out(JSON.stringify({
-    seed, days,
-    end: { phase: game.phase, day: end.day, netWorth: r2(end.netWorth), debt: r2(end.debt), rep: end.rep, cRev: r2(end.cRev), cCost: r2(end.cCost), cOps: r2(end.cOps), settledPaid: r2(end.settledPaid), campaignDone: end.campaignDone },
+    seed, days, resetDay, rigCheck,
+    end: { phase: end.phase, day: end.day, netWorth: r2(end.netWorth), debt: r2(end.debt), rep: end.rep, cRev: r2(end.cRev), cCost: r2(end.cCost), cOps: r2(end.cOps), settledPaid: r2(end.settledPaid), campaignDone: end.campaignDone },
     strays: [...strays].map(([where, n]) => `${n}x ${where}`), uuidDraws, crash,
   }) + '\n');
 }
@@ -235,6 +287,36 @@ if (process.argv[2] === '--replay') {
     const strip = r => ({ days: r.days.map(({ frames, ...d }) => d), end: r.end });
     assert.deepEqual(strip(F50), strip(A));
     assert.deepEqual(strip(F37), strip(A));
+  });
+
+  test('replay: frontage conversions fire on their own stream and freeze under pause', () => {
+    assert.equal(A.crash, null, A.crash);
+    const maxConv = Math.max(...A.days.map(d => d.frontageConv || 0));
+    assert.ok(maxConv > 0, 'no frontage conversion all week — the sim path was never exercised');
+    const probed = A.days.filter(d => d.pauseProbe);
+    assert.ok(probed.length > 0, 'no pending frontage hesitation was ever observed');
+    for (const d of probed) {
+      assert.equal(d.pauseProbe.hadPending, true, `day ${d.day}: probe ran without a pending candidate`);
+      assert.equal(d.pauseProbe.samePending, true, `day ${d.day}: the pending candidate advanced while paused`);
+      assert.equal(d.pauseProbe.sameRng, true, `day ${d.day}: the conversion stream drew while paused`);
+      assert.equal(d.pauseProbe.countAfter, d.pauseProbe.count, `day ${d.day}: conversion count moved while paused`);
+    }
+  });
+
+  test('replay: the close matchcut holds through planning and cranes out on commit', () => {
+    assert.equal(A.rigCheck.heldAtClose, true, 'closeDay should leave a held matchcut beat');
+    assert.equal(A.rigCheck.stillHeld, true, 'held frame must survive the review window');
+    assert.equal(A.rigCheck.planningHold, true, 'prepareDay must not reset the held view');
+    assert.equal(A.rigCheck.crane, true, 'the next commit should crane out of the held frame');
+  });
+
+  test('replay: a same-seed reset replays day 1 identically', () => {
+    assert.ok(A.resetDay, 'no reset-day probe recorded');
+    assert.equal(A.resetDay.error, undefined, A.resetDay.error);
+    const d1 = A.days[0];
+    for (const k of ['till', 'served', 'balked', 'defections', 'frontageConv', 'climate']) {
+      assert.equal(A.resetDay[k], d1[k], `day 1 after reset() diverged on ${k}`);
+    }
   });
 
   test('replay: a different seed produces a different campaign', () => {

@@ -2,7 +2,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { cosmeticRandom } from './cosmetic.js';
 import { PAL, LAYOUT, COPY } from './config.js';
-import { loadPF } from './polyfork.js';
+import { loadPF, registerPFNight } from './polyfork.js';
 import { woodFloor, pavement, road, awning, menuBoard, softSprite, streakSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction } from './textures.js';
 import { GLBLoader } from './loader.js';
 import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
@@ -154,14 +154,16 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   // into W.pfNight so updateTimeOfDay can drive their opacity.
   function placePF(parent, id, opts = {}) {
     const p = loadPF(glb, id, opts).then((g) => {
-      parent.add(g); applyDistrictFogTree(g);
-      if (g.userData.pfNight) W.pfNight.push(...g.userData.pfNight);
-      return g;
+      parent.add(g); return W.registerPF(g);
     });
     pending.push(p);
     return p;
   }
   W.pfNight = [];
+  W.registerPF = (g) => {
+    applyDistrictFogTree(g);
+    return registerPFNight(W.pfNight, g);
+  };
   W._glbLoader = glb;                       // exposed for tests / disposal
   renderer.shadowMap.enabled = !lite;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;

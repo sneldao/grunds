@@ -6,7 +6,7 @@ import * as THREE from '../vendor/three.module.js';
 import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS, FRANCHISE } from './config.js';
 import { buildWorld, chalkPopScale } from './world.js';
 import { initDistrictGen, districtOptOut, districtPolyforkOpt } from './districtGen.js';
-import { pickClimate } from './climates.js';
+import { pickClimate, climateBrief, climateRain } from './climates.js';
 import { initFranchise, morningFranchiseLines } from './franchise.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
@@ -18,6 +18,7 @@ import { buildHalo, shouldHalo } from './halo.js';
 import { buildKitBeat } from './kitArrival.js';
 import { PatronSystem } from './patrons.js';
 import { StreetLife } from './streetLife.js';
+import { FrontageConversions } from './frontage.js';
 import { buildBarStaff } from './barstaff.js';
 import { FX } from './fx.js';
 import { CameraRig } from './camera.js';
@@ -152,7 +153,7 @@ const seedNow = () => SEED_OVERRIDE != null ? SEED_OVERRIDE : SEED;
 // via the Convex bridge — fire-and-forget cross-fade on arrival; the classic
 // procedural district is the fallback. No-ops when headless / no-GL / no Convex.
 // ?classicDistrict forces the procedural street (completeness escape hatch).
-const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search), city: city?.name, polyfork: districtPolyforkOpt(location.search) });
+const district = initDistrictGen({ scene, seed: SEED, classic: districtOptOut(location.search), city: city?.name, polyfork: districtPolyforkOpt(location.search), onPlaced: (_, inst) => world.registerPF(inst) });
 // City Remix: the cached locality pack (M3.1 flash via SandBase) dresses the
 // licence with real cafés and a local price. Fire-and-forget — no pack, no
 // Convex, offline: the street just speaks generic "district".
@@ -197,6 +198,7 @@ if (city && !headless) try { document.title = `Grunds — ${cityDisplay(city.nam
 // as the district — fire-and-forget, the classic street is the floor.
 const franchise = initFranchise({
   scene, seed: SEED, classic: districtOptOut(location.search), polyfork: districtPolyforkOpt(location.search),
+  onPlaced: inst => world.registerPF(inst),
   onArrived: (inst, def, ls) => fx.toast(ls && ls.mine
     ? `the builders finished — ${def.name} is open`
     : `${def.name} is open — ${ls && ls.byline ? `built by ${ls.byline}` : 'a previous owner built it'}; the rent is yours`, 'good'),
@@ -336,7 +338,8 @@ const patrons = new PatronSystem(scene, world, regulars, exchange, fx, { random:
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
 // Cosmetic street life. Own meshes, own random stream — never a café wave.
 const street = new StreetLife(scene, { lite });
-const climate = pickClimate(SEED, city?.name);
+const frontage = new FrontageConversions(patronsConvRng);
+let climate = pickClimate(seedNow(), city?.name);
 street.climate = climate;
 patrons.onCosmeticCross = (from) => street.mirrorCrossing(from);
 fx.patrons = patrons;
@@ -596,9 +599,7 @@ let coached = false;   // day-1 lever hint, once per campaign
 let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false, nudgedStanding = false;
 
 let eveningCallShown = false, eveningFast = false, rushFast = false;
-let _pfRushCam = false, _pfCloseCam = false;   // camera-grammar one-shots
-let _pfConvN = 0;                              // frontage conversions today
-let _pfCaseStock = null;                       // pastry-stock watcher for the case insert
+let _pfRushCam = false;                        // camera-grammar one-shots
 let paceTest = false, momentsTest = false;
 let momentPending = [], momentActive = null;
 const momentDone = new Set(), momentSeen = new Set();
@@ -956,6 +957,18 @@ function tick() {
   street.setRivalHeat(patrons.rivalQ.length + Math.min(6, Math.round(patrons.ghostPace * 4)));   // ghost pace reads as ambient warmth even with no queue
   street.noteQueue(patrons.queueLength);
   street.tick();
+  // Frontage conversion: a hesitator reading the front may come in —
+  // awareness × reputation rolls on its own stream (max 3/day).
+  if (!softDay) frontage.tick(dayMin, {
+    start: DAY_START, awareness: demand.awareness, reputation: regulars.reputation,
+    approach: p => street.showFrontage(p),
+    resolve: (p, converted) => street.finishFrontage(p, converted),
+    spawn: p => {
+      const patron = patrons.spawn(p.cohort, 'counter', false);
+      if (patron) patron.pos.set(p.x, 0, p.z);
+      return patron;
+    },
+  });
   // deliver the wire's gossip once the named regular is actually on the
   // floor — routed through the friend graph so it lands as word-of-mouth
   if (pendingGossip?.text) {
@@ -973,6 +986,9 @@ function tick() {
         const unit = Math.round(PASTRY.cogs * 100) / 100;
         till -= unit;
         pastrySpend = Math.round((pastrySpend + unit) * 100) / 100;
+        // A pastry sale earns the inside-the-case insert (queued — never stomps
+        // a live beat; at high speed it's likely already gone).
+        if (speed <= 300) { try { rig.queueShot?.('caseIns', world, 10); } catch {} }
       }
       // cash-only day: a share of sales die at the till — no card, no sale
       // the dead-reader incident and a wifi drop share one cash-only path
@@ -1685,7 +1701,7 @@ function closeDay() {
     const row = campaignDays[campaignDays.length - 1];
     if (row && row.day === day) row.netToday = netToday;
   } catch {}
-  rig.focus(world.focus.wide, 27, 6);
+  rig.queued = null; rig.shot('matchcut', world);
   const total = served + servedRetail + balked;
   const ratio = total ? balked / total : 0;
   let verdict;
@@ -3524,6 +3540,7 @@ function showMorningBrief() {
       }
     }
   } catch { if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`; }
+  { const el = $('brief-climate'); if (el) el.textContent = climateBrief(climate); }
   const intro = $('brief-intro');
   if (intro) {
     if (firstDay && softWeekDone) {
@@ -4125,6 +4142,7 @@ function capturePreDawn(enteringDay) {
         floor: floorRng && floorRng.state ? floorRng.state() : null,
         fx: fxRng && fxRng.state ? fxRng.state() : null,
         cos: patronsCosRng && patronsCosRng.state ? patronsCosRng.state() : null,
+        conv: patronsConvRng && patronsConvRng.state ? patronsConvRng.state() : null,
       },
       exchange: {
         beanIndex: exchange.beanIndex, day: exchange.day, debt: exchange.debt,
@@ -4182,6 +4200,8 @@ function applySavedWeek(save) {
   floorRng = seeded((save.seed || seedNow()) + 19, ss.floor);
   fxRng = seeded((save.seed || seedNow()) + 23, ss.fx);
   patronsCosRng = seeded((save.seed || seedNow()) + 29, ss.cos);
+  patronsConvRng = seeded((save.seed || seedNow()) + 43, ss.conv);
+  frontage.random = patronsConvRng;
   patrons.random = patronsRng;
   patrons.cosmetic = patronsCosRng;
   fx.random = fxRng;
@@ -4283,6 +4303,9 @@ function prepareDay(d) {
   capturePreDawn(d);
   phase = 'planning';
   day = d;
+  climate = pickClimate(seedNow(), city?.name);
+  street.climate = climate;
+  try { world.setRain?.(climateRain(climate, null)); } catch {}
   if (shockPulledFlat) { menuOffered.flatwhite = true; shockPulledFlat = false; patrons.menuOffered = menuOffered; }
   shockCounter = null;
   stagedCounterable = null;
@@ -4405,7 +4428,8 @@ function prepareDay(d) {
   rivalStrategy = strategyForDay(d, exchange.event?.tier);
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
-  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false; _pfRushCam = false; _pfCloseCam = false; _pfConvN = 0;
+  peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false; _pfRushCam = false;
+  frontage.reset();   // frontage conversions today
   nudgedStanding = false;
   turnaways = 0; turnawayToastDone = false;
   leversTimeLocked = false; leverOverrideCount = 0;
@@ -4548,7 +4572,7 @@ function startTradingDay(d) {
     } catch {}
     fx.toast('rain on the Row — thin footfall, long stays', '');
   } else {
-    try { world.setRain?.(0); } catch {}
+    try { world.setRain?.(climateRain(climate, ev.id)); } catch {}
   }
   // weather as mood: tie sky/mist/god-rays/motes to the event tier
   try {
@@ -4568,7 +4592,7 @@ function startTradingDay(d) {
   // Per-regular `seen` is now flipped on individually in patrons.spawn() via
   // regulars.markSeen(cohort). No more blanket "everyone was here" — opinion
   // moves only for regulars who actually showed up today.
-  rig.resetView();
+  rig.crane();
   // Street picture only. tick() still multiplies the wave by event.demand
   // and shockDemandMul — this read does not change who pays.
   const read = demandShockRead(ev.demand, dawnDemandMult({
@@ -5301,9 +5325,14 @@ function reset(coreOnly = false) {
   floorRng = seeded(seedNow() + 19);
   fxRng = seeded(seedNow() + 23);
   patronsCosRng = seeded(seedNow() + 29);
+  patronsConvRng = seeded(seedNow() + 43);
   patrons.random = patronsRng;
   patrons.cosmetic = patronsCosRng;
   fx.random = fxRng;
+  frontage.random = patronsConvRng;
+  frontage.reset();
+  climate = pickClimate(seedNow(), city?.name);
+  street.climate = climate;
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
@@ -6621,32 +6650,7 @@ function loop(now) {
   // Camera grammar: a real queue surge (or the rush skip) earns the
   // inside-the-machine insert once per day; the close pins the match-cut
   // frame so the morning crane departs the same shot.
-  if ((rushFast || patrons.queueLength >= 6) && !_pfRushCam) { _pfRushCam = true; try { rig.shot?.('espressoIns', world); } catch {} }
-  if (closed && !_pfCloseCam) { _pfCloseCam = true; try { rig.queueShot?.('matchcut', world, 30); } catch {} }
-  // A pastry sale earns the inside-the-case insert (queued — never stomps
-  // a live beat; at high speed it's likely already gone).
-  if (ctx.pastryStock != null) {
-    if (_pfCaseStock != null && ctx.pastryStock < _pfCaseStock && speed <= 300) {
-      try { rig.queueShot?.('caseIns', world, 10); } catch {}
-    }
-    _pfCaseStock = ctx.pastryStock;
-  }
-  // Frontage conversion: a hesitator reading the front may come in —
-  // awareness × reputation rolls on its own stream (max 3/day).
-  if (phase === 'trading' && _pfConvN < 3) {
-    const aw = (demand?.awareness ?? 0) / 100, rep = (regulars.reputation ?? 0) / 100;
-    for (const a of street.agents) {
-      if (a.kind !== 'pavement' || a.state !== 'dwell' || a._convRolled) continue;
-      a._convRolled = true;
-      if (Math.abs(a.pos.x - LAYOUT.door.x) < 2.6 && a.pos.z > 7 && patronsConvRng() < aw * rep * 3) {
-        _pfConvN++;
-        street._despawn(a);
-        const np = patrons.spawn(a.cohort, 'counter', false);
-        if (np) { np.pos.set(a.pos.x, 0, a.pos.z); np.path = [new THREE.Vector3(LAYOUT.door.x, 0, LAYOUT.door.z)]; }
-        break;
-      }
-    }
-  }
+  if (phase === 'trading' && !paused && (rushFast || patrons.queueLength >= 6) && !_pfRushCam) { _pfRushCam = true; try { rig.queueShot?.('espressoIns', world, 12); } catch {} }
   // Delivery moped loops the road: east→west every ~26 s, deterministic
   // clock loop (cosmetic, no sim RNG).
   const _pfM = world.pfMoped;
@@ -6655,7 +6659,7 @@ function loop(now) {
     _pfM.position.x = 24 - u * 48;
     _pfM.position.y = Math.abs(Math.sin(now * 0.008)) * 0.02;
   }
-  sky.update(dayMin, null, vitality.current);
+  sky.update(dayMin, null, vitality.current, climate);
   director.update({ dt, now, dayMin, night: world.night || 0, vitality: vitality.current });
   kitBeat.update(dt, now);
   mailT.update(dt, now);
@@ -6738,7 +6742,7 @@ function loop(now) {
   tetherWifi,
   get wifiOutage() { return wifiOutage ? { ...wifiOutage, status: outageStatus(wifiOutage, dayMin) } : null; },
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
-  exc: exchange, reg: regulars, sync, world, rig, analytics, street,
+  exc: exchange, reg: regulars, sync, world, rig, analytics, street, frontage,
   vitality, director, district, kitBeat, mailT, impact,
   openDay, applyReply, reset, togglePause, resolveEvening, skipToRush,
   prepareDay, stageDayPlan, stageWeekHire, commitDayPlan, continueFromReview,
@@ -6808,6 +6812,7 @@ function loop(now) {
   get phase() { return phase; },
   get party() { return party; },
   get softDay() { return softDay; },
+  get climate() { return climate; },
   get softWeekDone() { return softWeekDone; },
   get coachedOpening() { return coachedOpening; },
   beginWeek,

@@ -92,6 +92,7 @@ void main(){
 
 export function buildSky(scene) {
   let mesh = null, geo = null, mat = null;
+  const climateColor = new THREE.Color();
   const u = {
     uZen:    { value: new THREE.Color(0x1a2440) },
     uHor:    { value: new THREE.Color(0xd9a06b) },
@@ -119,7 +120,7 @@ export function buildSky(scene) {
     mesh = geo = mat = null;
   }
 
-  function update(t, sunDir, mood = 1) {
+  function update(t, sunDir, mood = 1, climate = null) {
     if (!mat) return;
     t = clamp(t, 360, 1260);
     // bracket the keyframes and smoothstep the fraction for smooth color ramps
@@ -130,6 +131,13 @@ export function buildSky(scene) {
     u.uZen.value.copy(a.z).lerp(b.z, f);
     u.uHor.value.copy(a.h).lerp(b.h, f);
     u.uNad.value.copy(a.n).lerp(b.n, f);
+    if (climate?.skyMix > 0) {
+      const mix = climate.skyMix * (1 - ss(1050, 1230, t));
+      climateColor.setHex(climate.skyTint);
+      u.uZen.value.lerp(climateColor, mix);
+      u.uHor.value.lerp(climateColor, mix);
+      u.uNad.value.lerp(climateColor, mix * 0.5);
+    }
     // caller may drive the sun with the scene's light direction; else use the arc
     const sd = u.uSunDir.value;
     let directed = false;
@@ -142,6 +150,8 @@ export function buildSky(scene) {
     u.uSunInt.value = y > 0 ? clamp(Math.pow(y, 0.6), 0, 1) : 0;   // 0 below horizon, peak near noon
     u.uStars.value = ss(1140, 1230, t);            // stars rise from ~19:00 to ~20:30
     u.uHaze.value = ss(1160, 1230, t);             // 0 through the day, 1 by closing
+    u.uSunInt.value *= climate?.sunMul ?? 1;
+    u.uStars.value *= climate?.starsMul ?? 1;
     // mood (vitality 0..1): a lively street scatters its skyglow; a dying one shows stars
     if (mood !== 1) {
       u.uSunInt.value *= 0.75 + 0.5 * mood;

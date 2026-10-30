@@ -131,7 +131,8 @@ function processMesh(mesh, plan) {
     const za = zoneOf[a], zb = zoneOf[b], zc = zoneOf[c];
     if (za >= 0 && za === zb && zb === zc && plan[za].night) {
       glowIdx[za].push(a, b, c); anyGlow = true;
-    } else baseIdx.push(a, b, c);
+    }
+    baseIdx.push(a, b, c);
   }
 
   // Base geometry: cloned only when we actually changed something.
@@ -167,6 +168,7 @@ function processMesh(mesh, plan) {
       const mat = new THREE.MeshBasicMaterial({
         color: new THREE.Color(n.color), transparent: true, opacity: 0,
         depthWrite: false, side: THREE.DoubleSide,
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
       });
       const gm = new THREE.Mesh(gGeom, mat);
       gm.castShadow = false; gm.receiveShadow = false;
@@ -180,6 +182,13 @@ function processMesh(mesh, plan) {
     }
   }
   return glows;
+}
+
+export function registerPFNight(entries, inst) {
+  for (const entry of inst?.userData?.pfNight || []) {
+    if (!entries.includes(entry)) entries.push(entry);
+  }
+  return inst;
 }
 
 // Box-normalize an arbitrary GLB to a target world height and ground it at

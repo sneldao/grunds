@@ -140,9 +140,21 @@ async function child(seed, cosmeticSeed, saveFile = null) {
       let res = await game.commitDayPlan();
       if (!res.ok && hedge !== 'hold') { game.stageDayPlan({ hedge: 'hold', staffing: 'work', marketing: {} }); res = await game.commitDayPlan(); }
       assert.equal(res.ok, true, JSON.stringify(res));
-      let frames = 0;
+      let frames = 0, pauseProbe = null;
       while (game.phase === 'trading' && frames++ < 1000) {
         if (game.paused && game.modals.top() === 'offer') document.getElementById('offer-no').click();
+        if (!pauseProbe && !game.paused && game.frontage.pending) {
+          const probe = { count: game.frontage.count, rng: game.frontage.random.state(), pending: game.frontage.pending };
+          game.togglePause();
+          for (let i = 0; i < 12; i++) { const cb = raf; raf = null; now += 100; cb(now); }
+          probe.samePending = game.frontage.pending === probe.pending;
+          probe.sameRng = game.frontage.random.state() === probe.rng;
+          probe.countAfter = game.frontage.count;
+          probe.hadPending = !!probe.pending;
+          delete probe.pending;
+          game.togglePause();
+          pauseProbe = probe;
+        }
         const cb = raf; raf = null; now += 100; cb(now);
       }
       const s = game.stats(), receipt = game.lastDayReceipt || {};
@@ -156,6 +168,8 @@ async function child(seed, cosmeticSeed, saveFile = null) {
         netToday: r2(receipt.netToday ?? NaN), operatingNet: r2(receipt.operatingNet ?? NaN),
         debt: r2(s.debt), rep: s.rep, satisfaction: r2(s.satisfaction), awareness: r2(s.awareness),
         index: r2(s.index), hedgeSavings: r2(s.hedgeSavings), staffCondition: r2(s.staffCondition),
+        frontageConv: game.frontage.count, convRng: game.frontage.random.state(), pauseProbe,
+        climate: game.climate.id,
       });
       if (game.phase !== 'review') break;
       game.continueFromReview();
@@ -213,6 +227,19 @@ if (process.argv[2] === '--donor') {
       assert.deepEqual(R.end, A.end);
     });
   }
+
+  test('resume: frontage conversions fire and freeze under pause', () => {
+    const maxConv = Math.max(...A.days.map(d => d.frontageConv || 0));
+    assert.ok(maxConv > 0, 'no frontage conversion all week — the sim path was never exercised');
+    const probed = A.days.filter(d => d.pauseProbe);
+    assert.ok(probed.length > 0, 'no pending frontage hesitation was ever observed');
+    for (const d of probed) {
+      assert.equal(d.pauseProbe.hadPending, true, `day ${d.day}: probe ran without a pending candidate`);
+      assert.equal(d.pauseProbe.samePending, true, `day ${d.day}: the pending candidate advanced while paused`);
+      assert.equal(d.pauseProbe.sameRng, true, `day ${d.day}: the conversion stream drew while paused`);
+      assert.equal(d.pauseProbe.countAfter, d.pauseProbe.count, `day ${d.day}: conversion count moved while paused`);
+    }
+  });
 
   test('resume: no bare Math.random on the resume path', () => {
     assert.deepEqual(A.strays, [], 'Math.random reached from:\n' + A.strays.join('\n'));

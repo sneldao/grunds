@@ -1,9 +1,10 @@
 # Working notes
 
 ## Verify
-- `npm test` — full suite (`node --test web/test/*.mjs`, sequential)
+- `npm test` — full suite (`node --experimental-vm-modules --test --test-concurrency=1 web/test/*.mjs`)
 - `npm run typecheck` — `tsc --noEmit`
 - Licence/identity surface: `node web/test/identity.mjs web/test/orientation.mjs`
+- Narrow: `node --test web/test/frontage.mjs web/test/polyfork-lighting.mjs web/test/camera-grammar.mjs web/test/climates.mjs`
 
 ## Deploy (`npm run deploy:site`)
 - `tools/build-dist.sh` → `stage-site.mjs` bundles the **working tree**, not HEAD.
@@ -25,30 +26,41 @@
   GLBLoader, tints COLOR_0 zones via `PF_TINT`, extracts `night` zones into
   emissive overlays driven by updateTimeOfDay's street/pend factors
   (`opts.night: 'street'|'pend'`), and exposes rigged pivots on
-  `userData.pfParts`.
-- District: `?district=polyfork` (or `?pfDistrict`) picks slot candidates
-  via `seeded(seed + 977 + hash(city))` in districtGen.js `PF_SLOTS` —
-  instant, deterministic, Convex-free. Candidates must not collide with ids
-  pinned at fixed spots in `world.js`.
-- Screenshot harness: `tools/pf-shots.mjs` (PF_SEED / PF_DIST env) →
+  `userData.pfParts`. Night zones keep their opaque base triangles; a
+  polygon-offset glow overlay adds the light. Route every successful
+  world/district/franchise placement, including hydration, through
+  world.registerPF; registerPFNight deduplicates entries.
+- District: seeded-vendored Polyfork is the default. `?district=polyfork` /
+  `?pfDistrict` are explicit aliases; `?district=tripo` /
+  `?district=convex` / `?convexDistrict` select the provider path; the
+  classic opt-out stays. Candidates still must not collide with ids pinned
+  at fixed spots in `world.js`.
+- Screenshot harness: `tools/pf-shots.mjs` (PF_SEED / PF_EXTRA env) →
   `/tmp/pf-shots/`; drives `__grunds.rig` + a `director` dusk layer.
 
 ## Street / camera roadmap (post-feedback, agreed order)
 1. Street vignettes — busker+crowd & chatting pairs in streetLife.js
    (waypoint dwell+face groups; one live group, members share the cap).
    Next: dog walker needs its own rig; delivery/hand-truck vignette.
-2. Camera grammar — Breaking-Bad register: named insert shots from inside
-   objects (espresso/pastry-case/till pivots known via pfParts), extreme
-   low angle (phi → ~1.5), match cuts across the day boundary. Needs an
-   r<18 exemption for SHOTS.insert — don't relax it globally.
+2. Camera grammar — espressoIns/caseIns use authored view positions and
+   alone bypass the r>=18 scripted clamp; lowStreet reaches phi=1.5.
+   Insert exits blend back over 0.8 s. matchcut holds through
+   review/planning; OPEN calls crane(), clearing held/queued beats.
+   Pastry shots queue on actual sales, and the rush insert queues once
+   per trading day.
 3. Conversion mechanic — shipped both halves: ~30% of pavement walkers
-   pause and face the door (buildRoute); a hesitator in dwell near the door
-   converts to a real patron on patronsConvRng (seed+43) at
-   awareness×reputation×3, max 3/day (main.js frame loop). Awareness and
-   rep are now visible on the pavement.
-4. Seasons — a week-climate envelope: demand reweight (iced vs hot),
-   street restyle (umbrellas/caps), sky/palette keyframes. Rides the
-   existing event-deck grammar.
+   pause and face the door (buildRoute); the sim side is deterministic
+   opportunities every 90 sim-minutes (first at start+45) that dwell 8
+   sim-minutes then roll awareness(0..1) × reputation/100 ×3 capped at 1,
+   max 3 successful spawns/day — FrontageConversions in frontage.js ticks
+   inside tick() on its own saved/reset stream (seed+43). StreetLife only
+   displays candidates (showFrontage/finishFrontage).
+4. Seasons — current climate envelope is cosmetic: seeded
+   fair/heat/rain/crisp changes street density/cadence, sky tint/sun/stars,
+   and rain. The fixed Brief header explains it before opening. Climate
+   refreshes from the active seed on prepare/reset; heat has room for 33
+   full-mode walkers and rain vignettes respect the reduced cap. Demand
+   reweighting and umbrellas/caps remain future work.
 
 ## Generated assets (Grove mirror)
 - Convex data-egress is the constraint: generated GLBs + previews are mirrored
@@ -64,5 +76,6 @@
   see ARCHITECTURE.md "Choice surfaces".
 - Sim RNG must never call bare `Math.random` — streams are `seeded(seed + n)`
   (`patronsRng` +17 decisions, `patronsCosRng` +29 spawn paint, `floorRng`
-  +19, `fxRng` +23); `web/test/seeded-floor.mjs` and `replay-campaign.mjs`
+  +19, `fxRng` +23, `patronsConvRng` +43 frontage — saved/restored/reset as
+  `streams.conv`); `web/test/seeded-floor.mjs` and `replay-campaign.mjs`
   guard it.

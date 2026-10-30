@@ -27,7 +27,7 @@ export const SHOTS = {
   lowStreet: { r: 15, secs: 4, theta: 0.08, phi: 1.5, anchor: 'wide' },
   // Match-cut frame: pinned at close so the morning crane departs the same
   // composition the evening review ended on.
-  matchcut: { r: 10, secs: 4, theta: 0.1, phi: 1.06, point: [-5, 1.4, 4] },
+  matchcut: { r: 10, secs: 4, theta: 0.1, phi: 1.06, point: [-5, 1.4, 4], hold: true },
 };
 
 export class CameraRig {
@@ -50,6 +50,8 @@ export class CameraRig {
     this.pointers = new Map();
     this._cap = new Set();
     this.suppressClick = false;
+    this._viewMix = 0;
+    this._renderLook = new THREE.Vector3();
     const endPointer = (e) => {
       if (!e || e.pointerId == null) { this.release(); return; }
       if (this._cap.has(e.pointerId)) {
@@ -139,13 +141,27 @@ export class CameraRig {
     this._pinch = null;
   }
 
-  crane() { this.mode = 'crane'; this.craneT = 0; this._from = { target: this.target.clone(), theta: this.theta, phi: this.phi, r: this.r }; this._calm = performance.now(); }
+  crane() {
+    if (this._viewMix > 0 && this._viewLook) {
+      this.target.copy(this._renderLook);
+      const offset = this.cam.position.clone().sub(this.target);
+      this.r = Math.max(0.001, offset.length());
+      this.theta = Math.atan2(offset.x, offset.z);
+      this.phi = Math.acos(THREE.MathUtils.clamp(offset.y / this.r, -1, 1));
+    }
+    this.beat = null; this.queued = null; this._viewMix = 0;
+    this.mode = 'crane'; this.craneT = 0;
+    this._from = { target: this.target.clone(), theta: this.theta, phi: this.phi, r: this.r };
+    this._calm = performance.now();
+  }
 
   focus(point, r = 12, secs = 4, theta = null, opts = {}) {
     this.beat = {
       point: point.clone(),
       r: opts.view ? r : Math.max(18, r),
-      until: performance.now() / 1000 + secs,
+      until: opts.hold ? Infinity : performance.now() / 1000 + secs,
+      hold: !!opts.hold,
+      holdAt: performance.now() / 1000 + secs,
       blend: 0, theta,
       phi: opts.phi ?? null,
       view: opts.view
@@ -156,18 +172,19 @@ export class CameraRig {
   // queueFocus: a focus that waits for the current beat to finish (expiring
   // after ttl seconds) instead of stomping it. News beats chapters.
   queueFocus(point, r = 12, secs = 4, ttl = 12, theta = null, opts = {}) {
+    if (this.beat?.hold) return;
     this.queued = { point: point.clone(), r, secs, until: performance.now() / 1000 + ttl, theta, opts };
   }
   // Phase 5 — named shots: shot() focuses now, queueShot() waits its turn.
   shot(name, world) {
     const s = SHOTS[name]; if (!s || !world?.focus) return;
     const anchor = s.point ? new THREE.Vector3(...s.point) : (world.focus[s.anchor] || world.focus.counter);
-    if (anchor) this.focus(anchor, s.r, s.secs, s.theta, { phi: s.phi, view: s.view });
+    if (anchor) this.focus(anchor, s.r, s.secs, s.theta, { phi: s.phi, view: s.view, hold: s.hold });
   }
   queueShot(name, world, ttl = 12) {
     const s = SHOTS[name]; if (!s || !world?.focus) return;
     const anchor = s.point ? new THREE.Vector3(...s.point) : (world.focus[s.anchor] || world.focus.counter);
-    if (anchor) this.queueFocus(anchor, s.r, s.secs, ttl, s.theta, { phi: s.phi, view: s.view });
+    if (anchor) this.queueFocus(anchor, s.r, s.secs, ttl, s.theta, { phi: s.phi, view: s.view, hold: s.hold });
   }
   shake(mag = 0.35) {
     if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -183,6 +200,8 @@ export class CameraRig {
   }
   resetView() {
     this.beat = null;
+    this.queued = null;
+    this._viewMix = 0;
     this.home = { ...HOME, target: HOME.target.clone() };
     this.target.copy(HOME.target); this.theta = HOME.theta; this.phi = HOME.phi; this.r = HOME.r;
   }
@@ -230,6 +249,12 @@ export class CameraRig {
           this._viewLook.lerp(this.beat.view.look, e * 0.14);
           this.target.lerp(this.beat.view.look, e * 0.06);
         }
+        if (this.beat.hold && t >= this.beat.holdAt) {
+          this.target.copy(this.beat.point);
+          this.r = this.beat.r;
+          if (this.beat.theta != null) this.theta = this.beat.theta;
+          if (this.beat.phi != null) this.phi = this.beat.phi;
+        }
         if (t > this.beat.until) this.beat = null;
       } else if (idle) {
         // a queued news-focus promotes once the camera is free and idle —
@@ -240,6 +265,7 @@ export class CameraRig {
         }
         this.target.lerp(this.home.target, dt * 0.4);
         this.r += (this.home.r - this.r) * dt * 0.25;
+        this.phi += (this.home.phi - this.phi) * dt * 0.25;
         this.theta += Math.sin(t * 0.00013 * 1000) * 0.00012; // barely-there drift
       }
     }
@@ -249,7 +275,7 @@ export class CameraRig {
     // prefers less motion (accessibility).
     const calmFactor = this._calm ? Math.min(1, Math.max(0, (performance.now() - this._calm) / 7000)) : 1;
     const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1;
-    const breathScale = (0.25 + 0.75 * calmFactor) * reduceMotion;
+    const breathScale = (0.25 + 0.75 * calmFactor) * reduceMotion * (this.beat?.hold ? 0 : 1);
     const sp = Math.sin(this.phi), cp = Math.cos(this.phi);
     const px = this.target.x + this.r * sp * Math.sin(this.theta);
     const py = this.target.y + this.r * cp;
@@ -262,13 +288,15 @@ export class CameraRig {
       const m = this.shakeMag * this.shakeT * this.shakeT;
       sx = (cosmeticRandom() - 0.5) * m; sy = (cosmeticRandom() - 0.5) * m; sz = (cosmeticRandom() - 0.5) * m;
     }
-    if (this.beat && this.beat.view && this._viewPos) {
-      // Insert mode: the camera is inside the prop, breathing lightly.
-      this.cam.position.set(this._viewPos.x + n1 * 0.3 + sx, this._viewPos.y + n2 * 0.2 + sy, this._viewPos.z + n2 * 0.3 + sz);
-      this.cam.lookAt(this._viewLook.x, this._viewLook.y, this._viewLook.z);
-    } else {
-      this.cam.position.set(px + n1 + sx, py + n2 * 0.6 + sy, pz + n2 + sz);
-      this.cam.lookAt(this.target.x + n1 * 0.4 + sx * 0.5, this.target.y + sy * 0.5, this.target.z + n2 * 0.4 + sz * 0.5);
+    // Insert mode: the camera is inside the prop, breathing lightly.
+    const view = this.mode === 'play' && this.beat?.view && this._viewPos;
+    this._viewMix = view ? 1 : Math.max(0, this._viewMix - dt / 0.8);
+    this.cam.position.set(px + n1 + sx, py + n2 * 0.6 + sy, pz + n2 + sz);
+    this._renderLook.set(this.target.x + n1 * 0.4 + sx * 0.5, this.target.y + sy * 0.5, this.target.z + n2 * 0.4 + sz * 0.5);
+    if (this._viewMix > 0 && this._viewPos) {
+      this.cam.position.lerp(this._viewPos, this._viewMix);
+      this._renderLook.lerp(this._viewLook, this._viewMix);
     }
+    this.cam.lookAt(this._renderLook);
   }
 }

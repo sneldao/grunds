@@ -16,11 +16,13 @@ Demo video: `videos/grunds-demo` (recorded gameplay + HyperFrames title treatmen
 
 | Current state | |
 |---|---|
-| Latest commit | `daf2fa4` (2026-10-14) |
-| Tests | `npm test` — 104 headless suites, run sequentially · `npm run typecheck` clean |
-| Verified | full Node suite + headless replay on the committed tree; live HTTP artifact checks |
-| Not yet verified | live browser playthrough of the current build; fresh human playtests (criteria in [EVAL.md](EVAL.md)) |
+| Source update | 2026-10-30 — deterministic frontage conversions, Polyfork lighting, camera lifecycle, and climate cues |
+| Tests | Full Node suite: 488 passed; final UI/test polish: 11 targeted checks passed; `npm run typecheck` clean |
+| Verified | Local staged build on desktop (1400×900) and mobile (390×844): opening, trading, pause/resume, lighting, and review → next-morning camera transition |
+| Not yet verified | These changes are not deployed; production browser verification, pixel-diff baselines, performance budgets, and fresh human playtests remain open |
 | Build history | [hackathon.md](hackathon.md) — dated log from day one |
+
+An intermittent coach-test failure appeared during validation and passed on reruns; its cause is not confirmed.
 
 ## Design pillar
 
@@ -86,6 +88,10 @@ reputation that modulates footfall and tips. New players get a **soft opening**
 practice day first; the week ends in a sold-sign verdict and a seed-shareable
 receipt. Full mechanics in [ARCHITECTURE.md](ARCHITECTURE.md).
 
+The street now uses seeded, vendored Polyfork props by default. Small groups and passers-by dress the pavement; a separate simulation clock gives frontage visitors a chance to enter, based on awareness and reputation, with at most three successful spawns per day. Pausing, graphics mode, and saved-week resumes do not change those conversion draws.
+
+A seeded fair, hot, wet, or crisp week changes the street's appearance and ambient crowd. The Morning Brief explains this before opening. Week climate adds no demand modifier; the existing daily event deck still controls its own demand effects. Closing camera frames hold through review and lead into the next morning's crane.
+
 ## Data layer
 
 - **Source**: Maven Analytics "Coffee Shop Sales" — 149k transactions, 3 NYC locations
@@ -106,7 +112,7 @@ receipt. Full mechanics in [ARCHITECTURE.md](ARCHITECTURE.md).
 ## Getting started
 
 ```bash
-npm run preview:local    # serve the latest web build at http://127.0.0.1:8766
+npm run preview:local    # serve the latest web source at http://127.0.0.1:8766
 npm test                 # full headless suite (node --test web/test/*.mjs)
 npm run typecheck        # tsc --noEmit
 
@@ -116,7 +122,9 @@ python3 -m grunds run
 ```
 
 URL params: `?seed=N`, `?speed=60|300|1200`, `?lite`, `?skipTutorial`,
-`?skipLicence`, `?demo=1` (self-running showfloor demo), `?classicDistrict`.
+`?skipLicence`, `?demo=1` (self-running showfloor demo), `?district=polyfork`
+(seeded vendored props — the default), `?district=tripo` (provider path),
+`?classicDistrict`.
 
 ## Design principles
 

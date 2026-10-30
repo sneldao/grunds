@@ -114,8 +114,8 @@ export function fitToSlot(inst, height) {
   inst.position.set(slot.x - center2.x, -box2.min.y, slot.z - center2.z);
 }
 
-export function initDistrictGen({ scene, seed, classic, loader, city, polyfork }) {
-  const state = { live: false, placed: 0, total: Object.keys(SLOTS).length, seed, classic: !!classic };
+export function initDistrictGen({ scene, seed, classic, loader, city, polyfork, onPlaced }) {
+  const state = { live: false, placed: 0, total: Object.keys(SLOTS).length, seed, classic: !!classic, onPlaced };
   // City Remix: a city name folds into the kit prompts server-side, so a
   // "Lisbon" street grows its own props instead of sharing seed-7's.
   const cityQ = city ? `&city=${encodeURIComponent(city)}` : '';

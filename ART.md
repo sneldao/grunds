@@ -90,12 +90,18 @@ dims and brightens but never re-hues. God rays + dust motes for air, bloom +
 vignette in post (never in materials). Night is ink, not black — `#171310`
 holds the street so brass can glow against it.
 
+October 30 climate cues preserve the miniature's day/night arc: heat adds warm haze, rain greys the sky and softens the sun, and crisp weeks cool the daylight. Climate tint fades before night. Sky-only tints are fair #cfe0e8, heat #f0c58b, rain #8393a0, and crisp #8eb5d1; the Brief weather note uses muted ink #4a514d with the existing teal rule. These additions do not recolor character cohorts.
+
+Polyfork glow is additive presentation over intact opaque surfaces. Lamps, windows, and buttons remain physical objects when their glow is zero; all placements, including rehydrated stands, join the shared day/night registry.
+
 ## Motion feel (locked now, built in Phase 5)
 
 Soft ease everywhere, sine over linear, squash over snap. Nothing moves at
 constant velocity except the till drawer (machines are allowed one linear
 privilege). Signature verbs beat new geometry: a camera flash says more than
 a better camera model. See "Character language" — motion carries identity.
+
+Camera inserts use authored espresso/case viewpoints and blend back to orbit over 0.8 seconds. The closing match-cut frame holds while the player reads and plans; the next OPEN cranes from that composition. User camera input can take control. Low-angle beats return toward the home elevation after expiry.
 
 ## Sound direction — October 10, 2026
 

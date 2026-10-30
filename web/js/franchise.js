@@ -25,7 +25,7 @@ import { fmt } from './city.js';
 export const FRANCHISE_POLL_MS = 10000;
 export const FRANCHISE_MAX_POLLS = 36;
 
-export function initFranchise({ scene, seed, classic, loader, onArrived, onStatus, polyfork }) {
+export function initFranchise({ scene, seed, classic, loader, onArrived, onStatus, onPlaced, polyfork }) {
   const state = {
     seed,
     live: false,        // a status read has landed at least once
@@ -34,6 +34,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     lots: {},           // lotId → { status, prompt, describedDay, placed, placedDay, purpose }
     onStatus,           // optional: fired when a status read lands (brief re-render)
     onArrived,          // optional: fired when a stand lands mid-session (toast)
+    onPlaced,
   };
   const lotState = (id) => state.lots[id] || (state.lots[id] = {
     status: 'missing', prompt: null, describedDay: null, placed: false, placedDay: 0, mine: false, purpose: null, byline: null,
@@ -99,6 +100,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       scene.add(inst);
       unscaffold(id);
       ls.placedDay = dayNow || state.day || 0; // pre-existing stands pay from day 1
+      state.onPlaced?.(inst, def, ls);
       // announce=false on the hydration read — a stand that was always
       // there didn't "arrive"; only transitions witnessed live get a toast.
       if (announce && state.onArrived) state.onArrived(inst, def, ls);
@@ -216,6 +218,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     scene.add(inst); unscaffold(lotId);
     ls.placedDay = dayNow || state.day || 0;
     pfRemember(lotId, id, ls);
+    state.onPlaced?.(inst, def, ls);
     if (state.onArrived) state.onArrived(inst, def, ls);
     return { status: 'success', prompt: text, purpose, byline, claimed: true };
   }
@@ -243,6 +246,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       if (inst?.userData?.placeholder) continue;
       Object.assign(ls, { status: 'success', prompt: s.prompt, describedDay: s.day, purpose: s.purpose ?? null, byline: s.byline ?? null, mine: true, placed: true, placedDay: s.day || 0 });
       scene.add(inst); unscaffold(lotId);
+      state.onPlaced?.(inst, def, ls);
     }
     state.live = true;
     // Defer: initFranchise runs before main.js finishes declaring `phase`,

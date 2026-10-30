@@ -44,16 +44,16 @@ grunds/
 │   ├── index.html               # shell, HUD, story overlays
 │   ├── js/                      # main.js runs the campaign; modules by system:
 │   │   ├── world/sky/postfx/camera/patrons/fx/textures  # the floor
-│   │   ├── exchange/regulars/gentrification/demand/lots/rival/staffing  # the sim
+│   │   ├── exchange/regulars/gentrification/demand/lots/rival/staffing/frontage  # the sim
 │   │   ├── decision/nextAction/lever (via nextAction)/curriculum/orientation/
 │   │   │   consequences/pace  # planning + disclosure (pure modules)
 │   │   ├── letter/desk/billing/convexSync/mailTheater  # connected-mode surface
-│   │   ├── districtGen/loader/groveAssets  # generated 3D kits + asset mirrors
+│   │   ├── districtGen/franchise/loader/polyfork/polyforkManifest/groveAssets  # generated 3D kits + asset mirrors
 │   │   ├── city.js                  # ?city=<name> → deterministic street seed + pack fetch
-│   │   └── floorStock/vitals/shareCard/modals/analytics  # presentation
+│   │   └── floorStock/vitals/shareCard/modals/analytics/climates/streetLife  # presentation
 │   ├── test/                    # one suite per contract — headers carry one-liners
 │   ├── vendor/three.module.js   # vendored Three.js r160 (demo-reliable, no CDN)
-│   └── assets/                  # CC0/CC-BY props + audio, provenance in SOURCES.md
+│   └── assets/                  # licensed props + audio; per-source terms in SOURCES.md
 ├── benchmark_corpus.json        # UK café COGS benchmarks (anchors the Exchange math)
 └── locality_packs.json          # London district locality data
 ```
@@ -266,7 +266,7 @@ layer, wired in `main.js loop()` right after the time-of-day calls.
 
 - **`vitality.js`** — `0.65·awareness + 0.35·(reputation/100)`, lerped ×0.02/frame.
   Recomputed at `openDay`/`closeDay`/`applyReply`. **Skin, not mechanics:** it
-  drives director layers (pendant/lamp/window/sign glow), `sky.update(t, sun, mood)`
+  drives director layers (pendant/lamp/window/sign glow), `sky.update(t, sun, mood, climate)`
   (sun intensity + star visibility), and `audio.setMood(v)` (murmur + pad gain) —
   and provably never touches `demand.spawnMul()`, which already carries the
   numbers (`vitality.mjs` pins this numerically).
@@ -299,6 +299,20 @@ layer, wired in `main.js loop()` right after the time-of-day calls.
   (`textures.js` SOLD-stamp idiom), then offers `↓ save · 𝕏 share · ⧉ copy` —
   Web Share Level 2 where the OS supports it, X-intent and clipboard
   independently (`share-card.mjs`).
+
+## Street simulation, lighting, camera, and climate (October 30)
+
+`frontage.js` owns economic conversion opportunities independently of `StreetLife`'s frame-driven crowd. Inside the guarded simulation `tick()`, a candidate appears at day-start +45 minutes and every 90 minutes thereafter, waits eight simulation minutes, then rolls `min(1, awareness * (reputation / 100) * 3)`. Awareness is already 0..1. At most three non-null patron spawns count per day; failed spawns leave the cap available. Soft opening skips this mechanic. `patrons.spawn()` retains its own routing, including rival choices and turnaways; only the initial position moves to the frontage.
+
+The conversion stream is `seeded(seed + 43)`, saved as `streams.conv`, restored at resume, and reseeded on campaign reset. Daily reset clears pending candidates and the daily cap. `StreetLife.showFrontage` and `finishFrontage` only display the candidate and resolution; full/lite capacity, pauses, and render cadence cannot determine the economic result. Regression coverage exercises conversions, paused pending candidates, frame invariance, dawn resumes, and same-seed resets.
+
+Polyfork is the default vendored district; explicit provider and classic query flags remain available. `loadPF()` retains opaque night-zone triangles and adds polygon-offset glow overlays. `world.registerPF()` applies district fog and calls the idempotent `registerPFNight()` helper. World props and district/franchise placements register on successful load, including franchise hydration without an arrival toast. `world.updateTimeOfDay()` sets street/pendant overlay opacity each frame before director modulation.
+
+Camera inserts (`espressoIns`, `caseIns`) alone bypass the normal radius clamp. Expiry blends back to orbit over 0.8 seconds; low-angle shots ease their elevation home. Pastry sales queue their insert, and a trading rush queues its insert once per day. `matchcut` holds its composition through review and planning until user camera input or another direct shot replaces it; opening the next day calls `crane()`, clears held/queued beats, and moves home from the current composition.
+
+`pickClimate(seed, city)` selects one fair/heat/rain/crisp envelope for the campaign and refreshes from the active seed on prepare/reset. It changes ambient density/cadence, sky tint and sun/star intensity, and rain. Sky tint fades out by night; daily `rain_soak` takes precedence over the week's lighter rain. The fixed Brief header explains the scope before choices. Week climate does not reweight demand or drinks. Full-mode heat can use 33 allocated street slots; every activation, including vignettes, respects the active full/lite climate cap. Clothing changes and climate demand effects remain future work.
+
+Focused checks: `frontage.mjs`, `polyfork-lighting.mjs`, `camera-grammar.mjs`, and `climates.mjs`, plus `replay-campaign.mjs` and `replay-resume.mjs`. The October 30 local staged build was exercised on desktop and mobile; this is not production deployment or a pixel-diff/performance certification.
 
 ## Cohorts (behavioural layer)
 
@@ -873,12 +887,13 @@ campaign seed, masking the cases where jitter is the thing under test.
 `textures.js` may stay unseeded if procedural texture noise is generated once
 per load rather than per frame — verify before converting it.
 
-**Status (Oct 7).** Sim streams: `exchange.rng = seeded(seed)`, `patronsRng`
+**Status (Oct 30).** Sim streams: `exchange.rng = seeded(seed)`, `patronsRng`
 +17 (decisions), `patronsCosRng` +29 (spawn paint — hat/skin/legs/scale/
 walk-phase; split off so cosmetic churn can't shift decision draws),
 `floorRng` +19, `fxRng` +23 (FX particle jitter + gossip-hop picks),
-soft-opening `softRng` +101; all reseed on `reset()`. The dawn save carries
-each stream's position (`streams.{patrons,floor,fx,cos}` alongside
+`patronsConvRng` +43 (frontage conversions), soft-opening `softRng` +101;
+all reseed on `reset()`. The dawn save carries
+each stream's position (`streams.{patrons,floor,fx,cos,conv}` alongside
 `rngState`), so a resumed week replays the exact draws an uninterrupted
 one takes; saves predating the field reseed cleanly. The save also carries
 the cross-day sim projections the ledger reads: menu (`prices`/`offered`),

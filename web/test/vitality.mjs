@@ -103,13 +103,14 @@ check('knock3/_hammerTap/update are no-ops without a ctx', !threw, 'threw pre-ge
 // 6) regression: main.js wires the spine at the right moment
 // ============================================================
 const mainSrc = readFileSync(join(ROOT, 'web', 'js', 'main.js'), 'utf8');
+const vitalityAt = mainSrc.indexOf('vitality.tick();');
+const timeAt = mainSrc.indexOf('world.updateTimeOfDay(dayMin);');
+const skyAt = mainSrc.indexOf('sky.update(dayMin, null, vitality.current');
+const directorAt = mainSrc.indexOf('director.update(');
 check('loop order: tick → updateTimeOfDay → sky(mood) → director',
-  mainSrc.indexOf('vitality.tick();') < mainSrc.indexOf('world.updateTimeOfDay(dayMin);') &&
-  mainSrc.indexOf('world.updateTimeOfDay(dayMin);') < mainSrc.indexOf('sky.update(dayMin, null, vitality.current);') &&
-  mainSrc.indexOf('sky.update(dayMin, null, vitality.current);') < mainSrc.indexOf('director.update('), 'loop block out of order');
+  vitalityAt >= 0 && vitalityAt < timeAt && timeAt < skyAt && skyAt < directorAt, 'loop block out of order');
 check('loop: director.update strictly after updateTimeOfDay + sky.update',
-  mainSrc.indexOf('sky.update(dayMin, null, vitality.current);') < mainSrc.indexOf('director.update(') &&
-  mainSrc.indexOf('world.updateTimeOfDay(dayMin);') < mainSrc.indexOf('director.update('), 'director must run after the overwrites');
+  timeAt >= 0 && skyAt >= 0 && directorAt > Math.max(timeAt, skyAt), 'director must run after the overwrites');
 check('loop: director runs before postfx.render', mainSrc.indexOf('director.update(') < mainSrc.indexOf('postfx.render(now)'), 'late');
 check('vitalityGlow layer registered', /director\.add\('vitalityGlow'/.test(mainSrc), 'missing');
 check('layer scales pendants/bulbs/lamps/windows', /p\.intensity \*= warm/.test(mainSrc) && /bm\.emissiveIntensity \*= warm/.test(mainSrc) && /wm\.emissiveIntensity \*= street/.test(mainSrc), 'layer too thin');

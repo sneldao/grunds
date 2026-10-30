@@ -13,9 +13,14 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-28
+- **Last updated:** 2026-10-30T21:56:25Z
 
 ## Log
+
+### 2026-10-30 - working tree - street integration review fixes
+Frontage conversions now run on simulation time with correct awareness units, a three-spawn daily cap, and a saved/reset RNG stream (`frontage.js`, `main.js`). Polyfork props keep opaque daytime surfaces and register night overlays on world, district, and franchise loads, including hydration. Camera inserts blend out; the closing frame holds through planning and cranes into the next day. Week climate gains visible Brief, sky, rain, and crowd cues without new demand modifiers.
+
+Validation: 488 full-suite tests passed, then 11 targeted checks passed after final UI/test polish; typecheck and diff checks were clean. Local staged desktop/mobile browser checks covered pause/resume, daylight/dusk lighting, insert exit, and real review → planning → reopen. An intermittent coach-test failure passed on reruns; its cause remains unconfirmed. No backend changes or deployment in this pass; human playtests, performance budgets, and pixel-diff baselines remain open.
 
 ### 2026-10-28 - film assembled, full suite green (SandBase AI City Remix)
 **"Dear Newcomer: A Letter from Lisbon" is assembled:**

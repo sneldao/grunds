@@ -13,8 +13,10 @@
 
 import * as THREE from '../vendor/three.module.js';
 import { COHORTS, COHORT_KEYS, LAYOUT, FRANCHISE } from './config.js';
+import { CLIMATES } from './climates.js';
 
 export const STREET_CAP = { full: 26, lite: 10 };
+export const STREET_POOL_CAP = Math.ceil(STREET_CAP.full * Math.max(1, ...Object.values(CLIMATES).map(c => c.streetMul)));
 export const STREET_LIMITS = {
   pavement: 12,
   neighbor: 8,
@@ -435,7 +437,7 @@ export class StreetLife {
     };
     try {
       this._d = new THREE.Object3D();
-      const cap = STREET_CAP.full;
+      const cap = STREET_POOL_CAP;
       const mk = (geo) => {
         const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.82 }), cap);
         m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -461,7 +463,7 @@ export class StreetLife {
       Math.random = savedRandom;
     }
     this.free = [];
-    for (let i = STREET_CAP.full - 1; i >= 0; i--) this.free.push(i);
+    for (let i = STREET_POOL_CAP - 1; i >= 0; i--) this.free.push(i);
   }
 
   get cap() {
@@ -595,6 +597,25 @@ export class StreetLife {
       if (this.count >= this.cap) break;
       this._spawnForced({ kind: 'glasshouse', settled: true });
     }
+  }
+
+  showFrontage(candidate) {
+    if (!this.live || this.count >= this.cap || !this.free.length) return;
+    const a = this._activate({
+      kind: 'frontage', lotId: null, hold: null, doorId: null,
+      points: [pt(candidate.x, candidate.z, { dwell: Infinity, face: Math.PI }), pt(LAYOUT.spawnR.x, LAYOUT.pavementZ)],
+    }, true);
+    if (!a) return;
+    a.frontage = candidate;
+    a.cohort = candidate.cohort;
+    a.torso.set(COHORTS[candidate.cohort]?.color ?? 0xaaaaaa);
+    this._paint(a);
+  }
+  finishFrontage(candidate, converted) {
+    const a = this.agents.find(a => a.frontage === candidate);
+    if (!a) return;
+    if (converted) this._despawn(a);
+    else a.dwell = 0;
   }
 
   tick() {
@@ -925,7 +946,7 @@ export class StreetLife {
   }
 
   _activate(route, settled) {
-    if (!this.free.length) return null;
+    if (!this.free.length || this.count >= this.cap) return null;
     const idx = this.free.pop();
     const roll = this.rng;
     const cohort = PEOPLE[(roll() * PEOPLE.length) | 0] || 'commuters';

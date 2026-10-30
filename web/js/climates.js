@@ -7,10 +7,10 @@
 import { seeded } from './exchange.js';
 
 export const CLIMATES = {
-  fair:  { id: 'fair',  label: 'a fair week',        streetMul: 1.0, everyMul: 1.0 },
-  heat:  { id: 'heat',  label: 'a heatwave',         streetMul: 1.25, everyMul: 0.75 },
-  rain:  { id: 'rain',  label: 'a wet week',         streetMul: 0.55, everyMul: 1.6 },
-  crisp: { id: 'crisp', label: 'a cold bright week', streetMul: 0.8,  everyMul: 1.2 },
+  fair: { id: 'fair', label: 'a fair week', streetMul: 1, everyMul: 1, cue: 'Mild light and an easy pace on the pavement.', skyTint: 0xcfe0e8, skyMix: 0, sunMul: 1, starsMul: 1, rain: 0 },
+  heat: { id: 'heat', label: 'a heatwave', streetMul: 1.25, everyMul: 0.75, cue: 'Warm haze; more people linger on the pavement.', skyTint: 0xf0c58b, skyMix: 0.14, sunMul: 0.95, starsMul: 1, rain: 0 },
+  rain: { id: 'rain', label: 'a wet week', streetMul: 0.55, everyMul: 1.6, cue: 'Grey skies and rain; fewer people linger outside.', skyTint: 0x8393a0, skyMix: 0.65, sunMul: 0.35, starsMul: 0.4, rain: 0.55 },
+  crisp: { id: 'crisp', label: 'a cold bright week', streetMul: 0.8, everyMul: 1.2, cue: 'Cool, clear light; a quieter pavement.', skyTint: 0x8eb5d1, skyMix: 0.18, sunMul: 1, starsMul: 1, rain: 0 },
 };
 export const CLIMATE_IDS = Object.keys(CLIMATES);
 
@@ -26,4 +26,11 @@ export function pickClimate(seed, city) {
   let r = rng(), acc = 0;
   for (let i = 0; i < ids.length; i++) { acc += w[i]; if (r <= acc) return CLIMATES[ids[i]]; }
   return CLIMATES.fair;
+}
+
+export function climateBrief(climate) {
+  return `${climate.label} — ${climate.cue} Week weather changes the street scene only; daily events can still affect demand.`;
+}
+export function climateRain(climate, eventId) {
+  return Math.max(climate?.rain || 0, eventId === 'rain_soak' ? 0.9 : 0);
 }
