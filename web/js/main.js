@@ -315,6 +315,8 @@ const kitBeat = buildKitBeat({ world, audio, fx, director, reducedMotion, headle
 let kitPendingAtOpen = false;
 district.onGrown = (slots) => {
   if (kitPendingAtOpen) kitBeat.start(slots, SEED);
+  // The street just dressed itself — pavement-level look-up deserves it.
+  try { rig.queueShot?.('lowStreet', world, 12); } catch {}
 };
 function leverSnapshot() {
   return { dayMin, closed, phase, repriced, prebatched, batchUnits: ctx.batchUnits, leversTimeLocked };
@@ -593,6 +595,7 @@ let nudgedQueue = false, nudgedBalk = false, nudgedPrice = false, nudgedStanding
 let eveningCallShown = false, eveningFast = false, rushFast = false;
 let _pfRushCam = false, _pfCloseCam = false;   // camera-grammar one-shots
 let _pfConvN = 0;                              // frontage conversions today
+let _pfCaseStock = null;                       // pastry-stock watcher for the case insert
 let paceTest = false, momentsTest = false;
 let momentPending = [], momentActive = null;
 const momentDone = new Set(), momentSeen = new Set();
@@ -6617,6 +6620,14 @@ function loop(now) {
   // frame so the morning crane departs the same shot.
   if ((rushFast || patrons.queueLength >= 6) && !_pfRushCam) { _pfRushCam = true; try { rig.shot?.('espressoIns', world); } catch {} }
   if (closed && !_pfCloseCam) { _pfCloseCam = true; try { rig.queueShot?.('matchcut', world, 30); } catch {} }
+  // A pastry sale earns the inside-the-case insert (queued — never stomps
+  // a live beat; at high speed it's likely already gone).
+  if (ctx.pastryStock != null) {
+    if (_pfCaseStock != null && ctx.pastryStock < _pfCaseStock && speed <= 300) {
+      try { rig.queueShot?.('caseIns', world, 10); } catch {}
+    }
+    _pfCaseStock = ctx.pastryStock;
+  }
   // Frontage conversion: a hesitator reading the front may come in —
   // awareness × reputation rolls on its own stream (max 3/day).
   if (phase === 'trading' && _pfConvN < 3) {

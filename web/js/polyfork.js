@@ -173,7 +173,10 @@ function processMesh(mesh, plan) {
       gm.renderOrder = 4;
       gm.userData.pfGlow = true;
       mesh.add(gm);
-      glows.push({ mat, intensity: n.intensity });
+      // Fire-type zones (embers/flame/coals) glow at half power — a coal
+      // grill reads warm, not like the stall's on fire.
+      const dim = /ember|flame|fire|coal|torch/i.test(plan[z].name) ? 0.45 : 1;
+      glows.push({ mat, intensity: n.intensity * dim });
     }
   }
   return glows;
