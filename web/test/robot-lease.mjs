@@ -54,7 +54,7 @@ function el() {
   const e = {
     children: [], style: {}, dataset: {}, textContent: '', innerHTML: '', disabled: false, offsetWidth: 10, value: '',
     classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
-    appendChild(c) { c._parent = e; e.children.push(c); return c; },
+    appendChild(c) { if (typeof c === 'string') c = { tagName: '#text', textContent: c, children: [] }; c._parent = e; e.children.push(c); return c; },
     append(...cs) { for (const c of cs) e.appendChild(c); },
     prepend(c) { c._parent = e; e.children.unshift(c); },
     remove() { const p = e._parent; if (p) { const i = p.children.indexOf(e); if (i >= 0) p.children.splice(i, 1); } },
@@ -116,15 +116,15 @@ function pump(max = 420, acceptRuth = false) {
     const cb = rafCb; rafCb = null;
     if (!cb) throw new Error('loop stopped');
     cb(now);
-    const off = reg.get('offer');
-    if (off && off.classList.contains('show')) {
-      const who = reg.get('offer-who').textContent || '';
+    const ask = G.ask && G.ask.active();
+    if (ask) {
+      const who = ask.kicker || '';
       whos.push(who);
       if (acceptRuth && /RUTH/.test(who)) {
-        reg.get('offer-yes').click();
+        G.resolveOffer(true);
         return { whos, accepted: true };
       }
-      reg.get('offer-no').click();
+      G.resolveOffer(false);
     }
   }
   return { whos, accepted: false };
@@ -133,6 +133,7 @@ function pump(max = 420, acceptRuth = false) {
 await import('../js/main.js');
 await new Promise(r => setTimeout(r, 40));
 const G = globalThis.__grunds;
+G.testState && G.testState({ moments: true });   // ask cards ride the moment card now
 
 function fresh() {
   G.testState({ quietCarry: 0 });

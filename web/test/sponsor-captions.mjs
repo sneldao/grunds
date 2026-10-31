@@ -23,13 +23,16 @@ const mainSrc = readFileSync(new URL('js/main.js', root), 'utf8');
 // ---- 1. HTML elements exist ----
 const requiredIds = [
   'brief-powered',     // 06:00 Morning Brief
-  'offer-powered',     // 11:00 regular's ask / 14:55–16:55 incident
+  'moment-powered',    // the regular's ask / the floor's bite, on the card
   'wave-powered',      // 14:00 wave HUD overlay
   'evening-powered',   // 17:00 evening call
   'verdict-powered',   // Day-5 verdict / SOLD finale
 ];
 for (const id of requiredIds) {
-  assert.ok(html.includes(`id="${id}"`), `HTML must contain #${id}`);
+  // the ask card builds #moment-powered in main.js; the rest are static markup
+  const where = id === 'moment-powered' ? mainSrc : html;
+  const pat = id === 'moment-powered' ? "id = 'moment-powered'" : `id="${id}"`;
+  assert.ok(where.includes(pat), `missing #${id}`);
 }
 
 // ---- 2. CSS styles present (don't ship broken styles) ----
@@ -40,7 +43,7 @@ assert.ok(html.includes('#wave-powered'), 'CSS must define #wave-powered');
 // Each caption appears in main.js, with a call to setBeatPower or showWavePowered.
 const beatWires = [
   { re: /setBeatPower\('brief'/,           name: '06:00 brief → Convex' },
-  { re: /setBeatPower\('offer'/,           name: '11:00 offer → AgentMail' },
+  { re: /setBeatPower\('moment'/,          name: 'the ask → AgentMail' },
   { re: /showWavePowered\(/,                name: '14:00 wave → Linkup/Firecrawl/OpenAI' },
   { re: /setBeatPower\('evening'/,         name: '17:00 debrief → Convex leaderboard' },
   { re: /setBeatPower\('verdict'/,         name: 'Day-5 verdict → RevenueCat' },
@@ -91,7 +94,7 @@ function setBeatPower(id, text) {
 // Test: each beat sets the right text into the right element
 const cases = [
   { id: 'brief',   expected: 'Convex' },
-  { id: 'offer',   expected: 'AgentMail' },
+  { id: 'moment',  expected: 'AgentMail' },
   { id: 'evening', expected: 'leaderboard' },
   { id: 'verdict', expected: 'RevenueCat' },
 ];

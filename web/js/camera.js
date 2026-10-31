@@ -6,7 +6,7 @@ import { cameraGestureTarget, dragExceeded, mouseButtonsUp, pinchRadius, pointer
 // Idle/home framing. 24 is close enough that a person at the bar and the
 // chalkboard read, and the far curb of the road still sits in frame.
 // Scripted shots clamp at 18, so a debrief still pushes in from here.
-const HOME = { target: new THREE.Vector3(0, 0.8, 4), theta: 0.12, phi: 0.70, r: 24 };
+const HOME = { target: new THREE.Vector3(0, 0.8, 4), theta: 0.12, phi: 0.74, r: 20 };
 
 // ---- written camera grammar — named shots, not magic numbers --------------
 // Phase 5: every cinematic beat names its shot. verdict (the till),

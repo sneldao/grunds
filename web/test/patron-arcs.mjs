@@ -13,7 +13,7 @@ import { dirname, resolve } from 'node:path';
 import {
   STAGES, STAGE_RULES, DEMOTE_OP, DEMOTE_FLOOR, COMPANION_CHANCE,
   WOM_PER_EVANGELIST, POOL_SIZE, POOL_CARRY, MAX_EVENTS,
-  stageFor, recordVisit, makeIdentity, memoryLine,
+  stageFor, recordVisit, makeIdentity, memoryLine, snubGreeting,
   shouldBringCompanion, womReturnees, WalkinPool,
 } from '../js/identity.js';
 
@@ -156,12 +156,19 @@ test('Phase 1 · graduated lists regular+ walk-ins by visits', () => {
 });
 
 // (11) memoryLine branches
+test('snubGreeting returns the offer snub line only while the snub stands', () => {
+  const offers = [{ who: 'Pip', cast: 'Pip', snubLine: 'Pip’s group went to Glasshouse. He’s here alone.' }];
+  assert.equal(snubGreeting('Pip', { Pip: 1 }, offers), offers[0].snubLine);
+  assert.equal(snubGreeting('Pip', {}, offers), null);
+  assert.equal(snubGreeting('Esther', { Pip: 1 }, offers), null);
+  assert.equal(snubGreeting('Pip', { Pip: 1 }, []), null);
+});
 test('Phase 1 · memoryLine covers companion / evangelist / friend / quirk / regular / returner', () => {
   assert.match(memoryLine({ name: 'M', stage: 'friend', visits: 6, drink: 'tea', broughtFriend: 'J' }), /brought J/);
-  assert.match(memoryLine({ name: 'M', stage: 'evangelist', visits: 9, drink: 'tea' }), /telling everyone/);
-  assert.match(memoryLine({ name: 'M', stage: 'friend', visits: 6, drink: 'tea' }), /6 visits/);
+  assert.match(memoryLine({ name: 'M', stage: 'evangelist', visits: 9, drink: 'tea' }), /been telling people/);
+  assert.match(memoryLine({ name: 'M', stage: 'friend', visits: 6, drink: 'tea' }), /The usual\?/);
   assert.match(memoryLine({ name: 'M', stage: 'regular', visits: 5, drink: 'tea', quirk: 'counts change' }), /counts change/);
-  assert.match(memoryLine({ name: 'M', stage: 'regular', visits: 4, drink: 'tea' }), /still on the tea/);
+  assert.match(memoryLine({ name: 'M', stage: 'regular', visits: 4, drink: 'tea' }), /Still on the tea/);
   assert.match(memoryLine({ name: 'M', stage: 'first-timer', visits: 1, drink: 'tea' }), /tea again/);
 });
 

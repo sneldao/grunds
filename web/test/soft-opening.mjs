@@ -267,8 +267,7 @@ function runFrames(n, { acceptOffer = false } = {}) {
   for (let f = 0; f < n; f++) {
     now += 100; const cb = rafCb; rafCb = null; if (!cb) return;
     cb(now);
-    const off = byId('offer');
-    if (off && off.classList.contains('show')) byId(acceptOffer ? 'offer-yes' : 'offer-no')?.click();
+    if (G.moment && G.moment.active() === 'ask') G.resolveOffer(acceptOffer);
     const ev = byId('evening');
     if (ev && ev.classList.contains('show')) byId('evening-close')?.click();
     if (G && G.paused && G.phase === 'trading' && !modalsTop()) G.togglePause();

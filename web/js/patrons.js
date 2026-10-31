@@ -4,7 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 import { COHORTS, LAYOUT, ECON, CAMPAIGN, counterSlot, registerSlot, rivalSlot, MAX_VISIBLE_QUEUE } from './config.js';
 import { salePrice } from './economy.js';
 import { rivalChoiceProbability, rivalWalkbackChance, FULL_ROOM_PULL } from './rival.js';
-import { memoryLine, shouldBringCompanion } from './identity.js';
+import { memoryLine, shouldBringCompanion, snubGreeting } from './identity.js';
 import { DRINKS, rollDrink, balkLimit, balkChanceFor, preferredOnBoard, PASTRY, EMPTY_CASE_WALK, eightySixedShare, menuPrice } from './menu.js';
 import { gaitFor, moodFor, samplePose, propSway } from './poses.js';
 import { floorSeatBudget, isInsidePatron, planVisualSitters, spreadSeats } from './floorSeats.js';
@@ -847,6 +847,9 @@ export class PatronSystem {
     if (p.regularName && this.regulars) {
       const reg = this.regulars.regulars[p.regularIdx];
       if (!reg) return `hi, ${p.regularName}`;
+      // a no they remember: the snub line rides their first arrival instead
+      const snub = snubGreeting(p.regularName, this.snubs, this.snubOffers);
+      if (snub) return snub;
       const returning = reg.visits > 5 || reg.events.length > 0;
       if (!returning) return `hi, ${p.regularName}`;
       return memoryLine({
@@ -963,6 +966,7 @@ export class PatronSystem {
               if (line && !seen && this.fx.bubble(p, line, 'good')) {
                 if (this.fx.greetOnce) this.fx.greetOnce(gk);
                 p.greeted = true;
+                if (this.snubs && this.snubs[p.regularName]) delete this.snubs[p.regularName];
               }
             }
           }
@@ -1006,14 +1010,24 @@ export class PatronSystem {
     const P = this.parts;
     for (const p of [...this.patrons]) {
       if (!p.active) continue;
-      if (!p.vis) p.vis = p.pos.clone();
+      if (!p.vis) { p.vis = p.pos.clone(); p.visPhase = p.phase; }
       if (p.vis.distanceToSquared(p.pos) > 4) p.vis.copy(p.pos);
       else {
-        const k = Math.min(1, Math.max(0, dt || 0) * 9);
+        const k = Math.min(1, Math.max(0, dt || 0) * 6);
         p.vis.x += (p.pos.x - p.vis.x) * k; p.vis.z += (p.pos.z - p.vis.z) * k;
       }
+      // visual gait follows the rendered position, not the sim step —
+      // settled positions drop out of the walk cycle instead of marching.
+      let ratio = 1;
+      if (p._prevVis && dt > 0) {
+        const vSpeed = Math.hypot(p.vis.x - p._prevVis.x, p.vis.z - p._prevVis.z) / dt;
+        ratio = Math.max(0, Math.min(1.2, vSpeed / Math.max(0.05, p.speed * (this.walkMul || 1))));
+      }
+      p._prevVis = { x: p.vis.x, z: p.vis.z };
+      p.visPhase = (p.visPhase ?? p.phase)
+        + dt * (p.walking ? 7 * gaitFor(p.cohort).freqMul * Math.min(this.walkMul || 1, 2.2) * ratio : 1.4);
       const vx = p.vis.x, vz = p.vis.z;
-      const walking = p.walking;
+      const walking = p.walking && ratio > 0.15;
       if (p.state === 'defecting') {
         // Teal while they cross, so a walk to Sam reads against the café crowd.
         // Queue join still happens at the end of the same path as before.
@@ -1027,19 +1041,26 @@ export class PatronSystem {
 
       // Phase 5 — pose clips: one sample carries walk/sit/sip/react.
       const sipping = p.sipping > 0;
+      if (sipping && p.sipAtMs == null) p.sipAtMs = now;   // envelope starts at first rendered sip frame
+      let sipT = -1;
+      if (sipping && p.sipAtMs != null && !this._reduced) {
+        sipT = (now - p.sipAtMs) / 1400;
+        if (sipT > 1) { p.sipAtMs = null; sipT = -1; }
+      }
+      if (!sipping) p.sipAtMs = null;
       const sitting = p.state === 'sit' || !!(p._floorSeat && p.state !== 'sit' && p.state !== 'toSeat' && p._seatSettled);
       const s = p.scale;
       const mood = moodFor(p.op);
       const pose = samplePose({
-        phase: p.phase, gait: gaitFor(p.cohort), walking,
+        phase: p.visPhase ?? p.phase, gait: gaitFor(p.cohort), walking,
         nowMs: now, idx: p.idx, sitting, reduced: !!(this._reduced && sitting),
-        sipT: sipping ? 0.5 : -1,
+        sipT,
         reactT: p.reactT > 0 ? 1 - p.reactT / 0.9 : -1,
         reactKind: p.reactT > 0 ? p.reactKind : null, mood,
       });
       const bob = pose.bob;
       const torsoY = (sitting ? 0.5 : 0.62) + bob;
-      const headY = torsoY + 0.48 * s + (sipping ? -0.04 : 0) - pose.headDip;
+      const headY = torsoY + 0.48 * s + (sipping && sipT >= 0 && sipT <= 1 ? -0.04 * Math.sin(sipT * Math.PI) : 0) - pose.headDip;
       const lean = pose.lean;
       const legSwing = pose.legSwing;
       const armSwing = pose.armL;
@@ -1053,7 +1074,7 @@ export class PatronSystem {
       d.rotation.set(0, p.face, 0);
       d.position.set(vx, torsoY, vz);
       d.scale.set(s * torsoAx.x, s * torsoAx.y, s * torsoAx.z);
-      d.rotation.x = lean; d.updateMatrix(); P.torso.setMatrixAt(p.idx, d.matrix);
+      d.rotation.x = lean; d.rotation.z = pose.sway || 0; d.updateMatrix(); P.torso.setMatrixAt(p.idx, d.matrix);
       d.scale.setScalar(s);
 
       d.rotation.set(0, p.face + headRy, 0);

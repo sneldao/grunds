@@ -21,7 +21,7 @@ function makeEl(tag = 'div') {
     tag, tagName: String(tag).toUpperCase(), children: [], style: {}, dataset: {}, textContent: '', innerHTML: '',
     disabled: false, hidden: false, offsetWidth: 10, offsetHeight: 10, value: '', open: false,
     classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
-    appendChild(c) { c._parent = el; el.children.push(c); return c; },
+    appendChild(c) { if (typeof c === 'string') c = { tagName: '#text', textContent: c, children: [] }; c._parent = el; el.children.push(c); return c; },
     append(...cs) { for (const c of cs) el.appendChild(c); },
     prepend(c) { c._parent = el; el.children.unshift(c); },
     remove() { const pr = el._parent; if (pr) { const i = pr.children.indexOf(el); if (i >= 0) pr.children.splice(i, 1); } },
@@ -78,8 +78,7 @@ function runFrames(n) {
   for (let f = 0; f < n; f++) {
     now += 100; const cb = rafCb; rafCb = null; if (!cb) return;
     cb(now);
-    const off = registry.get('offer');
-    if (off && off.classList.contains('show')) registry.get('offer-no')?.click();
+    if (G.ask && G.ask.active()) G.resolveOffer(false);
     const ev = registry.get('evening');
     if (ev && ev.classList.contains('show')) registry.get('evening-close')?.click();
   }
@@ -95,6 +94,7 @@ function coachText() { return registry.get('coach-body').innerHTML || registry.g
 await import('../js/main.js');
 await new Promise(r => setTimeout(r, 40));
 const G = globalThis.__grunds;
+G.testState && G.testState({ moments: true });   // ask cards ride the moment card now
 
 registry.get('open').click();
 await new Promise(r => setTimeout(r, 10));
@@ -108,7 +108,7 @@ check('start card does not pause the floor', G.paused === true, 'planning pause 
 const committed = G.commitDayPlan();
 check('commit accepted', committed && committed.ok === true, JSON.stringify(committed));
 runFrames(1);
-check('intro card reveals once the brief closes', G.coach.state().intro === true && registry.get('coach').hidden === false && /Ruth has (the bar|served)/.test(coachText()), coachText().slice(0, 120));
+check('intro card reveals once the brief closes', G.coach.state().intro === true && registry.get('coach').hidden === false && /Ruth has (the bar|served)|Ruth’s got the bar/.test(coachText()), coachText().slice(0, 120));
 check('intro card offers skip guidance', coachButtons().some(b => b.textContent === 'skip guidance'), JSON.stringify(coachButtons().map(b => b.textContent)));
 check('intro card is a paper block, not a modal', !registry.get('coach').classList.contains('modal'), 'must not open a modal');
 G.doPrebatch();
@@ -169,8 +169,10 @@ check('day 2 has no coach', G.coach.state() === null && registry.get('coach').hi
 
 const committed3 = G.commitDayPlan();
 check('day 2 commit accepted', committed3 && committed3.ok === true, JSON.stringify(committed3));
+// keep the line under five — a queue of 5+ opens the free lever window now
+G.patrons.staffMul = 50;
 let lateReady = false;
-for (let i = 0; i < 300 && !lateReady; i++) { runFrames(4); lateReady = G.stats().dayMin >= 725 && G.phase === 'trading' && !G.paused; }
+for (let i = 0; i < 300 && !lateReady; i++) { runFrames(4); lateReady = G.stats().dayMin >= 725 && G.phase === 'trading' && !G.paused && G.stats().queue < 5; }
 check('reached the post-noon window for the late-switch check', lateReady, `dayMin=${G.stats().dayMin} phase=${G.phase} paused=${G.paused}`);
 if (lateReady) {
   const spendBefore = G.stats().batchSpend;

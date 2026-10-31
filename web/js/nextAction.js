@@ -16,7 +16,11 @@ export function leverState(s = {}) {
   const units = s.batchUnits ?? 0;
   const inWave = dayMin >= 840 && dayMin < 960;
   const topupCap = inWave ? 8 : 0;
-  const changesPlan = !!(s.leversTimeLocked && dayMin >= 720 && !prebatched);
+  // a live jam opens a free window: the levers stop being a plan change
+  // while the line is past five, or the wave is on and the batch is thin.
+  const queue = s.queue ?? 0;
+  const win = trading && !closed && dayMin < 960 && (queue >= 5 || (inWave && units <= 8));
+  const changesPlan = !win && !!(s.leversTimeLocked && dayMin >= 720 && !prebatched);
 
   const batch = { available: false, cost: ECON.batchCost, changesPlan: false, reason: '' };
   if (!trading) batch.reason = 'the day hasn’t opened';
@@ -27,11 +31,12 @@ export function leverState(s = {}) {
   else {
     batch.available = true;
     batch.changesPlan = changesPlan;
+    batch.window = win;
     batch.cost = ECON.batchCost + (changesPlan ? 4.20 : 0);
   }
 
   const reprice = { available: false, cost: 0, changesPlan: false, reason: '' };
-  const repriceChangesPlan = !!(s.leversTimeLocked && dayMin >= 720);
+  const repriceChangesPlan = !win && !!(s.leversTimeLocked && dayMin >= 720);
   if (!trading) reprice.reason = 'the day hasn’t opened';
   else if (closed) reprice.reason = 'the day is done';
   else if (dayMin >= 960) reprice.reason = 'too late today';
@@ -40,6 +45,7 @@ export function leverState(s = {}) {
   else {
     reprice.available = true;
     reprice.changesPlan = repriceChangesPlan;
+    reprice.window = win;
     reprice.cost = repriceChangesPlan ? 4.20 : 0;
   }
 

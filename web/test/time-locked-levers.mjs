@@ -91,6 +91,24 @@ test('PR-5 · chargeLeverOverride deducts opinion from every regular', () => {
   assert.match(body, /r\.op\s*=\s*Math\.max\(\s*0\s*,\s*r\.op\s*-\s*LEVER_OVERRIDE_GOSSIP\s*\)/);
 });
 
+// (6b) lever windows: the snapshot feeds the live queue, and a jam or a
+// thin wave batch drops the fine instead of charging it
+test('window · leverSnapshot passes the live queue', () => {
+  const idx = main.indexOf('function leverSnapshot');
+  const body = main.slice(idx, idx + 400);
+  assert.match(body, /queue:\s*patrons\.queueLength/, 'leverSnapshot must feed patrons.queueLength');
+});
+test('window · leverState opens on queue >= 5 or a thin wave batch', () => {
+  const na = readFileSync(resolve(root, 'web/js/nextAction.js'), 'utf8');
+  assert.match(na, /queue >= 5/, 'queue jam opens the window');
+  assert.match(na, /inWave && units <= 8/, 'thin wave batch opens the window');
+  assert.match(na, /window = win/, 'levers carry the window flag');
+});
+test('window · buttons pulse while the window is open', () => {
+  assert.match(main, /classList\.toggle\('window', !!lv\.batch\.window\)/, 'prebatch carries the window class');
+  assert.match(main, /classList\.toggle\('window', !!lv\.reprice\.window\)/, 'reprice carries the window class');
+});
+
 // (7) the lever press itself is unchanged — override just unlocks it
 test('PR-5 · doPrebatch still does the prep after override cost', () => {
   // If chargeLeverOverride returns true (caller does && ... && !charge), the

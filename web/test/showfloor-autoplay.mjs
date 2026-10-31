@@ -1,9 +1,10 @@
 // PR-2 — Showfloor autoplay (?demo=1).
 //
 // `?demo=1` runs the floor unattended: bypasses the licence + tutorial,
-// and resolves every modal (brief / offer / evening / letter / desk /
-// paywall) by clicking the same button the player would. A single keypress
-// returns control to the player.
+// and resolves every modal (brief / evening / letter / desk / paywall)
+// plus the in-world ask card (accepted after the same 1.5s grace) — by
+// clicking the same button the player would. A single keypress returns
+// control to the player.
 //
 // Test scope:
 //   1. demoMode flag flips on when ?demo=1 is in the URL
@@ -37,7 +38,6 @@ assert.ok(/function\s+autoplayTick\(now\)/.test(mainSrc),
 // ---- 3. Modal→button map --------------------------------------------
 const modalToButton = {
   brief:    "btn = $('brief-open')",
-  offer:    "btn = $('offer-no')",
   evening:  "btn = $('evening-hold')",
   letter:   "btn = $('letter-close')",
   paywall:  "btn = $('pw-close')",
@@ -47,6 +47,13 @@ const modalToButton = {
 for (const [modal, expr] of Object.entries(modalToButton)) {
   assert.ok(mainSrc.includes(expr), `autoplayTick must handle #${modal} via ${expr}`);
 }
+
+// ---- 3b. the ask card answers itself after the grace -------------------
+assert.ok(/momentActive && momentActive\.type === 'ask'/.test(mainSrc),
+  'autoplayTick must notice the live ask card');
+assert.ok(/_demoAskAt/.test(mainSrc) && /resolveOffer\(true\)/.test(mainSrc),
+  'autoplay accepts the ask after the same grace window');
+assert.ok(!/btn = \$\('offer-no'\)/.test(mainSrc), 'the old offer modal path is gone');
 
 // ---- 4. Photo + keypress disable ------------------------------------
 assert.ok(/doPhoto\(\)/.test(mainSrc) && /dayMin\s*>=\s*1080/.test(mainSrc),
@@ -67,7 +74,7 @@ const makeEl = (id, disabled = false) => ({
   appendChild() {}, setAttribute() {}, focus() {},
   children: [], parentElement: null, isConnected: true,
 });
-const ids = ['brief-open', 'offer-no', 'evening-hold', 'letter-close', 'pw-close', 'desk-close', 'lic-sign'];
+const ids = ['brief-open', 'evening-hold', 'letter-close', 'pw-close', 'desk-close', 'lic-sign'];
 const elemRegistry = new Map(ids.map((i) => [i, makeEl(i)]));
 const $ = (id) => elemRegistry.get(id) || null;
 
@@ -95,7 +102,6 @@ function autoplayTick(now) {
   if (top === _demoLastModal && now - _demoLastActionAt < 1500) return;
   let btn = null;
   if (top === 'brief') btn = $('brief-open');
-  else if (top === 'offer') btn = $('offer-no');
   else if (top === 'evening') btn = $('evening-hold');
   else if (top === 'letter') btn = $('letter-close');
   else if (top === 'paywall') btn = $('pw-close');
@@ -114,10 +120,8 @@ function autoplayTick(now) {
 
 // Headless mode is constant — autoplay must NOT fire when headless is true
 modals.open('brief');
-modals.open('offer');
 autoplayTick(performance.now());
 assert.equal($('brief-open').clickedAt, undefined, 'headless blocks autoplayTick — no clicks should fire');
-assert.equal($('offer-no').clickedAt, undefined, 'headless blocks autoplayTick — offer should not auto-resolve');
 
 // Now pretend we're in a real browser (headless=false) — flip the closure
 // by patching _demoDisabled off in a simpler way

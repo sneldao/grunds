@@ -91,7 +91,7 @@ function el() {
     children: [], style: {}, dataset: {}, textContent: '', innerHTML: '', disabled: false, offsetWidth: 10, id: '',
     classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
     appendChild(c) { c._parent = e; e.children.push(c); return c; },
-    append(...cs) { for (const c of cs) e.appendChild(c); },
+    append(...cs) { for (const c of cs) e.appendChild(typeof c === 'string' ? { tagName: '#text', textContent: c, children: [] } : c); },
     prepend(c) { c._parent = e; e.children.unshift(c); },
     remove() { const p = e._parent; if (p) { const i = p.children.indexOf(e); if (i >= 0) p.children.splice(i, 1); } },
     querySelector: () => el(), querySelectorAll: () => [], addEventListener() {},
@@ -140,7 +140,7 @@ let now = 1000;
 function runFrames(n) {
   for (let f = 0; f < n; f++) {
     now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now);
-    const off = reg.get('offer'); if (off && off.classList.contains('show')) reg.get('offer-no').click();
+    if (G.ask && G.ask.active()) G.resolveOffer(false);
   }
 }
 function loanLine() {
@@ -150,6 +150,7 @@ function loanLine() {
 await import('../js/main.js');
 await new Promise(r => setTimeout(r, 40));
 const G = globalThis.__grunds;
+G.testState && G.testState({ moments: true });   // ask cards ride the moment card now
 
 function openMorning() {
   G.reset();

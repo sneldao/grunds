@@ -135,7 +135,7 @@ const ev = (key, target, extra = {}) => ({ key, target, preventDefault() { this.
   check(desk.m.classList.contains('show'), 'desk DOM stays shown under paywall');
   check(+brief.m.style.zIndex < +desk.m.style.zIndex && +desk.m.style.zIndex < +paywall.m.style.zIndex,
     `stack zIndex follows focus order: ${brief.m.style.zIndex}/${desk.m.style.zIndex}/${paywall.m.style.zIndex}`);
-  const offerGhost = doc.register('offer', doc.createElement('div'));
+  const offerGhost = doc.register('letter_ghost', doc.createElement('div'));
   doc.body.appendChild(offerGhost);
   modals.refresh();
   check(offerGhost.inert === true || offerGhost.hasAttribute('inert'), 'never-opened owned modal stays inert');
@@ -252,11 +252,11 @@ console.log('FOCUSABLES hidden/disabled/closed-details excluded');
 {
   const html = read('web/index.html');
   const css = html;
-  for (const id of ['brief', 'offer', 'letter', 'licence', 'paywall', 'desk', 'evening']) {
+  for (const id of ['brief', 'letter', 'licence', 'paywall', 'desk', 'evening']) {
     const start = html.indexOf(`id="${id}"`);
     // Slice to the next modal root so long bodies (the Brief) stay covered.
     const rest = html.slice(start + 1);
-    const next = rest.search(/<div id="(brief|offer|letter|licence|paywall|desk|evening|softintro|receipt|tutorial|title)"/);
+    const next = rest.search(/<div id="(brief|letter|licence|paywall|desk|evening|softintro|receipt|tutorial|title)"/);
     const seg = next < 0 ? html.slice(start) : html.slice(start, start + 1 + next);
     for (const cls of ['modal-panel', 'modal-header', 'modal-body', 'modal-footer'])
       check(seg.includes(cls), `${id} missing .${cls}`);
@@ -291,13 +291,13 @@ console.log('STRUCTURE six modals share panel/header/body/footer; CSS scroll+foo
     e.querySelector = sel => e.querySelectorAll(sel)[0] || null;
     return e;
   };
-  const MODAL_IDS = new Set(['brief', 'offer', 'letter', 'licence', 'paywall', 'desk', 'receipt', 'tutorial', 'title']);
+  const MODAL_IDS = new Set(['brief', 'letter', 'licence', 'paywall', 'desk', 'receipt', 'tutorial', 'title']);
   const CHILD_PARENT = {
     'review-last': 'brief', 'desklink': 'letter', 'open': 'title', 'shareWeek': 'receipt',
     'review-continue': 'receipt', 'review-letter': 'receipt',
     tbody: 'tutorial', ttitle: 'tutorial', tstep: 'tutorial', tnext: 'tutorial', tskip: 'tutorial', tclose: 'tutorial', again: 'receipt',
   };
-  const PREFIX_PARENT = { brief: 'brief', offer: 'offer', letter: 'letter', lic: 'licence', licence: 'licence', pw: 'paywall', paywall: 'paywall', desk: 'desk', r: 'receipt', receipt: 'receipt' };
+  const PREFIX_PARENT = { brief: 'brief', letter: 'letter', lic: 'licence', licence: 'licence', pw: 'paywall', paywall: 'paywall', desk: 'desk', r: 'receipt', receipt: 'receipt' };
   const getEl = id => {
     if (!registry.has(id)) {
       const e = mk('div', id); registry.set(id, e);

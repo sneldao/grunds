@@ -106,6 +106,7 @@ async function child(seed, cosmeticSeed, frameMs = 100) {
   await import('../js/main.js');
   await new Promise(resolve => setImmediate(resolve));
   const game = globalThis.__grunds;
+  game.testState && game.testState({ moments: true });
 
   // Levers fire once per sim tick — see the header note. patrons.tick only
   // runs while trading and unpaused, which is exactly when lever presses
@@ -159,7 +160,6 @@ async function child(seed, cosmeticSeed, frameMs = 100) {
     if (day === 2) rigCheck.crane = game.rig.mode === 'crane' && !game.rig.beat?.hold;
     let frames = 0, pauseProbe = null;
     while (game.phase === 'trading' && frames++ < 1000) {
-      if (game.paused && game.modals.top() === 'offer') document.getElementById('offer-no').click();
       if (!pauseProbe && !game.paused && game.frontage.pending) {
         const probe = { count: game.frontage.count, rng: game.frontage.random.state(), pending: game.frontage.pending };
         game.togglePause();
@@ -221,8 +221,7 @@ async function child(seed, cosmeticSeed, frameMs = 100) {
         } else {
           let frames = 0;
           while (game.phase === 'trading' && frames++ < 1000) {
-            if (game.paused && game.modals.top() === 'offer') document.getElementById('offer-no').click();
-            const cb = raf; raf = null; now += frameMs; cb(now);
+                const cb = raf; raf = null; now += frameMs; cb(now);
           }
           const s = game.stats();
           resetDay = { till: r2(s.till), served: s.served, balked: s.balked, defections: s.defections, frontageConv: game.frontage.count, climate: game.climate.id };

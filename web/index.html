@@ -42,8 +42,8 @@
   body.in-play #district,
   body.in-play #floorstats,
   body.in-play #tape { display: none; }
+  body.in-play.vitals-on #floorstats { display: inline; }
   body.in-play #goal,
-  body.in-play #paceflag,
   body.in-play #daytag { display: block; }
   #clock { font-family: var(--serif); font-size: 44px; font-weight: 600; letter-spacing: 2px; color: var(--cream); line-height: 1; }
   #hud .line { font-size: 15px; margin-top: 7px; opacity: 1; color: #f4ecdf; }
@@ -209,7 +209,11 @@
   #moment-actions { margin-top: 9px; display: flex; flex-direction: column; gap: 5px; }
   #moment-actions button { text-align: left; font-size: 11.5px; padding: 6px 9px; }
   #moment-actions button.dim { opacity: .6; }
-  #paceflag { font-size: 13px; letter-spacing: .08em; opacity: 1; color: #f0d78c; }
+  #moment .ask-kicker { font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; opacity: .7; margin-bottom: 4px; }
+  #moment .ask-effect { display: block; font-size: 11px; opacity: .65; margin-top: 4px; }
+  #moment .insider-upsell { margin-top: 8px; font-size: 11px; line-height: 1.5; padding: 8px 10px; background: rgba(201,162,39,.08); border-left: 2px solid var(--brass); border-radius: 2px; }
+  #moment .insider-label { font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; opacity: .7; display: block; margin-bottom: 3px; }
+  #prebatch.window, #reprice.window { animation: leverPulseGold 1.6s ease infinite; border-color: var(--brass) !important; }
   #r-summary { font-family: var(--serif); font-size: 14px; line-height: 1.5; padding: 8px 10px; margin-bottom: 10px;
     background: rgba(201,162,39,.08); border-left: 3px solid var(--brass); }
   #r-ledger summary { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; opacity: .55; cursor: pointer; margin-bottom: 6px; }
@@ -348,10 +352,10 @@
   #lic-dots { display: flex; justify-content: center; gap: 6px; margin-top: 14px; }
   #lic-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(58,50,38,.22); }
   #lic-dots span.on { background: var(--brass); }
-  #desk, #paywall, #offer, #evening, #customer-center { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center;
+  #desk, #paywall, #evening, #customer-center { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center;
     background: rgba(10,8,6,.55); backdrop-filter: blur(4px); opacity: 0; pointer-events: none;
     transition: opacity .5s ease; }
-  #desk.show, #paywall.show, #offer.show, #evening.show, #customer-center.show { opacity: 1; pointer-events: auto; }
+  #desk.show, #paywall.show, #evening.show, #customer-center.show { opacity: 1; pointer-events: auto; }
   /* Phase 1 — dossier + board share the desk modal pattern */
   #dossier, #regulars { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center;
     background: rgba(10,8,6,.55); backdrop-filter: blur(4px); opacity: 0; pointer-events: none;
@@ -367,10 +371,6 @@
   #dossier-hello:disabled { opacity: .55; cursor: default; }
   .b-stage { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; opacity: .75;
     border: 1px solid var(--brass); border-radius: 3px; padding: 1px 5px; }
-  #offer .d-paper { border-top-color: var(--brass); --modal-width: 420px; }
-  #offer.incident .d-paper { border-top-color: #a04434; }
-  #offer-line { font-family: var(--serif); font-size: var(--modal-body-size); line-height: 1.55; white-space: pre-wrap; margin: 4px 0 6px; }
-  #offer-effect { font-size: 11px; opacity: .65; margin-bottom: 12px; }
   .d-paper { background: linear-gradient(176deg,#f6efe0,#e8dcc2); color:#2a241c;
     box-shadow: 0 26px 70px rgba(0,0,0,.6);
     border-top: 4px double var(--teal); }
@@ -650,7 +650,6 @@
 
   <header id="hud">
     <div id="clock">06:00</div>
-    <div class="line" id="paceflag" hidden>quiet — time moves faster</div>
     <div class="line" id="daytag">DAY 1/5 · regulars —</div>
     <div id="goal" class="line">keep the line under <b>5</b> before the <b>14:00</b> rush</div>
     <div id="floorcue" hidden>
@@ -991,32 +990,9 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
     </div>
   </div>
 
-  <!-- a regular's ask — one mid-day offer, a real yes/no with a cost -->
-  <div id="offer" class="modal" role="dialog" aria-labelledby="offer-who" aria-hidden="true" inert>
-    <div class="d-paper modal-panel" tabindex="-1">
-      <header class="modal-header">
-        <div class="l-head" id="offer-who"></div>
-        <div class="l-kicker" id="offer-kicker">a regular asks · y / n</div>
-        <div class="beat-powered" id="offer-powered">Idris replied by AgentMail</div>
-      </header>
-      <div class="modal-body">
-        <pre id="offer-line"></pre>
-        <div id="offer-effect"></div>
-        <div id="offer-insider-upsell" style="display:none; margin-top: 10px; font-size: 11px; line-height: 1.5; padding: 8px 10px; background: rgba(201,162,39,.08); border-left: 2px solid var(--brass); border-radius: 2px;">
-          <span style="font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; opacity:.7; display:block; margin-bottom:3px;">insider · the regulars' take</span>
-          <span id="offer-insider-text">"worth hearing both sides before you say no."</span>
-        </div>
-      </div>
-      <footer class="modal-footer"><div class="l-actions">
-        <button id="offer-yes"></button>
-        <button id="offer-no">not today</button>
-      </div></footer>
-    </div>
-  </div>
-
   <div id="levers">
-    <button id="prebatch">Buy cups <kbd>1</kbd><small>fast bar · leftovers spoil</small></button>
-    <button id="reprice">Sell matcha cheaper <kbd>2</kbd><small>down from the board price · locks prep</small></button>
+    <button id="prebatch">Buy cups <kbd>1</kbd><small>40 cups · leftovers spoil</small></button>
+    <button id="reprice">Sell matcha cheaper <kbd>2</kbd><small>£4.20 a cup · locks prep</small></button>
     <button id="skiprush" hidden>Skip to 14:00</button>
     <button id="reset">restart week <kbd>R</kbd></button>
   </div>
@@ -1024,6 +1000,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
   <div id="sys">
     <div id="speeds"><button data-s="60">1×</button><button data-s="300">5×</button><button data-s="1200">20×</button></div>
     <button id="pause">pause</button>
+    <button id="standbtn" aria-pressed="false">stand <kbd>V</kbd></button>
     <button id="camreset">camera <kbd>C</kbd></button>
     <button id="photoBtn" title="Photo mode (P)">📷</button>
     <button id="roofpeek" type="button" aria-pressed="false" title="Open the neighbour roofs and look inside. Click a shop to peek at just that one.">see inside</button>

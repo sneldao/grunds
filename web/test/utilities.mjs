@@ -49,7 +49,7 @@ function el() {
   const e = { children: [], style: {}, dataset: {}, textContent: '', innerHTML: '', disabled: false, offsetWidth: 10,
     classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
     appendChild(c) { c._parent = e; e.children.push(c); return c; },
-    append(...cs) { for (const c of cs) e.appendChild(c); },
+    append(...cs) { for (const c of cs) e.appendChild(typeof c === 'string' ? { tagName: '#text', textContent: c, children: [] } : c); },
     prepend(c) { c._parent = e; e.children.unshift(c); },
     remove() { const p = e._parent; if (p) { const i = p.children.indexOf(e); if (i >= 0) p.children.splice(i, 1); } },
     querySelector: () => el(), querySelectorAll: () => [], addEventListener() {},
@@ -82,12 +82,13 @@ const reseed = () => { _rs = 123456789; };
 Math.random = () => { _rs = (_rs * 1664525 + 1013904223) >>> 0; return _rs / 4294967296; };
 
 let now = 1000;
-function frame() { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); const off = reg.get('offer'); if (off && off.classList.contains('show')) reg.get('offer-no').click(); }
+function frame() { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); if (G.ask && G.ask.active()) G.resolveOffer(false); }
 const tick = r => new Promise(res => setTimeout(res, r));
 
 await import('../js/main.js');
 await tick(40);
 const G = globalThis.__grunds;
+G.testState && G.testState({ moments: true });   // ask cards ride the moment card now
 
 const OUT_DAY = [2, 3, 4, 5].find(d => planOutage(SEED, d));
 check(!!OUT_DAY, `seed ${SEED} has an outage day (day ${OUT_DAY})`);

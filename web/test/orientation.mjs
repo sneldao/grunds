@@ -267,8 +267,7 @@ function runFrames(n) {
   for (let f = 0; f < n; f++) {
     now += 100; const cb = rafCb; rafCb = null; if (!cb) return;
     cb(now);
-    const off = byId('offer');
-    if (off && off.classList.contains('show')) byId('offer-no')?.click();
+    if (G.moment && G.moment.active() === 'ask') G.resolveOffer(false);
     const ev = byId('evening');
     if (ev && ev.classList.contains('show')) byId('evening-close')?.click();
   }
@@ -480,7 +479,7 @@ check('a guided commit starts the coach', !!G.coach.state(), `coach=${JSON.strin
 
 runFrames(1);
 const firstCard = deepText(byId('coach'));
-check('coach card reveals only after the Brief closed', /Ruth has the bar|Ruth has served/.test(firstCard), firstCard.slice(0, 200));
+check('coach card reveals only after the Brief closed', /Ruth has the bar|Ruth has served|Ruth’s got the bar/.test(firstCard), firstCard.slice(0, 200));
 check('first card settles the player in, not a manual-serve directive', /afternoon plan is already set|room tells you/.test(firstCard), firstCard.slice(0, 200));
 
 {
@@ -499,7 +498,7 @@ check('first card settles the player in, not a manual-serve directive', /afterno
   if (bodyAtFlip && G.coach.state()) {
     runFrames(6);
     check('craft card body is stable across later frames', byId('coach-body').textContent === bodyAtFlip || !/Ruth has served/.test(deepText(byId('coach'))), byId('coach-body').textContent.slice(0, 160));
-    check('craft copy quotes the real served count', /served \d+ drinks automatically/.test(bodyAtFlip), bodyAtFlip.slice(0, 160));
+    check('craft copy quotes the real served count', /\d+ drinks out already/.test(bodyAtFlip), bodyAtFlip.slice(0, 160));
   }
 }
 

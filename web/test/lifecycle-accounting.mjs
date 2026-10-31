@@ -36,7 +36,7 @@ function makeEl(tag = 'div') {
     tag, tagName: String(tag).toUpperCase(), children: [], style: {}, dataset: {}, textContent: '', innerHTML: '',
     disabled: false, offsetWidth: 10, value: '',
     classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
-    appendChild(c) { c._parent = el; el.children.push(c); return c; },
+    appendChild(c) { if (typeof c === 'string') c = { tagName: '#text', textContent: c, children: [] }; c._parent = el; el.children.push(c); return c; },
     append(...cs) { for (const c of cs) el.appendChild(c); },
     prepend(c) { c._parent = el; el.children.unshift(c); },
     remove() { const pr = el._parent; if (pr) { const i = pr.children.indexOf(el); if (i >= 0) pr.children.splice(i, 1); } },
@@ -94,11 +94,12 @@ console.warn = (...a) => { if (!String(a[0]).startsWith('THREE.')) _w(...a); };
 console.error = (...a) => { if (!String(a[0]).startsWith('THREE.')) _e(...a); };
 
 let now = 1000;
-function runFrames(n) { for (let f = 0; f < n; f++) { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); const off = registry.get('offer'); if (off && off.classList.contains('show')) registry.get('offer-no').click(); } }
+function runFrames(n, answerAsks = true) { for (let f = 0; f < n; f++) { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); if (answerAsks && G.ask && G.ask.active()) G.resolveOffer(false); } }
 
 await import('../js/main.js');
 await new Promise(r => setTimeout(r, 40));
 const G = globalThis.__grunds;
+G.testState && G.testState({ moments: true });   // ask cards ride the moment card now
 const fails = [];
 const near = (a, b, eps = 0.001) => Math.abs(a - b) < eps;
 function stageLifecycleSupplies() {
@@ -472,15 +473,19 @@ await new Promise(r => setTimeout(r, 5400));
   if (G.reg.noteWalkout(G.reg.regulars.indexOf(dev), { day: 2, outcome: 'balked' })) fails.push('noteWalkout double-counted a same-day balk');
   if (dev.events.length !== devEvents) fails.push('same-day second balk appended an event');
 
-  // incident copy == charged amount: force one open and read the card
-  G.showIncident();
+  // incident copy == charged amount: force one open and read the ask card
+  for (let idx = 0; idx < 7 && !G.ask.active(); idx++) {
+    G.showIncident(idx);   // an already-fired index dedupes — try the next
+    for (let i = 0; i < 200 && !G.ask.active(); i++) runFrames(1, false);
+  }
+  if (!G.ask.active()) fails.push('forced incident never reached the ask card');
   const tillBefore = G.stats().till;
-  const effectTxt = registry.get('offer-effect').textContent;
+  const effectTxt = (() => { let t = ''; const walk = (el) => { if (!el) return; t += el.textContent || ''; for (const c of el.children || []) walk(c); }; walk(registry.get('moment-body')); return t; })();
   const mAmt = effectTxt.match(/£(\d+)/);
   if (!mAmt) fails.push(`incident effect has no £ amount: ${effectTxt}`);
   const want = Number(mAmt[1]);
   if (!(want >= 18)) fails.push(`incident scaled below the smallest base: ${want}`);
-  registry.get('offer-yes').click();
+  G.resolveOffer(true);
   const charged = tillBefore - G.stats().till;
   if (mAmt && !near(charged, want)) fails.push(`incident copy £${want} but charged £${charged}`);
 

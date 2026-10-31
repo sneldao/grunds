@@ -499,13 +499,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     e.querySelector = sel => { const r = e.querySelectorAll(sel)[0]; if (r) return r; return e.appendChild(mk('div', '')); };
     return e;
   };
-  const MODAL_IDS = new Set(['brief', 'offer', 'letter', 'licence', 'paywall', 'desk', 'receipt', 'tutorial', 'title']);
+  const MODAL_IDS = new Set(['brief', 'letter', 'licence', 'paywall', 'desk', 'receipt', 'tutorial', 'title']);
   const CHILD_PARENT = {
     'review-last': 'brief', 'desklink': 'letter', 'open': 'title', 'shareWeek': 'receipt',
     'review-continue': 'receipt', 'review-letter': 'receipt',
     tbody: 'tutorial', ttitle: 'tutorial', tstep: 'tutorial', tnext: 'tutorial', tskip: 'tutorial', tclose: 'tutorial', again: 'receipt',
   };
-  const PREFIX_PARENT = { brief: 'brief', offer: 'offer', letter: 'letter', lic: 'licence', licence: 'licence', pw: 'paywall', paywall: 'paywall', desk: 'desk', r: 'receipt', receipt: 'receipt' };
+  const PREFIX_PARENT = { brief: 'brief', letter: 'letter', lic: 'licence', licence: 'licence', pw: 'paywall', paywall: 'paywall', desk: 'desk', r: 'receipt', receipt: 'receipt' };
   const getEl = id => {
     if (!registry2.has(id)) {
       const e = mk('div', id); registry2.set(id, e);

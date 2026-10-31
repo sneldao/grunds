@@ -25,6 +25,7 @@ function makeEl(tag = 'div') {
     disabled: false, offsetWidth: 10,
     classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
     appendChild(c) { c._parent = el; el.children.push(c); return c; },
+    append(...cs) { for (const c of cs) el.appendChild(typeof c === 'string' ? { tagName: '#text', textContent: c, children: [] } : c); },
     prepend(c) { c._parent = el; el.children.unshift(c); },
     remove() { const pr = el._parent; if (pr) { const i = pr.children.indexOf(el); if (i >= 0) pr.children.splice(i, 1); } },
     querySelector: () => makeEl(),
@@ -89,6 +90,7 @@ async function runDay({ levers = false, query = '', frames = 1150, step = 16.7 }
   if (open.disabled) throw new Error('open button still disabled — schedule fetch failed?');
   open.click();   // gesture: starts audio + crane + clock
   const G0 = globalThis.__grunds;
+G0.testState && G0.testState({ moments: true });   // ask cards ride the moment card now
   if (G0.phase !== 'planning') throw new Error(`expected planning after open, got ${G0.phase}`);
   const cr = G0.commitDayPlan();
   if (!cr.ok) throw new Error('commit failed: ' + JSON.stringify(cr));
@@ -99,7 +101,7 @@ async function runDay({ levers = false, query = '', frames = 1150, step = 16.7 }
     const cb = rafCb; rafCb = null;
     if (!cb) throw new Error('render loop stopped re-registering');
     cb(now);
-    const off = registry.get('offer'); if (off && off.classList.contains('show')) registry.get('offer-no').click();
+    const G = globalThis.__grunds; if (G && G.ask && G.ask.active()) G.resolveOffer(false);
     if (f % 300 === 0) console.error(`  …frame ${f} clock=${registry.get('clock').textContent}`);
     if (levers && registry.get('clock').textContent >= '12:30') {
       // Prep OR price — never both. Keep topping up through the wave.

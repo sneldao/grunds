@@ -152,11 +152,20 @@ export function makeIdentity({ pid, name, cohort, drink, homeTable = null, visit
 // comes from the identity (+ optional quirk / companion name).
 export function memoryLine({ name, stage, visits, drink, quirk = null, broughtFriend = null }) {
   if (broughtFriend) return `${name} brought ${broughtFriend} — “look after them, yeah?”`;
-  if (stage === 'evangelist') return `${name}’s telling everyone about this place`;
-  if (stage === 'friend') return `${name}! — ${visits} visits and counting`;
+  if (stage === 'evangelist') return `${name}’s been telling people about this place`;
+  if (stage === 'friend') return `${name}! The usual?`;
   if (quirk && visits % 2 === 1) return `${name} — ${quirk}`;
-  if (stage === 'regular' || stage === 'friend') return `${name}’s back — ${visits} visits, still on the ${drink}`;
+  if (stage === 'regular' || stage === 'friend') return `${name}’s back. Still on the ${drink}.`;
   return `${name}’s back — ${drink} again?`;
+}
+
+// snubGreeting — the morning-after line for a regular whose ask you turned
+// down. Pure: returns the offer's snubLine when they carry an unpaid snub,
+// else null (the caller clears the snub once it shows).
+export function snubGreeting(name, snubs, offers) {
+  if (!snubs || !snubs[name]) return null;
+  const o = (offers || []).find(x => (x.cast || x.who) === name);
+  return (o && o.snubLine) || null;
 }
 
 // dossierLines — the click-a-sitter card: stats + up to 5 recent events,

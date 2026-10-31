@@ -71,6 +71,35 @@ export function sitPose(nowMs, idx, reduced = false) {
   };
 }
 
+// Idle micro-clips for standing patrons — three deterministic variants by
+// idx: a weight shift, a glance at the board, a phone check. Deterministic
+// in (nowMs, idx); reduced motion holds the rest pose.
+const _easeIO = t => 0.5 - 0.5 * Math.cos(Math.max(0, Math.min(1, t)) * Math.PI);
+export function idlePose(nowMs, idx, reduced = false) {
+  const rest = { bob: 0, lean: 0, legSwing: 0, armL: 0, armR: 0, headRy: 0, headDip: 0, squash: 0, sway: 0 };
+  if (reduced) return rest;
+  const v = ((idx | 0) % 3 + 3) % 3;
+  // each patron runs the cycle from their own offset so a queue never moves in unison
+  const t = nowMs + ((idx | 0) * 1733);
+  if (v === 0) {
+    const w = Math.sin(nowMs * 0.0009 + idx);
+    return { ...rest,
+      armL: w * 0.04, armR: -w * 0.04,
+      headRy: Math.sin(nowMs * 0.0006 + idx * 2.1) * 0.25,
+      sway: w * 0.03 };
+  }
+  if (v === 1) {
+    const u = (t % 7000) / 1000;   // 7s: ease to the board, hold, ease back
+    const k = u < 0.8 ? _easeIO(u / 0.8) : u < 3.0 ? 1 : u < 3.8 ? 1 - _easeIO((u - 3.0) / 0.8) : 0;
+    const breath = Math.sin(nowMs * 0.0016 + idx * 1.7) * 0.012;
+    return { ...rest, bob: breath, headRy: 0.6 * k };
+  }
+  const u = (t % 9000) / 1000;     // 9s: phone up for 2.5s mid-cycle
+  const k = u < 0.4 ? _easeIO(u / 0.4) : u < 2.9 ? 1 : u < 3.3 ? 1 - _easeIO((u - 2.9) / 0.4) : 0;
+  const breath = Math.sin(nowMs * 0.0016 + idx * 1.7) * 0.012;
+  return { ...rest, bob: breath, armR: 0.5 * k, headDip: 0.12 * k };
+}
+
 // Sip envelope: sipT 0..1, soft sin in/out. Peak mid-sip lifts the arm,
 // dips the head, leans back. Zeros at both ends — no snap.
 export function sipPose(sipT) {
@@ -177,7 +206,7 @@ export function samplePose(opts) {
     ? { ...sitPose(nowMs, idx, reduced) }
     : walking
       ? { ...walkPose(phase, gait) }
-      : { ...sitPose(nowMs, idx), legSwing: 0 };
+      : { ...idlePose(nowMs, idx, reduced), legSwing: 0 };
   if (sipT >= 0 && sipT <= 1) {
     const s = sipPose(sipT);
     base.lean += s.lean;

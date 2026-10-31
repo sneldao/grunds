@@ -40,7 +40,7 @@ test('Phase 4 · truce is offered day 3 with a split-or-snub trade', () => {
   assert.match(main, /split the street and both survive it/);
   assert.match(main, /accept\(\) \{ samTruce = true/);
   assert.match(main, /decline\(\) \{ samGrudge\.snubs \+= 1/);
-  assert.match(main, /Saturday ceasefire — no bleeding, no feast/);
+  assert.match(main, /Saturday is a ceasefire/);
 });
 
 // (5) Ceasefire mechanics: flag, spawn gates, quieter Saturday

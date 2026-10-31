@@ -20,13 +20,14 @@ const mainSrc = readFileSync(new URL('js/main.js', root), 'utf8');
 // ---- 1. Each upsell element exists in HTML ------------------
 const placements = [
   { id: 'brief-insider-upsell',  text: 'Insiders see the wire' },
-  { id: 'offer-insider-upsell',  text: "the regulars' take" },
+  { id: 'moment-insider-upsell', text: "the regulars' take" },
   { id: 'verdict-upsell',        text: 'Replay your week' },
   { id: 'pc-founder-upsell',     text: 'Founder frame' },
 ];
 for (const p of placements) {
-  assert.ok(html.includes(`id="${p.id}"`), `HTML must declare #${p.id}`);
-  assert.ok(html.includes(p.text), `#${p.id} should mention "${p.text}"`);
+  const where = p.id.startsWith('moment-') ? mainSrc : html;   // the ask card builds its upsell in JS
+  assert.ok(where.includes(`id = '${p.id}'`) || where.includes(`id="${p.id}"`), `#${p.id} must exist`);
+  assert.ok(where.includes(p.text), `#${p.id} should mention "${p.text}"`);
 }
 
 // Buttons that open the existing paywall modal
@@ -67,8 +68,8 @@ assert.ok(/brief:\s*\{[^]*isFounderOnly:\s*false/.test(block),
 // ---- 4. The offer-take line is fetched and rendered ----------
 assert.ok(/function\s+(async\s+)?fetchOfferTake\(\)/.test(mainSrc),
   'fetchOfferTake must be a named function');
-assert.ok(/function\s+presentBeat[\s\S]*?fetchOfferTake\(\)\.then/.test(mainSrc),
-  'presentBeat must call fetchOfferTake and write the line to #offer-insider-text');
+assert.ok(/fetchOfferTake\(\)\.then/.test(mainSrc),
+  'the ask card must call fetchOfferTake and write the line to #moment-insider-text');
 // Cache key is the day — so a single day doesn't refetch on every open
 assert.ok(/_offerTakeCache\s*=\s*\{\s*day/.test(mainSrc),
   '_offerTakeCache must key by day');
@@ -78,7 +79,7 @@ assert.ok(/_offerTakeCache\s*=\s*\{\s*day/.test(mainSrc),
 // (Both must stay in sync — a drift here means a silent UI bug.)
 const PLACEMENTS = {
   brief:   { id: 'brief-insider-upsell', isFounderOnly: false },
-  offer:   { id: 'offer-insider-upsell', isFounderOnly: false },
+  offer:   { id: 'moment-insider-upsell', isFounderOnly: false },
   verdict: { id: 'verdict-upsell',       isFounderOnly: false },
   share:   { id: 'pc-founder-upsell',    isFounderOnly: true  },
 };

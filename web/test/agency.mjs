@@ -4,10 +4,11 @@
 //   2. Sizing: the letter offers four replies (light/deep/hold/settle) and
 //      contractBeans(units, fee) sizes the position — deep locks ~2× units
 //      at ~2× fee.
-//   3. The regular's ask: #offer modal markup exists, five rotating offers
-//      each carry a real effect, the 11:00 trigger + deferred consequences
+//   3. The regular's ask: the seeded timetable (planAsk/planIncidents) picks
+//      who and when, the ask rides the in-world moment card (no modal, no
+//      pause), five offers each carry a real effect, deferred consequences
 //      (Olu 12:30, Mara 15:00) and the Esther dawn charge are wired, and
-//      the trigger is headless-gated so tests don't stall on the pause.
+//      every beat speaks in the character's voice — no system language.
 //   4. Letter stakes: composeLetter prints the spot delta line when given
 //      indexPrev.
 //   5. Ruth — the staff layer: one hidden condition stat, a Brief choice
@@ -95,22 +96,43 @@ const fails = [];
 // ---- 4) the regular's ask ----------------------------------------------------------
 {
   const html = read('web/index.html');
-  for (const id of ['offer', 'offer-who', 'offer-line', 'offer-effect', 'offer-yes', 'offer-no'])
-    assert.ok(html.includes(`id="${id}"`), `index.html has #${id}`);
+  assert.ok(!html.includes('id="offer"'), 'the old offer modal is gone — asks ride the moment card');
+  assert.ok(html.includes('id="moment"') && html.includes('id="moment-body"') && html.includes('id="moment-actions"'),
+    'the moment card markup hosts the ask');
   const main = read('web/js/main.js');
   assert.ok(main.includes('const OFFERS'), 'offers table exists');
   const offersBlock = main.slice(main.indexOf('const OFFERS'), main.indexOf('// The floor bites back'));
-  assert.equal((offersBlock.match(/who: /g) || []).length, 5, 'five rotating offers');
-  assert.ok(main.includes('dayMin >= 660'), 'offer fires at 11:00');
+  assert.equal((offersBlock.match(/who: castName/g) || []).length, 5, 'five rotating cast offers');
+  assert.ok(main.includes("planAsk(SEED, d, OFFERS.length)"), 'the ask comes off the seeded timetable');
+  assert.ok(main.includes('dayMin >= offerPlan.offerAt'), 'the seeded clock fires the ask');
   assert.ok(main.includes('oluPayoutAt = 750'), 'Olu’s 12:30 payout is deferred');
   assert.ok(main.includes('officeRunAt = 900'), 'Mara’s 15:00 queue check is deferred');
   assert.ok(main.includes('estherCard'), 'Esther’s stamp card carries forward');
-  assert.ok(main.includes('!offerShown && dayMin >= 660'), 'offer fires once at 11:00');
-  assert.ok(main.includes("phase !== 'trading' || modals.top() !== 'offer'"),
-    'resolveOffer only resolves the live top offer');
+  assert.ok(main.includes("MOMENT_PRIO = { ask: -2"), 'asks outrank every other card');
+  assert.ok(main.includes("momentActive.type === 'ask'"), 'resolveOffer only resolves the live ask card');
   assert.ok(main.includes("resolveOffer(true)") && main.includes("resolveOffer(false)"),
-    'y/n keys resolve the offer');
-  console.log('ASK     modal, 5 offers, deferred consequences, headless gate — all wired');
+    'y/n keys resolve the ask');
+  assert.ok(!main.includes('offerWasPaused') && !main.includes("modals.open('offer')"),
+    'asks never pause the floor behind a modal');
+  // every beat speaks: line / effect / buttons / three exits
+  const offersSrc = main.slice(main.indexOf('const OFFERS'), main.indexOf('// The floor bites back'));
+  const incSrc = main.slice(main.indexOf('const INCIDENTS'), main.indexOf('let solicitorCharge'));
+  const truceSrc = main.slice(main.indexOf('truceShown = true;'), main.indexOf("'ask:truce'"));
+  for (const [name, block] of [['OFFERS', offersSrc], ['INCIDENTS', incSrc]]) {
+    for (const field of ['line', 'effect', 'yes', 'no', 'acceptLine', 'declineLine', 'walkLine']) {
+      assert.ok(block.includes(field + ':'), `${name} entries carry ${field}`);
+    }
+  }
+  for (const field of ['bubble', 'snubLine', 'cast:'])
+    assert.ok(offersSrc.includes(field + " '") || offersSrc.includes(field + ':'), `cast offers carry ${field}`);
+  for (const field of ['line', 'effect', 'yes', 'no', 'acceptLine', 'declineLine', 'walkLine'])
+    assert.ok(truceSrc.includes(field + ':'), `the truce carries ${field}`);
+  // copy lint: no system-language effect strings anywhere in the beats
+  const effectStrs = [...main.matchAll(/effect:\s*[`'"]([^`'"]+)[`'"]/g)].map(m => m[1])
+    .concat([...main.matchAll(/effect: \([^)]*\) => [`'"]([^`'"]+)[`'"]/g)].map(m => m[1]));
+  for (const e of effectStrs)
+    assert.ok(!/[→~%]| · /.test(e), `effect copy stays plain English: "${e.slice(0, 60)}"`);
+  console.log('ASK     seeded card · 5 voiced offers · deferred consequences · y/n · never pauses');
 }
 
 // ---- 5) the floor bites back: incidents + the cost sheet ------------------------------
@@ -119,8 +141,8 @@ const fails = [];
   assert.ok(main.includes('const INCIDENTS'), 'incidents table exists');
   const incBlock = main.slice(main.indexOf('const INCIDENTS'), main.indexOf('function showIncident'));
   assert.equal((incBlock.match(/who: '/g) || []).length, 7, 'seven operational incidents (scorch joined in Phase 3)');
-  assert.ok(main.includes('day >= 2 && !incidentShown'), 'incidents are day-2+ (day 1 stays clean)');
-  assert.ok(main.includes('dayMin >= 895'), 'incidents land post-wave');
+  assert.ok(main.includes('day >= 2') && main.includes('planIncidents(SEED, d, INCIDENTS.length)'), 'incidents are day-2+ off the seeded timetable (day 1 stays clean)');
+  assert.ok(main.includes('incidentsFired.add(inc.idx)'), 'each seeded slot fires once');
   assert.ok(main.includes('patrons.balkMul = 1.6'), 'plumber decline hits patience');
   assert.ok(main.includes('patrons.staffMul = 0.6'), 'sick barista slows the bar');
   assert.ok(main.includes('cashOnly = 0.2'), 'dead card machine kills a fifth of sales');

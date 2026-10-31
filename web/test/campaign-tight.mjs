@@ -28,7 +28,7 @@ const anyProxy = () => new Proxy(function () {}, {
 function el() {
   const e = { children: [], style: {}, dataset: {}, textContent: '', innerHTML: '', disabled: false, offsetWidth: 10,
     classList: { _s: new Set(), add(c){this._s.add(c);}, remove(c){this._s.delete(c);}, toggle(c, v){v?this._s.add(c):this._s.delete(c);}, contains(c){return this._s.has(c);} },
-    appendChild(c){c._parent=e;e.children.push(c);return c;},
+    appendChild(c){if(typeof c==='string')c={tagName:'#text',textContent:c,children:[]};c._parent=e;e.children.push(c);return c;},
     append(...cs){for(const c of cs)e.appendChild(c);},
     prepend(c){c._parent=e;e.children.unshift(c);},
     remove(){const p=e._parent;if(p){const i=p.children.indexOf(e);if(i>=0)p.children.splice(i,1);}},
@@ -62,11 +62,12 @@ let _rs = 987654321;
 Math.random = () => { _rs = (_rs * 1664525 + 1013904223) >>> 0; return _rs / 4294967296; };
 const wait = r => new Promise(r);
 let now = 1000;
-function runFrames(n) { for (let f = 0; f < n; f++) { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); const off = reg.get('offer'); if (off && off.classList.contains('show')) reg.get('offer-no').click(); } }
+function runFrames(n) { for (let f = 0; f < n; f++) { now += 100; const cb = rafCb; rafCb = null; if (!cb) throw new Error('loop stopped'); cb(now); if (G.ask && G.ask.active()) G.resolveOffer(false); } }
 
 await import('../js/main.js');
 await new Promise(r => setTimeout(r, 40));
 const G = globalThis.__grunds;
+G.testState && G.testState({ moments: true });   // ask cards ride the moment card now
 const fails = [];
 
 // ============================================================

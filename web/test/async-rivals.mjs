@@ -70,7 +70,7 @@ function el() {
   const e = {
     children: [], style: {}, dataset: {}, textContent: '', innerHTML: '', disabled: false, offsetWidth: 10, value: '',
     classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
-    appendChild(c) { c._parent = e; e.children.push(c); return c; },
+    appendChild(c) { if (typeof c === 'string') c = { tagName: '#text', textContent: c, children: [] }; c._parent = e; e.children.push(c); return c; },
     append(...cs) { for (const c of cs) e.appendChild(c); },
     prepend(c) { c._parent = e; e.children.unshift(c); },
     remove() { const p = e._parent; if (p) { const i = p.children.indexOf(e); if (i >= 0) p.children.splice(i, 1); } },
@@ -123,8 +123,7 @@ function pump(max = 420) {
     const cb = rafCb; rafCb = null;
     if (!cb) throw new Error('loop stopped');
     cb(now);
-    const off = reg.get('offer');
-    if (off && off.classList.contains('show')) reg.get('offer-no').click();
+    if (G.ask && G.ask.active()) G.resolveOffer(false);
   }
 }
 
@@ -133,6 +132,7 @@ try {
   await new Promise(r => setTimeout(r, 40));
 } catch (e) { console.log('BOOT FAIL', e && e.stack); process.exit(1); }
 const G = globalThis.__grunds;
+G.testState && G.testState({ moments: true });   // ask cards ride the moment card now
 try {
   reg.get('open').click();
   await new Promise(r => setTimeout(r, 20));

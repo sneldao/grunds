@@ -71,6 +71,31 @@
 - After new generations land (Tripo `persist`, franchise stands, new district
   kits), refresh the mirror: `node tools/mirror-assets.mjs` then redeploy.
 
+## Mid-day beats (asks / incidents / truce)
+- No `#offer` modal any more. `presentBeat(o, incident, key)` enqueues a
+  `moment` of type `ask` (highest priority) — the floor keeps running, the
+  card is non-blocking, y/n keys answer it. Expiry (`ttl` 60 offers / 45
+  incidents, counted from when the card is *shown*) resolves as a decline
+  and toasts `walkLine`. Pending asks never expire unseen.
+- Timetable is `web/js/beats.js` (`planAsk` / `planIncidents`), pure in
+  (seed, day): day 1 always asks, one quiet day in 2–5, incidents 0/1/1/2
+  across days 2–5, no index repeats within a week. Soft day keeps Pip at 11:00.
+- Copy contract (linted in `web/test/agency.mjs`): every entry has
+  `line / effect / yes / no / acceptLine / declineLine / walkLine`; cast
+  offers add `cast / bubble / snubLine`. `effect` is one plain sentence —
+  no `→`, `~`, `%`, or ` · ` chains. Toasts never echo the button label.
+- Declined cast asks are remembered: `snubs` (saved with the week) → −0.03 op
+  and the `snubLine` replaces that regular's next-day greeting once.
+- Lever windows: `leverState` gets `queue`; while `queue >= 5` or
+  (in-wave and batch ≤ 8) the levers are free of the £4.20 plan-change fine
+  (`.window` class, halo on the chalkboard, one toast per opening).
+- Motion polish is render-only: `patrons.render()` eases `vis` (k = dt·6) and
+  drives `visPhase` from visual speed; `step()` is sim and must stay
+  bit-identical (utilities/replay/seeded-floor tests guard it). `idlePose`
+  in poses.js gives standing patrons three per-idx offset micro-clips.
+- HUD: `#vitals` is off by default (`V` / `#standbtn`, `localStorage
+  grunds.vitals`); camera HOME is `r 20 / phi 0.74`.
+
 ## Conventions
 - Choice surfaces: options + consequence visible, no folds for choices —
   see ARCHITECTURE.md "Choice surfaces".

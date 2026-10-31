@@ -94,6 +94,7 @@ async function child(seed, cosmeticSeed, saveFile = null) {
   await import('../js/main.js');
   await new Promise(resolve => setImmediate(resolve));
   const game = globalThis.__grunds;
+  game.testState && game.testState({ moments: true });
 
   // Levers evaluate once per sim tick — see replay-campaign.mjs for why.
   const origPatronsTick = game.patrons.tick.bind(game.patrons);
@@ -142,7 +143,6 @@ async function child(seed, cosmeticSeed, saveFile = null) {
       assert.equal(res.ok, true, JSON.stringify(res));
       let frames = 0, pauseProbe = null;
       while (game.phase === 'trading' && frames++ < 1000) {
-        if (game.paused && game.modals.top() === 'offer') document.getElementById('offer-no').click();
         if (!pauseProbe && !game.paused && game.frontage.pending) {
           const probe = { count: game.frontage.count, rng: game.frontage.random.state(), pending: game.frontage.pending };
           game.togglePause();

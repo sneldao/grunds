@@ -34,6 +34,7 @@ import { isQuiet, QUIET_MUL } from './pace.js';
 import { rushSpeed } from './paceNotice.js';
 import { touchPrimary } from './gestures.js';
 import { saveWeek, loadWeek, clearWeek, resumeLabel } from './weekSave.js';
+import { planAsk, planIncidents } from './beats.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, EMPTY_CASE_MOOD, starredDelivery } from './menu.js';
@@ -268,7 +269,7 @@ const HALO_SPOTS = {
   street: new THREE.Vector3(0, 0.02, 5.6),        // the pavement band the queue walks
   mailbox: new THREE.Vector3(-10.4, 0.02, 6.4),   // world.js mailbox
 };
-let _lastIntentAt = 0;
+let _lastIntentAt = 0, _leverWin = false, _winHaloUntil = 0;
 function markIntent() { _lastIntentAt = performance.now(); }
 
 // PR-5 — charge the post-commit override. £4.20 from till + a small opinion
@@ -322,7 +323,7 @@ district.onGrown = (slots) => {
   try { rig.queueShot?.('lowStreet', world, 12); } catch {}
 };
 function leverSnapshot() {
-  return { dayMin, closed, phase, repriced, prebatched, batchUnits: ctx.batchUnits, leversTimeLocked };
+  return { dayMin, closed, phase, repriced, prebatched, batchUnits: ctx.batchUnits, leversTimeLocked, queue: patrons.queueLength };
 }
 function currentAction() {
   return computeNextAction({ day, guidedOpening, dayMin, queue: patrons.queueLength, prebatched, repriced, batchUnits: ctx.batchUnits, mailPending, offerShown, eveningFast, rushFast, closed, phase, leversTimeLocked });
@@ -384,10 +385,6 @@ const modals = createModalController({
       } else if (e.key === 'Enter') {
         const o = $('brief-open'); if (o && !o.disabled) o.click();
       }
-    } else if (t === 'offer') {
-      // a regular's ask answers to y/n while it's open
-      if (e.key === 'y' || e.key === 'Y') resolveOffer(true);
-      else if (e.key === 'n' || e.key === 'N') resolveOffer(false);
     } else if (t === 'tutorial') {
       if (e.key === 'Enter') { const n = $('tnext'); if (n) n.click(); }
     } else if (t === 'softintro') {
@@ -478,15 +475,19 @@ const skipLicence = headless || demoMode || urlParams.has('skipLicence') || !wan
 // demoMode, click the same button a player would. 1.5s grace per modal so
 // the UI animates in. The first keypress the player lands flips autoplay
 // off (returns control).
-let _demoLastModal = '', _demoLastActionAt = 0, _demoDisabled = false, _demoPhotoFired = false;
+let _demoLastModal = '', _demoLastActionAt = 0, _demoDisabled = false, _demoPhotoFired = false, _demoAskAt = 0;
 function autoplayTick(now) {
   if (!demoMode || _demoDisabled || headless) return;
+  // an open ask card answers itself after the same grace — the demo accepts
+  if (momentActive && momentActive.type === 'ask') {
+    if (!_demoAskAt) _demoAskAt = now;
+    if (now - _demoAskAt >= 1500) { try { resolveOffer(true); } catch {} _demoAskAt = 0; }
+  } else _demoAskAt = 0;
   const top = (() => { try { return modals && modals.top && modals.top(); } catch { return null; } })();
   if (!top) { _demoLastModal = ''; return; }
   if (top === _demoLastModal && now - _demoLastActionAt < 1500) return;
   let btn = null;
   if (top === 'brief')          btn = $('brief-open');     // commit → trading (default hedge = hold)
-  else if (top === 'offer')     btn = $('offer-no');       // 11:00 / incident: decline as a default
   else if (top === 'evening')   btn = $('evening-hold');   // 17:00: don't top up, ride what's left
   else if (top === 'letter')    btn = $('letter-close');   // close Idris, go to the receipt
   else if (top === 'paywall')   btn = $('pw-close');       // skip the upsell — demo is free
@@ -608,7 +609,7 @@ let forecastShown = false;     // day-2 forecast tease, once per campaign (day 1
 let pendingGossip = null;      // a named regular's Nebius take on the market, one per day
 let tapePrev = 1.0;            // yesterday's bean-index close — the tape's delta
 // a regular's ask: one mid-day offer per day, yes/no with a real cost
-let offerShown = false, offerWaveMul = 1, officeRunAt = 0, oluPayoutAt = 0, estherCard = false, offerWasPaused = false;
+let offerShown = false, offerWaveMul = 1, officeRunAt = 0, oluPayoutAt = 0, estherCard = false;
 // The 11:00 ask can put a named party on the floor. Count them through the
 // rush so the evening card and Pip's opinion are about people, not a ratio.
 let party = null;   // { name, cohort, left, served, walked, declined? } | null
@@ -626,7 +627,8 @@ let lastRetail = 0; // yesterday's register, sizes tomorrow's case
 let softDay = false, softWeekDone = false, coachedOpening = false, softTest = null, softRng = null;
 const SOFT_MUL = 0.005, SOFT_CAST = new Set(['Mara', 'Pip', 'Olu']), SOFT_EARLY = new Set(['Mara', 'Olu']);
 const wantsSoftDay = () => wantTutorial && !TOOL_IDS.every(t => introducedSet().has(t));
-let incidentShown = false, activeBeat = null, cashOnly = 0, cashOnlyToast = false, contractFeeExtra = 0, solicitorAt = 0;
+let activeBeat = null, cashOnly = 0, cashOnlyToast = false, contractFeeExtra = 0, solicitorAt = 0;
+let snubs = {};   // declined asks are remembered — the regular carries it tomorrow
 // Utilities — the day's seeded wifi outage ({ start, end, tethered, announced,
 // restored }) or null. Planned at dawn; while it's down the card reader fails
 // a share of sales until the player tethers (Running the Stand panel).
@@ -763,7 +765,7 @@ function wireCustomerCenter() {
 // The four surfaces are:
 const PAYWALL_PLACEMENTS = {
   brief:    { id: 'brief-insider-upsell',  isFounderOnly: false, openPaywall: true },
-  offer:    { id: 'offer-insider-upsell',  isFounderOnly: false, openPaywall: false },   // shows the regulars' take
+  offer:    { id: 'moment-insider-upsell', isFounderOnly: false, openPaywall: false },   // shows the regulars' take on the ask card
   verdict:  { id: 'verdict-upsell',        isFounderOnly: false, openPaywall: true },    // upsell for non-founders
   share:    { id: 'pc-founder-upsell',     isFounderOnly: true,  openPaywall: true },    // founder stamp upgrade
 };
@@ -1291,26 +1293,28 @@ function beats() {
     fx.toast(`14:00 is close — 2 sells matcha at ${fmt(ECON.matchaDeal)}`, 'warn');
     $('reprice').classList.add('attention');
   }
-  // a regular's ask — once per day at 11:00, pauses the floor for a yes/no
-  if (!offerShown && dayMin >= 660 && dayMin < 840) { offerShown = true; showOffer(); }
-  // the floor bites back — one incident per day from day 2, post-wave
-  // (the offer modal doubles as the incident card — same pause path)
-  if (day >= 2 && !incidentShown && dayMin >= 895 && dayMin < 1015 &&
-      !$('offer').classList.contains('show')) { incidentShown = true; showIncident(); }
+  // a regular's ask — one per day on the seeded timetable, an in-world card
+  if (!offerShown && offerPlan.offerAt != null && dayMin >= offerPlan.offerAt) { offerShown = true; showOffer(); }
+  // the floor bites back — the seeded incident slots for today, post-wave
+  if (day >= 2) for (const inc of incidentPlan) {
+    if (!incidentsFired.has(inc.idx) && dayMin >= inc.at) { incidentsFired.add(inc.idx); showIncident(inc.idx); }
+  }
   wifiBeats();
   // Phase 4 — the truce: day 3, pre-wave, Sam comes over himself. Split
   // Saturday (guaranteed mediocrity: no bleeding, no feast) or play on.
-  if (day === 3 && !truceShown && dayMin >= 600 && dayMin < 1000 &&
-      !$('offer').classList.contains('show')) {
+  if (day === 3 && !truceShown && dayMin >= 600 && dayMin < 1000) {
     truceShown = true;
     presentBeat({
-      who: COPY.rivalBarista + ', across the road',
+      who: COPY.rivalBarista, place: 'across the road',
       line: '“Saturday. You don’t bleed, I don’t feast. We split the street and both survive it.” He doesn’t offer his hand. He waits.',
-      effect: 'ceasefire Saturday: no defections either way, both rooms run ~8% quieter · or play on and he’ll remember the snub',
-      yes: 'split Saturday', no: 'play on',
-      accept() { samTruce = true; fx.toast('Saturday ceasefire — no bleeding, no feast', 'good'); },
-      decline() { samGrudge.snubs += 1; fx.toast('Sam nods slowly. He’ll remember that.', 'warn'); },
-    }, 'an offer · y / n', false);
+      effect: 'Split Saturday: nobody defects either way and both rooms run a little quieter. Or play on and he remembers the snub.',
+      yes: 'Split Saturday', no: 'Play on',
+      acceptLine: 'He nods once and crosses back. Saturday is a ceasefire.',
+      declineLine: '“Suit yourself.” He’ll remember that.',
+      walkLine: 'He stops waiting and crosses back alone.',
+      accept() { samTruce = true; },
+      decline() { samGrudge.snubs += 1; },
+    }, false, 'ask:truce');
   }
   // deferred offer consequences
   if (oluPayoutAt && dayMin >= oluPayoutAt) {
@@ -4167,6 +4171,7 @@ function capturePreDawn(enteringDay) {
         prices: Object.fromEntries(Object.entries(CAMPAIGN.rivalStrategies).map(([k, s]) => [k, s.price])),
       },
       campaign: { cRev, cCost, cOps, cBalked, cServed, cDef, cRivalServed, cRivalChoices, settledPaid },
+      snubs: { ...snubs },
       staff: {
         baristaCondition, weekHire, hireLocked, ruthSkill, samTruce, quietCarry,
         ruthNoticed, ruthAsked, ruthRestDay, ruthReturned,
@@ -4222,6 +4227,8 @@ function applySavedWeek(save) {
     lotState.house = save.lots.house || lotState.house;
     lotState.pending = save.lots.pending || [];
   }
+  snubs = save.snubs && typeof save.snubs === 'object' ? { ...save.snubs } : {};
+  patrons.snubs = snubs;
   if (save.awareness != null) demand.awareness = save.awareness;
   if (save.satisfaction != null) demand.satisfaction = save.satisfaction;
   if (save.returnees != null) demand.todayReturnees = save.returnees;
@@ -4432,7 +4439,7 @@ function prepareDay(d) {
   frontage.reset();   // frontage conversions today
   nudgedStanding = false;
   turnaways = 0; turnawayToastDone = false;
-  leversTimeLocked = false; leverOverrideCount = 0;
+  leversTimeLocked = false; leverOverrideCount = 0; _leverWin = false; _winHaloUntil = 0;
   waveBatchServed = 0; waveStockoutAt = 0;
   coach = null; coachHold = false; coachHide();
   stagedPrep = { batch: false, reprice: false };
@@ -4441,11 +4448,16 @@ function prepareDay(d) {
   if (d === 1) { forecastShown = false; nudgedQueue = nudgedBalk = nudgedPrice = false; }
   if (baristaRested) { baristaRested = false; fx.toast('Ruth’s back — rested. The bar hums.', 'good'); }
   pendingGossip = null;
-  offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
+  offerShown = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0;
+  offerPlan = softDay ? { offerIdx: 0, offerAt: 660 } : planAsk(SEED, d, OFFERS.length);
+  offerResolved = offerPlan.offerIdx == null;   // no ask today → nothing gates the quiet skip
+  incidentPlan = softDay ? [] : planIncidents(SEED, d, INCIDENTS.length);
+  incidentsFired = new Set();
   party = null; batchWaste = 0; batchSpend = 0; patrons.party = null; patrons.partyActive = false;
   patrons.markSeenOnly = softDay ? SOFT_CAST : null;
+  patrons.snubs = snubs; patrons.snubOffers = OFFERS;
   if (softDay && d === 1) softRng = seeded(seedNow() + 101);
-  incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; solicitorAt = 0;
+  activeBeat = null; cashOnly = 0; cashOnlyToast = false; solicitorAt = 0;
   wifiOutage = softDay ? null : planOutage(seedNow(), d);
   briefChoice = null;
   world.setMatchaPrice(priceForDay(d).toFixed(2), false);
@@ -4828,6 +4840,16 @@ function updateHUD() {
   const lv = leverState(leverSnapshot());
   $('prebatch').disabled = !lv.batch.available;
   $('reprice').disabled = !lv.reprice.available;
+  $('prebatch').classList.toggle('window', !!lv.batch.window);
+  $('reprice').classList.toggle('window', !!lv.reprice.window);
+  // a lever window opens once per opening: halo at the board + one toast
+  const winNow = !!(lv.batch.window || lv.reprice.window);
+  if (winNow && !_leverWin) {
+    if (patrons.queueLength >= 5) fx.toast('The line’s past five — Ruth glances at the board.', '');
+    else fx.toast('The batch is nearly gone — Ruth glances at the board.', '');
+    _winHaloUntil = performance.now() + 6000;
+  }
+  _leverWin = winNow;
   // queue health bar: under 5 = ok → 5–10 = warm → 10+ = hot
   const qq = patrons.queueLength;
   const qHeat = qq > 10 ? 'hot' : qq > 5 ? 'warm' : 'ok';
@@ -4849,7 +4871,7 @@ function updateHUD() {
   }
   if ($('skiprush')) $('skiprush').hidden = !canSkipToRush();
   if ($('wirebtn')) $('wirebtn').style.display = (day >= 2 && marketIntel) ? '' : 'none';
-  if ($('floorstats')) $('floorstats').hidden = day < 2;
+  if ($('floorstats')) $('floorstats').hidden = day < 2 || (phase === 'trading' && !vitalsOn);
   if ($('syncbadge')) $('syncbadge').hidden = day < 2;
   if ($('district')) $('district').hidden = day < 2;
   if ($('pressure')) $('pressure').hidden = day < 2 && !repriced;
@@ -4883,7 +4905,7 @@ function updateHUD() {
     else if (!lv.reprice.available) cutSmall.textContent = lv.reprice.reason || 'locked';
     else if (lv.reprice.changesPlan) {
       const board = salePrice(exchange, false);
-      cutSmall.textContent = `down from ${fmt(board)} · ${fmt(LEVER_OVERRIDE_PRICE)} late switch + the room hears it`;
+      cutSmall.textContent = `down from ${fmt(board)} · ${fmt(LEVER_OVERRIDE_PRICE)} late switch`;
     } else {
       const board = salePrice(exchange, false);
       cutSmall.textContent = `down from ${fmt(board)} · locks prep for today`;
@@ -4898,7 +4920,7 @@ function updateHUD() {
     const sub = pb.querySelector('small');
     if (sub) {
       if (!lv.batch.available) sub.textContent = lv.batch.reason || 'locked';
-      else if (lv.batch.changesPlan) sub.textContent = `${fmt(lv.batch.cost)} — ${fmt(40)} stock + ${fmt(4.2)} late switch · the room hears it`;
+      else if (lv.batch.changesPlan) sub.textContent = `${fmt(lv.batch.cost)} — ${fmt(40)} stock + ${fmt(4.2)} late switch`;
       else if (prebatched && ctx.batchUnits > 0) sub.textContent = `${ctx.batchUnits} ready · pay ${fmt(ECON.batchCost)} to top up`;
       else if (inWave) sub.textContent = `pay ${fmt(ECON.batchCost)} · leftovers spoil at close`;
       else sub.textContent = `pay ${fmt(ECON.batchCost)} · reserved for 14:00 · leftovers spoil`;
@@ -5046,15 +5068,25 @@ $('vitals')?.addEventListener?.('click', e => {
   const act = e.target?.closest?.('[data-act]')?.dataset.act;
   if (act === 'tether') { tetherWifi(); updateVitals(); }
 });
+let vitalsOn = false;
+try { vitalsOn = localStorage.getItem('grunds.vitals') === '1'; } catch {}
+function setVitals(on) {
+  vitalsOn = !!on;
+  try { localStorage.setItem('grunds.vitals', vitalsOn ? '1' : '0'); } catch {}
+  const btn = $('standbtn');
+  if (btn) btn.setAttribute('aria-pressed', vitalsOn ? 'true' : 'false');
+  updateVitals();
+}
 function updateVitals() {
   const panel = $('vitals');
   if (!panel) return;
-  const show = phase === 'trading' || phase === 'planning' || phase === 'review';
+  const show = vitalsOn && (phase === 'trading' || phase === 'planning' || phase === 'review');
   panel.hidden = !show;
   document.body?.classList.toggle('vitals-on', show);
   if (!show) return;
   renderVitals($('vitals-list'), buildVitals(vitalsSnapshot()));
 }
+if ($('standbtn')) bindPress($('standbtn'), () => setVitals(!vitalsOn));
 
 // ---- levers ----------------------------------------------------------------------
 let _lastNudge = { t: 0, r: '' };
@@ -5145,49 +5177,94 @@ function doReprice(opts = {}) {
   updateHUD();
 }
 // ---- a regular's ask -----------------------------------------------------------
-// One offer per day at 11:00 — a named regular, a real trade, a yes/no that
-// pauses the floor. The Drug Wars beat mid-day: an offer lands, you weigh it,
-// you answer. Consequences land deferred (12:30 payout, 15:00 queue check,
-// dawn charge) so the deal has a tail.
+// One offer per day on a seeded clock — a named regular, a real trade, a
+// yes/no on an in-world card that does not pause the floor. Consequences
+// land deferred (12:30 payout, 15:00 queue check, dawn charge) so the deal
+// has a tail; a card left hanging walks away as a no.
 const OFFERS = [
-  { who: castName('Pip'),    line: '“Mind if the study group lands at 14:00? Twenty of us — all matcha.”',
-    effect: 'say yes → the wave runs ~20% bigger — and ' + castName('Pip') + '’s group is counted on the evening card', yes: 'say yes',
+  { who: castName('Pip'), cast: 'Pip', place: 'at the counter',
+    line: '“Study group wants to come in at two. Twenty of us — all matcha. That alright?”',
+    bubble: 'Twenty of us at two?',
+    effect: 'Twenty students land at 14:00 wanting matcha, on top of the usual rush.',
+    yes: 'Bring them', no: 'Not today',
+    acceptLine: 'Pip grins. “I’ll tell the group.”',
+    declineLine: 'Pip nods. “No worries — I’ll find somewhere.” He doesn’t look at the board on the way out.',
+    walkLine: 'Pip waits a bit, then drifts back to his table.',
+    snubLine: 'Pip’s group went to Glasshouse. He’s here alone.',
     accept() { offerWaveMul = 1.22; party = { name: 'Pip', cohort: 'students', left: 20, served: 0, walked: 0 }; },
     decline() { party = { name: 'Pip', cohort: 'students', left: 0, served: 0, walked: 0, declined: true }; } },
-  { who: castName('Esther'), line: `“A stamp card for the week — ${fmt(15)} today, and my cup’s on the house from tomorrow.”`,
-    effect: `say yes → +${fmt(15, 0)} now · her cup’s free at every dawn after`, yes: `take the ${fmt(15, 0)}`,
+  { who: castName('Esther'), cast: 'Esther', place: 'at the counter',
+    line: `“I’m here every morning anyway. A stamp card for the week — fifteen today, and my cup’s on the house while it runs?”`,
+    bubble: 'A card for the week?',
+    effect: `She pays ${fmt(15, 0)} now, and her cup is free at every dawn after. She’ll take a no personally.`,
+    yes: 'Take the fifteen', no: 'Keep it cash',
+    acceptLine: 'Esther taps the card twice on the counter. “See you tomorrow.”',
+    declineLine: 'Esther pockets the card. “Of course.” She writes something small in her notebook.',
+    walkLine: 'Esther waits at the rail, then tucks the card away.',
+    snubLine: 'Esther’s got a stamp card now. From Glasshouse.',
     accept() { till += 15; estherCard = true; } },
-  { who: castName('Olu'),    line: '“Bridge club wants the corner at half twelve. We nurse our cups — but we pay up front.”',
-    effect: `say yes → +${fmt(9, 0)} at 12:30 · four elders in your line, counted on the evening card`, yes: 'book them in',
+  { who: castName('Olu'), cast: 'Olu', place: 'at the counter',
+    line: '“Bridge club fancies the corner at half twelve. We nurse our cups — but we pay up front.”',
+    bubble: 'Bridge club at half twelve?',
+    effect: `Four elders take the corner at 12:30 and pay ${fmt(9, 0)} up front.`,
+    yes: 'Book them in', no: 'Not today',
+    acceptLine: 'Olu is already dialling. “They’ll be delighted.”',
+    declineLine: 'Olu pockets his phone. “Another time, perhaps.”',
+    walkLine: 'Olu finishes his cup, still holding the phone.',
+    snubLine: 'Olu nods, polite. The bridge club is playing somewhere else.',
     accept() { oluPayoutAt = 750; party = { name: 'Olu', cohort: 'elders', left: 4, served: 0, walked: 0 }; } },
-  { who: castName('Gwen'),   line: `“My matcha plug can do twenty units for ${fmt(6.4)} — today only, cash.”`,
-    effect: `say yes → −${fmt(6.4)} · 20 cups warming now (locks the price cut)`, yes: 'take the units',
+  { who: castName('Gwen'), cast: 'Gwen', place: 'at the counter',
+    line: `“My matcha plug can do twenty units for ${fmt(6.4)} — today only, cash.”`,
+    bubble: 'Twenty units, cash?',
+    effect: `Pay ${fmt(6.4)} now and twenty cups are warming already. It locks the price cut.`,
+    yes: 'Take the units', no: 'I’ll pass',
+    acceptLine: 'Gwen thumbs a message. “He’s round the corner — five minutes.”',
+    declineLine: 'Gwen shrugs into her coat. “Your loss, love.”',
+    walkLine: 'Gwen checks her phone once more, then gives up.',
+    snubLine: 'Gwen doesn’t mention the units.',
     accept() { till -= 6.4; batchSpend += 6.4; ctx.batchUnits += 20; ctx.prebatched = true; prebatched = true; } },
-  { who: castName('Mara'),   line: `“Office run — ten flat whites at 15:00. ${fmt(28, 0)}, but only if the line’s under six when we land.”`,
-    effect: `say yes → queue under 6 at 15:00 pays +${fmt(28, 0)} · miss it and they cross the road`, yes: 'tell her yes',
+  { who: castName('Mara'), cast: 'Mara', place: 'at the counter',
+    line: `“Office run — ten flat whites at three. ${fmt(28, 0)}, but only if the line’s under six when we land.”`,
+    bubble: 'Ten flat whites at three?',
+    effect: `If the queue is under six at 15:00 they pay ${fmt(28, 0)}. If it isn’t, they cross the road.`,
+    yes: 'Tell her yes', no: 'Can’t promise',
+    acceptLine: 'Mara is already texting the office. “They owe me for this.”',
+    declineLine: '“Fair enough.” Mara orders her own and nothing else.',
+    walkLine: 'Mara finishes her coffee and stops waiting for an answer.',
+    snubLine: 'Mara’s back. The office run went across the road.',
     accept() { officeRunAt = 900; } },
 ];
 
+let offerPlan = { offerIdx: null, offerAt: null };
+
 function showOffer() {
   const o = softDay ? { ...OFFERS[0],
-    line: '“Mind if the study group lands at 14:00? Twenty-four of us — all matcha.”',
-    effect: 'say yes → twenty-four students arrive at 14:00 for matcha — ' + castName('Pip') + '’s group is counted on the evening card',
+    line: '“Study group lands at two. Twenty-four of us — all matcha. That alright?”',
+    effect: 'Twenty-four students land at 14:00 wanting matcha, on top of the usual rush.',
     accept() { party = { name: 'Pip', cohort: 'students', left: 24, served: 0, walked: 0 }; momentEnqueue('plan', 'plan', { expiresAt: 840 }); },
-  } : OFFERS[(day - 1) % OFFERS.length];
-  presentBeat(o, 'a regular asks · y / n', false);
+  } : OFFERS[offerPlan.offerIdx ?? 0];
+  presentBeat(o, false, `ask:offer:${day}`);
 }
 // The floor bites back — operational incidents, days 2+, post-wave. Each is
 // a real cost or a real trade, not flavor: slow bar, lost sales, rep hits,
-// deferred risk. Seed-offset so different seeds see different weeks.
+// deferred risk. The seed picks which days and which calls.
 const INCIDENTS = [
-  { who: 'the plumber', base: 45, share: 0.05, line: c => `“Bathroom’s backed up. Emergency callout’s ${fmt(c, Number.isInteger(c) ? 0 : undefined)}, cash.”`,
-    effect: c => `pay ${fmt(c, Number.isInteger(c) ? 0 : undefined)} · or the floor loses patience — walk-outs run hotter today`,
-    yes: c => `pay the ${fmt(c, Number.isInteger(c) ? 0 : undefined)}`, no: 'they can hold it',
+  { who: 'the plumber', place: 'at the door', base: 45, share: 0.05,
+    line: c => `“Toilet’s backed up. I can do it now — ${fmt(c, Number.isInteger(c) ? 0 : undefined)}, cash.”`,
+    effect: c => `Pay ${fmt(c, Number.isInteger(c) ? 0 : undefined)} now, or the toilet stays shut and people in the line lose patience faster today.`,
+    yes: 'Pay him', no: 'It can wait',
+    acceptLine: 'The plumber’s van is outside for an hour. The toilet works.',
+    declineLine: 'He shrugs and packs up. The sign on the door says OUT OF ORDER.',
+    walkLine: 'The plumber gives up waiting and drives off.',
     accept() { till -= this._cost * perkCostMul; },
     decline() { patrons.balkMul = 1.6; } },
-  { who: 'Ruth, your barista', base: 55, share: 0.06, line: '“So sorry — I’ve woken up with no voice. I can’t make it in.”',
-    effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} agency cover · or solo shift — the bar runs ~40% slower`,
-    yes: 'book the cover', no: 'work it solo',
+  { who: 'Ruth, your barista', kicker: 'RUTH', place: 'on the phone', base: 55, share: 0.06,
+    line: '“So sorry — I’ve woken up with no voice. I can’t make it in.”',
+    effect: c => `Agency cover costs ${fmt(c, Number.isInteger(c) ? 0 : undefined)}. Or she stays home and the bar runs at about half speed, alone.`,
+    yes: 'Book the cover', no: 'Work it solo',
+    acceptLine: 'The agency sends someone by nine. Ruth texts a thumbs-up from bed.',
+    declineLine: '“Understood. I’ll rest.” The bar is yours today.',
+    walkLine: 'Her phone stops ringing. The shift is yours.',
     accept() {
       till -= this._cost * perkCostMul;
       // The cover is the apprentice. A robot stretch never takes this call.
@@ -5199,48 +5276,70 @@ const INCIDENTS = [
       }
     },
     decline() { patrons.staffMul = 0.6; } },
-  { who: 'the card machine', base: 25, share: 0.03, line: 'The reader’s dead. Cash only until a 4G dongle lands.',
-    effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} for the dongle · or a fifth of today’s sales die at the till`,
-    yes: 'order the dongle', no: 'cash only today',
+  { who: 'the card machine', place: 'at the till', base: 25, share: 0.03,
+    line: 'The reader’s dead. Cash only until a 4G dongle lands.',
+    effect: c => `The dongle costs ${fmt(c, Number.isInteger(c) ? 0 : undefined)}. Or a fifth of today’s sales die at the till.`,
+    yes: 'Order the dongle', no: 'Cash only',
+    acceptLine: 'The dongle arrives before the rush is out. Cards work again.',
+    declineLine: 'You tape a note to the reader: CASH ONLY.',
+    walkLine: 'The reader stays dark. Nobody fixes it.',
     accept() { till -= this._cost * perkCostMul; },
     decline() { cashOnly = 0.2; } },
-  { who: 'the inspector', base: 30, share: 0.04, line: '“Council. Routine check — that milk needs a dated fridge log.”',
-    effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} compliance fix now · or −6 reputation when the report lands`,
-    yes: c => `pay the ${fmt(c, Number.isInteger(c) ? 0 : undefined)}`, no: 'take the report',
+  { who: 'the inspector', place: 'at the door', base: 30, share: 0.04,
+    line: '“Council. Routine check — that milk needs a dated fridge log.”',
+    effect: c => `Pay the ${fmt(c, Number.isInteger(c) ? 0 : undefined)} fix now, or the report knocks the café’s good name when it lands.`,
+    yes: 'Pay the fix', no: 'Take the report',
+    acceptLine: 'He signs the sheet and moves on to the next shop.',
+    declineLine: 'He writes something down. The report lands all the same.',
+    walkLine: 'The inspector ticks a box and leaves.',
     accept() { till -= this._cost * perkCostMul; },
     decline() { regulars.adjustOpinions(-0.16); } },
-  { who: 'a solicitor’s letter', base: 60, share: 0.06, contestShare: 0.14, contestBase: 140,
+  { who: 'a solicitor’s letter', kicker: 'A LETTER', place: 'in the post', base: 60, share: 0.06, contestShare: 0.14, contestBase: 140,
     line: 'Someone claims a scalded wrist. “Settle and it goes away.”',
-    effect: (c, c2) => `pay ${fmt(c)} nuisance settlement · or contest — it lands at 16:30, half the time it sticks for ${fmt(c2, Number.isInteger(c2) ? 0 : undefined)}`,
-    yes: c => `settle the ${fmt(c, Number.isInteger(c) ? 0 : undefined)}`, no: 'contest it',
+    effect: (c, c2) => `Settle now for ${fmt(c, Number.isInteger(c) ? 0 : undefined)}. Or contest it — at 16:30 a coin toss decides whether it sticks for ${fmt(c2, Number.isInteger(c2) ? 0 : undefined)}.`,
+    yes: 'Settle it', no: 'Contest it',
+    acceptLine: 'The letter folds. It goes away, like they said.',
+    declineLine: 'You write CONTESTED across the top. Their answer comes at half four.',
+    walkLine: 'The letter sits unanswered. Their solicitor will call again.',
     accept() { till -= this._cost * perkCostMul; },
     decline() { solicitorAt = 990; solicitorCharge = this._contest; } },
-  { who: 'the supplier', base: 40, share: 0.04, line: '“Milk van’s here — account’s overdue, it’s cash on delivery today.”',
-    effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} cash now · or your next contract carries a +${fmt(18, 0)} fee`,
-    yes: c => `pay the ${fmt(c, Number.isInteger(c) ? 0 : undefined)}`, no: 'put it on the account',
+  { who: 'the supplier', kicker: 'THE DRIVER', place: 'at the door', base: 40, share: 0.04,
+    line: '“Milk van’s here — account’s overdue, it’s cash on delivery today.”',
+    effect: c => `Pay ${fmt(c, Number.isInteger(c) ? 0 : undefined)} cash now, or the next supply contract carries an ${fmt(18, 0)} fee.`,
+    yes: 'Pay the driver', no: 'On the account',
+    acceptLine: 'He unloads the milk and goes.',
+    declineLine: 'He shrugs and marks the ledger. The next contract will remember.',
+    walkLine: 'The van idles a minute, then pulls off.',
     accept() { till -= this._cost * perkCostMul; },
     decline() { contractFeeExtra += 18; } },
   // Phase 3 — the roast can scorch: re-roast fresh for £18 (roast clock
   // resets) or serve it dark and let the room taste it all day.
-  { who: 'the roast', base: 18, share: 0.02, line: '“Left the house lot on too long — it’s scorched.” Ruth won’t serve it proud.',
-    effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} emergency re-roast, fresh clock · or serve it dark — every roast-sensitive cup sours`,
-    yes: c => `re-roast (${fmt(c, Number.isInteger(c) ? 0 : undefined)})`, no: 'serve it dark',
+  { who: 'the roast', kicker: 'RUTH', place: 'at the roaster', base: 18, share: 0.02,
+    line: '“Left the house lot on too long — it’s scorched.” Ruth won’t serve it proud.',
+    effect: c => `Re-roast fresh for ${fmt(c, Number.isInteger(c) ? 0 : undefined)} and the roast clock resets. Or serve it dark and every roast-sensitive cup sours today.`,
+    yes: 'Re-roast it', no: 'Serve it dark',
+    acceptLine: 'Fresh beans go in. The roast clock starts over.',
+    declineLine: 'It goes on the bar. The room will taste it all day.',
+    walkLine: 'The scorched lot sits there, unchosen.',
     accept() { till -= this._cost * perkCostMul; const e = lotState.entry(lotState.house); if (e) { e.roastedOn = day; e.scorched = false; } },
     decline() { const e = lotState.entry(lotState.house); if (e) e.scorched = true; } },
 ];
 
 let solicitorCharge = 140;
+let incidentPlan = [], incidentsFired = new Set();
 
-function showIncident() {
-  const idx = (day - 2 + ((SEED * 7) | 0)) % INCIDENTS.length;
-  let o = INCIDENTS[idx];
+function showIncident(idx) {
+  let o = INCIDENTS[idx ?? 0];
   // Ruth can't call in sick on a day you already sent her home — and when
   // she's on fumes the call isn't a sick day, it's a warning shot.
   if (o.who === 'Ruth, your barista') {
     if (baristaHomeToday || apprenticeHiredToday || weekHire === HIRE_ROBOT) o = INCIDENTS[(idx + 1) % INCIDENTS.length];
     else if (baristaCondition < 0.4) o = { ...o,
       line: '“I can’t do another one like yesterday.” Ruth’s voice is flat — she’s on fumes.',
-      effect: c => `${fmt(c, Number.isInteger(c) ? 0 : undefined)} agency cover · or she pushes on — the bar runs ~60% slower`,
+      effect: c => `Agency cover costs ${fmt(c, Number.isInteger(c) ? 0 : undefined)}. Or she pushes on and the bar crawls at a third of its pace.`,
+      acceptLine: 'The agency sends someone by nine. Ruth goes home and sleeps.',
+      declineLine: 'She ties her apron slowly. The afternoon is very quiet.',
+      walkLine: 'She doesn’t call back. The bar is hers, and it is slow.',
       decline() { patrons.staffMul = 0.4; } };
   }
   o = { ...o };
@@ -5249,57 +5348,47 @@ function showIncident() {
   if (typeof o.line === 'function') o.line = o.line(o._cost);
   if (typeof o.effect === 'function') o.effect = o.effect(o._cost, o._contest);
   if (typeof o.yes === 'function') o.yes = o.yes(o._cost);
-  presentBeat(o, 'the floor bites back · y / n', true);
+  presentBeat(o, true, `ask:inc:${day}:${idx}`);
 }
 
-function presentBeat(o, kicker, incident) {
-  activeBeat = o;
-  $('offer-who').textContent = castName(o.who).toUpperCase();
-  $('offer-kicker').textContent = kicker;
-  $('offer-line').textContent = o.line;
-  $('offer-effect').textContent = o.effect;
-  $('offer-yes').textContent = o.yes;
-  $('offer-no').textContent = o.no || 'not today';
-  $('offer').classList.toggle('incident', !!incident);
-  // PR-3 — per-beat caption: offers carry the AgentMail reply, incidents are
-  // an on-floor operating cost paid live.
-  setBeatPower('offer', incident ? 'Operating cost paid · live ledger' : BEAT_POWERED.offer);
-  // PR-4c — the regulars' take surfaces for non-insiders at the offer beat
-  if (!incident) {
-    const upEl = $('offer-insider-upsell');
-    const txEl = $('offer-insider-text');
-    if (upEl && txEl) {
-      fetchOfferTake().then((lines) => {
-        txEl.textContent = lines[0] || '"worth hearing both sides before you say no."';
-        try { applyPaywallPlacements(); } catch {}
-      }).catch(() => {});
-    }
+// The ask rides the moment card: kicker, the character's own words, one
+// honest line about what happens, two buttons. The floor keeps moving —
+// an unanswered card walks away as a decline when its time runs out.
+function presentBeat(o, incident, key) {
+  const kicker = (o.kicker || castName(o.who).toUpperCase()) + ' · ' + (o.place || 'at the counter');
+  momentEnqueue('ask', key, { o, incident: !!incident, kicker, ttl: incident ? 45 : 60 });
+}
+
+function rememberSnub(o) {
+  if (!o.cast) return;
+  snubs[o.cast] = (snubs[o.cast] || 0) + 1;
+  const r = regulars.regulars.find(x => x.name === o.cast);
+  if (r && typeof r.op === 'number') r.op = Math.max(0, r.op - 0.03);
+}
+
+function resolveAsk(m, said, expired = false) {
+  const o = m.o;
+  if (momentActive === m) momentHide();
+  activeBeat = null;
+  const wasIncident = !!m.incident;
+  if (said) {
+    if (o.accept) o.accept();
+    if (o.acceptLine) fx.toast(o.acceptLine, 'good');
+  } else {
+    if (o.decline) o.decline();
+    if (!wasIncident) rememberSnub(o);
+    const line = expired ? o.walkLine : o.declineLine;
+    if (line) fx.toast(line, wasIncident ? 'warn' : '');
   }
-  whenHandsFree(() => {
-    if (activeBeat !== o) return;
-    offerWasPaused = paused; paused = true;
-    if ($('pause')) $('pause').textContent = 'answer y / n';
-    if (!headless) fx.toast('a question is open — answer Y or N. Space won’t skip it.', '');
-    try { audio.card(); } catch {}
-    modals.open('offer');
-  });
+  try { analytics.track(said ? (wasIncident ? 'incident_paid' : 'offer_accepted') : (wasIncident ? 'incident_risked' : 'offer_declined'), { day, who: o.who, expired }); } catch {}
+  if (!wasIncident) offerResolved = true;
 }
 
 function resolveOffer(said) {
-  const o = activeBeat;
-  if (!o || phase !== 'trading' || modals.top() !== 'offer') return;
-  const wasIncident = $('offer').classList.contains('incident');
-  modals.close('offer'); $('offer').classList.remove('incident');
-  if (!offerWasPaused) { paused = false; if ($('pause')) $('pause').textContent = 'pause'; }
-  if (said) { o.accept(); fx.toast(castName(o.who) + ': ' + o.yes, 'good'); }
-  else { if (o.decline) o.decline(); fx.toast(wasIncident ? castName(o.who) + ' — you take the hit as it comes' : castName(o.who) + ' shrugs — maybe tomorrow', wasIncident ? 'warn' : ''); }
-  try { analytics.track(said ? (wasIncident ? 'incident_paid' : 'offer_accepted') : (wasIncident ? 'incident_risked' : 'offer_declined'), { day, who: o.who }); } catch {}
-  activeBeat = null;
-  if (!wasIncident) offerResolved = true;
+  if (phase !== 'trading' || !(momentActive && momentActive.type === 'ask')) return;
+  resolveAsk(momentActive, said);
 }
-$('offer-yes').onclick = () => resolveOffer(true);
-$('offer-no').onclick = () => resolveOffer(false);
-if ($('evening-topup')) $('evening-topup').onclick = () => resolveEvening('topup');
+$('evening-topup').onclick = () => resolveEvening('topup');
 if ($('evening-hold')) $('evening-hold').onclick = () => resolveEvening('hold');
 if ($('evening-close')) $('evening-close').onclick = () => resolveEvening('close');
 if ($('skiprush')) $('skiprush').onclick = () => skipToRush();
@@ -5338,7 +5427,8 @@ function reset(coreOnly = false) {
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   rushFast = false;
   party = null; batchWaste = 0; batchSpend = 0; pastryWaste = 0; pastryWasteCost = 0; pastrySpend = 0; pastryOnOrder = 0; pastryCaseCap = 0; pastryMissDrinks = 0; pastryMissWalks = 0; pastryMissNoted = false; lastRetail = 0; ctx.pastryStock = null;
-  incidentShown = false; activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; solicitorCharge = 140; cOps = 0;
+  activeBeat = null; cashOnly = 0; cashOnlyToast = false; contractFeeExtra = 0; solicitorAt = 0; solicitorCharge = 140; cOps = 0;
+  snubs = {}; patrons.snubs = snubs; offerPlan = { offerIdx: null, offerAt: null }; incidentPlan = []; incidentsFired = new Set();
   wifiOutage = null;
   rivalReacted = { cut: 0, prep: 0 }; rivalReactLog = [];   // PR-B2 — reset reactive counters/log each day
   briefChoice = null; lastDayStats = null; planDraft = null; lastDayReceipt = null;
@@ -5751,20 +5841,24 @@ addEventListener('keydown', e => {
   }
   if (e.key === ' ' && started && !closed && !campaignDone && !(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'))) {
     const top = modals.top();
-    if (top === 'offer' || top === 'evening' || top === 'brief' || top === 'softintro' || top === 'licence') {
+    if (top === 'evening' || top === 'brief' || top === 'softintro' || top === 'licence') {
       e.preventDefault();
-      const say = top === 'offer' ? 'a question is open — answer Y or N'
-        : top === 'evening' ? 'the evening call is open — pick 1, 2, or 3'
+      const say = top === 'evening' ? 'the evening call is open — pick 1, 2, or 3'
         : top === 'brief' ? 'the morning brief is open — commit it, or close it'
         : 'finish this card first';
       fx.toast(say, 'warn');
-      if ($('pause')) $('pause').textContent = top === 'offer' ? 'answer y / n' : 'paused';
+      if ($('pause')) $('pause').textContent = 'paused';
       return;
     }
   }
   if (modals.handleKey(e)) return;
   // typing belongs to the field — never let an email fire game keys
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+  // a regular's ask answers to y/n while its card is up
+  if (momentActive && momentActive.type === 'ask' && !modals.top()) {
+    if (e.key === 'y' || e.key === 'Y') { resolveOffer(true); return; }
+    if (e.key === 'n' || e.key === 'N') { resolveOffer(false); return; }
+  }
   markIntent();   // any game key is intent: the idle halo retires
   if (e.key === '1') doPrebatch();
   else if (e.key === '2') doReprice();
@@ -5773,6 +5867,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'm' || e.key === 'M') $('mute').click();
   else if (e.key === 'c' || e.key === 'C') rig.resetView();
   else if (e.key === 'p' || e.key === 'P') { try { doPhoto(); } catch {} }
+  else if (e.key === 'v' || e.key === 'V') setVitals(!vitalsOn);
 });
 // photo mode: freeze at golden hour, print a stamped share card, act on it
 function doPhoto() {
@@ -6361,7 +6456,7 @@ function coachTick() {
     const ev = head ? (head.events || []).find(e => e.day === day && e.outcome === 'served') : null;
     const named = head ? ` ${castName(head.name)} stopped in for a ${(ev && ev.drink) || head.drink || 'coffee'}.` : '';
     coachShow(
-      `<b>Ruth has served ${served} drinks automatically.</b>${named} Watch the counter, then the tables — the room tells you how the morning is going.`,
+      `<b>Ruth’s got the bar — ${served} drinks out already.</b>${named} Watch the counter, then the tables — the room tells you how the morning is going.`,
       [
         ['watch the counter', () => { try { rig.focus(world.focus.counter, 18, 4); } catch {} coachHide(); }],
         ['got it', coachHide],
@@ -6450,7 +6545,7 @@ bindPress($('open'), () => {
 bindPress($('resume'), () => resumeWeek());
 
 const MOMENT_TTL = 45;
-const MOMENT_PRIO = { plan: -1, returning: 0, ruth: 1, sam: 2, line: 3, counter: 4 };
+const MOMENT_PRIO = { ask: -2, plan: -1, returning: 0, ruth: 1, sam: 2, line: 3, counter: 4 };
 const momentsOn = () => !headless || momentsTest;
 function momentEnqueue(type, key, data = {}) {
   if (!momentsOn() || momentDone.has(key)) return;
@@ -6496,7 +6591,7 @@ function momentShow(m) {
     row.appendChild(momentBtn('Leave it', () => momentAct(m)));
   } else if (m.type === 'line') {
     b.textContent = 'The line is getting long.';
-    body.append(b, ` ${m.queue} waiting — people may leave once it passes five.`);
+    body.append(b, ` ${m.queue} people waiting. Past five, some of them start to drift off.`);
     const lv = leverState(leverSnapshot()).reprice;
     if (lv.available)
       row.appendChild(momentBtn(`Cut matcha to ${fmt(ECON.matchaDeal)}${lv.cost > 0 ? ` · ${fmt(lv.cost)} + regulars lose warmth` : ''}`, () => { doReprice(); momentAct(m); }));
@@ -6519,26 +6614,74 @@ function momentShow(m) {
     row.appendChild(det);
   } else if (m.type === 'sam') {
     b.textContent = `${m.name} crossed to Glasshouse.`;
-    body.append(b, ' Sam’s line was shorter.');
+    body.append(b, ` Sam’s line was shorter. ${m.name} didn’t look back.`);
     row.appendChild(momentBtn('Got it', () => momentAct(m)));
+  } else if (m.type === 'ask') {
+    const o = m.o;
+    const k = document.createElement('div');
+    k.className = 'ask-kicker'; k.textContent = m.kicker;
+    b.textContent = o.line;
+    const eff = document.createElement('small');
+    eff.className = 'ask-effect'; eff.textContent = o.effect;
+    body.append(k, b, eff);
+    if (!m.incident) {
+      const up = document.createElement('div');
+      up.id = 'moment-insider-upsell'; up.className = 'insider-upsell'; up.style.display = 'none';
+      const lab = document.createElement('span'); lab.className = 'insider-label'; lab.textContent = "insider · the regulars' take";
+      const tx = document.createElement('span'); tx.id = 'moment-insider-text';
+      tx.textContent = '"worth hearing both sides before you say no."';
+      up.append(lab, tx);
+      body.append(up);
+      fetchOfferTake().then((lines) => {
+        tx.textContent = lines[0] || '"worth hearing both sides before you say no."';
+        try { applyPaywallPlacements(); } catch {}
+      }).catch(() => {});
+    }
+    const pow = document.createElement('div');
+    pow.className = 'beat-powered'; pow.id = 'moment-powered';
+    body.append(pow);
+    setBeatPower('moment', m.incident ? 'Operating cost paid · live ledger' : BEAT_POWERED.offer);
+    activeBeat = o;
+    row.appendChild(momentBtn(o.yes, () => resolveOffer(true)));
+    row.appendChild(momentBtn(o.no || 'not today', () => resolveOffer(false)));
+    // in-world: the asker speaks from the floor, and the camera finds them
+    try {
+      const canon = o.cast || o.who;
+      const patron = canon && patrons.patrons.find(p => p.active && (p.regularName === canon || castName(p.regularName) === o.who));
+      if (patron) {
+        if (o.bubble) fx.bubble(patron, o.bubble, 'good');
+        if (!paused) try { rig.focus(patron.pos, 14, 3); } catch {}
+      }
+    } catch {}
   } else if (m.type === 'ruth') {
     b.textContent = 'Ruth needs a minute.';
     body.append(b, ' She’s fading on the bar — nothing breaks yet, but the afternoon will cost her.');
     row.appendChild(momentBtn('Got it', () => momentAct(m)));
   } else return false;
   momentActive = { ...m, shownAt: dayMin };
+  if (m.ttl != null) momentActive.expiresAt = dayMin + m.ttl;   // asks age from when they're actually seen
   el.hidden = false;
   try { analytics.track('moment_shown', { type: m.type, day, dayMin }); } catch {}
   return true;
 }
 function momentPump() {
   if (!momentsOn()) return;
-  if (momentActive && (momentActive.expiresAt != null ? dayMin >= momentActive.expiresAt : dayMin - momentActive.shownAt >= MOMENT_TTL)) momentHide();
+  if (momentActive && (momentActive.expiresAt != null ? dayMin >= momentActive.expiresAt : dayMin - momentActive.shownAt >= MOMENT_TTL)) {
+    if (momentActive.type === 'ask') resolveAsk(momentActive, false, true);   // unanswered walks away as a no
+    else momentHide();
+  }
   if (momentActive) return;
-  momentPending = momentPending.filter(m => m.expiresAt != null ? dayMin < m.expiresAt : dayMin - m.at < MOMENT_TTL);
+  momentPending = momentPending.filter(m => {
+    const dead = m.type === 'ask' ? false
+      : m.expiresAt != null ? dayMin >= m.expiresAt : dayMin - m.at >= MOMENT_TTL;
+    return !dead;
+  });
   if (!momentPending.length) return;
   const coachCard = $('coach');
-  if (coachCard && !coachCard.hidden) return;
+  if (coachCard && !coachCard.hidden) {
+    if (momentPending.some(m => m.type === 'ask')) coachHide();   // asks pre-empt the coach
+    else return;
+  }
   momentPending.sort((a, b) => MOMENT_PRIO[a.type] - MOMENT_PRIO[b.type]);
   momentShow(momentPending.shift());
 }
@@ -6609,10 +6752,9 @@ function loop(now) {
   const quietNow = (!headless || paceTest) && isQuiet({
     phase, paused, closed, modalOpen: !!modals.top(), cardVisible: !!momentActive,
     momentPending: momentPending.length > 0, dayMin, day, offerResolved,
-    incidentPending: day >= 2 && !incidentShown && dayMin < 1015,
+    incidentPending: day >= 2 && incidentsFired.size < incidentPlan.length && dayMin < 1015,
     settled: day >= 2 || !coach || coach.skipped || coach.craftObserved || dayMin >= 540,
   });
-  const pf = $('paceflag'); if (pf) pf.hidden = !quietNow;
   const effSpeed = quietNow ? Math.min(1200, speed * QUIET_MUL) : speed;
   if (started && !closed && !paused && !tutorialActive && schedule && phase === 'trading') {
     acc += dt * 1000 * impact.dtScale(nowSec);
@@ -6703,7 +6845,8 @@ function loop(now) {
     let show = false;
     const lastIntent = Math.max(rig.lastUser || 0, _lastIntentAt || 0);
     const modalsOpen = !!modals.top();
-    if (shouldHalo({ started, closed, paused, photo: document.body.classList.contains('photo'), modalsOpen, headless, busy: kitBeat.isActive, idleMs: now - lastIntent })) {
+    if (now < _winHaloUntil) { halo.showAt(HALO_SPOTS.chalk, now); show = true; }
+    else if (shouldHalo({ started, closed, paused, photo: document.body.classList.contains('photo'), modalsOpen, headless, busy: kitBeat.isActive, idleMs: now - lastIntent })) {
       const spot = HALO_SPOTS[currentAction().target];
       if (spot) { halo.showAt(spot, now); show = true; }
     }
@@ -6806,7 +6949,8 @@ function loop(now) {
   },
   moment: { active: () => momentActive ? momentActive.type : null, pending: () => momentPending.map(m => ({ type: m.type, at: m.at })), done: () => [...momentDone], block: key => momentDone.add(key), unblock: key => momentDone.delete(key), enqueue: (t, k, d = {}) => momentEnqueue(t, k, d) },
   stageCellar, stageLoan, stageCase,
-  patrons, barStaff, modals, openDossier, showIncident, showLicence,
+  patrons, barStaff, modals, openDossier, showIncident, showLicence, resolveOffer,
+  ask: { active: () => (momentActive && momentActive.type === 'ask' ? momentActive : null), plan: () => ({ ...offerPlan }), incidents: () => incidentPlan.map(i => ({ ...i })) },
   franchise,
   renderBrief() { if (phase === 'planning') { if (softDay) showSoftIntro(0); else showMorningBrief(); } },
   get phase() { return phase; },
@@ -6870,14 +7014,14 @@ function paintStaticCopy() {
     const nodes = pb.childNodes || [];
     if (nodes[0] && nodes[0].nodeType === 3) nodes[0].textContent = `Buy ${ECON.batchUnits} cups `;
     const sub = pb.querySelector && pb.querySelector('small');
-    if (sub) sub.textContent = `pay ${fmt(ECON.batchCost)} · fast bar · leftovers spoil`;
+    if (sub) sub.textContent = `${ECON.batchUnits} cups · leftovers spoil`;
   }
   const rp = $('reprice');
   if (rp) {
     const nodes = rp.childNodes || [];
     if (nodes[0] && nodes[0].nodeType === 3) nodes[0].textContent = `Sell matcha at ${fmt(ECON.matchaDeal)} `;
     const sub = rp.querySelector && rp.querySelector('small');
-    if (sub) sub.textContent = 'down from the board price · locks prep';
+    if (sub) sub.textContent = `${fmt(ECON.matchaDeal)} a cup · locks prep`;
   }
   const top = $('evening-topup');
   if (top) {

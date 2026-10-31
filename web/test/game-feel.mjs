@@ -154,7 +154,7 @@ ok(!/estBalkNoBatchWave|waveBalked \+ \(prebatched \|\| repriced \? 12/.test(mai
   'waveRead still invents a fixed +12 saved count');
 ok(/\$\('batchline'\)\.hidden = day < 2 && !\(prebatched \|\| ctx\.batchUnits > 0\)/.test(main),
   'day-1 cups line stays up before a lever');
-ok(/\$\('floorstats'\)\) \$\('floorstats'\)\.hidden = day < 2/.test(main),
+ok(/\$\('floorstats'\)\) \$\('floorstats'\)\.hidden = day < 2 \|\| \(phase === 'trading' && !vitalsOn\)/.test(main),
   'walked and poured stay on the day-1 till line');
 ok(/\$\('pressure'\)\) \$\('pressure'\)\.hidden = day < 2 && !repriced/.test(main),
   'day-1 price line shows before the cut');
@@ -192,13 +192,13 @@ console.log('FLOP    loss shakes 0.55, holds the counter, wilts to 12, buzzes [4
 const inPlayHide = (index.match(/body\.in-play #syncbadge[\s\S]*?\{ display: none; \}/) || [''])[0];
 for (const id of ['syncbadge', 'district', 'floorstats', 'tape'])
   ok(new RegExp(`#${id}\\b`).test(inPlayHide), `${id} should stay folded while trading`);
-for (const id of ['paceflag', 'daytag', 'goal', 'status', 'pressure'])
+for (const id of ['daytag', 'goal', 'status', 'pressure'])
   ok(!new RegExp(`#${id}\\b`).test(inPlayHide), `${id} must stay reachable while trading`);
 ok(!/regularsbtn/.test(inPlayHide), 'the regulars/wire action row must stay reachable while trading');
-for (const id of ['status', 'pressure', 'regularsbtn', 'wirebtn', 'goal', 'paceflag', 'daytag'])
+for (const id of ['status', 'pressure', 'regularsbtn', 'wirebtn', 'goal', 'daytag'])
   ok(index.includes(`id="${id}"`), `index.html keeps #${id}`);
-ok(/body\.in-play #goal,\s*body\.in-play #paceflag,\s*body\.in-play #daytag \{ display: block; \}/.test(index),
-  'goal, pace flag, and day tag stay visible while trading');
+ok(/body\.in-play #goal,\s*body\.in-play #daytag \{ display: block; \}/.test(index),
+  'goal and day tag stay visible while trading');
 console.log('HUD     goal, pace, and day stay up; quiet chrome still folds');
 
 for (const name of ['lampLights', 'lampPoolMats'])

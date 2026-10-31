@@ -99,8 +99,7 @@ function runFrames(n) {
     const cb = rafCb; rafCb = null;
     if (!cb) throw new Error('loop stopped');
     cb(now);
-    const off = registry.get('offer');
-    if (off && off.classList.contains('show')) registry.get('offer-no').click();
+    if (G.moment.active() === 'ask') G.resolveOffer(false);
   }
 }
 const runTo = (min, cap = 1400) => { let g = 0; while (G.phase === 'trading' && G.stats().dayMin < min && g++ < cap) runFrames(1); };
@@ -142,7 +141,6 @@ if (G.phase !== 'trading') fails.push(`expected trading, got ${G.phase}`);
   const quietTicks = G.stats().dayMin - startMin;
   const quietFrames = frameCount - f0;
   if (quietTicks <= 0) fails.push('no ticks advanced during quiet morning');
-  if (registry.get('paceflag').hidden !== false) fails.push('paceflag never showed during the quiet morning');
   G.testState({ moments: true });
   G.moment.block('line');   // keep the morning line card from outranking the counter moment
   globalThis.__quietRate = quietTicks / quietFrames;
@@ -195,8 +193,6 @@ if (G.phase !== 'trading') fails.push(`expected trading, got ${G.phase}`);
   const busyRate = (G.stats().dayMin - busyMin) / 4;
   if (!(globalThis.__quietRate > busyRate))
     fails.push(`quiet pace did not out-tick the moment-gated window (${globalThis.__quietRate} vs ${busyRate})`);
-  if (registry.get('paceflag').hidden === false)
-    fails.push('paceflag stayed on while a line moment was pending/visible');
   if (momentVisible()) clickBtn('Ride it out');
   G.patrons.staffMul = 1;
 }
@@ -314,12 +310,12 @@ if (G.reg.regulars[0].absence !== 'returning') fails.push(`Mara should be return
         fails.push(`returning moment copy wrong: "${momentBody()}"`);
     }
     if (type === 'sam') {
-      const sm = momentBody().match(/^(\w+) crossed to Glasshouse\. Sam’s line was shorter\.$/);
+      const sm = momentBody().match(/^(\w+) crossed to Glasshouse\. Sam’s line was shorter\. \1 didn’t look back\.$/);
       if (!sm || !G.reg.regulars.some(r => r.name === sm[1])) fails.push(`sam moment copy wrong: "${momentBody()}"`);
     }
     if (type === 'line') {
       const lt = momentBody();
-      if (!/^The line is getting long\. \d+ waiting — people may leave once it passes five\.$/.test(lt))
+      if (!/^The line is getting long\. \d+ people waiting\. Past five, some of them start to drift off\.$/.test(lt))
         fails.push(`day-3 line copy wrong: "${lt}"`);
       const cut = momentButtons().find(x => x.textContent.startsWith('Cut matcha to '));
       if (cut) {

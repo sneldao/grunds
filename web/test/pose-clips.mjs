@@ -127,3 +127,29 @@ test('Phase 5 · samplePose blends walk/sit/sip/react with exact keys', () => {
     ['armL', 'armR', 'bob', 'headDip', 'headRy', 'lean', 'legSwing', 'squash']);
 });
 
+
+test('idlePose: deterministic, bounded, variant by idx, reduced → rest', () => {
+  assert.ok(typeof poses.idlePose === 'function', 'idlePose exported');
+  for (const idx of [0, 1, 2, 3, 4, 5]) {
+    const p = poses.idlePose(123456, idx);
+    assert.deepEqual(p, poses.idlePose(123456, idx), `idle idx ${idx} deterministic`);
+    assert.ok(Math.abs(p.headRy) <= 0.6 + 1e-9, `headRy bound idx ${idx}`);
+    assert.ok(Math.abs(p.armR) <= 0.5 + 1e-9, `armR bound idx ${idx}`);
+  }
+  assert.notDeepEqual(poses.idlePose(2000, 0), poses.idlePose(2000, 1), 'variants differ by idx');
+  for (const idx of [0, 1, 2])
+    assert.deepEqual(poses.idlePose(77777, idx, true),
+      { bob: 0, lean: 0, legSwing: 0, armL: 0, armR: 0, headRy: 0, headDip: 0, squash: 0, sway: 0 },
+      `reduced rest pose idx ${idx}`);
+  // board glance reaches 0.6 inside its 7s cycle; phone reaches armR 0.5
+  let maxBoard = 0, maxArm = 0;
+  for (let t = 0; t < 9000; t += 100) {
+    const b = poses.idlePose(t, 1); if (b.headRy > maxBoard) maxBoard = b.headRy;
+    const c = poses.idlePose(t, 2); if (c.armR > maxArm) maxArm = c.armR;
+  }
+  assert.ok(Math.abs(maxBoard - 0.6) < 0.02, `board glance peaks at 0.6, got ${maxBoard}`);
+  assert.ok(Math.abs(maxArm - 0.5) < 0.02, `phone arm peaks at 0.5, got ${maxArm}`);
+  // standing patrons now ride idlePose inside samplePose
+  const st = poses.samplePose({ nowMs: 5000, idx: 0, sitting: false, walking: false });
+  assert.deepEqual({ ...st, legSwing: st.legSwing }, { ...poses.idlePose(5000, 0), legSwing: 0 }, 'standing uses idlePose');
+});

@@ -80,6 +80,7 @@ async function run(seed, policy) {
   await import(`../js/main.js?policyRun=${serial++}`);
   await new Promise(resolve => setImmediate(resolve));
   const game = globalThis.__grunds;
+  game.testState && game.testState({ moments: true });
   assert.equal(game.sync.live, false);
   document.getElementById('open').click();
   randomState = seed >>> 0;
@@ -132,15 +133,15 @@ async function run(seed, policy) {
     assert.equal(res.ok, true, JSON.stringify(res));
     let frames = 0;
     while (game.phase === 'trading' && frames++ < 1000) {
-      if (game.modals.top() === 'offer') {
+      if (game.ask && game.ask.active()) {
         if (policy === 'delayed') {
-          if (!pendSeen.has('offer')) { pendSeen.add('offer'); pend.push({ dueAt: now + 300, key: 'offer', act: () => document.getElementById('offer-no').click() }); }
+          if (!pendSeen.has('offer')) { pendSeen.add('offer'); pend.push({ dueAt: now + 300, key: 'offer', act: () => game.resolveOffer(false) }); }
         } else {
           // Gwen's day-4 offer (OFFERS[3]) locks the matcha price cut for the
           // rest of the day — ~£13 of units against a full day's margin. The
           // upper bound declines it; every other offer is +EV.
           const yes = policy === 'engaged' || (policy === 'optimal' && day !== 4);
-          document.getElementById(yes ? 'offer-yes' : 'offer-no').click();
+          game.resolveOffer(yes);
         }
       }
       const s = game.stats();
@@ -239,6 +240,7 @@ async function runWithCellar(seed, policy, cellar) {
   await import(`../js/main.js?cellarRun=${serial++}`);
   await new Promise(resolve => setImmediate(resolve));
   const game = globalThis.__grunds;
+  game.testState && game.testState({ moments: true });
   document.getElementById('open').click();
   randomState = seed >>> 0;
   const days = [];
@@ -250,7 +252,7 @@ async function runWithCellar(seed, policy, cellar) {
     assert.equal(res.ok, true, JSON.stringify(res));
     let frames = 0;
     while (game.phase === 'trading' && frames++ < 1000) {
-      if (game.modals.top() === 'offer') document.getElementById('offer-no').click();
+      if (game.ask && game.ask.active()) game.resolveOffer(false);
       assert.equal(typeof raf, 'function');
       const cb = raf; raf = null; now += 100; cb(now);
     }
