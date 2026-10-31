@@ -41,7 +41,10 @@
 ## Street / camera roadmap (post-feedback, agreed order)
 1. Street vignettes — busker+crowd & chatting pairs in streetLife.js
    (waypoint dwell+face groups; one live group, members share the cap).
-   Next: dog walker needs its own rig; delivery/hand-truck vignette.
+   Shipped: pigeons (instanced, peck/hop, proximity scatter — no per-frame
+   rng), phone/sip occupation actions on dwellers, guaranteed park+bench
+   sitters at beginDay. Next: dog walker needs its own rig;
+   delivery/hand-truck vignette; rooftop dressing (tank/antennas/laundry).
 2. Camera grammar — espressoIns/caseIns use authored view positions and
    alone bypass the r>=18 scripted clamp; lowStreet reaches phi=1.5.
    Insert exits blend back over 0.8 s. matchcut holds through

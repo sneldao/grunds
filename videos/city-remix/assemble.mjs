@@ -95,6 +95,17 @@ const plan = film.scenes.map((s) => {
     check(!!s.card_text, `card scene ${s.id} has no card_text`);
     return { scene: s, kind: 'card' };
   }
+  if (s.shot === 'S12') {
+    // Three cities splice into the arrival window — "any place on Earth".
+    const parts = ['s12-tokyo', 's12-reykjavik', 's12-lagos'].map((n) => {
+      const t = byName.get(n);
+      check(!!t?.file, `scene ${s.id}: splice take missing: ${n}`);
+      check(!t || t.hold >= s.duration / 3 - 0.05, `scene ${s.id}: ${n} hold ${t?.hold}s too short`);
+      return t?.file ? join(CAPTURE, 'video', t.file) : null;
+    });
+    for (const f of parts) check(!f || existsSync(f), `scene ${s.id}: splice file missing: ${f}`);
+    return { scene: s, kind: 'splice', parts };
+  }
   const takes = SHOT_TAKES[s.shot];
   check(!!takes, `unknown shot id ${s.shot} in scene ${s.id}`);
   const i = useCount.get(s.shot) ?? 0;
@@ -158,6 +169,25 @@ if (s10) {
   });
 }
 
+// Evidence strips — the pack call rides under the licence facts scene, the
+// director's credit under the closing card. Small mono, honest JSON.
+const s3 = plan.find((p) => p.scene.shot === 'S3');
+if (s3) {
+  jobs.push({ out: join(WORK, 'meta-pack.png'), lines: [
+    { text: 'GET /city/pack?city=lisbon', size: 30, color: 'brass', font: 'mono', y: 118 },
+    { text: '{ "district": "Príncipe Real", "currency": "€", "barista": "João", "cafés": 5 }', size: 30, color: 'cream', font: 'mono', y: 166 },
+  ] });
+  overlays.push({ png: join(WORK, 'meta-pack.png'), at: s3.scene.start + 0.5, dur: s3.scene.duration - 1.0, id: 'pack' });
+}
+const send = plan.find((p) => p.scene.shot === 'C-end');
+if (send) {
+  jobs.push({ out: join(WORK, 'meta-dir.png'), lines: [
+    { text: 'directed with minimax-m3.1-flash via sandbase', size: 32, color: 'brass', font: 'mono', y: 928 },
+    { text: 'letter · shot list · timing — every frame the live tool', size: 32, color: 'cream', font: 'mono', y: 976 },
+  ] });
+  overlays.push({ png: join(WORK, 'meta-dir.png'), at: send.scene.start + 1.6, dur: send.scene.duration - 3.2, id: 'dir' });
+}
+
 // ── 3. card specs ──────────────────────────────────────────────────────────
 // Warm-dark typography cards in the game's idiom: brass kicker, cream title,
 // brass rule, mono link. Layout per card kind, not generic.
@@ -202,7 +232,22 @@ const TAIL = 1.5;
 const inputs = [];
 for (const [i, p] of plan.entries()) {
   const out = join(WORK, `scene-${pad2(i + 1)}.mp4`);
-  if (p.kind === 'card') {
+  if (p.kind === 'splice') {
+    // N cities, equal thirds: each take contributes the last `seg` seconds of
+    // its hold window (street lands → cut → next city lands).
+    const seg = p.scene.duration / p.parts.length;
+    const ins = [];
+    const chains = [];
+    for (const [i, f] of p.parts.entries()) {
+      const d = Number(ffprobeJson(f).format.duration);
+      ins.push('-ss', Math.max(0, d - TAIL - seg).toFixed(2), '-i', f);
+      chains.push(`[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1,trim=duration=${seg.toFixed(3)}[p${i}]`);
+    }
+    sh('ffmpeg', ['-y', '-v', 'error', ...ins,
+      '-filter_complex', `${chains.join(';')};${p.parts.map((_, i) => `[p${i}]`).join('')}concat=n=${p.parts.length}:v=1:a=0[v]`,
+      '-map', '[v]', '-c:v', 'libx264', '-preset', 'medium', '-crf', '16', '-pix_fmt', 'yuv420p', '-an', out]);
+    console.log(`splice ${p.scene.id} (${p.parts.length} cities) → ${out}`);
+  } else if (p.kind === 'card') {
     const png = join(WORK, `card-${pad2(p.scene.id)}.png`);
     const fades = [`fade=t=in:st=0:d=0.7`];
     if (p.scene.duration > 4) fades.push(`fade=t=out:st=${(p.scene.duration - 0.9).toFixed(2)}:d=0.9`);
@@ -221,7 +266,9 @@ for (const [i, p] of plan.entries()) {
     const ss = Math.max(0, dur - TAIL - p.scene.duration);
     sh('ffmpeg', ['-y', '-v', 'error',
       '-ss', ss.toFixed(2), '-i', p.file, '-t', p.scene.duration.toFixed(2),
-      '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1',
+      // minterpolate blends the dropped frames the screencast loses under
+      // load — the long orbits judder otherwise.
+      '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,minterpolate=fps=30:mi_mode=blend,setsar=1',
       '-c:v', 'libx264', '-preset', 'medium', '-crf', '16', '-pix_fmt', 'yuv420p', '-an', out]);
     const got = Number(ffprobeJson(out).format.duration);
     if (Math.abs(got - p.scene.duration) > 0.35) {

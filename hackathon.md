@@ -13,9 +13,15 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-30T21:56:25Z
+- **Last updated:** 2026-10-31T15:30:00Z
 
 ## Log
+
+### 2026-10-31 - film v4 + street micro-life pass
+
+**Film (submitted, then upgraded):** the 90.3s letter shipped as insurance, then v4 replaced it — every take re-captured on the new build. Rig hardened: `rig.queued` pumped during holds so the camera grammar can't promote mid-take; `#moment` cards dismissed via decline button; `freezeDay` pauses before each hold (at 5x + quiet-accel the sim raced ~45 sim-min/real-s — 1x `LIFE_SPEED` is the only safe speed); local captures ride `?convex=` + `--disable-web-security` against `preview:local`. s7 now opens on the game's own `espressoIns` then a regular's profile card (Zé); S12 splices three city arrivals (Tokyo/Reykjavík/Lagos); evidence strips burn the real `GET /city/pack` JSON + the m3.1 direction credit; minterpolate blends dropped screencast frames.
+
+**Micro-life (`streetLife.js`):** pigeons — 7 instanced birds, peck/hop cycle, scatter-arc on walker proximity, timers+proximity only (never draws the seeded stream per-frame); occupations — ~34% of dwellers get `phone`/`sip` head-offset actions seeded at spawn; guaranteed bench + two park sitters at day start (lite keeps 3-seed cap). Focused suite 31/31, typecheck clean. Rooftop dressing (tank/antennas/laundry) still open — lives in the world builder, not streetLife.
 
 ### 2026-10-30 - working tree - street integration review fixes
 Frontage conversions now run on simulation time with correct awareness units, a three-spawn daily cap, and a saved/reset RNG stream (`frontage.js`, `main.js`). Polyfork props keep opaque daytime surfaces and register night overlays on world, district, and franchise loads, including hydration. Camera inserts blend out; the closing frame holds through planning and cranes into the next day. Week climate gains visible Brief, sky, rain, and crowd cues without new demand modifiers.

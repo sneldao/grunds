@@ -140,6 +140,16 @@ export const STREET_PROPS = [
   { id: 'fountain', x: -6.0, z: 14.45, far: true },
 ];
 
+// Pigeon anchors — the far pavement lip, the fountain apron, and a spill
+// onto the near pavement. Birds hop between these; a walking body within
+// 0.85 scatters them to the next anchor. Deterministic: no rng per frame.
+export const PIGEON_ANCHORS = [
+  { x: -11.2, z: 14.55 }, { x: -4.6, z: 14.7 }, { x: 11.2, z: 14.5 },
+  { x: -6.0, z: 14.85 }, { x: -3.4, z: 7.9 }, { x: 6.6, z: 8.3 },
+];
+export const PIGEON_COUNT = 7;
+const PIGEON_SCARE = 0.85;
+
 // Left of the zebra on the far pavement — beside Sam's line, not in it.
 export const GLASSHOUSE_WAIT = { x: -4.6, z: 14.75, face: 0 };
 
@@ -459,6 +469,26 @@ export class StreetLife {
       for (const part of Object.values(this.parts)) {
         for (let i = 0; i < cap; i++) part.setMatrixAt(i, ZERO);
       }
+      // Pigeons — one instanced bird, hop/scatter driven by timers and
+      // proximity, never the seeded stream.
+      const bird = new THREE.ConeGeometry(0.075, 0.24, 5);
+      bird.rotateX(Math.PI / 2);
+      this.pigeonMesh = new THREE.InstancedMesh(bird,
+        new THREE.MeshStandardMaterial({ color: 0x4a4d55, roughness: 0.9 }), PIGEON_COUNT);
+      this.pigeonMesh.frustumCulled = false;
+      if (scene && scene.add) scene.add(this.pigeonMesh);
+      this.pigeons = [];
+      for (let i = 0; i < PIGEON_COUNT; i++) {
+        const a = PIGEON_ANCHORS[i % PIGEON_ANCHORS.length];
+        this.pigeons.push({
+          pos: new THREE.Vector3(a.x + (i % 3 - 1) * 0.5, 0.1, a.z + ((i * 7) % 3 - 1) * 0.4),
+          heading: (i * 2.4) % 6.28,
+          peck: i * 1.7,           // desynchronised peck phase
+          state: 'idle', flyT: 0,
+          flyFrom: new THREE.Vector3(), flyTo: new THREE.Vector3(),
+          home: i % PIGEON_ANCHORS.length,
+        });
+      }
     } finally {
       Math.random = savedRandom;
     }
@@ -573,6 +603,7 @@ export class StreetLife {
     this._since = 0;
     this._spawnOne({ kind: 'bench', settled: true });
     this._spawnOne({ kind: 'park', settled: true });
+    if (!this.lite) this._spawnOne({ kind: 'park', settled: true });   // the far lip wants a pair
     this._spawnOne({ kind: 'neighbor', settled: true });
     for (const lot of this.rowLots) this._spawnForced({ kind: 'row', lot });
     let target = this.lite ? STREET_SEED.lite : STREET_SEED.full;
@@ -765,6 +796,46 @@ export class StreetLife {
       }
     }
     for (const part of Object.values(this.parts)) part.instanceMatrix.needsUpdate = true;
+    this._pigeons(stepScale);
+  }
+
+  // Peck in place, hop on a timer, scatter when a walking body gets close.
+  // Everything derives from elapsed time + agent proximity — the seeded
+  // stream is never touched per-frame, so replays stay identical.
+  _pigeons(dt) {
+    if (!this.pigeons || !this.pigeonMesh) return;
+    const d = this._d;
+    for (const p of this.pigeons) {
+      p.peck += dt;
+      if (p.state === 'fly') {
+        p.flyT += dt / 0.85;
+        const t = Math.min(1, p.flyT);
+        p.pos.lerpVectors(p.flyFrom, p.flyTo, t);
+        p.pos.y = 0.1 + Math.sin(t * Math.PI) * 0.85;   // the hop-arc reads as flight
+        if (p.flyT >= 1) { p.state = 'idle'; p.pos.y = 0.1; }
+      } else {
+        // Peck: quick head dips; every ~7s a short hop changes the spot.
+        const hopPhase = p.peck % 7;
+        p.pos.y = 0.1 + (hopPhase > 6.7 ? Math.sin((hopPhase - 6.7) / 0.3 * Math.PI) * 0.12 : 0);
+        const scared = this.agents.some((a) =>
+          a.active && !a.hidden && a.walking && Math.abs(a.pos.x - p.pos.x) < PIGEON_SCARE && Math.abs(a.pos.z - p.pos.z) < PIGEON_SCARE);
+        if (scared) {
+          const next = PIGEON_ANCHORS[(p.home + 1 + (this.pigeons.indexOf(p) % 3)) % PIGEON_ANCHORS.length];
+          p.home = PIGEON_ANCHORS.indexOf(next);
+          p.flyFrom.copy(p.pos);
+          p.flyTo.set(next.x + (p.peck % 0.6) - 0.3, 0.1, next.z + (p.peck % 0.5) - 0.25);
+          p.state = 'fly'; p.flyT = 0;
+          p.heading = Math.atan2(p.flyTo.x - p.flyFrom.x, p.flyTo.z - p.flyFrom.z);
+        }
+      }
+      const peckTilt = p.state === 'idle' ? Math.max(0, Math.sin(p.peck * 5)) * 0.5 : 0;
+      d.rotation.set(peckTilt, p.heading, 0);
+      d.position.copy(p.pos);
+      d.scale.setScalar(1);
+      d.updateMatrix();
+      this.pigeonMesh.setMatrixAt(this.pigeons.indexOf(p), d.matrix);
+    }
+    this.pigeonMesh.instanceMatrix.needsUpdate = true;
   }
 
   _kindCount(kind, lotId) {
@@ -975,6 +1046,9 @@ export class StreetLife {
       skin: new THREE.Color(SKIN[(roll() * SKIN.length) | 0]),
       legs: new THREE.Color(LEGS[(roll() * LEGS.length) | 0]),
       torso: new THREE.Color(COHORTS[cohort]?.color ?? 0xaaaaaa),
+      // What they're doing while they stand: a phone-check or a sip turns a
+      // figure at rest into a figure with an occupation.
+      act: (() => { const r = roll(); return r < 0.16 ? 'phone' : r < 0.34 ? 'sip' : null; })(),
     };
     if (route.hold) this.holds.add(route.hold);
     if (settled) {
@@ -1033,12 +1107,23 @@ export class StreetLife {
     const torsoY = sitting ? (agent.kind === 'bench' ? 0.58 : 0.46) : 0.62 + bob;
     const headY = torsoY + 0.46 * s;
     const swing = walking && !reduced ? Math.sin(agent.phase) * 0.45 : 0;
+    // Occupations on a still body: 'phone' dips the head toward the hands,
+    // 'sip' lifts it on a slow cycle — a drink going down. Head is a sphere,
+    // so the read is positional, not rotational.
+    const fw = { x: Math.sin(agent.face), z: Math.cos(agent.face) };
+    let headX = agent.pos.x, headZ = agent.pos.z, headLift = 0, torsoDip = 0;
+    if (!walking && agent.act === 'phone') {
+      headX += fw.x * 0.07; headZ += fw.z * 0.07; headLift = -0.07; torsoDip = 0.02;
+    } else if (!walking && agent.act === 'sip') {
+      const k = Math.max(0, Math.sin(agent.phase * 0.55)) ** 2;
+      headX -= fw.x * 0.04 * k; headZ -= fw.z * 0.04 * k; headLift = 0.05 * k;
+    }
     d.rotation.set(0, agent.face, 0);
-    d.position.set(agent.pos.x, torsoY, agent.pos.z);
+    d.position.set(agent.pos.x, torsoY - torsoDip, agent.pos.z);
     d.scale.setScalar(s);
     d.updateMatrix();
     P.torso.setMatrixAt(agent.idx, d.matrix);
-    d.position.set(agent.pos.x, headY, agent.pos.z);
+    d.position.set(headX, headY + headLift, headZ);
     d.updateMatrix();
     P.head.setMatrixAt(agent.idx, d.matrix);
     const rx = Math.cos(agent.face);
