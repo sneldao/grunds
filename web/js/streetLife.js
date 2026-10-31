@@ -62,11 +62,11 @@ const DRESS = {
 // the kinds that always stand (sitters keep the blob pose — these figures
 // only come standing). Cloned per agent; the instanced blob hides beneath.
 export const CHAR_BY_COHORT = {
-  commuters: 'passenger-ac425a',
-  students: 'graduate-student-945ef0',
-  elders: 'grandmother-in-a-rebozo-4d5190',
-  creatives: 'professor-14dc4d',
-  tourists: 'trainspotter-ffd141',
+  commuters: ['passenger-ac425a', 'flight-attendant-befaf4'],
+  students: ['graduate-student-945ef0', 'village-child-bef09e'],
+  elders: ['grandmother-in-a-rebozo-4d5190'],
+  creatives: ['professor-14dc4d', 'parrilla-cook-255918'],
+  tourists: ['trainspotter-ffd141', 'huaso-c4847f'],
 };
 const CHAR_KINDS = new Set(['neighbor', 'queue', 'vignette', 'glasshouse', 'frontage', 'prop', 'row']);
 const CHAR_SCALE = 0.62;
@@ -512,6 +512,20 @@ export class StreetLife {
       for (const part of Object.values(this.parts)) {
         for (let i = 0; i < cap; i++) part.setMatrixAt(i, ZERO);
       }
+      // Dogs — two strays living on the park lip: sniff, trot, sit, and
+      // chase the pigeons when they scatter. Deterministic timers only.
+      const dogBody = new THREE.BoxGeometry(0.32, 0.19, 0.14);
+      dogBody.translate(0, 0.2, 0);
+      const dogHead = new THREE.BoxGeometry(0.15, 0.15, 0.18);
+      const dogMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.9 });
+      const dogMat2 = new THREE.MeshStandardMaterial({ color: 0x3a322a, roughness: 0.9 });
+      this.dogMeshes = [new THREE.InstancedMesh(dogBody, dogMat, 1), new THREE.InstancedMesh(dogBody.clone(), dogMat2, 1)];
+      this.dogHeads = [new THREE.InstancedMesh(dogHead, dogMat, 1), new THREE.InstancedMesh(dogHead.clone(), dogMat2, 1)];
+      for (const m of [...this.dogMeshes, ...this.dogHeads]) { m.frustumCulled = false; if (scene && scene.add) scene.add(m); }
+      this.dogs = [
+        { pos: new THREE.Vector3(-10.9, 0, 14.6), heading: 0.6, t: 0, state: 'sniff', stateT: 0, tgt: null, i: 0 },
+        { pos: new THREE.Vector3(10.8, 0, 14.3), heading: -0.8, t: 2.6, state: 'sit', stateT: 0, tgt: null, i: 1 },
+      ];
       // Pigeons — one instanced bird, hop/scatter driven by timers and
       // proximity, never the seeded stream.
       const bird = new THREE.ConeGeometry(0.075, 0.24, 5);
@@ -575,19 +589,21 @@ export class StreetLife {
     if (!this.scene || this._charTemplates) return;
     const loader = new GLTFLoader();
     const out = {};
-    await Promise.all(Object.entries(CHAR_BY_COHORT).map(async ([cohort, id]) => {
-      try {
-        const gltf = await loader.loadAsync(`assets/polyfork/${id}.glb`);
-        out[cohort] = gltf.scene;
-      } catch { /* a missing GLB leaves that cohort on blobs */ }
-    }));
-    try { out.busker = (await loader.loadAsync('assets/polyfork/organillero-67b687.glb')).scene; } catch {}
+    await Promise.all(Object.entries(CHAR_BY_COHORT).flatMap(([cohort, ids]) =>
+      ids.map(async (id, i) => {
+        try {
+          const gltf = await loader.loadAsync(`assets/polyfork/${id}.glb`);
+          (out[cohort] ??= [])[i] = gltf.scene;
+        } catch { /* a missing GLB leaves that cohort slot on blobs */ }
+      })));
+    try { out.busker = [(await loader.loadAsync('assets/polyfork/organillero-67b687.glb')).scene]; } catch {}
     this._charTemplates = out;
   }
 
   _charFor(agent) {
     if (!this._charTemplates || !this.scene || !CHAR_KINDS.has(agent.kind)) return null;
-    const tpl = this._charTemplates[agent.vg === 'busker' ? 'busker' : agent.cohort];
+    const list = this._charTemplates[agent.vg === 'busker' ? 'busker' : agent.cohort];
+    const tpl = list && list.filter(Boolean)[agent.idx % Math.max(1, list.filter(Boolean).length)];
     if (!tpl) return null;
     const g = tpl.clone(true);
     g.scale.setScalar(CHAR_SCALE);
@@ -883,6 +899,61 @@ export class StreetLife {
     }
     for (const part of Object.values(this.parts)) part.instanceMatrix.needsUpdate = true;
     this._pigeons(stepScale);
+    this._dogs(stepScale);
+  }
+
+  // Two strays on the park lip — sniff the ground, trot to a new spot,
+  // sometimes just sit, and dash at any pigeon that scatters nearby.
+  _dogs(dt) {
+    if (!this.dogs || !this.dogMeshes) return;
+    const d = this._d;
+    for (const dog of this.dogs) {
+      dog.t += dt; dog.stateT += dt;
+      // A scattering pigeon within 3 is irresistible.
+      if (dog.state !== 'chase' && this.pigeons) {
+        const p = this.pigeons.find(pg => pg.state === 'fly' && Math.abs(pg.pos.x - dog.pos.x) < 3 && Math.abs(pg.pos.z - dog.pos.z) < 3);
+        if (p) { dog.state = 'chase'; dog.stateT = 0; dog.tgt = p.pos.clone(); }
+      }
+      if (dog.state === 'chase') {
+        if (!dog.tgt || dog.stateT > 4.5 || (Math.abs(dog.tgt.x - dog.pos.x) < 0.4 && Math.abs(dog.tgt.z - dog.pos.z) < 0.4)) {
+          dog.state = 'sniff'; dog.stateT = 0; dog.tgt = null;
+        } else {
+          const dx = dog.tgt.x - dog.pos.x, dz = dog.tgt.z - dog.pos.z, dist = Math.hypot(dx, dz);
+          dog.pos.x += (dx / dist) * 2.4 * dt; dog.pos.z += (dz / dist) * 2.4 * dt;
+          dog.heading = Math.atan2(dx, dz);
+        }
+      } else if (dog.state === 'trot') {
+        if (!dog.tgt || (Math.abs(dog.tgt.x - dog.pos.x) < 0.3 && Math.abs(dog.tgt.z - dog.pos.z) < 0.3)) {
+          dog.state = 'sniff'; dog.stateT = 0; dog.tgt = null;
+        } else {
+          const dx = dog.tgt.x - dog.pos.x, dz = dog.tgt.z - dog.pos.z, dist = Math.hypot(dx, dz);
+          dog.pos.x += (dx / dist) * 0.9 * dt; dog.pos.z += (dz / dist) * 0.9 * dt;
+          dog.heading = Math.atan2(dx, dz);
+        }
+      } else if (dog.stateT > (dog.state === 'sit' ? 4 : 2.2)) {
+        // sniff/sit timed out — pick the next anchor (cycles, deterministic).
+        const a = PIGEON_ANCHORS[(Math.floor(dog.t / 9) + dog.i * 2) % PIGEON_ANCHORS.length];
+        dog.tgt = { x: a.x + (dog.i - 0.5) * 0.8, z: a.z + ((Math.floor(dog.t / 9) % 3) - 1) * 0.5 };
+        dog.state = dog.t % 17 < 3 ? 'sit' : 'trot';   // ~1 in 6 pauses is a proper sit
+        dog.stateT = 0;
+      }
+      const moving = dog.state === 'trot' || dog.state === 'chase';
+      const sit = dog.state === 'sit';
+      const bob = moving ? Math.abs(Math.sin(dog.t * 9)) * 0.03 : 0;
+      d.rotation.set(0, dog.heading, 0);
+      d.position.set(dog.pos.x, (sit ? -0.05 : bob), dog.pos.z);
+      d.updateMatrix();
+      this.dogMeshes[dog.i].setMatrixAt(0, d.matrix);
+      // Head rides the front of the body; dips when sniffing.
+      const sniff = dog.state === 'sniff' ? Math.max(0, Math.sin(dog.t * 3)) * 0.5 : 0;
+      const hx = dog.pos.x + Math.sin(dog.heading) * 0.22;
+      const hz = dog.pos.z + Math.cos(dog.heading) * 0.22;
+      d.rotation.set(sniff, dog.heading, 0);
+      d.position.set(hx, (sit ? 0.28 : 0.36) - sniff * 0.18 + bob, hz);
+      d.updateMatrix();
+      this.dogHeads[dog.i].setMatrixAt(0, d.matrix);
+    }
+    for (const m of [...this.dogMeshes, ...this.dogHeads]) m.instanceMatrix.needsUpdate = true;
   }
 
   // Peck in place, hop on a timer, scatter when a walking body gets close.
@@ -1295,8 +1366,9 @@ export class StreetLife {
     // on the same slow cycle the head rides.
     const sipK = !walking && agent.act === 'sip' ? Math.max(0, Math.sin(agent.phase * 0.55)) ** 2 : 0;
     const shoulderY = torsoY + 0.16 * s - torsoDip;
-    const armLPitch = !walking && agent.act === 'phone' ? -1.15 : -swing * 0.55;
-    const armRPitch = !walking && agent.act === 'phone' ? -1.15 : agent.act === 'sip' ? -1.5 * sipK : swing * 0.55;
+    // The phone never goes away — a phone-checker keeps checking on the move.
+    const armLPitch = agent.act === 'phone' ? -1.15 : -swing * 0.55;
+    const armRPitch = agent.act === 'phone' ? -1.15 : agent.act === 'sip' ? -1.5 * sipK : swing * 0.55;
     d.scale.setScalar(s);
     d.position.set(agent.pos.x - rx * 0.21 * s, shoulderY, agent.pos.z - rz * 0.21 * s);
     d.rotation.set(armLPitch, agent.face, 0);
