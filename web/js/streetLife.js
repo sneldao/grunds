@@ -12,6 +12,7 @@
 // Open roofs show one or two sitters inside. None of them join a queue.
 
 import * as THREE from '../vendor/three.module.js';
+import { GLTFLoader } from '../vendor/loaders/GLTFLoader.js';
 import { COHORTS, COHORT_KEYS, LAYOUT, FRANCHISE } from './config.js';
 import { CLIMATES } from './climates.js';
 
@@ -41,6 +42,34 @@ export const VIGNETTE_SPOTS = [
 const PEOPLE = COHORT_KEYS.filter(k => k !== 'rival');
 const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];
 const LEGS = [0x2a2c34, 0x3a3230, 0x24303a];
+const HAIR = [0x241c14, 0x4a3524, 0x77593a, 0x111014, 0x8c3f2a, 0xb7b3ab];
+const BEANIE_COLORS = [0x8c3f3a, 0x3a5a8c, 0x4a6b4a, 0x6b4a7a];
+const FLATCAP_COLORS = [0x4a4238, 0x6b5a3a, 0x2a2c34];
+const HELD_COLORS = { case: 0x4a3a2a, tote: 0xd8cdb8, pack: 0x3a5a3a, cam: 0x1c1c20, cup: 0xe8e4dc, phone: 0x14181f };
+
+// Cohort dress codes — the silhouette carries the read: hat + a carried
+// thing + gait shape who they are before colour does. Odds are rolls at
+// spawn; a cohort member sometimes goes bare-headed anyway.
+const DRESS = {
+  commuters: { hat: 'flat',   hatP: 0.5,  held: 'case', heldP: 0.55 },
+  creatives: { hat: 'beanie', hatP: 0.55, held: 'tote', heldP: 0.4 },
+  students:  { hat: 'beanie', hatP: 0.45, held: 'pack', heldP: 0.6 },
+  elders:    { hat: 'flat',   hatP: 0.6,  held: null,   heldP: 0 },
+  tourists:  { hat: 'beanie', hatP: 0.35, held: 'cam',  heldP: 0.5 },
+};
+
+// Featured people are real Polyfork humanoids, not blobs: a cohort map and
+// the kinds that always stand (sitters keep the blob pose — these figures
+// only come standing). Cloned per agent; the instanced blob hides beneath.
+export const CHAR_BY_COHORT = {
+  commuters: 'passenger-ac425a',
+  students: 'graduate-student-945ef0',
+  elders: 'grandmother-in-a-rebozo-4d5190',
+  creatives: 'professor-14dc4d',
+  tourists: 'trainspotter-ffd141',
+};
+const CHAR_KINDS = new Set(['neighbor', 'queue', 'vignette', 'glasshouse', 'frontage', 'prop', 'row']);
+const CHAR_SCALE = 0.62;
 
 // Shop fronts face the play camera at z ≈ 3.6. These stands are on the
 // pavement side of the door, clear of the café threshold. `seat` is a
@@ -423,6 +452,8 @@ export function buildRoute(plan, rng) {
 
 export class StreetLife {
   constructor(scene, { lite = false } = {}) {
+    this.scene = scene || null;
+    this._charTemplates = null;
     this.lite = !!lite;
     this.truce = false;
     this.live = false;
@@ -460,9 +491,21 @@ export class StreetLife {
       };
       const leg = new THREE.BoxGeometry(0.09, 0.34, 0.09);
       leg.translate(0, -0.17, 0);
+      const arm = new THREE.BoxGeometry(0.065, 0.3, 0.065);
+      arm.translate(0, -0.15, 0);
+      const hairGeo = new THREE.SphereGeometry(0.138, 7, 5, 0, Math.PI * 2, 0, Math.PI * 0.55);
+      const beanieGeo = new THREE.SphereGeometry(0.152, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.52);
+      const flatGeo = new THREE.CylinderGeometry(0.15, 0.16, 0.055, 8);
+      const heldGeo = new THREE.BoxGeometry(0.1, 0.14, 0.05);
       this.parts = {
         torso: mk(new THREE.CapsuleGeometry(0.16, 0.34, 3, 6)),
         head: mk(new THREE.SphereGeometry(0.13, 8, 6)),
+        hair: mk(hairGeo),
+        beanie: mk(beanieGeo),
+        flatcap: mk(flatGeo),
+        armL: mk(arm),
+        armR: mk(arm.clone()),
+        held: mk(heldGeo),
         legL: mk(leg),
         legR: mk(leg.clone()),
       };
@@ -525,6 +568,34 @@ export class StreetLife {
   }
 
   setRivalHeat(n) { this.rivalHeat = Math.max(0, Number(n) || 0); }
+
+  // Polyfork humanoids for featured agents. Fire-and-forget from main —
+  // agents that spawn before the templates land simply stay blobs.
+  async loadChars() {
+    if (!this.scene || this._charTemplates) return;
+    const loader = new GLTFLoader();
+    const out = {};
+    await Promise.all(Object.entries(CHAR_BY_COHORT).map(async ([cohort, id]) => {
+      try {
+        const gltf = await loader.loadAsync(`assets/polyfork/${id}.glb`);
+        out[cohort] = gltf.scene;
+      } catch { /* a missing GLB leaves that cohort on blobs */ }
+    }));
+    try { out.busker = (await loader.loadAsync('assets/polyfork/organillero-67b687.glb')).scene; } catch {}
+    this._charTemplates = out;
+  }
+
+  _charFor(agent) {
+    if (!this._charTemplates || !this.scene || !CHAR_KINDS.has(agent.kind)) return null;
+    const tpl = this._charTemplates[agent.vg === 'busker' ? 'busker' : agent.cohort];
+    if (!tpl) return null;
+    const g = tpl.clone(true);
+    g.scale.setScalar(CHAR_SCALE);
+    g.position.set(agent.pos.x, 0, agent.pos.z);
+    g.rotation.y = agent.face;
+    this.scene.add(g);
+    return g;
+  }
 
   // Cosmetic. `read` comes from demandShockRead. It never joins a queue.
   setDemandRead(read) {
@@ -788,11 +859,26 @@ export class StreetLife {
         }
       }
       a.walking = walking;
-      a.phase += stepScale * (walking ? 7 : 1.2);
-      if (a.hidden) {
+      a.phase += stepScale * (walking ? (a.gait?.freq || 7) : 1.2);
+      // Gaze — directedness: while dwelling with nothing to do, a body
+      // turns toward whatever the street is gathering around.
+      if (a.state === 'dwell' && !a.act && this._vgAnchor?.active && !a.hidden) {
+        const want = Math.atan2(this._vgAnchor.pos.x - a.pos.x, this._vgAnchor.pos.z - a.pos.z);
+        let gdiff = want - a.face;
+        while (gdiff > Math.PI) gdiff -= Math.PI * 2;
+        while (gdiff < -Math.PI) gdiff += Math.PI * 2;
+        a.face += gdiff * Math.min(1, stepScale * 1.1);
+      }
+      if (a.hidden || a.char) {
         for (const part of Object.values(this.parts)) part.setMatrixAt(a.idx, ZERO);
       } else {
         this._draw(a, walking, !!reduced);
+      }
+      if (a.char) {
+        a.char.visible = !a.hidden;
+        a.char.position.set(a.pos.x, a.hidden ? -50 : 0, a.pos.z);
+        a.char.rotation.y = a.face;
+        if (walking) a.char.position.y = Math.abs(Math.sin(a.phase)) * 0.02;
       }
     }
     for (const part of Object.values(this.parts)) part.instanceMatrix.needsUpdate = true;
@@ -977,6 +1063,13 @@ export class StreetLife {
       skin: new THREE.Color(SKIN[(n >= 0 ? n : 0) % SKIN.length]),
       legs: new THREE.Color(LEGS[(n >= 0 ? n : 0) % LEGS.length]),
       torso: new THREE.Color(COHORTS[cohort]?.color ?? 0xaaaaaa),
+      act: null,
+      hair: new THREE.Color(HAIR[n % HAIR.length]),
+      hat: 'none',
+      hatColor: new THREE.Color(BEANIE_COLORS[0]),
+      heldKind: null,
+      gait: { freq: 6, amp: 0.4, lean: 0 },
+      girth: 0.95,
     };
     this.agents.push(agent);
     this._paint(agent);
@@ -1049,6 +1142,28 @@ export class StreetLife {
       // What they're doing while they stand: a phone-check or a sip turns a
       // figure at rest into a figure with an occupation.
       act: (() => { const r = roll(); return r < 0.16 ? 'phone' : r < 0.34 ? 'sip' : null; })(),
+      // Who they are: hair always, a cohort hat sometimes, a carried thing
+      // often. The silhouette, not the colour, is what a person reads as.
+      hair: new THREE.Color(HAIR[(roll() * HAIR.length) | 0]),
+      hat: (() => {
+        const d = DRESS[cohort];
+        if (!d || roll() > d.hatP) return 'none';
+        return d.hat;
+      })(),
+      hatColor: new THREE.Color((roll() < 0.5 ? BEANIE_COLORS : FLATCAP_COLORS)[(roll() * 4) | 0]),
+      heldKind: (() => {
+        const d = DRESS[cohort];
+        if (d?.held && roll() < d.heldP) return d.held;
+        return null;
+      })(),
+      // Gait — the read at distance. Elders shuffle, commuters stride;
+      // each body still gets its own tempo inside the cohort shape.
+      gait: {
+        freq: (COHORTS[cohort]?.walkSpeed || 1.8) * 2.6 + roll() * 1.1,
+        amp: 0.32 + (COHORTS[cohort]?.walkSpeed || 1.8) * 0.09 + roll() * 0.1,
+        lean: 0.06 - (COHORTS[cohort]?.walkSpeed || 1.8) * 0.03 + roll() * 0.05,
+      },
+      girth: 0.82 + roll() * 0.34,
     };
     if (route.hold) this.holds.add(route.hold);
     if (settled) {
@@ -1069,6 +1184,7 @@ export class StreetLife {
       }
     }
     this.agents.push(agent);
+    agent.char = this._charFor(agent);
     this._paint(agent);
     this._draw(agent, false, false);
     return agent;
@@ -1077,6 +1193,7 @@ export class StreetLife {
   _despawn(agent) {
     if (!agent || !agent.active) return;
     agent.active = false;
+    if (agent.char) { try { this.scene.remove(agent.char); } catch {} agent.char = null; }
     if (agent === this._vgAnchor) this._vgAnchor = null;
     if (agent.hold) this.holds.delete(agent.hold);
     for (const part of Object.values(this.parts)) {
@@ -1092,6 +1209,13 @@ export class StreetLife {
     const P = this.parts;
     P.torso.setColorAt(agent.idx, agent.torso);
     P.head.setColorAt(agent.idx, agent.skin);
+    P.hair.setColorAt(agent.idx, agent.hair);
+    P.beanie.setColorAt(agent.idx, agent.hatColor);
+    P.flatcap.setColorAt(agent.idx, agent.hatColor);
+    P.armL.setColorAt(agent.idx, agent.torso);
+    P.armR.setColorAt(agent.idx, agent.torso);
+    const item = agent.act === 'phone' ? 'phone' : agent.act === 'sip' ? 'cup' : agent.heldKind;
+    P.held.setColorAt(agent.idx, new THREE.Color(HELD_COLORS[item] ?? 0x444444));
     P.legL.setColorAt(agent.idx, agent.legs);
     P.legR.setColorAt(agent.idx, agent.legs);
     for (const part of Object.values(P)) if (part.instanceColor) part.instanceColor.needsUpdate = true;
@@ -1102,11 +1226,14 @@ export class StreetLife {
     d.rotation.order = 'YXZ';
     const P = this.parts;
     const sitting = agent.sitting;
-    const bob = walking && !reduced ? Math.sin(agent.phase) * 0.04 : 0;
+    const g = agent.gait || { freq: 7, amp: 0.45, lean: 0 };
+    const bob = walking && !reduced ? Math.sin(agent.phase) * 0.04 * (g.amp / 0.45) : 0;
     const s = agent.scale;
+    const girth = agent.girth || 1;
     const torsoY = sitting ? (agent.kind === 'bench' ? 0.58 : 0.46) : 0.62 + bob;
     const headY = torsoY + 0.46 * s;
-    const swing = walking && !reduced ? Math.sin(agent.phase) * 0.45 : 0;
+    const swing = walking && !reduced ? Math.sin(agent.phase) * g.amp : 0;
+    const lean = walking ? g.lean : 0;
     // Occupations on a still body: 'phone' dips the head toward the hands,
     // 'sip' lifts it on a slow cycle — a drink going down. Head is a sphere,
     // so the read is positional, not rotational.
@@ -1118,14 +1245,38 @@ export class StreetLife {
       const k = Math.max(0, Math.sin(agent.phase * 0.55)) ** 2;
       headX -= fw.x * 0.04 * k; headZ -= fw.z * 0.04 * k; headLift = 0.05 * k;
     }
-    d.rotation.set(0, agent.face, 0);
+    d.rotation.set(lean, agent.face, 0);
     d.position.set(agent.pos.x, torsoY - torsoDip, agent.pos.z);
-    d.scale.setScalar(s);
+    d.scale.set(s * girth, s, s);
     d.updateMatrix();
     P.torso.setMatrixAt(agent.idx, d.matrix);
     d.position.set(headX, headY + headLift, headZ);
+    d.scale.setScalar(s);
     d.updateMatrix();
     P.head.setMatrixAt(agent.idx, d.matrix);
+    // Hair under everything; a hat (when rolled) covers it.
+    if (agent.hat !== 'flat') {
+      d.position.set(headX, headY + headLift + 0.035, headZ);
+      d.updateMatrix();
+    } else {
+      d.position.set(0, -50, 0);
+      d.updateMatrix();
+    }
+    P.hair.setMatrixAt(agent.idx, d.matrix);
+    if (agent.hat === 'beanie') {
+      d.position.set(headX, headY + headLift + 0.04, headZ);
+    } else {
+      d.position.set(0, -50, 0);
+    }
+    d.updateMatrix();
+    P.beanie.setMatrixAt(agent.idx, d.matrix);
+    if (agent.hat === 'flat') {
+      d.position.set(headX, headY + headLift + 0.12, headZ);
+    } else {
+      d.position.set(0, -50, 0);
+    }
+    d.updateMatrix();
+    P.flatcap.setMatrixAt(agent.idx, d.matrix);
     const rx = Math.cos(agent.face);
     const rz = -Math.sin(agent.face);
     const hipY = (sitting ? 0.34 : 0.36) + bob * 0.4;
@@ -1139,5 +1290,39 @@ export class StreetLife {
     d.rotation.set(-swing, agent.face, 0);
     d.updateMatrix();
     P.legR.setMatrixAt(agent.idx, d.matrix);
+    // Arms hang at the shoulders and counter-swing the stride. An act lifts
+    // them: 'phone' brings both up to chest height, 'sip' raises the right
+    // on the same slow cycle the head rides.
+    const sipK = !walking && agent.act === 'sip' ? Math.max(0, Math.sin(agent.phase * 0.55)) ** 2 : 0;
+    const shoulderY = torsoY + 0.16 * s - torsoDip;
+    const armLPitch = !walking && agent.act === 'phone' ? -1.15 : -swing * 0.55;
+    const armRPitch = !walking && agent.act === 'phone' ? -1.15 : agent.act === 'sip' ? -1.5 * sipK : swing * 0.55;
+    d.scale.setScalar(s);
+    d.position.set(agent.pos.x - rx * 0.21 * s, shoulderY, agent.pos.z - rz * 0.21 * s);
+    d.rotation.set(armLPitch, agent.face, 0);
+    d.updateMatrix();
+    P.armL.setMatrixAt(agent.idx, d.matrix);
+    d.position.set(agent.pos.x + rx * 0.21 * s, shoulderY, agent.pos.z + rz * 0.21 * s);
+    d.rotation.set(armRPitch, agent.face, 0);
+    d.updateMatrix();
+    P.armR.setMatrixAt(agent.idx, d.matrix);
+    // Carried things — the belonging that makes a silhouette a person.
+    const item = agent.act === 'phone' ? 'phone' : agent.act === 'sip' ? 'cup' : agent.heldKind;
+    if (item) {
+      // Right-hand anchor: side offset, or lifted toward the face for
+      // phone/sip by the arm pitch above.
+      const lift = item === 'phone' ? 1 : sipK;
+      const hx = agent.pos.x + rx * (0.21 - 0.17 * lift) * s + fw.x * 0.3 * lift * s;
+      const hy = shoulderY - 0.32 * s + 0.34 * lift * s;
+      const hz = agent.pos.z + rz * (0.21 - 0.17 * lift) * s + fw.z * 0.3 * lift * s;
+      d.rotation.set(0, agent.face, 0);
+      d.position.set(hx, hy, hz);
+      d.scale.setScalar(s * (item === 'phone' ? 0.7 : item === 'cup' ? 0.55 : 1));
+      d.updateMatrix();
+    } else {
+      d.position.set(0, -50, 0);
+      d.updateMatrix();
+    }
+    P.held.setMatrixAt(agent.idx, d.matrix);
   }
 }

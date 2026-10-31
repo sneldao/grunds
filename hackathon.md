@@ -13,9 +13,13 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-31T15:30:00Z
+- **Last updated:** 2026-10-31T16:10:00Z
 
 ## Log
+
+### 2026-10-31 - film v5 + people pass: silhouettes, gaits, real humanoids
+
+**Film v5** — recaptured street takes on the micro-life build (dense cup-carrying crowds); deployed `e7d5fbe` live. Character pass on `streetLife.js`: cohort dress codes (hats/hair/carried items per cohort — commuters flat-cap + case, students beanie + pack, elders flat cap, tourists camera, creatives beanie + tote), per-agent gait frequency/amplitude/lean derived from cohort walkSpeed, girth variance, gaze turns toward vignette anchors, and featured Polyfork humanoids cloned per agent for standing kinds (queue/neighbor/vignette/frontage/glasshouse/row/prop — `loadChars()`, `CHAR_BY_COHORT` passenger/graduate-student/grandmother/professor/trainspotter + organillero for buskers). Sitters and walkers stay instanced blobs beneath. Focused suite 31/31, typecheck clean.
 
 ### 2026-10-31 - film v4 + street micro-life pass
 

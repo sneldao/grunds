@@ -106,3 +106,4 @@ CSS masks (`background-color: currentColor` + `mask: url(...)`).
 - `icons/milk-carton.svg` — vitals milk glyph — rihlsul
   - https://game-icons.net/1x1/rihlsul/milk-carton.html
   - download: https://game-icons.net/icons/000000/transparent/1x1/rihlsul/milk-carton.svg
+passenger-ac425a, graduate-student-945ef0, grandmother-in-a-rebozo-4d5190, professor-14dc4d, trainspotter-ffd141, organillero-67b687 (characters — cohort humanoids)

@@ -339,6 +339,7 @@ const patrons = new PatronSystem(scene, world, regulars, exchange, fx, { random:
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
 // Cosmetic street life. Own meshes, own random stream — never a café wave.
 const street = new StreetLife(scene, { lite });
+try { street.loadChars?.().catch(() => {}); } catch {}   // featured humanoids; blobs meanwhile
 const frontage = new FrontageConversions(patronsConvRng);
 let climate = pickClimate(seedNow(), city?.name);
 street.climate = climate;

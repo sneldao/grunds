@@ -1044,7 +1044,7 @@
     "glb": "plaza-fountain-5a5f6e.glb",
     "glb_bytes": 160060
   },
-  "_generated": "2026-10-29",
+  "_generated": "2026-10-31",
   "_source": "https://polyfork.dev — free low-poly catalogue; licence: commercial use, no attribution, no redistribution as assets",
   "hanging-shop-sign-18d2b0": {
     "title": "Hanging Shop Sign",
@@ -2868,5 +2868,480 @@
     "remix_params": {
       "groups": 3
     }
+  },
+  "passenger-ac425a": {
+    "title": "Passenger",
+    "kit": "countryside-railway-9b4c57",
+    "triangles": 3393,
+    "size_m": {
+      "x": 2.02,
+      "y": 1.79,
+      "z": 0.56
+    },
+    "origin_y": 0,
+    "zones": {
+      "coat": "#b08760",
+      "strap": "#9a7752",
+      "straw": "#94704f",
+      "hatBand": "#7a5a42",
+      "glove": "#7c553d",
+      "tights": "#a89782",
+      "boot": "#a09080",
+      "case": "#9a6f4c",
+      "caseStrap": "#7a5e46",
+      "skin": "#c9b7a3",
+      "hair": "#4a3a2c"
+    },
+    "knobs": {
+      "wear": {
+        "type": "range",
+        "default": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "suitcase": {
+        "type": "toggle",
+        "default": true
+      },
+      "hat": {
+        "type": "toggle",
+        "default": true
+      },
+      "colorway": {
+        "type": "choice",
+        "default": "travel",
+        "options": [
+          "travel",
+          "olive",
+          "cocoa"
+        ]
+      },
+      "figure": {
+        "type": "choice",
+        "default": "feminine",
+        "options": [
+          "masculine",
+          "feminine"
+        ]
+      },
+      "age": {
+        "type": "choice",
+        "default": "adult",
+        "options": [
+          "kid",
+          "teen",
+          "adult",
+          "old"
+        ]
+      },
+      "build": {
+        "type": "range",
+        "default": 1,
+        "min": 0.86,
+        "max": 1.18
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/passenger-ac425a",
+    "glb": "passenger-ac425a.glb",
+    "glb_bytes": 658056
+  },
+  "graduate-student-945ef0": {
+    "title": "Graduate Student",
+    "kit": "research-lab-9b9b5d",
+    "triangles": 3815,
+    "size_m": {
+      "x": 1.63,
+      "y": 1.75,
+      "z": 0.48
+    },
+    "origin_y": 0,
+    "zones": {},
+    "knobs": {
+      "shift": {
+        "type": "range",
+        "default": 0.7,
+        "min": 0,
+        "max": 1
+      },
+      "build": {
+        "type": "range",
+        "default": 0.86,
+        "min": 0.86,
+        "max": 1.18
+      },
+      "age": {
+        "type": "choice",
+        "default": "adult",
+        "options": [
+          "kid",
+          "teen",
+          "adult",
+          "old"
+        ]
+      },
+      "figure": {
+        "type": "choice",
+        "default": "feminine",
+        "options": [
+          "masculine",
+          "feminine"
+        ]
+      },
+      "expression": {
+        "type": "choice",
+        "default": "warm",
+        "options": [
+          "neutral",
+          "warm",
+          "stern",
+          "weary",
+          "alert",
+          "squint"
+        ]
+      },
+      "hair": {
+        "type": "choice",
+        "default": "blonde",
+        "options": [
+          "blonde",
+          "brown",
+          "black",
+          "auburn"
+        ]
+      },
+      "goggles": {
+        "type": "choice",
+        "default": "up",
+        "options": [
+          "up",
+          "off"
+        ]
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/graduate-student-945ef0",
+    "glb": "graduate-student-945ef0.glb",
+    "glb_bytes": 728916
+  },
+  "grandmother-in-a-rebozo-4d5190": {
+    "title": "Grandmother In A Rebozo",
+    "kit": "dia-de-muertos-f2f8f8",
+    "triangles": 4131,
+    "size_m": {
+      "x": 1.66,
+      "y": 1.67,
+      "z": 0.61
+    },
+    "origin_y": 0,
+    "zones": {
+      "skin": "#cf9f6a",
+      "crease": "#b5613c",
+      "eye": "#2a2a30",
+      "mouth": "#a65a4e",
+      "hair": "#9b9383",
+      "hairKnot": "#7d7568",
+      "brow": "#7d7569",
+      "hairPin": "#56504a",
+      "ribbon": "#8f2235",
+      "coat": "#1f3f74",
+      "coatTrim": "#1f3f75",
+      "apron": "#cdc2a6",
+      "apronTie": "#cdc2a7",
+      "apronBow": "#cdc2a8",
+      "belt": "#7a5335",
+      "buckleMetal": "#7a5336",
+      "rebozo": "#8f2233",
+      "rebozoStripe": "#c98b3a",
+      "rebozoStripe2": "#2f5fa8",
+      "fringe": "#8f2234",
+      "sole": "#7a5337",
+      "thong": "#56504b",
+      "petal": "#e3760f",
+      "bloom": "#ffc23d",
+      "ember": "#c4530a",
+      "dry": "#8c452a",
+      "stem": "#2f7a4a",
+      "twine": "#cdc2a9",
+      "wicker": "#cf9f6b",
+      "wickerRim": "#a86a26",
+      "briefs": "#1f3f76",
+      "bra": "#1f3f77"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "panteon",
+        "options": [
+          "panteon",
+          "luto",
+          "barro"
+        ]
+      },
+      "vigil": {
+        "type": "choice",
+        "default": "ofrenda",
+        "options": [
+          "before",
+          "ofrenda",
+          "dawn"
+        ]
+      },
+      "figure": {
+        "type": "choice",
+        "default": "feminine",
+        "options": [
+          "masculine",
+          "feminine"
+        ]
+      },
+      "age": {
+        "type": "choice",
+        "default": "old",
+        "options": [
+          "kid",
+          "teen",
+          "adult",
+          "old"
+        ]
+      },
+      "build": {
+        "type": "range",
+        "default": 1,
+        "min": 0.86,
+        "max": 1.18
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [
+      {
+        "name": "Walk",
+        "seconds": 0.97
+      }
+    ],
+    "page": "https://polyfork.dev/asset/grandmother-in-a-rebozo-4d5190",
+    "glb": "grandmother-in-a-rebozo-4d5190.glb",
+    "glb_bytes": 808944
+  },
+  "professor-14dc4d": {
+    "title": "Professor",
+    "kit": "university-959b66",
+    "triangles": 4385,
+    "size_m": {
+      "x": 1.55,
+      "y": 1.68,
+      "z": 0.36
+    },
+    "origin_y": 0,
+    "zones": {
+      "coat": "#7e573e",
+      "shirt": "#d8c2a0",
+      "denim": "#664933",
+      "boot": "#7e5a43",
+      "pack": "#6b4c36",
+      "frame": "#3a2a20",
+      "earring": "#d08a2e",
+      "case": "#a9aa63",
+      "skin": "#ddb08a",
+      "hair": "#bdb5a8"
+    },
+    "knobs": {
+      "term": {
+        "type": "range",
+        "default": 0.6,
+        "min": 0,
+        "max": 1
+      },
+      "figure": {
+        "type": "choice",
+        "default": "feminine",
+        "options": [
+          "masculine",
+          "feminine"
+        ]
+      },
+      "age": {
+        "type": "choice",
+        "default": "old",
+        "options": [
+          "kid",
+          "teen",
+          "adult",
+          "old"
+        ]
+      },
+      "build": {
+        "type": "range",
+        "default": 0.9,
+        "min": 0.86,
+        "max": 1.18
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [
+      {
+        "name": "Walk",
+        "seconds": 0.97
+      }
+    ],
+    "page": "https://polyfork.dev/asset/professor-14dc4d",
+    "glb": "professor-14dc4d.glb",
+    "glb_bytes": 864240
+  },
+  "trainspotter-ffd141": {
+    "title": "Trainspotter",
+    "kit": "countryside-railway-9b4c57",
+    "triangles": 4835,
+    "size_m": {
+      "x": 1.5,
+      "y": 1.62,
+      "z": 0.4
+    },
+    "origin_y": 0,
+    "zones": {
+      "coat": "#cba874",
+      "shirt": "#2a3456",
+      "denim": "#b6a286",
+      "hose": "#c2b396",
+      "boot": "#7a6452",
+      "pack": "#cda976",
+      "skin": "#ddb08e",
+      "hair": "#e2bf7c"
+    },
+    "knobs": {
+      "wear": {
+        "type": "range",
+        "default": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "writing": {
+        "type": "toggle",
+        "default": true
+      },
+      "satchel": {
+        "type": "toggle",
+        "default": true
+      },
+      "colorway": {
+        "type": "choice",
+        "default": "tan",
+        "options": [
+          "tan",
+          "olive",
+          "brown"
+        ]
+      },
+      "figure": {
+        "type": "choice",
+        "default": "masculine",
+        "options": [
+          "masculine",
+          "feminine"
+        ]
+      },
+      "age": {
+        "type": "choice",
+        "default": "teen",
+        "options": [
+          "kid",
+          "teen"
+        ]
+      },
+      "build": {
+        "type": "range",
+        "default": 1,
+        "min": 0.86,
+        "max": 1.18
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [
+      {
+        "name": "Walk",
+        "seconds": 0.97
+      }
+    ],
+    "page": "https://polyfork.dev/asset/trainspotter-ffd141",
+    "glb": "trainspotter-ffd141.glb",
+    "glb_bytes": 948680
+  },
+  "organillero-67b687": {
+    "title": "Organillero",
+    "kit": "chile-fiestas-patrias-87e847",
+    "triangles": 3605,
+    "size_m": {
+      "x": 1.6,
+      "y": 1.69,
+      "z": 0.34
+    },
+    "origin_y": 0,
+    "zones": {
+      "cap": "#7c776c",
+      "coat": "#32363b",
+      "waistcoat": "#5a5145",
+      "shirt": "#e6e0d0",
+      "scarf": "#3b3b47",
+      "denim": "#2e2b27",
+      "boot": "#1f1e20",
+      "skin": "#d2a886",
+      "hair": "#d2ccc2"
+    },
+    "knobs": {
+      "wear": {
+        "type": "range",
+        "default": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "jacket": {
+        "type": "toggle",
+        "default": true
+      },
+      "colorway": {
+        "type": "choice",
+        "default": "charcoal",
+        "options": [
+          "charcoal",
+          "sunday",
+          "tweed"
+        ]
+      },
+      "figure": {
+        "type": "choice",
+        "default": "masculine",
+        "options": [
+          "masculine",
+          "feminine"
+        ]
+      },
+      "age": {
+        "type": "choice",
+        "default": "old",
+        "options": [
+          "adult",
+          "old"
+        ]
+      },
+      "build": {
+        "type": "range",
+        "default": 1,
+        "min": 0.86,
+        "max": 1.18
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/organillero-67b687",
+    "glb": "organillero-67b687.glb",
+    "glb_bytes": 700644
   }
 }

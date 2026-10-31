@@ -43,7 +43,10 @@
    (waypoint dwell+face groups; one live group, members share the cap).
    Shipped: pigeons (instanced, peck/hop, proximity scatter — no per-frame
    rng), phone/sip occupation actions on dwellers, guaranteed park+bench
-   sitters at beginDay. Next: dog walker needs its own rig;
+   sitters at beginDay, cohort dress codes (DRESS: hat/held/gait per
+   cohort), and cloned Polyfork humanoids on standing-kind agents via
+   street.loadChars() + CHAR_BY_COHORT (blobs hidden beneath; sitters and
+   walkers stay instanced). Next: dog walker needs its own rig;
    delivery/hand-truck vignette; rooftop dressing (tank/antennas/laundry).
 2. Camera grammar — espressoIns/caseIns use authored view positions and
    alone bypass the r>=18 scripted clamp; lowStreet reaches phi=1.5.
