@@ -1150,6 +1150,50 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     plane(parent, w, h, sm, x, y, z, { ry: Math.PI });
     box(parent, w + 0.08, h + 0.08, 0.07, PAL.walnutDark, x, y, z + 0.045, { cast: false });
   }
+  // Rooftop dressing — silhouettes the orbit reads: a water tank, an aerial,
+  // a laundry line, a pigeon row. `variant` picks which two-or-three pieces
+  // a given roof wears so the row of shops isn't a copy line.
+  function dressRoof(parent, w, h, d, variant) {
+    const ridge = h + 1.02;                 // gable peak local y
+    const slope = (sx) => h + 0.45 + Math.abs(sx) * -0.28;  // sits on the slope
+    if (variant % 2 === 0) {
+      // Water tank on legs, left rear slope.
+      const tx = -w / 2 + 0.55, tz = d * 0.16;
+      cyl(parent, 0.24, 0.27, 0.5, PAL.walnut, tx, slope(tx) + 0.62, tz);
+      cyl(parent, 0.02, 0.02, 0.4, PAL.ink, tx - 0.14, slope(tx) + 0.2, tz - 0.12, { cast: false });
+      cyl(parent, 0.02, 0.02, 0.4, PAL.ink, tx + 0.14, slope(tx) + 0.2, tz + 0.12, { cast: false });
+      cyl(parent, 0.26, 0.24, 0.06, PAL.ink, tx, slope(tx) + 0.9, tz, { cast: false });
+    }
+    if (variant % 3 !== 1) {
+      // TV aerial — pole + three crossbars on the ridge.
+      const ax = w / 2 - 0.5;
+      cyl(parent, 0.015, 0.015, 0.85, PAL.ink, ax, ridge + 0.35, -d * 0.1, { cast: false });
+      for (let i = 0; i < 3; i++) box(parent, 0.5 - i * 0.12, 0.02, 0.02, PAL.ink, ax, ridge + 0.62 - i * 0.14, -d * 0.1, { cast: false });
+    }
+    if (variant % 3 === 0 || variant === 2) {
+      // Laundry line across the back slope — two posts, a line, three cloths.
+      const lz = d * 0.3;
+      cyl(parent, 0.015, 0.015, 0.55, PAL.walnutDark, -w / 4, slope(-w / 4) + 0.5, lz, { cast: false });
+      cyl(parent, 0.015, 0.015, 0.55, PAL.walnutDark, w / 4, slope(w / 4) + 0.5, lz, { cast: false });
+      box(parent, w / 2 + 0.1, 0.015, 0.015, PAL.ink, 0, slope(0) + 0.72, lz, { cast: false });
+      const cloth = [PAL.cream, 0xa8c4d8, 0xe8dcc0];
+      for (let i = 0; i < 3; i++) {
+        const cx = -w / 6 + i * (w / 6);
+        plane(parent, 0.3, 0.34, mat(cloth[i % 3], { rough: 0.95 }), cx, slope(cx) + 0.55, lz, { rx: 0, recv: false });
+      }
+    }
+    if (variant % 2 === 1) {
+      // A row of pigeons on the front gutter.
+      const bird = new THREE.ConeGeometry(0.05, 0.14, 4);
+      const bm = mat(0x4a4d55, { rough: 0.9 });
+      for (let i = 0; i < 4; i++) {
+        const m = new THREE.Mesh(bird, bm);
+        m.position.set(-w / 2 + 0.4 + i * (w / 5), h + 0.12, -d / 2 - 0.06);
+        m.rotation.y = (i * 1.3) % 6.28;
+        parent.add(m);
+      }
+    }
+  }
   // A cream frame, open in the middle, proud of the solid wall just enough
   // for a book or a tin to sit between the warm back and the glass.
   function pane(parent, w, h, x, y, z, dress) {
@@ -1373,6 +1417,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     box(parts.face, 0.62, 1.55, 0.08, PAL.walnut, 0, 0.78, fz - 0.28);
     shopSignFace(g, 'THE QUILL', 2.7, 0.7, 0, 3.35, fz - 0.08, '#f6efe0', '#171310', '600 72px Georgia, serif');
     windowFigure(parts.face, -0.78, 2.35, fz - 0.05);
+    dressRoof(parts.roof, w, h, d, 0);   // tank + aerial + laundry
     mountInterior('quill', parts, w, h, d);
   })();
 
@@ -1411,6 +1456,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     cyl(parts.face, 0.02, 0.02, 0.32, PAL.brass, 0.24, 0.82, fz - 0.1, { metal: 0.6, rough: 0.35, cast: false });
     shopSignFace(g, 'HEARTH & RYE', 3.7, 0.72, 0, 2.42, fz - 0.08, '#f6efe0', '#4a3423', '600 58px Georgia, serif');
     windowFigure(parts.face, 1.7, 1.12, fz - 0.05);
+    dressRoof(parts.roof, w, h, d, 1);   // pigeons on the gutter
     mountInterior('hearth', parts, w, h, d);
   })();
 
@@ -1440,6 +1486,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     box(parts.face, 0.64, 1.45, 0.08, PAL.walnut, 0, 0.72, fz - 0.02);
     shopSignFace(g, 'BELL & BRASS', 2.9, 0.62, 0, 1.78, fz - 0.08, '#f6efe0', '#1d2a24', '600 52px Georgia, serif');
     windowFigure(parts.face, 1.12, 1.12, fz - 0.05);
+    dressRoof(parts.roof, w, h, d, 2);   // aerial + laundry
     mountInterior('bell', parts, w, h, d);
   })();
 
@@ -1469,6 +1516,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     fruit(PAL.brass, -1.05, 0.42, fz - 0.5, 0.1);
     fruit(PAL.cream, 0.15, 0.98, fz - 0.18, 0.1);
     windowFigure(parts.face, 1.28, 1.1, fz - 0.05);
+    dressRoof(parts.roof, w, h, d, 3);   // pigeons + laundry
     mountInterior('marrow', parts, w, h, d);
   })();
 
