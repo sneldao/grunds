@@ -906,14 +906,18 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     };
     return { title: titles[key] || String(key).replace(/_/g, ' ') };
   };
-  W.setRivalStrategy = (name, price) => {
+  W.setRivalStrategy = (name, price, originLine) => {
     rvStratG.fillStyle = '#1d2a24'; rvStratG.fillRect(0, 0, 512, 64);
     rvStratG.strokeStyle = 'rgba(201,162,39,.6)'; rvStratG.lineWidth = 2; rvStratG.strokeRect(4, 4, 504, 56);
     rvStratG.fillStyle = '#e8f0ee'; rvStratG.font = '600 26px Georgia, serif'; rvStratG.textAlign = 'center'; rvStratG.textBaseline = 'middle';
     // Phase 5 — the board renders the actual strategy: display name (not
     // the key) plus one line of what it means on the street.
     const def = stratLine(name);
-    rvStratG.fillText(def.title + ' · ' + fmt(+price), 256, 34);
+    // VISION.md street-of-shops: when the day's market touches the rival's
+    // origin, the board says so — walking past their stand reads their
+    // exposure. originLine arrives pre-formatted or empty.
+    const line = def.title + ' · ' + fmt(+price) + (originLine ? ' · ' + originLine : '');
+    rvStratG.fillText(line, 256, 34);
     rvStratTex.needsUpdate = true;
   };
   W.setRivalStrategy('BALANCED', 4.50);

@@ -30,6 +30,7 @@ import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS, seedCityNames, seedCastNames, castName } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
+import { streetForDay, ORIGINS, originDef, validOrigin, originPull, houseRead, rivalTells } from './street.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
 import { rushSpeed } from './paceNotice.js';
 import { touchPrimary } from './gestures.js';
@@ -699,6 +700,7 @@ let lastHedge = 'hold';   // yesterday's hedge id, for Idris's vindication lines
 // threads the letter, the receipt, the district board; the background pick
 // carries one small mechanical perk (not a class — the arc is one role).
 let playerName = 'Sam', standName = 'THE CORNER CUP', playerRole = 'the new owner', perkBg = null;
+let houseOrigin = null;   // street.js ORIGINS — the player's house; null = open table
 let perkStaffMul = 1, perkCostMul = 1;   // ex-barista pace / ex-accountant trim
 // PR-4d — Web Customer Center. A footer link inside #paywall opens the
 // center; route handlers use the existing billing API. On Capacitor this
@@ -919,7 +921,7 @@ function tick() {
     const w = dayWaves[waveIdx++];
     const morningCalm = (day === 1 && w.t < 600) ? 0.52 : 1;
     const settleThin = (day === 1 && dayMin < CALM_UNTIL_MIN) ? 0.5 : 1;
-    const mul = (exchange.event?.demand || 1) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1) * (samTruce && day === 5 ? 0.92 : 1) * elasticity * reach;
+    const mul = (exchange.event?.demand || 1) * originPull(houseOrigin, exchange.event) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1) * (samTruce && day === 5 ? 0.92 : 1) * elasticity * reach;
     // loyalty made visible: yesterday's served × return rate reappear,
     // spread evenly so the wave keeps its shape and just runs deeper
     const returnBonus = demand.todayReturnees > 0 && dayWaves.length
@@ -3500,6 +3502,63 @@ function renderRivalLine() {
   slot.style.display = '';
 }
 
+function renderStreetBrief() {
+  // VISION.md street-of-shops: the street's posture today. Every shop with
+  // its origin exposure and any specialist's early read — the causal spine
+  // (event → shop → floor) visible at the decision moment.
+  const streetEl = $('brief-street');
+  if (streetEl) {
+    try {
+      // exchange.event is *yesterday's close* while the Brief is up (the draw
+      // happens at OPEN), so rival lines are in the past tense; the house
+      // read is a peek at the coming draw on the same seeded stream.
+      const rows = streetForDay(exchange.event, calculateNonLinearDrift(day + 1), houseOrigin);
+      const lines = [];
+      if (houseOrigin && day >= 1 && !campaignDone) {
+        const hr = houseRead(houseOrigin, exchange.peek(currentIntelBias()));
+        if (hr) lines.push(`${hr.head.toLowerCase().replace(/^./, c => c.toUpperCase())}: ${hr.line}`);
+      }
+      // rivals act on what they know: their tell, if they show one, is a
+      // counter-read on the coming draw (street.js rivalTells)
+      if (!campaignDone) {
+        for (const t of rivalTells(exchange.peek(currentIntelBias()), seedNow(), day)) lines.push(t.line);
+      }
+      for (const r of rows) {
+        if (r.id === 'player') continue;
+        if (r.insight) lines.push(`${r.name}: ${r.insight.line}`);
+        else if (r.exposure > 1.3) lines.push(`${r.name} took yesterday’s close hard — their origin was on the wire.`);
+        else if (r.exposure > 1) lines.push(`${r.name} felt yesterday’s close.`);
+      }
+      clearEl(streetEl);
+      if (lines.length) {
+        const h = document.createElement('div');
+        h.className = 'l-kicker';
+        h.textContent = 'The street';
+        streetEl.appendChild(h);
+        const addStreetLine = (l, host) => {
+          const d = document.createElement('div');
+          d.className = 'd-line';
+          d.textContent = l;
+          (host || streetEl).appendChild(d);
+        };
+        for (const l of lines.slice(0, 2)) addStreetLine(l);
+        if (lines.length > 2) {
+          const det = document.createElement('details');
+          det.id = 'brief-street-more';
+          if (drawerOpen('brief-street-more', false)) det.open = true;
+          watchDrawer(det, 'brief-street-more');
+          const sum = document.createElement('summary');
+          sum.textContent = `…and ${lines.length - 2} more`;
+          det.appendChild(sum);
+          for (const l of lines.slice(2)) addStreetLine(l, det);
+          streetEl.appendChild(det);
+        }
+        streetEl.style.display = '';
+      } else streetEl.style.display = 'none';
+    } catch { streetEl.style.display = 'none'; }
+  }
+}
+
 function showMorningBrief() {
   const el = $('brief'); if (!el) return;
   const snap = {
@@ -3665,6 +3724,7 @@ function showMorningBrief() {
       people.style.display = '';
     } else people.style.display = 'none';
   }
+  renderStreetBrief();
   const body = $('brief-letter');
   if (body) {
     // Progressive disclosure (stage 1 = the news only): the sizing explainer
@@ -4139,7 +4199,7 @@ function capturePreDawn(enteringDay) {
     saveWeek(localStorage, {
       seed: seedNow(),
       day: enteringDay,
-      playerName, standName, playerRole, perkBg,
+      playerName, standName, playerRole, perkBg, houseOrigin,
       softWeekDone: !!softWeekDone,
       rngState: exchange.rng && exchange.rng.state ? exchange.rng.state() : null,
       streams: {
@@ -4186,6 +4246,7 @@ function applySavedWeek(save) {
   if (save.standName) standName = save.standName;
   if (save.playerRole) playerRole = save.playerRole;
   if (save.perkBg) perkBg = save.perkBg;
+  houseOrigin = validOrigin(save.houseOrigin); exchange.origin = houseOrigin;
   try { applyPerk(); } catch {}
   if (save.seed != null) SEED_OVERRIDE = save.seed;
   const ex = save.exchange || {};
@@ -4434,7 +4495,15 @@ function prepareDay(d) {
   stagedRoast = lotState.entry(selectedLot)?.roast ?? 3;
   patrons.dwellMul = 1 + (dayMods.dwellBonus || 0);
   rivalStrategy = strategyForDay(d, exchange.event?.tier);
-  try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2)); } catch {}
+  // VISION.md street-of-shops: the rival board carries the shop's market
+  // posture today. GLASSHOUSE buys spot (no origin, no contracts), so a
+  // market event shows on their board as a cost line — walking past their
+  // stand reads what the wire is doing to them.
+  const tier = exchange.event?.tier;
+  const rivalOriginLine = tier === 'cata' ? 'spot costs up'
+    : tier === 'bad' ? 'spot creeping'
+    : tier === 'warn' ? 'bracing for the wire' : '';
+  try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2), rivalOriginLine); } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false; _pfRushCam = false;
   frontage.reset();   // frontage conversions today
@@ -4484,12 +4553,15 @@ function prepareDay(d) {
 }
 const openDay = prepareDay;
 
+function currentIntelBias() {
+  return marketIntel && Array.isArray(marketIntel.marketShift)
+    ? Object.fromEntries(marketIntel.marketShift.map(s => [s.eventId, s.weightMul]))
+    : null;
+}
 function startTradingDay(d) {
   // the wire tilts the deck: live Linkup research multiplies event weights
   // (clamped inside roll), never replaces the seeded draw
-  const intelBias = marketIntel && Array.isArray(marketIntel.marketShift)
-    ? Object.fromEntries(marketIntel.marketShift.map(s => [s.eventId, s.weightMul]))
-    : null;
+  const intelBias = currentIntelBias();
   tapePrev = exchange.history.length ? exchange.history[exchange.history.length - 1].index : 1.0;
   // Ruth's pace at dawn — exhausted legs move slower until she's rested or sent home
   patrons.staffMul = (baristaCondition < 0.35 ? 0.8 : 1) * perkStaffMul; patrons.balkMul = 1;
@@ -6062,7 +6134,7 @@ const LIC_BGS = [
   { id: 'newcomer',      label: 'new to the trade', perk: 'a fresh face — the regulars warm quicker' },
   { id: 'circuit',       label: 'a market regular', perk: 'you know the circuit — the wire names its lean' },
 ];
-let licRole = 0, licBg = 0;
+let licRole = 0, licBg = 0, licOrigin = 0;
 function licPrimary() { return $('lic-sign'); }
 function showLicence() {
   const el = $('licence'); if (!el) return;
@@ -6073,6 +6145,7 @@ function showLicence() {
       playerName = s.playerName; standName = s.standName;
       licRole = Math.max(0, LIC_ROLES.indexOf(s.playerRole));
       licBg = Math.max(0, LIC_BGS.findIndex(b => b.id === s.perkBg));
+      licOrigin = Math.max(0, ORIGINS.findIndex(o => o.id === validOrigin(s.houseOrigin)));
     }
   } catch {}
   const nameEl = $('lic-name'), standEl = $('lic-stand');
@@ -6096,6 +6169,18 @@ function showLicence() {
     bgs.appendChild(b);
   });
   if (bgPerk) bgPerk.textContent = LIC_BGS[licBg].perk;
+  const ors = $('lic-origins'), orPerk = $('lic-origin-perk');
+  if (ors) {
+    ors.textContent = '';
+    ORIGINS.forEach((o, i) => {
+      const b = document.createElement('button');
+      b.textContent = o.label;
+      b.className = i === licOrigin ? 'on' : '';
+      b.onclick = () => { licOrigin = i; if (orPerk) orPerk.textContent = o.perk; [...ors.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
+      ors.appendChild(b);
+    });
+    if (orPerk) orPerk.textContent = ORIGINS[licOrigin].perk;
+  }
   // City Remix: a city link pre-names the pitch; the "your city" field
   // carries it forward so re-pitching the same street is one keystroke.
   const kicker = el.querySelector('.l-kicker');
@@ -6128,8 +6213,9 @@ function signLicence() {
   playerName = (($('lic-name').value || '').trim() || 'Sam').slice(0, 16);
   standName = ((($('lic-stand').value || '').trim() || 'the corner cup').slice(0, 22)).toUpperCase();
   playerRole = LIC_ROLES[licRole]; perkBg = LIC_BGS[licBg].id;
+  houseOrigin = ORIGINS[licOrigin].id; exchange.origin = houseOrigin;
   try {
-    localStorage.setItem('grunds.identity', JSON.stringify({ playerName, standName, playerRole, perkBg }));
+    localStorage.setItem('grunds.identity', JSON.stringify({ playerName, standName, playerRole, perkBg, houseOrigin }));
     localStorage.setItem('grunds.owner', standName);   // the district board lists the stand, not a hash
   } catch {}
   // City Remix: a typed city re-seats the pitch — the licence form is
@@ -6866,6 +6952,10 @@ function loop(now) {
   if (!headless) postfx.render(now);   // headless harness skips GL
 }
   window.__grunds = {
+  // balance harness: pick the house before OPEN; read what the Brief would say
+  setHouse: (o) => { houseOrigin = validOrigin(o); exchange.origin = houseOrigin; return houseOrigin; },
+  tellsNow: () => rivalTells(exchange.peek(currentIntelBias()), seedNow(), day),
+  houseReadNow: () => houseRead(houseOrigin, exchange.peek(currentIntelBias())),
   stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count, phase, hedgedCups, hedgeSavings: realizedHedgeSavings, batchUnits: ctx.batchUnits, batchSpend, batchWaste,
     turnaways, rivalTurnaways: patrons.turnaways || 0,
     emergencyCups, beanSpend, emergencySpend, sackSpend, houseLot: lotState.house, houseStock: lotState.entry(lotState.house)?.stock ?? 0,

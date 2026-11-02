@@ -3,6 +3,17 @@
 Grunds — The District — is a micro-economy simulation rendered as a 3D coffee
 district. One deterministic data engine feeds everything; the game layers sit on top.
 
+## Vision — coffee capitals + street of shops (Nov 2)
+
+The design direction after the "feels generic" feedback lives in
+[VISION.md](VISION.md): a street of distinct coffee businesses (origin /
+speciality / hybrid positions, each holding one specialism) landing in a
+different coffee capital each day, with real-world conditions flowing through
+the existing event pipeline into each capital's local voice. It is a
+parameterization of this document's systems, not a replacement: the Exchange,
+cohorts, Roaster's Letter, and the Brief → rush → verdict loop all carry over.
+Shipped so far: the street roster + Brief block (`street.js`) and the player's house origin (licence pick → amplified Exchange swing + footfall pull). The rest is direction.
+
 ## Pipeline
 
 ```

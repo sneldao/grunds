@@ -81,6 +81,7 @@ async function run(seed, policy) {
   await new Promise(resolve => setImmediate(resolve));
   const game = globalThis.__grunds;
   game.testState && game.testState({ moments: true });
+  if (process.env.GRUNDS_HOUSE) game.setHouse(process.env.GRUNDS_HOUSE);   // house-origin sweep (tools/house-sweep.mjs)
   assert.equal(game.sync.live, false);
   document.getElementById('open').click();
   randomState = seed >>> 0;
@@ -117,6 +118,31 @@ async function run(seed, policy) {
       else if (before.debt > 0) hedge = 'settle';
     }
     if (policy === 'reckless' && !game.exc.contract) hedge = 'contract_heavy';
+    // informed — forecaster rules plus the Brief's house read: a Brazil/East
+    // Africa warning (edge +1) is acted on with cover. Only meaningful with
+    // GRUNDS_HOUSE set; without a house it is the forecaster.
+    // scout — informed plus the street's tells. Signals add up: a house read
+    // and a rival tell agreeing is a heavy cover; one alone is a light cover;
+    // a Huila-style negative signal (harvest coming) means ride the spot.
+    if (policy === 'scout' && !game.exc.contract) {
+      const hr = game.houseReadNow && game.houseReadNow();
+      const tells = game.tellsNow ? game.tellsNow() : [];
+      const up = (hr && hr.edge > 0 ? 1 : 0) + tells.filter(t => t.edge > 0).length;
+      const down = (hr && hr.edge < 0 ? 1 : 0) + tells.filter(t => t.edge < 0).length;
+      if (down > 0 && up === 0) hedge = before.debt > 0 ? 'settle' : 'hold';
+      else if (up >= 2) hedge = 'contract_heavy';
+      else if (up === 1) hedge = 'contract_light';
+      else if (before.event === 'rumour_frost') hedge = 'contract_heavy';
+      else if (before.event === 'frost_minas' || before.event === 'drought_ea') hedge = 'contract_light';
+      else if (before.debt > 0) hedge = 'settle';
+    }
+    if (policy === 'informed' && !game.exc.contract) {
+      const hr = game.houseReadNow && game.houseReadNow();
+      if (hr && hr.edge > 0) hedge = 'contract_light';
+      else if (before.event === 'rumour_frost') hedge = 'contract_heavy';
+      else if (before.event === 'frost_minas' || before.event === 'drought_ea') hedge = 'contract_light';
+      else if (before.debt > 0) hedge = 'settle';
+    }
     const staffing = policy !== 'passive' && policy !== 'reckless' && day >= 2 && before.staffCondition < .55 ? 'apprentice' : 'work';
     const marketing = { sample: (policy === 'growth' || policy === 'engaged') && day < CAMPAIGN.days, sponsor: (policy === 'growth' || policy === 'engaged' || policy === 'reckless') && day >= 3 && day < CAMPAIGN.days };
     // Competent policies restock the cellar every morning (the Brief's coffee

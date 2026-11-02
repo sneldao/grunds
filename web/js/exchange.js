@@ -5,6 +5,7 @@
 import { CAMPAIGN, EVENTS } from './config.js';
 import { applyDrift, priceForDay } from './gentrification.js';
 import { EMERGENCY_MUL } from './lots.js';
+import { originAmp } from './street.js';
 
 // A tiny seeded PRNG so a campaign is reproducible per seed (per EVAL.md
 // "same seed → same run").
@@ -24,6 +25,7 @@ export class Exchange {
     this.rng = seeded(seed);
     this.day = 0;
     this.beanIndex = 1.0;             // the benchmark
+    this.origin = null;                // the player's house origin (street.js ORIGINS) — null = open table
     this.event = null;                 // today's rolled event ({id, ...EVENTS[id], day})
     this.lastTier = null;              // for the pity timer
     this.lastEventId = null;           // yesterday's draw — a rumour tilts tomorrow
@@ -49,8 +51,10 @@ export class Exchange {
   // deck, asymmetrically: clamp only the downside (a 0.1× signal still gets
   // the 0.2× floor so a wire report can never fix a catastrophe away); let
   // positive-event news run free (a 4× rumor of harvest isn't a guarantee).
-  roll(bias) {
-    const pityActive = this.day < 4;
+  // The weighted deck for a given day — shared by roll() and peek() so the
+  // read can never disagree with the draw.
+  _pool(day, bias) {
+    const pityActive = day < 4;
     const pool = [];
     for (const [id, e] of Object.entries(EVENTS)) {
       let w = e.weight;
@@ -67,10 +71,26 @@ export class Exchange {
       }
       for (let i = 0; i < Math.round(w); i++) pool.push(id);
     }
+    return pool;
+  }
+  // The next dawn's draw, without taking it: a clone of the rng stream, so
+  // the seeded sequence is untouched. Only a house that names the event's
+  // origin is told (street.js houseRead) — the deck itself stays hidden.
+  peek(bias) {
+    const pool = this._pool(this.day + 1, bias);
+    const r = seeded(0, this.rng.state());
+    const id = pool[(r() * pool.length) | 0];
+    return { id, ...EVENTS[id] };
+  }
+  roll(bias) {
+    const pool = this._pool(this.day, bias);
     const id = pool[(this.rng() * pool.length) | 0];
     const def = EVENTS[id];
-    this.event = { id, ...def, day: this.day };
-    this.beanIndex = Math.max(0.6, Math.min(2.6, this.beanIndex + def.dIndex));
+    // A house built on this event's origin feels it harder (street.js
+    // originAmp). 1 with no origin — the open table is bit-identical.
+    const amp = originAmp(this.origin, { id, ...def });
+    this.event = { id, ...def, day: this.day, ...(amp !== 1 ? { amp } : {}) };
+    this.beanIndex = Math.max(0.6, Math.min(2.6, this.beanIndex + def.dIndex * amp));
     this.lastTier = def.tier;
     this.lastEventId = id;
     // a contract is now consumed cup-by-cup (Exchange.consume), not dawn-by-dawn

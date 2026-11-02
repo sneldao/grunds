@@ -141,6 +141,7 @@ URL params: `?seed=N`, `?speed=60|300|1200`, `?lite`, `?skipTutorial`,
 | Doc | What it is |
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Systems, contracts, roadmaps (timeless) |
+| [VISION.md](VISION.md) | The coffee-capital pivot: vision + street-of-shops design (house origin, street Brief block and rival tells shipped; the rest is direction) |
 | [hackathon.md](hackathon.md) | The dated build log — every pass, deploy, and verification state |
 | [EVAL.md](EVAL.md) | Playtest protocol, balance evidence, readiness criteria |
 | [ART.md](ART.md) | Art direction and asset rules |

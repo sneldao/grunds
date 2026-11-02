@@ -102,6 +102,28 @@
 - HUD: `#vitals` is off by default (`V` / `#standbtn`, `localStorage
   grunds.vitals`); camera HOME is `r 20 / phi 0.74`.
 
+## Street of shops / house origin (VISION.md)
+- `web/js/street.js` is the pure module: roster (`STREET`), `ORIGINS`,
+  `originExposure` / `originAmp` / `originPull`, `houseRead`, `rivalTells`,
+  `streetForDay`. No DOM, no rng, no clock — tells use a hash of
+  (seed, day, shop id), never a stream.
+- The player's house origin (`houseOrigin` in main.js, `exchange.origin`) is
+  picked on the licence ("your house"), saved with the week + `grunds.identity`.
+  A matching event amplifies the bean-index swing by half the street exposure
+  and adds `ORIGIN_PULL` footfall. No origin is bit-identical to before.
+- `Exchange.peek(bias)` previews the coming draw from a *clone* of the rng
+  (`_pool` is shared with `roll`, so they cannot disagree). The Brief runs
+  before the draw: `exchange.event` there is yesterday's close, so rival
+  lines are past tense and house reads / tells come from `peek`.
+- Brief "The street" block = `renderStreetBrief()` (kept out of
+  `showMorningBrief` — `visible-rivalry.mjs` scans a 30k-char window).
+- Balance: `node tools/house-sweep.mjs [seeds] [policies] [houses]` drives
+  `balance-policies.mjs --single` with `GRUNDS_HOUSE`; policies `informed`
+  and `scout` read `__grunds.houseReadNow/tellsNow`. Findings are in
+  VISION.md — more footfall made the risky houses worse; don't tune pull.
+- Not shipped: tells on the floor (chalkboard/queue), rivals changing sim
+  behaviour, supplier stand, capital parameter layer.
+
 ## Conventions
 - Choice surfaces: options + consequence visible, no folds for choices —
   see ARCHITECTURE.md "Choice surfaces".
