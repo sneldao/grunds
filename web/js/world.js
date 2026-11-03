@@ -191,7 +191,10 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   const hemi = new THREE.HemisphereLight(0xc8d8ea, 0x4a3f32, 0.42); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff6e8, 1.25);
   sun.castShadow = !lite;
-  sun.shadow.mapSize.set(2048, 2048);
+  // Performance pass: 1024² under PCFSoft is the budget that keeps the
+  // per-frame shadow pass cheap on integrated GPUs; 2048² read as marginal
+  // softness for double the fill. Bias/normalBias tuned for this size.
+  sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 });
   sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.018;
   scene.add(sun); scene.add(sun.target);

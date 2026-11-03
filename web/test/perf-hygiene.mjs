@@ -1,7 +1,7 @@
 // web/test/perf-hygiene.mjs — pins the frame-time fixes of the performance
-// pass (the "patchy and juddery" report). These are source contracts: the
-// jank came from per-tick work storms, and the guard rails below keep them
-// from quietly growing back.
+// passes (the "patchy and juddery" report). These are source contracts: the
+// jank came from per-tick work storms and unbounded GPU cost, and the guard
+// rails below keep them from quietly growing back.
 // Run: node --test web/test/perf-hygiene.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -52,9 +52,33 @@ test('shadow budget flips on a hysteresis band, never per frame', () => {
   assert.ok(main.includes('if (wantShadow !== _shadowOn)'), 'renderer state is written only on a real crossing');
 });
 
-test('the dynamic-lite ratchet recovers from transient spikes', () => {
-  assert.ok(main.includes('else if (_slowFrames > 0) _slowFrames = 0'),
-    'a fast frame resets the slow-frame counter — one dawn hitch must not downgrade the session');
+test('the quality governor steps render scale before the lite cliff, and recovers', () => {
+  assert.ok(main.includes('const _prLevels'), 'a resolution ladder exists');
+  assert.ok(main.includes('if (++_slowFrames >= 4)'),
+    'a step-down takes 4 slow frames — one dawn hitch must not downgrade the session');
+  assert.ok(main.includes('if (_prIdx < _prLevels.length - 1) { _prIdx += 1; applyRenderScale(); }'),
+    'scale steps down first');
+  const ladderAt = main.indexOf('_prIdx < _prLevels.length');
+  const cliffAt = main.indexOf('_liteSwitched = true', ladderAt);
+  assert.ok(ladderAt > 0 && cliffAt > ladderAt, 'the lite cliff is strictly the last resort');
+  assert.ok(main.includes('if (++_fastFrames >= 240 && _prIdx > 0)'),
+    'a sustained fast stretch climbs one rung back');
+  assert.ok(main.includes('if (_slowFrames > 0) _slowFrames--') && main.includes('else if (_fastFrames > 0) _fastFrames--'),
+    'mixed frames decay both counters');
+});
+
+test('render scale changes resize the postfx targets in device pixels', () => {
+  assert.ok(main.includes('renderer.getDrawingBufferSize(new THREE.Vector2())'),
+    'scale changes and window resizes measure the drawing buffer');
+  assert.ok(main.includes('postfx.resize(bs.x | 0, bs.y | 0)'),
+    'postfx never receives CSS px (a retina window resize used to halve the RT)');
+  assert.ok(!main.includes('postfx.resize(innerWidth, innerHeight)'), 'the old CSS-px resize is gone');
+});
+
+test('the sun shadow map stays on the integrated-GPU budget', () => {
+  assert.ok(world.includes('sun.shadow.mapSize.set(1024, 1024)'),
+    '2048² shadows were double the fill for marginal softness');
+  assert.ok(!world.includes('mapSize.set(2048'), 'the 2048 map must not grow back');
 });
 
 test('patrons render loop keeps its per-frame allocations down', () => {

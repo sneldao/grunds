@@ -6238,7 +6238,8 @@ addEventListener('keydown', e => {
 });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight); postfx.resize(innerWidth, innerHeight);
+  renderer.setSize(innerWidth, innerHeight);
+  { const bs = renderer.getDrawingBufferSize(new THREE.Vector2()); postfx.resize(bs.x | 0, bs.y | 0); }
   layoutMobile();
 });
 document.addEventListener?.('visibilitychange', () => {
@@ -7008,7 +7009,26 @@ let acc = 0, last = performance.now();
 let _hudPending = false;
 let frameNow = 0;
 let roofAmbientNoted = false;
-let _slowFrames = 0, _liteSwitched = false;
+let _slowFrames = 0, _fastFrames = 0, _liteSwitched = false;
+// Adaptive render scale: sustained slow frames step the pixel ratio down
+// one rung at a time (2 → 1.5 → 1.25 → 1) before anything else is turned
+// off; a long stretch of fast frames climbs back. The harsh lite cliff
+// (shadows+bloom+street detail) is strictly the last resort, after the
+// scale ladder is exhausted. Transient spikes must not downgrade the
+// session — that was the old ratchet's failure mode.
+const _prTop = lite ? 1 : Math.min(devicePixelRatio, 2);
+const _prLevels = [...new Set([_prTop, 1.5, 1.25, 1].filter(p => p <= _prTop))].sort((a, b) => b - a);
+let _prIdx = 0;
+function applyRenderScale() {
+  try {
+    renderer.setPixelRatio(_prLevels[_prIdx]);
+    renderer.setSize(innerWidth, innerHeight);
+    // postfx RTs track the DRAWING BUFFER (device px), not CSS px.
+    const bs = renderer.getDrawingBufferSize(new THREE.Vector2());
+    postfx.resize(bs.x | 0, bs.y | 0);
+    if (!headless) console.info(`grunds: render scale → ${_prLevels[_prIdx]}×`);
+  } catch {}
+}
 // Shadow hysteresis: flicking shadowMap.enabled every frame a queue hovers
 // near the budget line re-triggers the shadow pass; only flip on a real
 // crossing (off above 40, back on below 32).
@@ -7036,17 +7056,27 @@ function loop(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   frameNow = now;
   const nowSec = now / 1000;
-  // dynamic lite fallback: 3 slow frames (>32ms) → kill shadows/bloom.
-  // The counter resets on fast frames — a transient spike (a dawn build,
-  // a burst catch-up) must not permanently downgrade the session.
+  // Adaptive quality governor: 4 slow frames (>34ms) step the render scale
+  // down one rung; only when the ladder is exhausted does the session go
+  // lite (shadows/bloom/street detail off). ~4s of fast frames (<22ms)
+  // climbs one rung back. Mixed frames decay both counters.
   if (!headless && !_liteSwitched && !lite) {
-    if (dt > 0.032) {
-      _slowFrames++;
-      if (_slowFrames >= 3) {
-        _liteSwitched = true;
-        try { renderer.shadowMap.enabled = false; _shadowOn = false; postfx.dispose(); world.setLite(true); street.setLite(true); } catch {}
+    if (dt > 0.034) {
+      _fastFrames = 0;
+      if (++_slowFrames >= 4) {
+        _slowFrames = 0;
+        if (_prIdx < _prLevels.length - 1) { _prIdx += 1; applyRenderScale(); }
+        else {
+          _liteSwitched = true;
+          try { renderer.shadowMap.enabled = false; _shadowOn = false; postfx.dispose(); world.setLite(true); street.setLite(true); } catch {}
+        }
       }
-    } else if (_slowFrames > 0) _slowFrames = 0;
+    } else {
+      if (_slowFrames > 0) _slowFrames--;
+      if (dt < 0.022) {
+        if (++_fastFrames >= 240 && _prIdx > 0) { _fastFrames = 0; _prIdx -= 1; applyRenderScale(); }
+      } else if (_fastFrames > 0) _fastFrames--;
+    }
   }
   // shadow budget: at peak queue shadows are noise — save the fill rate
   try {
@@ -7196,6 +7226,9 @@ function loop(now) {
     pastryStock: ctx.pastryStock, pastrySpend, pastryWaste, pastryWasteCost, pastryCut,
     awareness: demand ? demand.awareness : 0, ops: lastOps, demand, repriced, prebatched }),
   vitals: () => buildVitals(vitalsSnapshot()),
+  // Perf pass observability: which rung of the adaptive-resolution ladder
+  // the session is on (and whether the lite cliff fired).
+  renderScale: () => ({ level: _prLevels[_prIdx], top: _prTop, ladder: _prLevels, lite: !!(lite || _liteSwitched) }),
   tetherWifi,
   get wifiOutage() { return wifiOutage ? { ...wifiOutage, status: outageStatus(wifiOutage, dayMin) } : null; },
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),

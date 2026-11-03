@@ -285,11 +285,24 @@ frame, and each tick used to drag the whole HUD with it:
   text throttle inside updateHUD is unchanged.
 - Shadow budget flicked `shadowMap.enabled` every frame at queue 40. Now a
   32/40 hysteresis band, written only on a real crossing.
-- Dynamic-lite ratchet counted slow frames but never reset — one transient
-  hitch (dawn build, burst catch-up) could permanently downgrade the
-  session. Fast frames now reset the counter.
+- The old dynamic-lite ratchet counted slow frames but never reset — one
+  transient hitch (dawn build, burst catch-up) could permanently downgrade
+  the session. (Superseded by the pass-2 ladder below: slow frames decay,
+  and resolution steps down long before anything is switched off.)
 - patrons.render: no per-frame `[...this.patrons]` copy; `_prevVis`
   allocated once per patron and mutated in place.
+- Pass 2 (steady GPU cost): an adaptive render-scale ladder — sustained
+  slow frames (>34ms ×4) step the pixel ratio down one rung
+  (`_prLevels`: top=min(DPR,2) → 1.5 → 1.25 → 1) and only when the ladder
+  is exhausted does the session hit the lite cliff; ~4s of fast frames
+  (<22ms) climbs a rung back, mixed frames decay both counters
+  (`applyRenderScale` re-sizes the postfx RTs). Sun shadow map 2048²→1024²
+  (PCFSoft; halves the per-frame shadow fill on integrated GPUs). Fixed a
+  latent postfx bug: the resize handler passed CSS px, so any window
+  resize on a retina display left the bloom pipeline rendering at a
+  fraction of the buffer — it now passes `getDrawingBufferSize`.
+  Observability: `__grunds.renderScale()` + one `console.info` per rung
+  change.
 - `web/test/perf-hygiene.mjs` pins all of the above as source contracts.
 Sim determinism is untouched — every fix is render/HUD-side only
 (balance-policies + replay gates re-ran green).
