@@ -29,6 +29,8 @@ export class PatronSystem {
     this.skillPts = 0;            // Phase 3 — Ruth's skill bonus bar-points, set at dawn
     this.truceCeasefire = false;  // Phase 4 — Saturday ceasefire: no rival-bound spawns
     this.turnaways = 0;         // board turnaways (86'd first choice walked, never queued)
+    this.passedBy = 0;          // strolled past the door — the street isn't sold yet
+    this.strollShare = 0;       // set each dawn from demand.strollShare(awareness)
     this.exchange = exchange;     // for contract unit consumption
     this.fx = fx;                 // for greeting bubbles on join
     this.patrons = [];
@@ -349,16 +351,33 @@ export class PatronSystem {
     // measured against OUR board (menu base / today's matcha board), so base
     // prices divert exactly 0 and the default stream is untouched — the RNG
     // order never changes. The matcha deal (4.20 vs the board) lures back.
+    // The rival band is decided EXACTLY as before the cosy street — lost
+    // regulars ride on rival-choice spawns (Mara's glimpse), so that stream
+    // must not move.
+    let pr = 0;
     if (!boardWalk && zone === 'counter' && !this.truceCeasefire && this.rivalQ.length < 42) {
       const op = this.regulars ? (this.regulars.reputation - 50) / 50 : 0;
-      const pr = this._rivalPull(cohort, wanted, op);
+      pr = this._rivalPull(cohort, wanted, op);
       if (p.choiceRoll < pr) toRival = true;
+    }
+    // Cosy street phase 2 (VISION.md): a slice of the wave came to the
+    // street, not to us — they glance at the board from the pavement and
+    // walk on. Decided off the SAME choiceRoll (no new sim draws): the
+    // stroll takes its share of what remains after the rival band, remapped
+    // onto the unit interval so the share stays exact. Pending regulars came
+    // FOR us (to stay or to defect visibly) and never stroll.
+    let stroll = false;
+    if (!boardWalk && !toRival && !pending && zone === 'counter' && (this.strollShare || 0) > 0
+        && p.choiceRoll != null) {
+      const rivalEligible = !this.truceCeasefire && this.rivalQ.length < 42;
+      const rem = rivalEligible && pr > 0 ? (p.choiceRoll - pr) / (1 - pr) : p.choiceRoll;
+      stroll = rem < this.strollShare;
     }
     // Is this spawn a named Regular? If so, mark seen, tag the patron, and
     // emit a one-line greeting when they actually join the queue.
     // pending was picked with the same roll markSeen used to spend, so the
     // person the street priced is the person who gets marked.
-    if (!toRival && !boardWalk && this.regulars && zone === 'counter') {
+    if (!toRival && !boardWalk && !stroll && this.regulars && zone === 'counter') {
       const r = pending
         ? this.regulars.markSeen(cohort, this.markSeenOnly || null, pending)
         : this.regulars.markSeen(cohort, this.markSeenOnly || null, null, this.random);
@@ -366,7 +385,7 @@ export class PatronSystem {
     }
     // Phase 1 — walk-in identity: draw a generated head from the day pool so
     // strangers accumulate visits and can graduate. Roster spawns skip this.
-    if (!toRival && !boardWalk && !p.regularName && this.walkins && zone === 'counter') {
+    if (!toRival && !boardWalk && !stroll && !p.regularName && this.walkins && zone === 'counter') {
       const head = this.walkins.draw(cohort);
       if (head) {
         p.pid = head.pid; p.pname = head.name; p.faceSeed = head.faceSeed;
@@ -385,7 +404,7 @@ export class PatronSystem {
     // Phase 1 — friends bring a +1: a friend-stage arrival sometimes spawns a
     // visitor companion on the spot. viaCompanion guards the recursion (one
     // level); spawn's null return guards a full floor.
-    if (!toRival && !boardWalk && !p.boardTurnaway && !viaCompanion && shouldBringCompanion(p.stage, this.random)) {
+    if (!toRival && !boardWalk && !stroll && !p.boardTurnaway && !viaCompanion && shouldBringCompanion(p.stage, this.random)) {
       const c = this.spawn(cohort, zone, quick, true);
       if (c && c !== p) {
         c.companionOf = p.pid || p.regularName;
@@ -395,7 +414,7 @@ export class PatronSystem {
     }
     // The 11:00 ask's party — stamp members during the rush so the evening
     // card can count who stayed and who walked.
-    if (!toRival && !boardWalk && !p.boardTurnaway && zone === 'counter' && this.party && !this.party.declined
+    if (!toRival && !boardWalk && !stroll && !p.boardTurnaway && zone === 'counter' && this.party && !this.party.declined
         && this.partyActive && this.party.left > 0 && cohort === this.party.cohort) {
       p.partyMember = true;
       this.party.left--;
@@ -418,6 +437,18 @@ export class PatronSystem {
       p.queueRef = null;
       this._paint(p);
       this._leave(p);
+      return p;
+    }
+    if (stroll) {
+      // They never enter the room: counted, not lost. At speed the walk is
+      // skipped but the count holds, so arrival math never depends on fps.
+      // Path jitter rides the cosmetic stream — no sim draws.
+      this.passedBy++;
+      if (quick) { this._despawn(p); return p; }
+      p.strollExit = p.pos.x < 0 ? 18 : -18;   // carry through, keep strolling
+      p.state = 'strolling';
+      p.path = [V3(LAYOUT.door.x + (this.cosmetic() - 0.5) * 3, 0, LAYOUT.pavementZ + 0.3)];
+      this._paint(p);
       return p;
     }
     if (toRival) {
@@ -602,6 +633,9 @@ export class PatronSystem {
         this._layoutQ(this.registerQ, registerSlot);
       } else if (p.state === 'consider' && --p.dwell <= 0) {
         this._onArrive(p);   // the beat ends; the door decision stands
+      } else if (p.state === 'strollLook' && --p.dwell <= 0) {
+        p.state = 'strollingOut';
+        p.path = [V3(p.strollExit != null ? p.strollExit : 18, 0, LAYOUT.pavementZ)];
       } else if (p.state === 'sit') {
         if (p.sipAt != null && p.dwell === p.sipAt) { p.sipping = 2; if (this.fx) this.fx.steam.spawn(p.pos.x, 1.05, p.pos.z, 0, 0.22, 0, 0.9, 0.35); }
         if (p.sipping) p.sipping--;
@@ -747,6 +781,12 @@ export class PatronSystem {
         else p.state = 'toQueue';
         break;
       case 'toBrowse': p.state = 'browse'; p.dwell = 2 + (this.random() * 4 | 0); break;
+      case 'strolling':
+        p.state = 'strollLook';
+        p.dwell = 1 + ((Math.abs(p.phase * 2.3) | 0) % 2);   // cosmetic phase — no draw
+        p.face = Math.PI;                                     // the board, from the pavement
+        break;
+      case 'strollingOut': this._despawn(p); break;
       case 'toSeat': p.state = 'sit'; p.dwell = Math.round((8 + (this.random() * 14 | 0)) * this.dwellMul); p.face = p.seat.face; p.sipAt = Math.max(1, p.dwell - 4); break;
       case 'defecting': p.state = 'inRivalQ'; this._paint(p); break;
       case 'leaving': this._despawn(p); break;
@@ -1176,7 +1216,7 @@ export class PatronSystem {
     this.ghostServed = 0; this.ghostPace = 0;   // per-day; main re-binds the pace at each openDay
     this.staffMul = 1; this.capacityMult = 1; this.shockStaff = 0; this.reach = 1; this.cupQuality = 1;
     this.balkMul = 1; this.dwellMul = 1;
-    this.turnaways = 0; this._boardProbe = 0; this._boardEvents = [];
+    this.turnaways = 0; this.passedBy = 0; this._boardProbe = 0; this._boardEvents = [];
     this.companionsToday = [];
     this._floorSitters = [];
   }

@@ -14,6 +14,18 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 export const DEMAND_ACTIONS = ['sample', 'sponsor'];
 
+// Cosy street, phase 2 (VISION.md): a slice of each wave is street traffic,
+// not door traffic — people who pass the board and keep walking. The share
+// falls as awareness rises: an unknown stand is mostly passers-by; a known
+// one gets purposeful visits. That is what makes chalk/sampling/sponsor a
+// street-composition lever instead of a rate knob. Pure + deterministic.
+export const STROLL_BASE = 0.32;
+export const STROLL_FLOOR = 0.08;
+export function strollShare(awareness = 0) {
+  const a = Math.max(0, Math.min(1, Number(awareness) || 0));
+  return Math.max(STROLL_FLOOR, STROLL_BASE * (1 - 0.75 * a));
+}
+
 // Sticky satisfaction. 62 is the same neutral the return rate already uses.
 // Yesterday keeps 0.55, today writes 0.45. Milk-outs and long lines are
 // different weights on the way to that target.

@@ -16,7 +16,7 @@ import { GLTFLoader } from '../vendor/loaders/GLTFLoader.js';
 import { COHORTS, COHORT_KEYS, LAYOUT, FRANCHISE } from './config.js';
 import { CLIMATES } from './climates.js';
 
-export const STREET_CAP = { full: 26, lite: 10 };
+export const STREET_CAP = { full: 30, lite: 12 };
 export const STREET_POOL_CAP = Math.ceil(STREET_CAP.full * Math.max(1, ...Object.values(CLIMATES).map(c => c.streetMul)));
 export const STREET_LIMITS = {
   pavement: 12,
@@ -29,8 +29,8 @@ export const STREET_LIMITS = {
   rowPerLot: 4,
   rowTotal: 7,
 };
-export const STREET_SEED = { full: 7, lite: 3 };
-export const STREET_EVERY = { full: 9, lite: 20 };
+export const STREET_SEED = { full: 10, lite: 5 };
+export const STREET_EVERY = { full: 8, lite: 16 };
 
 // Street vignettes — choreographed moments so the pavement is a place people
 // use, not just cross. One live group at a time, members share the cap as

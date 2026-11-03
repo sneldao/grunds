@@ -140,10 +140,22 @@ Cosy is density of behaviour, not density of people.
    the far shelf or across to the rival visibly. Harness check: net-worth
    deltas vs the pre-change tree are symmetric noise (mean ≈ +£66 on a £7k
    baseline) — economically neutral, as promised.
-2. **Flip the ratio** — raise ambient density + dwell behaviours, trim
-   `spawnMax` / tighten the awareness gate, add a "browsed, didn't buy" receipt
-   line. This is a rebalance: run the policy sweep afterwards, the economy is
-   tuned on funnel traffic.
+2. **Flip the ratio.** The measured skew (balance harness, passive policy):
+   ~3,000 served + ~800 balked + ~150 defected a day ≈ 4,000 door arrivals
+   (~3 per sim-minute) against `STREET_CAP` 26 ambient souls. The core lever
+   is the **stroll share**: a slice of wave spawns are people passing the
+   street, not the door — they glance at the board from the pavement and walk
+   on (counted as `passedBy`, receipt line "passed the door"). The share
+   scales DOWN with awareness (a known stand gets purposeful visits; an
+   unknown one gets passers-by), which turns chalk/sampling/sponsor from a
+   rate knob into a street-composition knob — "what we do" changes who walks
+   in, visibly. Ambient density rises in step (`STREET_SEED` 7→10, cap
+   26→30). Shipped with `STROLL_BASE` 0.32 / floor 0.08. Harness (5 seeds ×
+   passive/informed, vs the phase-1 tree): the funnel was slightly over-fed —
+   net worth rose on 7 of 10 runs (aggregate +12%), two informed seeds lost
+   ~£350–1800, no campaign flipped to lost. Fewer arrivals means fewer
+   balks, less bean bought at bad prices, less waste; skilled play buys the
+   traffic back through awareness as the share falls toward its floor.
 3. **The street-of-shops answer** — real rival shops with catchments, street
    events visibly redirecting footfall between doors (the long version of this
    feedback; it argues for accelerating the shop geometry below).

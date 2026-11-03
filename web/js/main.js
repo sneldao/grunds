@@ -39,7 +39,7 @@ import { planAsk, planIncidents } from './beats.js';
 import { portraitCanvas } from './portrait.js';
 import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, EMPTY_CASE_MOOD, starredDelivery } from './menu.js';
-import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity } from './demand.js';
+import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity, strollShare } from './demand.js';
 import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu, shockOnDay, demandShockRead, dawnDemandMult } from './shocks.js';
 import { composeLetter } from './letter.js';
 import { applyExpectation, priceForDay, modifiersForDay, wavesForDay, getMacroShockForDay, calculateNonLinearDrift, MACRO_SHOCKS } from './gentrification.js';
@@ -1583,7 +1583,7 @@ function closeDay() {
   settleStockLoanAtClose();
   cRev += till; cBalked += balked; cServed += served + servedRetail; cDef += defections;
   cRivalServed += rivalDayCups(); cRivalChoices += patrons.rivalChoices;   // PR-B1 — accumulate rival week tally (ghost: visible + ambient cups)
-  lastDayStats = { sold: served + servedRetail, balked, defections, rivalServed: rivalDayCups(), rivalChoices: patrons.rivalChoices };   // the Brief reads these at dawn — PR-B1 adds rival data
+  lastDayStats = { sold: served + servedRetail, balked, defections, passedBy: patrons.passedBy, rivalServed: rivalDayCups(), rivalChoices: patrons.rivalChoices };   // the Brief reads these at dawn — PR-B1 adds rival data
   // Ruth's ledger — a worked day drains (harder on a brutal floor), a
   // sent-home day recovers. The cost is real: her wage is saved but the
   // bar runs a third slower while she's off. Apprentice gives partial rest.
@@ -1669,7 +1669,7 @@ function closeDay() {
     }
     campaignDays.push({
       day, staleCupsByLot: { ...staleByLotToday },
-      batchWaste, pastryWaste, compost: compostToday, pastryWasteCost, balked, defections, netToday: null, opDrops,
+      batchWaste, pastryWaste, compost: compostToday, pastryWasteCost, balked, defections, passedBy: patrons.passedBy, netToday: null, opDrops,
       turnaways,
       emergencyCups, emergencySpend, interest: interestToday, event: exchange.event?.id || null, covered: hedgedCups > 0 || !!exchange.contract,
     });
@@ -1796,6 +1796,11 @@ function closeDay() {
   if (turnaways > 0) {
     const off = DRINK_IDS.filter(id => menuOffered[id] === false).map(id => DRINKS[id].name);
     lessons.push(`${turnaways} read the board and left${off.length ? ` — off the menu: ${off.join(', ')}` : ''}. Put it back on tomorrow.`);
+  }
+  // Cosy street: passers-by are footfall, not failure — but they are the
+  // demand the levers recruit. Name them so marketing reads as streetcraft.
+  if (patrons.passedBy >= 50 && demand.awareness < 0.5) {
+    lessons.push(`${patrons.passedBy} passed the door without coming in — the street doesn't know you yet. Chalk and samples turn passers-by into customers.`);
   }
   for (const r of regulars.regulars) {
     for (const ev2 of r.events) {
@@ -4550,6 +4555,9 @@ function prepareDay(d) {
   ctx.menuPrices = menuPrices;
   stagedRoast = lotState.entry(selectedLot)?.roast ?? 3;
   patrons.dwellMul = 1 + (dayMods.dwellBonus || 0);
+  // Cosy street phase 2 (VISION.md): the same awareness that brings volume
+  // decides how much of it is door traffic vs street traffic.
+  patrons.strollShare = strollShare(demand.awareness);
   rivalStrategy = strategyForDay(d, exchange.event?.tier);
   // VISION.md street-of-shops: the rival board carries the shop's market
   // posture today. GLASSHOUSE buys spot (no origin, no contracts), so a

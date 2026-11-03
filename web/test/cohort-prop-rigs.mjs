@@ -38,7 +38,7 @@ test('PR-A2 · all prop instances zero-scaled at startup', () => {
 
 // (3) _despawn zeroes the prop instance too
 test('PR-A2 · _despawn zeroes prop instance', () => {
-  const idx = patrons.indexOf('_despawn(p)');
+  const idx = patrons.indexOf('_despawn(p) {');
   assert.ok(idx > 0, '_despawn must exist');
   const body = patrons.slice(idx, idx + 800);
   assert.match(body, /propMeshes[\s\S]*?setMatrixAt\(p\.idx,\s*z\)/);

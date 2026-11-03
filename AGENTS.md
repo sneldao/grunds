@@ -151,6 +151,19 @@
   Balked/turnaway strolls already existed (`_leave` far-shelf route, 70%
   visible defection). Balance harness: ±noise vs pre-change tree (mean
   Δ ≈ +£66 on a £7k baseline — economically neutral).
+- Phase 2 (shipped): `strollShare(awareness)` in demand.js (base 0.32, floor
+  0.08, ×(1−0.75a)), set on `patrons.strollShare` each dawn. The decision
+  reuses the spawn's `choiceRoll` — no new sim draws. The rival band is
+  decided FIRST, exactly as pre-cosy-street (lost regulars ride on
+  rival-choice spawns — Mara's glimpse — that stream must not move); the
+  stroll then takes its share of what remains, remapped onto the unit
+  interval. Pending regulars never stroll. Strollers glance at the board from the pavement
+  (`strolling`/`strollLook`/`strollingOut`, jitter on the cosmetic stream),
+  count as `passedBy`, never queue; receipt line when ≥50 & awareness <0.5.
+  Quick spawns count without walking. Ambient density: STREET_SEED
+  7→10/3→5, STREET_CAP 26→30/10→12, STREET_EVERY 9→8/20→16. Harness vs
+  a8a2671: aggregate +12% net worth over 10 runs, no campaign flipped to
+  lost. Tests: street-stroll.mjs.
 - Phase 2 = flip the ratio (more ambient, lower spawnMax, "browsed" receipt
   line) and RE-RUN the balance sweep — the economy is tuned on funnel traffic.
 - Guard rails: seeded-floor / replay-campaign / replay-resume stay green

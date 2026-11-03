@@ -62,7 +62,7 @@ test('heat crowds the street to the pool cap and no further', () => {
   const { s, n } = fillStreet(CLIMATES.heat);
   assert.equal(s.cap, Math.round(STREET_CAP.full * CLIMATES.heat.streetMul));
   assert.equal(n, s.cap, 'activation should fill exactly to the climate cap');
-  assert.equal(STREET_POOL_CAP, 33, 'pool must cover the heat cap');
+  assert.equal(STREET_POOL_CAP, 38, 'pool must cover the heat cap');
   assert.equal(s.count, s.cap);
 });
 
