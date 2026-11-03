@@ -32,6 +32,7 @@ import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
 import { streetForDay, boardLine, neighborQueues, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells } from './street.js';
 import { anchorFrom, resolveSnapshot, loadCachedSnapshot, cacheSnapshot, fetchMarketSnapshot, FRED_KEY_KEY } from './marketSnapshot.js';
+import { fetchCityWeather, loadCachedWeather, cacheWeather, cacheFresh, resolveClimate } from './weatherSnapshot.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
 import { rushSpeed } from './paceNotice.js';
 import { touchPrimary } from './gestures.js';
@@ -350,7 +351,12 @@ patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day 
 const street = new StreetLife(scene, { lite });
 try { street.loadChars?.().catch(() => {}); } catch {}   // featured humanoids; blobs meanwhile
 const frontage = new FrontageConversions(patronsConvRng);
-let climate = pickClimate(seedNow(), city?.name);
+// Pillar 4 — the weather anchor (real forecast for ?city= campaigns). Cached
+// live snapshot read synchronously at boot; a fresh campaign re-resolves in
+// prepareDay(1)/reset(). Null → seeded pickClimate, bit-identical to before.
+let weatherAnchor = null;
+try { weatherAnchor = loadCachedWeather(localStorage); } catch {}
+let climate = climateNow();
 street.climate = climate;
 patrons.onCosmeticCross = (from) => street.mirrorCrossing(from);
 fx.patrons = patrons;
@@ -3702,7 +3708,8 @@ function showMorningBrief() {
       }
     }
   } catch { if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`; }
-  { const el = $('brief-climate'); if (el) el.textContent = climateBrief(climate); }
+  { const el = $('brief-climate'); if (el) el.textContent = climateBrief(climate) + (weatherAnchor && weatherAnchor.source === 'live'
+      ? ` The sky this week is the real forecast${city?.name ? ' over ' + cityDisplay(city.name) : ''} (Open-Meteo).` : ''); }
   const intro = $('brief-intro');
   if (intro) {
     if (firstDay && softWeekDone) {
@@ -4319,6 +4326,7 @@ function capturePreDawn(enteringDay) {
       playerName, standName, playerRole, perkBg, houseOrigin,
       softWeekDone: !!softWeekDone,
       anchor: marketAnchor,   // pillar 3 — the week's market snapshot rides the save
+      weather: weatherAnchor,   // pillar 4 — and so does the week's real sky
       rngState: exchange.rng && exchange.rng.state ? exchange.rng.state() : null,
       streams: {
         patrons: patronsRng && patronsRng.state ? patronsRng.state() : null,
@@ -4374,7 +4382,9 @@ function applySavedWeek(save) {
     marketAnchor = save.anchor || anchorFrom(null, save.seed ?? seedNow());
     exchange.anchor = marketAnchor;
   } catch { marketAnchor = null; }
+  try { weatherAnchor = save.weather && save.weather.source === 'live' ? save.weather : null; } catch { weatherAnchor = null; }
   refreshSnapshotCache();
+  refreshWeatherCache();
   const ex = save.exchange || {};
   exchange.beanIndex = ex.beanIndex ?? 1;
   exchange.day = ex.day ?? Math.max(0, save.day - 1);
@@ -4495,11 +4505,11 @@ function prepareDay(d) {
   if (phase !== 'onboarding' && phase !== 'review') return false;
   if (d === 1 && phase === 'onboarding' && !softWeekDone) softDay = softTest !== null ? softTest : wantsSoftDay();
   if (d !== exchange.day + 1 || d < 1 || d > CAMPAIGN.days) return false;
-  if (d === 1 && !exchange.anchor) applyMarketAnchor();   // pillar 3: anchor a fresh campaign before its first dawn save (resumes arrive anchored)
+  if (d === 1 && !exchange.anchor) { applyMarketAnchor(); applyWeatherAnchor(); }   // pillar 3/4: anchor a fresh campaign before its first dawn save (resumes arrive anchored)
   capturePreDawn(d);
   phase = 'planning';
   day = d;
-  climate = pickClimate(seedNow(), city?.name);
+  climate = climateNow();
   street.climate = climate;
   try { world.setRain?.(climateRain(climate, null)); } catch {}
   if (shockPulledFlat) { menuOffered.flatwhite = true; shockPulledFlat = false; patrons.menuOffered = menuOffered; }
@@ -5642,6 +5652,30 @@ function applyMarketAnchor() {
   refreshSnapshotCache();
 }
 
+// ---- pillar 4: real weather → climate envelope ----------------------------
+// Same one-rule contract as the market: a cached live forecast or the seeded
+// classic. Resolved synchronously; the background refresh feeds the NEXT
+// campaign, so the week in progress can never drift. Only ?city= campaigns
+// have a real sky to look up.
+let weatherFetchFired = false;
+function refreshWeatherCache() {
+  if (weatherFetchFired || !city?.name) return;
+  weatherFetchFired = true;
+  try {
+    if (cacheFresh(localStorage)) return;
+    fetchCityWeather(city.name).then(s => { if (s) cacheWeather(localStorage, s); }).catch(() => {});
+  } catch {}
+}
+function applyWeatherAnchor() {
+  try { weatherAnchor = loadCachedWeather(localStorage); } catch { weatherAnchor = null; }
+  refreshWeatherCache();
+}
+// The week's sky: live forecast mapped to the envelope when anchored, else
+// the seeded pickClimate — the exact classic path for harness/replay runs.
+function climateNow() {
+  return resolveClimate(weatherAnchor, () => pickClimate(seedNow(), city?.name));
+}
+
 function reset(coreOnly = false) {
   // full campaign restart: the market and the regulars rewind to their start state.
   // Only an explicit `true` skips the new day — a click event used to land
@@ -5663,13 +5697,15 @@ function reset(coreOnly = false) {
   frontage.random = patronsConvRng;
   frontage.reset();
   firstRecruitShown = false;
-  climate = pickClimate(seedNow(), city?.name);
+  climate = climateNow();
   street.climate = climate;
   exchange.origin = originKey(houseOrigin);   // the house persists across weeks; reset rewinds the market but not the identity
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
   exchange.anchor = null;   // re-anchor the fresh campaign from the snapshot cache
   applyMarketAnchor();
+  weatherAnchor = null;
+  applyWeatherAnchor();
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   rushFast = false;
   party = null; batchWaste = 0; batchSpend = 0; pastryWaste = 0; pastryWasteCost = 0; pastrySpend = 0; pastryOnOrder = 0; pastryCaseCap = 0; pastryMissDrinks = 0; pastryMissWalks = 0; pastryMissNoted = false; lastRetail = 0; ctx.pastryStock = null;

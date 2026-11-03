@@ -298,6 +298,20 @@ is restored verbatim on resume (old saves re-anchor synthetic, never
 retroactively live). The Morning Brief's wire leads with the snapshot line so
 the player sees which market they drew.
 
+**Weather seam shipped** (`web/js/weatherSnapshot.js` + `weather-snapshot.mjs`):
+the same one-rule contract feeds the climate envelope. City campaigns
+(`?city=lisbon`) geocode through Open-Meteo (free, keyless, CORS-open) and
+cache a five-day forecast under `grunds.weather` (12 h TTL); each dawn
+resolves `climateNow()` — live forecast mapped honestly to the envelope
+(soaking total or two wet days → rain; 28°+ peak → heat; days averaging ≤10°
+→ crisp; else fair) or the seeded `pickClimate` fallback, which is the
+bit-identical classic path for seed-only campaigns, offline play, and
+pre-anchor saves. The anchor rides `save.weather`, restored verbatim on
+resume; the background refresh feeds the next campaign only. The envelope
+restyles the street scene (density, cadence, sky, rain) and no sim draws, so
+a live sky can never touch the till — the Brief says when the week's sky is
+the real forecast.
+
 ### Sequencing
 
 1. **Cold-start day 1 (first)** — the foundation the rest stand on, and the

@@ -107,6 +107,14 @@
   pre-anchor saves re-anchor synthetic, never retroactively live.
 - Synthetic wobble draws from a dedicated stream offset (`seeded(seed+47)`),
   never the sim streams (+17/+19/+23/+29/+43). Tests: market-snapshot.mjs.
+- Weather seam: `web/js/weatherSnapshot.js` — city campaigns (`?city=`)
+  geocode + fetch a 5-day Open-Meteo forecast (keyless, CORS-open), cached
+  under `grunds.weather` (12 h TTL). Each dawn `climateNow()` maps the live
+  forecast to the envelope (rain: total ≥8mm or 2 wet days; heat: peak ≥28°;
+  crisp: mean tmax ≤10°; else fair) or falls back to seeded `pickClimate`
+  (bit-identical for seed-only/offline/pre-anchor saves). Anchor rides
+  `save.weather`; envelope is street-scene-only (no sim draws). Tests:
+  weather-snapshot.mjs.
 
 ## Mid-day beats (asks / incidents / truce)
 - No `#offer` modal any more. `presentBeat(o, incident, key)` enqueues a
