@@ -63,8 +63,9 @@ test('streetForDay: the player row carries the house origin exposure', () => {
 test('wiring: licence picker, save, footfall pull', () => {
   const main = readFileSync(new URL('../js/main.js', import.meta.url), 'utf8');
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.ok(html.includes('id="lic-origins"'));
-  assert.match(main, /houseOrigin = ORIGINS\[licOrigin\]\.id; exchange\.origin = houseOrigin/);
+  assert.equal(html.includes('id="lic-house"'), false, 'the licence carries no house pick');
+  assert.match(main, /Your house/, 'the house pick lives in the street brief');
+  assert.match(main, /!introducedSet\(\)\.has\('street'\)/, 'street block is gated until the tool is introduced');
   assert.match(main, /playerName, standName, playerRole, perkBg, houseOrigin,/);
   assert.match(main, /originPull\(houseOrigin, exchange\.event\)/);
 });

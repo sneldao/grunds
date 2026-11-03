@@ -108,7 +108,11 @@
   `streetForDay`. No DOM, no rng, no clock — tells use a hash of
   (seed, day, shop id), never a stream.
 - The player's house origin (`houseOrigin` in main.js, `exchange.origin`) is
-  picked on the licence ("your house"), saved with the week + `grunds.identity`.
+  picked in the Brief, not the licence: the "Your house" pill row appears
+  inside the street block once the `street` tool is introduced (day 4), and
+  hides again once chosen. Saved with the week; `reset()` re-applies it to
+  `exchange.origin` so it survives the next campaign. `grunds.identity`
+  records it too.
   A matching event amplifies the bean-index swing by half the street exposure
   and adds `ORIGIN_PULL` footfall. No origin is bit-identical to before.
 - `Exchange.peek(bias)` previews the coming draw from a *clone* of the rng
@@ -117,6 +121,9 @@
   lines are past tense and house reads / tells come from `peek`.
 - Brief "The street" block = `renderStreetBrief()` (kept out of
   `showMorningBrief` — `visible-rivalry.mjs` scans a 30k-char window).
+  Gated on `introducedSet().has('street')`: hidden until the curriculum
+  introduces the street tool, so days 1-3 don't carry lines the player
+  can't act on.
 - Balance: `node tools/house-sweep.mjs [seeds] [policies] [houses]` drives
   `balance-policies.mjs --single` with `GRUNDS_HOUSE`; policies `informed`
   and `scout` read `__grunds.houseReadNow/tellsNow`. Findings are in

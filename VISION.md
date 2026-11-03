@@ -116,7 +116,9 @@ becoming a coffee game itself.
    just set dressing (e.g. Milan standing-espresso vs. Melbourne flat-white
    origin culture vs. Osaka kissaten/siphon).
 2. ~~Does the player's shop also get an origin identity?~~ **Resolved — yes
-   (shipped).** The licence has a "your house" pick: Huila, a washed-lot bar,
+   (shipped).** The Brief has a "your house" pick (shown once the street tool
+   is introduced, not on the licence — the first-time licence is already
+   crowded): Huila, a washed-lot bar,
    Cerrado, or no origin (the open table, bit-identical to before). A house
    whose origin the day's event names feels it harder — the swing on your
    bean index is amplified by half the street exposure (frost on your plateau

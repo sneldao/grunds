@@ -3507,7 +3507,11 @@ function renderStreetBrief() {
   // its origin exposure and any specialist's early read — the causal spine
   // (event → shop → floor) visible at the decision moment.
   const streetEl = $('brief-street');
-  if (streetEl) {
+  // Hold the street block until the curriculum has introduced the street
+  // tool (day 4). Days 1-3 already carry ~17-43 controls; flavour the
+  // player cannot act on yet reads as noise.
+  if (streetEl && !introducedSet().has('street')) streetEl.style.display = 'none';
+  if (streetEl && introducedSet().has('street')) {
     try {
       // exchange.event is *yesterday's close* while the Brief is up (the draw
       // happens at OPEN), so rival lines are in the past tense; the house
@@ -3530,7 +3534,32 @@ function renderStreetBrief() {
         else if (r.exposure > 1) lines.push(`${r.name} felt yesterday’s close.`);
       }
       clearEl(streetEl);
-      if (lines.length) {
+      // The house pick lives here, not on the licence: a first-time player
+      // has no context for an origin until the street has been introduced.
+      // One pill row + the selected option's consequence, once — hidden
+      // again once chosen. No origin stays available (the open table).
+      if (!houseOrigin && !campaignDone) {
+        const h = document.createElement('div');
+        h.className = 'l-kicker';
+        h.textContent = 'Your house';
+        streetEl.appendChild(h);
+        const pills = document.createElement('div');
+        pills.className = 'lic-pills';
+        const cap = document.createElement('div');
+        cap.className = 'lic-perk';
+        const paint = (i) => { [...pills.children].forEach((c, j) => c.className = j === i ? 'on' : ''); cap.textContent = ORIGINS[i].perk; };
+        ORIGINS.forEach((o, i) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = o.label;
+          b.onclick = () => { houseOrigin = o.id; exchange.origin = houseOrigin; paint(i); renderStreetBrief(); try { capturePreDawn(day); } catch {} };
+          pills.appendChild(b);
+        });
+        paint(0);
+        streetEl.appendChild(pills);
+        streetEl.appendChild(cap);
+      }
+      if (lines.length || (!houseOrigin && !campaignDone)) {
         const h = document.createElement('div');
         h.className = 'l-kicker';
         h.textContent = 'The street';
@@ -5495,6 +5524,7 @@ function reset(coreOnly = false) {
   frontage.reset();
   climate = pickClimate(seedNow(), city?.name);
   street.climate = climate;
+  exchange.origin = houseOrigin;   // the house persists across weeks; reset rewinds the market but not the identity
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
@@ -6134,7 +6164,7 @@ const LIC_BGS = [
   { id: 'newcomer',      label: 'new to the trade', perk: 'a fresh face — the regulars warm quicker' },
   { id: 'circuit',       label: 'a market regular', perk: 'you know the circuit — the wire names its lean' },
 ];
-let licRole = 0, licBg = 0, licOrigin = 0;
+let licRole = 0, licBg = 0;
 function licPrimary() { return $('lic-sign'); }
 function showLicence() {
   const el = $('licence'); if (!el) return;
@@ -6145,7 +6175,6 @@ function showLicence() {
       playerName = s.playerName; standName = s.standName;
       licRole = Math.max(0, LIC_ROLES.indexOf(s.playerRole));
       licBg = Math.max(0, LIC_BGS.findIndex(b => b.id === s.perkBg));
-      licOrigin = Math.max(0, ORIGINS.findIndex(o => o.id === validOrigin(s.houseOrigin)));
     }
   } catch {}
   const nameEl = $('lic-name'), standEl = $('lic-stand');
@@ -6170,17 +6199,8 @@ function showLicence() {
   });
   if (bgPerk) bgPerk.textContent = LIC_BGS[licBg].perk;
   const ors = $('lic-origins'), orPerk = $('lic-origin-perk');
-  if (ors) {
-    ors.textContent = '';
-    ORIGINS.forEach((o, i) => {
-      const b = document.createElement('button');
-      b.textContent = o.label;
-      b.className = i === licOrigin ? 'on' : '';
-      b.onclick = () => { licOrigin = i; if (orPerk) orPerk.textContent = o.perk; [...ors.children].forEach((c, j) => c.className = j === i ? 'on' : ''); };
-      ors.appendChild(b);
-    });
-    if (orPerk) orPerk.textContent = ORIGINS[licOrigin].perk;
-  }
+  // a returning signature only: a first-time licence has no context
+  // for "your house" yet, so the pick stays hidden until they've played
   // City Remix: a city link pre-names the pitch; the "your city" field
   // carries it forward so re-pitching the same street is one keystroke.
   const kicker = el.querySelector('.l-kicker');
@@ -6213,7 +6233,6 @@ function signLicence() {
   playerName = (($('lic-name').value || '').trim() || 'Sam').slice(0, 16);
   standName = ((($('lic-stand').value || '').trim() || 'the corner cup').slice(0, 22)).toUpperCase();
   playerRole = LIC_ROLES[licRole]; perkBg = LIC_BGS[licBg].id;
-  houseOrigin = ORIGINS[licOrigin].id; exchange.origin = houseOrigin;
   try {
     localStorage.setItem('grunds.identity', JSON.stringify({ playerName, standName, playerRole, perkBg, houseOrigin }));
     localStorage.setItem('grunds.owner', standName);   // the district board lists the stand, not a hash
