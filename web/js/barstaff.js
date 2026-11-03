@@ -1,6 +1,7 @@
-// One figure behind the bar. Same body as a patron (capsule, sphere, boxes)
-// and the same pour clip. Ruth's colours come from her portrait seed;
-// the apprentice is the other portrait seed. Home leaves the spot empty.
+// One figure behind the bar. Same body as a patron (capsule torso, rounded
+// limbs, taller head, hair cap) and the same pour clip. Ruth's colours come
+// from her portrait seed; the apprentice is the other portrait seed. Home
+// leaves the spot empty.
 import * as THREE from '../vendor/three.module.js';
 import { LAYOUT } from './config.js';
 import { avatarSpec } from './portrait.js';
@@ -57,11 +58,17 @@ export function buildBarStaff(scene) {
   const legMat = mat(LEG);
   const hatMat = mat(HAT, 0.7);
   const cupMat = mat(CUP, 0.5);
+  const hairMat = mat(0x241a12, 0.85);
 
-  const legGeo = new THREE.BoxGeometry(0.09, 0.34, 0.09); legGeo.translate(0, -0.17, 0);
-  const armGeo = new THREE.BoxGeometry(0.07, 0.3, 0.07); armGeo.translate(0, -0.15, 0);
+  // Rounded limbs with the same heights and hip/shoulder pivots as the old
+  // boxes; a slightly taller head; a hair cap from the portrait spec.
+  const legGeo = new THREE.CapsuleGeometry(0.05, 0.24, 3, 8); legGeo.translate(0, -0.17, 0);
+  const armGeo = new THREE.CapsuleGeometry(0.038, 0.224, 3, 8); armGeo.translate(0, -0.15, 0);
+  const headGeo = new THREE.SphereGeometry(0.135, 12, 10); headGeo.scale(1, 1.1, 1);
+  const hairGeo = new THREE.SphereGeometry(0.145, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55); hairGeo.scale(1, 1.1, 1);
   const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.34, 4, 10), torsoMat);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), headMat);
+  const head = new THREE.Mesh(headGeo, headMat);
+  const hair = new THREE.Mesh(hairGeo, hairMat);
   const legL = new THREE.Mesh(legGeo, legMat);
   const legR = new THREE.Mesh(legGeo.clone(), legMat);
   const armL = new THREE.Mesh(armGeo, armMat);
@@ -69,12 +76,12 @@ export function buildBarStaff(scene) {
   const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.1, 12), hatMat);
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.038, 0.1, 8), cupMat);
   cup.castShadow = false;
-  for (const m of [torso, head, legL, legR, armL, armR, hat]) m.castShadow = true;
-  root.add(torso, head, legL, legR, armL, armR, hat);
+  for (const m of [torso, head, hair, legL, legR, armL, armR, hat]) m.castShadow = true;
+  root.add(torso, head, hair, legL, legR, armL, armR, hat);
   armR.add(cup);
   cup.position.set(0, -0.32, 0.04);
 
-  const parts = { torso, head, legL, legR, armL, armR, hat, cup };
+  const parts = { torso, head, hair, legL, legR, armL, armR, hat, cup };
   let mode = 'home';
   let phase = 0;
 
@@ -84,6 +91,10 @@ export function buildBarStaff(scene) {
     headMat.color.set(spec.skin);
     const hatted = spec.accessory === 'hat' || spec.hairStyle === 'beanie';
     hat.visible = hatted;
+    // Hair from the same portrait seed as the face card — a hat or a steel
+    // head (hairStyle null) leaves the cap off.
+    hairMat.color.set(spec.hairColor || 0x241a12);
+    hair.visible = !!spec.hairStyle && !hatted;
   }
 
   function apply(pose, s = 1) {
@@ -98,6 +109,9 @@ export function buildBarStaff(scene) {
     head.position.set(0, headY, 0);
     head.rotation.set(0, pose.headRy || 0, 0);
     head.scale.setScalar(s);
+    hair.position.set(0, headY, 0);
+    hair.rotation.set(0, pose.headRy || 0, 0);
+    hair.scale.setScalar(s);
     legL.position.set(-0.09 * s, hipY, 0);
     legL.rotation.set(pose.legSwing, 0, 0);
     legL.scale.setScalar(s);

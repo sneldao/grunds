@@ -60,7 +60,14 @@
    ship a rigged Walk clip; assignDonorWalk lends it to the other 5 (all
    share one 22-bone rig — clips bind by name). _driveChar eases timeScale
    in/out, pins hip root drift, offsets phase by idx (no rng), respects
-   reduced-motion; the busker keeps his authored pose. Street theatre
+   reduced-motion; the busker keeps his authored pose. Tier-2 bodies
+   shipped too: patrons + bar staff + street crowd swapped box limbs for
+   capsules, heads went oval-taller, and two new instanced bands landed —
+   hips (trouser colour, torso reads as a shirt) and a hair cap (palette
+   hash of p.idx — `hairFor`/`baldAt` in patrons.js, pure, no streams;
+   staff hair comes from the portrait seed). patrons.js is 10 draw calls.
+   Verb FX rolls fall back to a patron+time hash when fx is absent — never
+   `Math.random`, never the decision/cosmetic streams. Street theatre
    shipped too (attention-street
    pillar): coffee argument, bench cat + cat-watchers, skater — see
    `street-theatre.mjs`. Next: dog walker needs its own rig;

@@ -528,9 +528,11 @@ export class StreetLife {
         if (scene && scene.add) scene.add(m);
         return m;
       };
-      const leg = new THREE.BoxGeometry(0.09, 0.34, 0.09);
+      // Rounded limbs — same heights and hip/shoulder pivots as the old
+      // boxes, so every matrix composition in _draw carries over untouched.
+      const leg = new THREE.CapsuleGeometry(0.05, 0.24, 3, 6);
       leg.translate(0, -0.17, 0);
-      const arm = new THREE.BoxGeometry(0.065, 0.3, 0.065);
+      const arm = new THREE.CapsuleGeometry(0.035, 0.23, 3, 6);
       arm.translate(0, -0.15, 0);
       const hairGeo = new THREE.SphereGeometry(0.138, 7, 5, 0, Math.PI * 2, 0, Math.PI * 0.55);
       const beanieGeo = new THREE.SphereGeometry(0.152, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.52);

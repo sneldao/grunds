@@ -1,4 +1,4 @@
-// Patrons — hundreds of little people, 8 draw calls, one real queue line.
+// Patrons — hundreds of little people, 10 draw calls, one real queue line.
 // The line out the door IS the chart.
 import * as THREE from '../vendor/three.module.js';
 import { COHORTS, LAYOUT, ECON, CAMPAIGN, counterSlot, registerSlot, rivalSlot, MAX_VISIBLE_QUEUE } from './config.js';
@@ -13,6 +13,11 @@ import { axesFor } from './impact.js';
 const MAXP = ECON.maxPatrons;
 const SKIN = [0xf2c89a, 0xe0ac82, 0xc98a5e, 0xa06a42, 0x7a4e30, 0x5e3a24];
 const LEGS = [0x2a2c34, 0x3a3230, 0x24303a];
+// Hair is wardrobe, not genetics — palette by idx, pure (no stream draws):
+// the same room must repaint identically on every render and every replay.
+const HAIR_PALETTE = [0x241a12, 0x3c2a1a, 0x5a4632, 0x1c1c22, 0x7a5c3a, 0x8c8c92, 0x4a2c1c, 0x2e2420];
+export const hairFor = (idx) => HAIR_PALETTE[Math.abs(Number(idx) || 0) % HAIR_PALETTE.length];
+export const baldAt = (idx) => Math.abs(Number(idx) || 0) % 9 === 4;
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const RED = new THREE.Color(0xd0503a);
 const GLASS = new THREE.Color(0x7fb3b0);
@@ -82,11 +87,19 @@ export class PatronSystem {
       m.count = MAXP;
       scene.add(m); return m;
     };
-    const legGeo = new THREE.BoxGeometry(0.09, 0.34, 0.09); legGeo.translate(0, -0.17, 0);
-    const armGeo = new THREE.BoxGeometry(0.07, 0.3, 0.07); armGeo.translate(0, -0.15, 0);
+    // Tier-2 shapes: rounded limbs (capsules, same heights + hip/shoulder
+    // pivots as the old boxes), a slightly taller head, and two new bands —
+    // hips (trouser colour, so the torso reads as a shirt) and a hair cap.
+    // Everything stays instanced on the same matrix budget.
+    const legGeo = new THREE.CapsuleGeometry(0.05, 0.24, 3, 8); legGeo.translate(0, -0.17, 0);
+    const armGeo = new THREE.CapsuleGeometry(0.038, 0.224, 3, 8); armGeo.translate(0, -0.15, 0);
+    const headGeo = new THREE.SphereGeometry(0.135, 12, 10); headGeo.scale(1, 1.1, 1);
+    const hairGeo = new THREE.SphereGeometry(0.145, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55); hairGeo.scale(1, 1.1, 1);
     this.parts = {
       torso: mk(new THREE.CapsuleGeometry(0.16, 0.34, 4, 10)),
-      head: mk(new THREE.SphereGeometry(0.14, 10, 8)),
+      head: mk(headGeo),
+      hips: mk(new THREE.CylinderGeometry(0.14, 0.168, 0.16, 10)),
+      hair: mk(hairGeo),
       legL: mk(legGeo), legR: mk(legGeo.clone()),
       armL: mk(armGeo), armR: mk(armGeo.clone()),
       hat: mk(new THREE.CylinderGeometry(0.15, 0.17, 0.1, 12)),
@@ -830,9 +843,12 @@ export class PatronSystem {
       : this._c.copy(p.torso).lerp(new THREE.Color(0xffffff), 0.15);
     this.parts.torso.setColorAt(p.idx, p.torso);
     this.parts.head.setColorAt(p.idx, p.skin);
+    this.parts.hips.setColorAt(p.idx, p.legs);
     this.parts.legL.setColorAt(p.idx, p.legs); this.parts.legR.setColorAt(p.idx, p.legs);
     this.parts.armL.setColorAt(p.idx, p.torso); this.parts.armR.setColorAt(p.idx, p.torso);
     this.parts.hat.setColorAt(p.idx, hat);
+    // hair shares the _c scratch — it must land after the hat write above
+    this.parts.hair.setColorAt(p.idx, this._c.set(hairFor(p.idx)));
     this.parts.cup.setColorAt(p.idx, this._c.set(p.cupGreen ? 0x9fc46a : 0xf0ead8));
     for (const part of Object.values(this.parts)) if (part.instanceColor) part.instanceColor.needsUpdate = true;
   }
@@ -1139,8 +1155,17 @@ export class PatronSystem {
       d.rotation.x = lean; d.rotation.z = pose.sway || 0; d.updateMatrix(); P.torso.setMatrixAt(p.idx, d.matrix);
       d.scale.setScalar(s);
 
+      // Hips — a trouser band at the torso's base riding the same lean/sway,
+      // so the capsule above reads as a shirt instead of a jumpsuit.
+      d.position.set(vx, torsoY - 0.26 * s, vz);
+      d.updateMatrix(); P.hips.setMatrixAt(p.idx, d.matrix);
+
       d.rotation.set(0, p.face + headRy, 0);
       d.position.set(vx, headY, vz); d.updateMatrix(); P.head.setMatrixAt(p.idx, d.matrix);
+      // Hair cap rides the head; palette by idx, some heads stay bare.
+      d.scale.setScalar(baldAt(p.idx) ? 0.001 : s);
+      d.updateMatrix(); P.hair.setMatrixAt(p.idx, d.matrix);
+      d.scale.setScalar(s);
 
       const hipY = 0.36 + bob * 0.5;
       d.position.set(vx - rx * 0.09 * s, hipY, vz - rz * 0.09 * s);
@@ -1182,8 +1207,12 @@ export class PatronSystem {
         // steam, cane tap. Rare by design (reads as event, not noise).
         try {
           // cosmetic stream when FX carries one — a per-frame verb roll must
-          // never consume a patron decision draw
-          const verbR = (this.fx && this.fx.random) ? this.fx.random() : this.random();
+          // never consume a patron decision draw (nor the cosmetic spawn
+          // stream, whose position is saved/restored). Without FX, verbs
+          // hash patron + time instead: pure, render-only, stream-free.
+          const verbR = (this.fx && this.fx.random)
+            ? this.fx.random()
+            : (((p.idx * 2654435761) ^ ((now | 0) * 40503)) >>> 0) / 4294967296;
           if (this.fx && propKey === 'camera' && sitting && verbR < 0.025) {
             this.fx.flash(d.position.x, d.position.y + 0.1, d.position.z);
           } else if (this.fx && propKey === 'laptop' && sitting && verbR < 0.045) {
