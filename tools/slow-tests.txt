@@ -1,0 +1,27 @@
+# Slow suite: files that boot main.js and pump whole days/weeks of frames
+# (or spawn child campaign sweeps). Excluded from `npm run test:fast`.
+# Keep sorted; one basename per line. `test:fast` greps -vxF against this.
+# If a fast file starts taking >~60s, move it here.
+async-rivals.mjs
+balance-policies.mjs
+brief-staged-prep.mjs
+campaign.mjs
+campaign-tight.mjs
+coach.mjs
+decisions.mjs
+deepening-mechanics.mjs
+floor-cues.mjs
+game-feel.mjs
+lifecycle-accounting.mjs
+menu-pricing.mjs
+modals.mjs
+moments.mjs
+orientation.mjs
+replay-campaign.mjs
+replay-resume.mjs
+robot-lease.mjs
+smoke.mjs
+soft-opening.mjs
+stock-loan.mjs
+time-locked-levers.mjs
+utilities.mjs

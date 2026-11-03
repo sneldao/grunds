@@ -6,6 +6,8 @@
   "description": "Grunds — The District: Convex backend + Three.js floor",
   "scripts": {
     "test": "node --experimental-vm-modules --test --test-concurrency=1 web/test/*.mjs",
+    "test:fast": "node --experimental-vm-modules --test --test-concurrency=1 $(cd web/test && ls *.mjs | grep -vxF -f ../../tools/slow-tests.txt | sed 's|^|web/test/|')",
+    "test:slow": "node --experimental-vm-modules --test --test-concurrency=1 $(cd web/test && ls *.mjs | grep -xF -f ../../tools/slow-tests.txt | sed 's|^|web/test/|')",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
     "typecheck": "tsc --noEmit",

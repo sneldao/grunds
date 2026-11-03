@@ -1,7 +1,17 @@
 # Working notes
 
 ## Verify
-- `npm test` — full suite (`node --experimental-vm-modules --test --test-concurrency=1 web/test/*.mjs`)
+- **Default while iterating: `npm run test:fast`** — everything except the
+  day/week playthroughs (~2 min vs ~20). CI (`test.yml`) still runs the full
+  gate on push/PR; run the full thing locally before a deploy.
+- `npm test` — full suite (~540 tests, `--test-concurrency=1`)
+- `npm run test:slow` — only the playthrough files
+- Slow membership lives in `tools/slow-tests.txt` (basenames, grepped -vxF).
+  If a fast file grows past ~60 s, move it there. balance-policies.mjs
+  spawns `--single` child campaigns via execFileSync — don't kill stray
+  `balance-policies` processes without checking they're not the suite's.
+- Balance sweeps are HEAVY: never background more than one; a machine at
+  load 60+ starves the suite and flakes timing-sensitive tests.
 - `npm run typecheck` — `tsc --noEmit`
 - Licence/identity surface: `node web/test/identity.mjs web/test/orientation.mjs`
 - Narrow: `node --test web/test/frontage.mjs web/test/polyfork-lighting.mjs web/test/camera-grammar.mjs web/test/climates.mjs`
