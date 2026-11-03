@@ -87,11 +87,14 @@ test('wiring: the pick lives in the street brief, answers persist, open table is
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.equal(html.includes('id="lic-house"'), false, 'the licence carries no house pick');
   assert.match(main, /Your house/, 'the house pick lives in the street brief');
-  assert.match(main, /!introducedSet\(\)\.has\('street'\)/, 'street block is gated until the tool is introduced');
+  assert.match(main, /visible\.has\('street'\)/, 'street block is gated on the live tool visibility');
+  assert.equal(/!introducedSet\(\)\.has\('street'\)/.test(main), false, 'introducedSet gate hid the block all week for unlockAll players');
   assert.match(main, /playerName, standName, playerRole, perkBg, houseOrigin,/);
   assert.match(main, /originPull\(originKey\(houseOrigin\), exchange\.event\)/);
   assert.match(main, /houseOrigin = o\.id \|\| 'none'/, 'choosing "no origin" stores the sentinel, so the picker dismisses');
   assert.match(main, /houseOrigin == null && validOrigin\(s\.houseOrigin\)/, 'a returning player is not re-asked');
+  assert.match(main, /day > streetDay/, 'the pick arrives the morning after the street tool is introduced');
+  assert.match(main, /markStreetIntroduced\(\)/, 'the introduction day is recorded');
 });
 
 test('peek is the next roll, and never spends the stream', () => {

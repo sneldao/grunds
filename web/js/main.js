@@ -577,6 +577,17 @@ function persistIntroduced() {
   if (curriculumMemory) return;
   try { localStorage.setItem('grunds.curriculum', JSON.stringify([...curriculumPersist])); } catch {}
 }
+// The house pick arrives the morning AFTER the street tool is introduced —
+// day 4 already carries the new tool, so the picker gets its own beat.
+function streetIntroducedDay() {
+  if (curriculumMemory && curriculumMemory.streetDay != null) return curriculumMemory.streetDay;
+  try { return Number(localStorage.getItem('grunds.streetDay')) || null; } catch { return null; }
+}
+function markStreetIntroduced() {
+  if (streetIntroducedDay()) return;
+  try { localStorage.setItem('grunds.streetDay', String(day)); } catch {}
+  if (curriculumMemory) curriculumMemory.streetDay = day;
+}
 const WARN_TIERS = new Set(['warn', 'bad', 'cata']);
 function briefTools() {
   const houseNow = lotState.entry(selectedLot);
@@ -3507,12 +3518,16 @@ function renderStreetBrief() {
   // its origin exposure and any specialist's early read — the causal spine
   // (event → shop → floor) visible at the decision moment.
   const streetEl = $('brief-street');
-  // Hold the street block until the curriculum has introduced the street
-  // tool (day 4). Days 1-3 already carry ~17-43 controls; flavour the
-  // player cannot act on yet reads as noise.
-  if (streetEl && !introducedSet().has('street')) streetEl.style.display = 'none';
-  if (streetEl && introducedSet().has('street')) {
+  // The street block is live once the street tool is on the cards — day 4
+  // for first-timers (the curriculum's teaching morning), day 1 for
+  // returning players and tutorial-skippers, whose tool set is unlocked.
+  // Before that, rival lines the player cannot act on read as noise.
+  let streetLive = false;
+  try { streetLive = (toolsToday || briefTools()).visible.has('street'); } catch {}
+  if (streetEl && !streetLive) streetEl.style.display = 'none';
+  if (streetEl && streetLive) {
     try {
+      markStreetIntroduced();
       // exchange.event is *yesterday's close* while the Brief is up (the draw
       // happens at OPEN), so rival lines are in the past tense; the house
       // read is a peek at the coming draw on the same seeded stream.
@@ -3538,7 +3553,8 @@ function renderStreetBrief() {
       // has no context for an origin until the street has been introduced.
       // One pill row + the selected option's consequence, once — hidden
       // again once chosen. No origin stays available (the open table).
-      if (!houseOrigin && !campaignDone) {
+      const streetDay = streetIntroducedDay();
+      if (!houseOrigin && !campaignDone && streetDay != null && day > streetDay) {
         const h = document.createElement('div');
         h.className = 'l-kicker';
         h.textContent = 'Your house';
@@ -3570,7 +3586,7 @@ function renderStreetBrief() {
         streetEl.appendChild(pills);
         streetEl.appendChild(cap);
       }
-      if (lines.length || (!houseOrigin && !campaignDone)) {
+      if (lines.length || (!houseOrigin && !campaignDone && streetDay != null && day > streetDay)) {
         const h = document.createElement('div');
         h.className = 'l-kicker';
         h.textContent = 'The street';

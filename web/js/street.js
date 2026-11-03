@@ -65,9 +65,9 @@ export const STREET = [
 // buy the board, hold no identity, feel the Exchange only through your till.
 export const ORIGINS = [
   { id: null,         label: 'no house origin', perk: 'buy the board — the Exchange reaches you only through the till' },
-  { id: 'colombia',   label: 'a Huila house',   perk: 'a clean harvest eases your costs further — and the street comes to ask' },
-  { id: 'eastAfrica', label: 'a washed-lot bar', perk: 'the short rains hit your shelf harder — and the street comes to ask' },
-  { id: 'brazil',     label: 'a Cerrado house', perk: 'a frost is your frost: the biggest swing on the board — and the street comes to ask' },
+  { id: 'colombia',   label: 'a Huila house',   perk: 'a clean harvest eases your costs further, and your growers call before the wire does' },
+  { id: 'eastAfrica', label: 'a washed-lot bar', perk: 'the short rains hit your shelf harder — but your cupping table tastes them first' },
+  { id: 'brazil',     label: 'a Cerrado house', perk: 'a frost is your frost, the biggest swing on the board — but the plateau calls you first' },
 ];
 export function originDef(id) { return ORIGINS.find(o => o.id === (id || null)) || ORIGINS[0]; }
 // `null` is "not chosen yet" (the Brief still asks). `'none'` is a choice:

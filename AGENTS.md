@@ -121,9 +121,15 @@
   lines are past tense and house reads / tells come from `peek`.
 - Brief "The street" block = `renderStreetBrief()` (kept out of
   `showMorningBrief` — `visible-rivalry.mjs` scans a 30k-char window).
-  Gated on `introducedSet().has('street')`: hidden until the curriculum
-  introduces the street tool, so days 1-3 don't carry lines the player
-  can't act on.
+  Gated on the live tool visibility (`toolsToday.visible.has('street')`):
+  day 4 for first-timers, day 1 for returning/tutorial-skipped players.
+  Do NOT gate on `introducedSet()` — unlockAll players get `newToday=null`,
+  so the commit loop never marks the tool introduced and the block would
+  stay hidden all week.
+- The house pick arrives the morning AFTER the street is first on the
+  cards (`grunds.streetDay`, recorded at render time). Standard week:
+  street taught day 4, pick on day 5 — chosen at the climax morning and
+  carried into week 2.
 - Balance: `node tools/house-sweep.mjs [seeds] [policies] [houses]` drives
   `balance-policies.mjs --single` with `GRUNDS_HOUSE`; policies `informed`
   and `scout` read `__grunds.houseReadNow/tellsNow`. Findings are in
