@@ -299,3 +299,48 @@ export function neighborQueues(boards, seed, day) {
   }
   return out;
 }
+
+// Street theatre is attention made visible (VISION.md pillar 2 → pillar 3).
+// When the street gathers around something, that attention is a tide the
+// frontage can catch: passers-by linger, heads turn, and a hesitator at the
+// door is easier to win. The timetable is a pure function of (seed, day) —
+// the same idiom as beats.js / neighborQueues — so replays agree and nothing
+// is saved. Times are sim-minutes; while a window is live its boost is added
+// to the awareness the frontage conversion rolls against. It never reads the
+// wall-clock vignette agents (they expire in update(dt)), so the economy stays
+// frame-clock invariant.
+export const THEATRE_KINDS = {
+  busker:   { boost: 0.18, line: 'A busker has drawn a crowd on the pavement.' },
+  argue:    { boost: 0.14, line: 'Two voices rise over a coffee — the street slows to watch.' },
+  catwatch: { boost: 0.12, line: 'The street cat has gathered an audience.' },
+  chat:     { boost: 0.10, line: 'Neighbours stop to talk in the open street.' },
+  skater:   { boost: 0.08, line: 'A skater threads the kerb — heads turn to follow.' },
+};
+const THEATRE_ORDER = ['busker', 'argue', 'catwatch', 'chat', 'skater'];
+const THEATRE_BAND_START = 400, THEATRE_BAND_END = 1120;
+
+// Three windows a day, dealt into equal slots across the trading band so they
+// never overlap. Kind, offset, and length all hash off (seed, day, slot).
+export function planTheatre(seed, day) {
+  const n = 3;
+  const slotW = (THEATRE_BAND_END - THEATRE_BAND_START) / n;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const kind = THEATRE_ORDER[Math.floor(tellHash(seed, day, `theatre:kind:${i}`) * THEATRE_ORDER.length)];
+    const dur = 16 + Math.floor(tellHash(seed, day, `theatre:dur:${i}`) * 11);   // 16..26 min
+    const slotS = THEATRE_BAND_START + i * slotW;
+    const slack = Math.max(0, slotW - dur);
+    const start = slotS + Math.floor(tellHash(seed, day, `theatre:start:${i}`) * slack);
+    const def = THEATRE_KINDS[kind];
+    out.push({ kind, start, end: start + dur, boost: def.boost, line: def.line });
+  }
+  return out;
+}
+
+// The live window at a sim-minute, or null. Windows are disjoint, so the
+// first match is the only match.
+export function theatreAt(windows, minute) {
+  if (!Array.isArray(windows) || !Number.isFinite(minute)) return null;
+  for (const w of windows) if (minute >= w.start && minute < w.end) return w;
+  return null;
+}

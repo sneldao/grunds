@@ -265,10 +265,17 @@ their own `vg:cat` gate, and the **skater** (a fast crossing on its own rare
 roll, board under foot, one at a time, scatters the pigeons by proximity).
 All ride the street's cosmetic stream and stay off the café till.
 
-Next: hook moments into the attention economy — a busker outside our stand
-gathers a crowd that converts to awareness; an argument next door spills
-footfall our way. "Do interesting things" becomes "interesting things happen
-around you."
+**Shipped (the attention hook):** the street's theatre now *pays*. A seeded
+timetable (`planTheatre(seed, day)`, pure in the beats.js idiom) deals three
+attention windows a day across trading hours. While a window is live, the
+frontage conversion rolls against lifted awareness — the street's gathered
+gaze laps at your door. A busker crowd lifts it most, a passing skater least.
+The player hears it ("A busker has drawn a crowd on the pavement.") and, when
+a hesitator converts mid-window, sees the cause ("the crowd's attention
+followed them in"). Crucially the economy reads the sim-minute clock, never
+the wall-clock vignette agents, so replays stay bit-identical at any frame
+rate. "Do interesting things" becomes "interesting things happen around you —
+and you catch the spill."
 
 ### Pillar 4 — Anchored to the real world (snapshot, never live — infra shipped)
 
@@ -317,8 +324,9 @@ the real forecast.
 
 1. **Cold-start day 1 — done** (pillar 1): near-zero floor, the earned
    first-customer beat, day-1-aware chapter copy, balance re-sweep.
-2. **Street theatre — first wave done** (pillar 3): authored moments shipped;
-   the killer version (moments → attention) is pending.
+2. **Street theatre — killer version done** (pillar 3): authored moments
+   shipped, and now hooked into the attention economy (`planTheatre` →
+   frontage awareness lift, sim-minute deterministic).
 3. **Real-world snapshot — done** (pillar 4): market snapshot + weather seam,
    both snapshot-never-live, both bit-identical in fallback.
 4. **Attention economy / catchments — thin slices done, capstone held**:

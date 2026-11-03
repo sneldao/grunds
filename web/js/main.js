@@ -30,7 +30,7 @@ import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS, seedCityNames, seedCastNames, castName } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
-import { streetForDay, boardLine, neighborQueues, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells } from './street.js';
+import { streetForDay, boardLine, neighborQueues, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells, planTheatre, theatreAt } from './street.js';
 import { anchorFrom, resolveSnapshot, loadCachedSnapshot, cacheSnapshot, fetchMarketSnapshot, FRED_KEY_KEY } from './marketSnapshot.js';
 import { fetchCityWeather, loadCachedWeather, cacheWeather, cacheFresh, resolveClimate } from './weatherSnapshot.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
@@ -551,6 +551,9 @@ let franchiseFxToday = { awareness: 0, returnees: 0, rentBonus: 0 };   // the Ro
 let franchiseCarry = { awareness: 0, returnees: 0, rentBonus: 0 };     // that close, still owed to this morning's brief
 let loanLotCover = 0, loanSponsorCover = 0, loanCashCap = null, closeTillOverride = null;
 let loanClaim = null, menuHeld = null, salesTillForOps = null;
+// Street theatre (pillar 3): the attention tide. Pure in (seed, day),
+// computed at dawn; never reads the wall-clock vignette agents.
+let theatrePlan = [], theatreLiveNow = null;
 let pouredOther = 0, lastPour = 0, dawnIndex = 1.0;
 let pouredByLotToday = {}, servedByDrinkToday = {};
 let companionsYesterday = [];
@@ -1006,8 +1009,16 @@ function tick() {
   street.tick();
   // Frontage conversion: a hesitator reading the front may come in —
   // awareness × reputation rolls on its own stream (max 3/day).
+  // Street theatre (pillar 3): while the street watches something, its
+  // gathered attention laps at the frontage — a deterministic awareness
+  // lift from the day's theatre plan, read off the sim-minute clock.
+  const theatreWin = theatreAt(theatrePlan, dayMin);
+  if (theatreWin && theatreWin !== theatreLiveNow) {
+    theatreLiveNow = theatreWin;
+    fx.toast(theatreWin.line, '');
+  } else if (!theatreWin) theatreLiveNow = null;
   if (!softDay) frontage.tick(dayMin, {
-    start: DAY_START, awareness: demand.awareness, reputation: regulars.reputation,
+    start: DAY_START, awareness: Math.min(1, demand.awareness + (theatreWin ? theatreWin.boost : 0)), reputation: regulars.reputation,
     approach: p => street.showFrontage(p),
     resolve: (p, converted) => {
       street.finishFrontage(p, converted);
@@ -1016,6 +1027,10 @@ function tick() {
       if (converted && !firstRecruitShown) {
         firstRecruitShown = true;
         fx.card('FIRST OFF THE STREET', 'A passer-by read your board and chose you. That is how the street learns a name.');
+      } else if (converted && theatreAt(theatrePlan, dayMin)) {
+        // The street was watching something — the gathered attention followed
+        // the hesitator through the door.
+        fx.toast('the crowd’s attention followed them in', 'good');
       }
     },
     spawn: p => {
@@ -4840,6 +4855,8 @@ function startTradingDay(d) {
   // The boards are real shops: their aprons carry the day's queue (pure off
   // the same board tones painted above — the line and the board agree).
   try { street.setNeighborQueues(neighborQueues(streetBoards, seedNow(), d)); } catch {}
+  // Theatre attention tide for the day (pillar 3): pure in (seed, day).
+  theatrePlan = planTheatre(seedNow(), d); theatreLiveNow = null;
   street.syncFranchise(franchise, d);
   updateTicker();
   // Managed runs mirror through sync.finishDay at close; unmanaged/local runs
@@ -7229,6 +7246,8 @@ function loop(now) {
   // Perf pass observability: which rung of the adaptive-resolution ladder
   // the session is on (and whether the lite cliff fired).
   renderScale: () => ({ level: _prLevels[_prIdx], top: _prTop, ladder: _prLevels, lite: !!(lite || _liteSwitched) }),
+  // Pillar 3 observability: the day's theatre-attention plan + the live window.
+  theatre: () => ({ plan: theatrePlan, live: theatreAt(theatrePlan, dayMin), dayMin, awareness: demand.awareness }),
   tetherWifi,
   get wifiOutage() { return wifiOutage ? { ...wifiOutage, status: outageStatus(wifiOutage, dayMin) } : null; },
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),

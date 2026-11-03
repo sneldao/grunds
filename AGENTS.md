@@ -84,7 +84,15 @@
    sim-minutes then roll awareness(0..1) × reputation/100 ×3 capped at 1,
    max 3 successful spawns/day — FrontageConversions in frontage.js ticks
    inside tick() on its own saved/reset stream (seed+43). StreetLife only
-   displays candidates (showFrontage/finishFrontage).
+   displays candidates (showFrontage/finishFrontage). Pillar 3 attention
+   tide shipped on top: `planTheatre(seed, day)` (street.js, pure, tellHash
+   idiom) deals 3 windows/day across sim-minutes 400..1120; while a window
+   is live tick() lifts the awareness fed to frontageChance by the window's
+   kind boost (busker .18 / argue .14 / catwatch .12 / chat .10 / skater .08)
+   and toasts the window line once. THE RULE: the sim economy may only read
+   the sim-minute clock — never the wall-clock vignette agents (they expire
+   in update(dt), so reading them would break the replay fixed-step
+   invariance test). Observability: `__grunds.theatre()`.
 4. Seasons — current climate envelope is cosmetic: seeded
    fair/heat/rain/crisp changes street density/cadence, sky tint/sun/stars,
    and rain. The fixed Brief header explains it before opening. Climate
