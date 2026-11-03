@@ -12,9 +12,9 @@ const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 
 const held = VERDICT_GATES.held;
-ok(held.netAbove === 4500 && held.repAtLeast === 50, 'held gate drifted');
-ok(campaignVerdict(4500, 50) === 'scarped', '£4,500 exactly is not held');
-ok(campaignVerdict(4500.01, 50) === 'held', 'cash just over £4,500 with rep 50 is held');
+ok(held.netAbove === 1000 && held.repAtLeast === 50, 'held gate drifted (cold-start retune)');
+ok(campaignVerdict(1000, 50) === 'scarped', '£1,000 exactly is not held');
+ok(campaignVerdict(1000.01, 50) === 'held', 'cash just over £1,000 with rep 50 is held');
 ok(campaignVerdict(5000, 49) === 'scarped', 'cash without reputation is not held');
 ok(campaignVerdict(5000, 45) === 'scarped', 'rep 45 misses held');
 ok(campaignVerdict(9000, 70) === 'star' && campaignVerdict(6000, 60) === 'good', 'star and good gates drifted');
@@ -22,14 +22,14 @@ ok(campaignVerdict(100, 80) === 'scarped' && campaignVerdict(0, 90) === 'lost' &
 
 const opening = weekStanding({ net: 0, rep: 62, day: 1, asOf: 'opening' });
 ok(opening.tone === 'ok' && !opening.insolvent, 'day 1 with nothing closed is not a bust warning');
-ok(opening.lines.join(' ').includes('more than £4,500') && opening.lines.join(' ').includes('regulars at 50'), 'opening copy names the held bar');
+ok(opening.lines.join(' ').includes('more than £1,000') && opening.lines.join(' ').includes('regulars at 50'), 'opening copy names the held bar');
 ok(opening.cashLine.includes('Below £0'), 'opening copy names the tab');
 ok(!opening.cashLine.includes('£0.00'), 'opening copy does not treat an empty book as a position');
 
 const cool = weekStanding({ net: 3000, rep: 45, day: 3, asOf: 'close', nut: 2800 });
 ok(cool.tone === 'warn' && cool.repShort && !cool.insolvent, 'rep 45 warns without calling the tab');
 ok(cool.repLine.includes('45/100') && cool.repLine.includes('5 short') && /walk-outs/i.test(cool.repLine), cool.repLine);
-ok(cool.heldLine.includes('£4,500') && cool.heldLine.includes('50'), cool.heldLine);
+ok(cool.heldLine.includes('£1,000') && cool.heldLine.includes('50'), cool.heldLine);
 ok(standingNudge(cool, 3)?.tone === 'warn', 'a short room is said out loud');
 
 const thin = weekStanding({ net: 400, rep: 62, day: 2, asOf: 'last-close', nut: 2900 });
@@ -79,7 +79,7 @@ ok(lastMorning.sliding && lastMorning.slideLine.includes('last close'), 'the las
 const led = weekStanding({ net: 5000, rep: 55, day: 4, asOf: 'close', nut: 2000 });
 ok(led.chip.includes('week +£5,000.00') && led.chip.includes('bills £2,000.00') && led.chip.includes('regulars 55 (needs 50)'), led.chip);
 ok(led.warns.length === 0 && led.teaches.length === 1, 'a quiet week teaches one line, it does not warn');
-ok(led.teaches.some(l => l.includes('£4,500')) && led.teaches.some(l => l.includes('Below £0')), 'the teach line still names both rules');
+ok(led.teaches.some(l => l.includes('£1,000')) && led.teaches.some(l => l.includes('Below £0')), 'the teach line still names both rules');
 const ledOpen = weekStanding({ net: 0, rep: 62, day: 1, asOf: 'opening' });
 ok(ledOpen.chip.includes('no closes yet'), ledOpen.chip);
 ok(slide.warns.includes(slide.slideLine) && !slide.warns.includes(slide.heldLine), 'a sliding week says the slide, not the syllabus');

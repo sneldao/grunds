@@ -6,7 +6,7 @@ export function firstMorningCopy() {
     heading: 'YOUR FIRST MORNING',
     kicker: 'Day 1 of 5 · before opening',
     idrisQuote: 'A good café starts with people, not a price board.',
-    welcome: 'These are your first five days on the street. Keep the café in business and make it a place people want to return to.',
+    welcome: 'These are your first five days on the street. The street doesn\u2019t know you yet \u2014 today\u2019s crowd is earned, not given. Keep the café in business and make it a place people want to return to.',
     ruthRole: 'Ruth brews and serves automatically. You choose how to prepare, watch the room, and step in when your plan needs attention.',
     rival: 'Across the road is Glasshouse, run by Sam. His café is your rival — but today is about learning your own.',
     aim: 'Today: handle the afternoon matcha rush and learn what your choice changes.',

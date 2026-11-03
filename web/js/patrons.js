@@ -31,6 +31,7 @@ export class PatronSystem {
     this.turnaways = 0;         // board turnaways (86'd first choice walked, never queued)
     this.passedBy = 0;          // strolled past the door — the street isn't sold yet
     this.strollShare = 0;       // set each dawn from demand.strollShare(awareness)
+    this.recruited = false;     // transient: set around frontage-convert spawns
     this.exchange = exchange;     // for contract unit consumption
     this.fx = fx;                 // for greeting bubbles on join
     this.patrons = [];
@@ -367,8 +368,8 @@ export class PatronSystem {
     // onto the unit interval so the share stays exact. Pending regulars came
     // FOR us (to stay or to defect visibly) and never stroll.
     let stroll = false;
-    if (!boardWalk && !toRival && !pending && zone === 'counter' && (this.strollShare || 0) > 0
-        && p.choiceRoll != null) {
+    if (!boardWalk && !toRival && !pending && !this.recruited && zone === 'counter'
+        && (this.strollShare || 0) > 0 && p.choiceRoll != null) {
       const rivalEligible = !this.truceCeasefire && this.rivalQ.length < 42;
       const rem = rivalEligible && pr > 0 ? (p.choiceRoll - pr) / (1 - pr) : p.choiceRoll;
       stroll = rem < this.strollShare;

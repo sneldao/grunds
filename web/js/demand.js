@@ -83,8 +83,9 @@ export class Demand {
     this.todayReturnees = 0;
     this.lastReturnRate = 0;
   }
-  // Wave spawn multiplier for this dawn: 0.4× (regulars only) .. 1.3×.
-  // Opening awareness (0.28) reads ≈0.65× — a handful try you on a whim.
+  // Wave spawn multiplier for this dawn: spawnMin (unknown — passing trade
+  // stays viable) .. spawnMax (the street queues). Cold start (VISION.md):
+  // opening awareness 0.10 reads ≈0.28× — a quiet open; the crowd is earned.
   spawnMul() {
     const d = CAMPAIGN.demand;
     return d.spawnMin + (d.spawnMax - d.spawnMin) * clamp(this.awareness, 0, 1);

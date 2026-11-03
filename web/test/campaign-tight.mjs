@@ -11,7 +11,7 @@
 //      before it caps (a capped tab buys nothing; every cup then pours as an
 //      emergency sack at 1.5× spot from the till and eats the week). We assert
 //      `net > 600` as the floor of a week that isn't bleeding out — the
-//      'held' band itself starts at £4,500 (campaignVerdict), so this pins
+//      'held' band itself starts at £1,000 (campaignVerdict), so this pins
 //      survivability, not a specific verdict phrase.
 //
 // Run: node web/test/campaign-tight.mjs
@@ -143,7 +143,10 @@ for (let d = 1; d <= CAMPAIGN.days; d++) {
   // in balance-policies), else hold.
   const before = G.stats();
   G.stageCellar({ lot: 'huila', topup: 'restock' });
-  G.stageDayPlan({ hedge: d === 1 ? 'contract' : (before.debt > 0 ? 'settle' : 'hold') });
+  // Cold start (VISION.md): a competent week works the street — sample days
+  // 1–4, sponsor from day 3, mirroring the growth policy.
+  G.stageDayPlan({ hedge: d === 1 ? 'contract' : (before.debt > 0 ? 'settle' : 'hold'),
+    marketing: { sample: d < CAMPAIGN.days, sponsor: d >= 3 && d < CAMPAIGN.days } });
   G.commitDayPlan();
   runFrames(220);
   G.continueFromReview();

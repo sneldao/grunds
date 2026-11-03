@@ -164,10 +164,45 @@
   7→10/3→5, STREET_CAP 26→30/10→12, STREET_EVERY 9→8/20→16. Harness vs
   a8a2671: aggregate +12% net worth over 10 runs, no campaign flipped to
   lost. Tests: street-stroll.mjs.
-- Phase 2 = flip the ratio (more ambient, lower spawnMax, "browsed" receipt
-  line) and RE-RUN the balance sweep — the economy is tuned on funnel traffic.
 - Guard rails: seeded-floor / replay-campaign / replay-resume stay green
   (determinism), balance-policies reconciliation stays green (ledger).
+
+## The attention street (Nov 3 vision — VISION.md "Arrive as nobody")
+Thesis: the street is a real place with its own life and a zero-sum economy
+of attention — you arrive as nobody in it. Four pillars, in shipping order:
+1. **Cold start (shipped)** — `demand.start` 0.28→0.10 (day 1 ≈0.28× spawn
+   mul, <half the old hose); `spawnMin` HOLDS at 0.18 (a first cut to 0.06
+   made do-nothing weeks insolvent by day 3 — punishment, not fiction;
+   unknown ≠ dead). The hidden funnel `Math.max(1, round(expected))` per
+   wave entry is gone — thinning is `waveHash01(seed, day, entry, slot)`,
+   a pure hash (no rng stream → mid-day resume replays identical waves).
+   Gains raised so working the street is a ladder: chalk 0.03→0.045
+   (nearly offsets 0.055 decay — idle drift −0.01/day), sample 0.12→0.18,
+   sponsor 0.20→0.30. Frontage converts never stroll (`patrons.recruited`
+   guard around the spawn callback in main.js tick); the first convert
+   lands a FIRST OFF THE STREET card (`firstRecruitShown`, cleared in
+   campaign reset). Verdict gates retuned with the economy: held
+   4500→1000, good 5500→2500, star 8000→4500 (rep bars unchanged;
+   standing.mjs pins the numbers + copy). Harness matrix (5 seeds):
+   passive mean +£469 (3/5 lost), informed +£1802, engaged +£3849 (5/5
+   held), growth +£4267. campaign-tight/stock-loan playthroughs stage
+   growth-style marketing as part of a "competent week". Tests:
+   cold-start.mjs.
+2. **Street theatre** — authored, seeded moments with personality (argument
+   over a cortado, skater, park cat), one live at a time; the killer version
+   hooks moments into attention (busker at our door → awareness). TRUE GTA
+   emergence is impossible in a seeded bit-identical sim — authored moments
+   that FEEL emergent, never systemic chaos.
+3. **Real-world snapshot** — arabica/cocoa (+weather→climate) fetched ONCE at
+   campaign start, folded into the seed; the week derives deterministically.
+   Never live drift (breaks replays/harness). Network optional with seeded
+   synthetic fallback (Grove-mirror philosophy). FRED/Pink Sheet/IMF free.
+4. **Attention economy / catchments** — per-shop attention stocks (awareness
+   decay pattern extended to the street), zero-sum allocation across doors
+   (= cosy-street phase 3 restated). The full rebalance, done last.
+- Config contradiction that motivates pillar 1: `start: 0.28 // opening-day
+  awareness — nobody knows the stand yet` — the comment says nobody, the
+  harness served ~3,000 cups on day 1.
 
 ## Conventions
 - Choice surfaces: options + consequence visible, no folds for choices —

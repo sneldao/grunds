@@ -207,19 +207,31 @@ export const CAMPAIGN = {
   // existing reputation stock, re-explained as a return rate: yesterday's
   // served × returnRate reappear spread across today's waves.
   demand: {
-    start: 0.28,          // opening-day awareness — nobody knows the stand yet
-    spawnMin: 0.18,       // spawn multiplier at zero awareness — passing trade only
+    // Cold start is the default (VISION.md "The attention street"): the
+    // street does NOT know you yet — day 1 opens quiet and the crowd is
+    // earned. start is the opening awareness (≈0.28× spawn mul, down from
+    // the old 0.28/≈0.47× hose); spawnMin keeps passing trade viable at
+    // zero awareness, so unknown ≠ dead. Growth comes from the dawn levers
+    // (chalk free, sample, sponsor) landing on tomorrow's awareness plus
+    // their same-day reach. Wave entries thin stochastically (main.js
+    // waveHash01) — the old Math.max(1, …) guaranteed funnel is gone.
+    start: 0.10,          // opening-day awareness — genuinely unknown
+    spawnMin: 0.18,       // spawn multiplier at zero awareness — passing trade stays viable
     spawnMax: 1.22,         // spawn multiplier at full awareness (the street queues)
     decay: 0.055,         // awareness lost per close when coasting
     cataExtra: 0.04,      // catastrophes scare the street extra
     returnBase: 0.12,     // return rate at reputation 62
     returnPerRep: 0.004,  // +0.4% per reputation point above 62
     returnMax: 0.48,      // a strong week can bring back more than 35%
-    chalkGain: 0.03,      // chalk the board: free, once a day
-    sampleGain: 0.12,     // sample hour: costs cups, buys the street
+    // Cold start raised the gains (VISION.md): doing something interesting
+    // must visibly buy the street, or the early days are a hole with no
+    // ladder. Chalk nearly offsets the daily decay; a sample hour is a real
+    // step; a sponsor is a leap.
+    chalkGain: 0.045,     // chalk the board: free, once a day
+    sampleGain: 0.18,     // sample hour: costs cups, buys the street
     sampleCost: 40.0,     // £ of cups given away
     sampleReach: 1.15,    // same day: a bigger wave, and a heavier pull on the split
-    sponsorGain: 0.20,    // sponsor the market stall: real money, real crowd
+    sponsorGain: 0.30,    // sponsor the market stall: real money, real crowd
     sponsorCost: 160.0,   // £ from the till at commit
     sponsorReach: 1.25,   // same day, and it multiplies with a sample if both are on
     sponsorDay: 3,        // the stall only takes sponsors once you're known

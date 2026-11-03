@@ -160,6 +160,99 @@ Cosy is density of behaviour, not density of people.
    events visibly redirecting footfall between doors (the long version of this
    feedback; it argues for accelerating the shop geometry below).
 
+## The attention street — arrive as nobody (Nov 3 vision)
+
+**Thesis (north star):** the street is a real place with its own life and a
+zero-sum economy of attention — and you arrive as nobody in it. Everything
+below is an implementation of that sentence.
+
+The config already admits the gap: `demand.start: 0.28 // opening-day
+awareness — nobody knows the stand yet` — the comment says nobody, the number
+served ~3,000 cups on day 1 in the harness. Cold start is not a new mechanic;
+it is correcting the floor to match the fiction the code already claims.
+
+### Pillar 1 — Cold start is the default (shipped)
+
+Day 1 opens quiet: `start` 0.28→**0.10** (≈0.28× spawn mul — less than half
+the old 0.47× hose), with ~30% of those arrivals strolling past (phase 2's
+`strollShare` at low awareness). The hidden guaranteed funnel is gone: wave
+entries used to be `Math.max(1, round(expected))` — one customer per entry
+no matter how unknown the stand; they now thin stochastically via
+`waveHash01` (a pure hash of seed/day/entry/slot — no rng stream, so a
+mid-day resume replays identical waves). **Passing trade stays viable**:
+`spawnMin` holds at 0.18 — unknown ≠ dead. (The first cut to 0.06 made
+do-nothing weeks insolvent by day 3: punishment, not fiction.)
+
+The "do interesting things" loop already existed (chalk / samples / sponsor
+buy awareness) — cold start makes it the ladder. Gains raised: chalk
+0.03→**0.045** (nearly offsets the 0.055 decay — the free daily ritual
+holds the street; idle drift is −0.01/day), sample 0.12→**0.18** (+0.17
+day-over-day), sponsor 0.20→**0.30**. Marketing stops being a rate knob and
+becomes the core loop: the harness ramp climbs 1488→2950 served across the
+week under engaged play.
+
+The frontage-conversion loop (hesitators who read the front, awareness ×
+reputation, max 3/day) is the visible earn: recruited converts never stroll
+(`patrons.recruited` guard), and the first one lands a **FIRST OFF THE
+STREET** card. Day-1 Brief copy names the fiction: "the street doesn't know
+you yet — today's crowd is earned, not given."
+
+**The rebalance, measured** (harness, 5 seeds × policies): verdict gates
+retuned with the economy — held £4,500→**£1,000**, good £5,500→**£2,500**,
+star £8,000→**£4,500** (rep bars unchanged). Do-nothing play averages +£469
+with 3/5 seeds lost; exchange-smart play +£1,802; street-working play
++£3,849–4,267 and reliably held. The old gates assumed the hose and are
+unreachable without it. Integration playthroughs (campaign-tight,
+stock-loan) now stage marketing as part of a "competent week".
+
+### Pillar 2 — The attention economy (phase 3's better name)
+
+Footfall is a shared, scarce stock that all six shops compete for; nobody is
+born entitled to it. Mechanically: attention as a **per-shop stock** that
+decays and that events/moments/levers move — the extension of the existing
+awareness decay (0.055/close) to the whole street. Catchments (phase 3) are
+the allocation of that stock across doors. Zero-sum means our revenue falls
+with the floor: the economy's fixed costs and verdicts re-tune together.
+
+### Pillar 3 — Street theatre: authored moments that feel emergent
+
+The substrate exists (dogs chase pigeons, busker-and-crowd, chatting pairs,
+bench sitters). Escalate toward named moments with personality — an argument
+over a cortado outside Yirg's, a skater threading the pavement, a cat on the
+warm bench. **Honest constraint: true GTA emergence is impossible in a seeded,
+bit-identical sim.** What we build is a library of authored, seeded moments
+that *read* as emergent, one live at a time so the street stays legible. The
+killer version hooks moments into the attention economy: a busker outside our
+stand gathers a crowd that converts to awareness; an argument next door spills
+footfall our way. "Do interesting things" becomes "interesting things happen
+around you."
+
+### Pillar 4 — Anchored to the real world (snapshot, never live)
+
+The differentiator: the week you play is anchored to the market that actually
+existed that day. **Hard constraint:** live-drifting prices break bit-identical
+replays and the balance harness, so the contract is a *snapshot*: fetch real
+arabica/cocoa levels once at campaign start, fold them into the seed; the
+week's Exchange is deterministically derived from a real market. Network stays
+optional with a seeded synthetic fallback (the Grove-mirror philosophy — never
+a runtime dependency). Free sources: FRED coffee/cocoa series (free key),
+World Bank Pink Sheet, IMF. Real weather → the climate envelope is the same
+trick and nearly free (fair/heat/rain/crisp already exists). Resolves open
+question 5.
+
+### Sequencing
+
+1. **Cold-start day 1 (first)** — the foundation the rest stand on, and the
+   one that can quietly become boring if wrong: near-zero floor, an earned
+   first-customer ignition beat, day-1-aware chapter copy, balance re-sweep.
+2. **Street theatre pass** — authored moments, cheap to layer once attention
+   is scarce enough that a moment *means* something.
+3. **Real-world snapshot** — campaign-start fetch → seed fold → Exchange
+   anchoring; orthogonal infra, shippable independently.
+4. **Attention economy / catchments** — per-shop attention stocks and the
+   zero-sum allocation (phase 3 below, restated); the full rebalance, done
+   last when the street's population story is final.
+
 ## Open questions (to resolve before build)
 
 1. Which 2–3 capitals first? Candidates should differ in ritual grammar, not
@@ -208,5 +301,8 @@ Cosy is density of behaviour, not density of people.
    persists across the week as the tour moves on.)
 4. Multiplayer stands: do human players pick conflicting specialisms, and how
    does the street rebalance?
-5. Real-world data cadence: the Firecrawl pipeline updates on news cycles, not
-   game days — what is the deterministic snapshot contract for a campaign week?
+5. ~~Real-world data cadence: the Firecrawl pipeline updates on news cycles,
+   not game days — what is the deterministic snapshot contract for a campaign
+   week?~~ **Resolved (Nov 3):** the snapshot contract — fetch once at campaign
+   start, fold into the seed, derive the week deterministically; offline falls
+   back to the seeded synthetic baseline. See Pillar 4 above.

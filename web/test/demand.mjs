@@ -1,5 +1,5 @@
 // Demand test — awareness brings them, loyalty brings them back:
-//   1. Opening awareness (0.28) spawns ≈0.65× — a quiet open, room to grow.
+//   1. Cold start: opening awareness (0.10) spawns ≈0.28× — earned, not given.
 //   2. spawnMul rails: 0 awareness → spawnMin, full → spawnMax.
 //   3. Coasting decays awareness 0.055/close; catastrophes scare an extra 0.04.
 //   4. Each dawn action lands its configured gain on tomorrow's awareness.

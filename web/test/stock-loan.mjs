@@ -251,7 +251,9 @@ for (let d = 1; d <= CAMPAIGN.days; d++) {
   const before = G.stats();
   check(before.loan.balance === 0 && !before.loan.seized, `day ${d} skip path carried a loan`);
   G.stageCellar({ lot: 'huila', topup: 'restock' });
-  G.stageDayPlan({ hedge: d === 1 ? 'contract' : (before.debt > 0 ? 'settle' : 'hold') });
+  // Cold start (VISION.md): a competent week works the street.
+  G.stageDayPlan({ hedge: d === 1 ? 'contract' : (before.debt > 0 ? 'settle' : 'hold'),
+    marketing: { sample: d < CAMPAIGN.days, sponsor: d >= 3 && d < CAMPAIGN.days } });
   const cr = G.commitDayPlan();
   check(cr.ok, `day ${d} skip commit failed ${JSON.stringify(cr)}`);
   runFrames(220);

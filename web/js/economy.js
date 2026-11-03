@@ -35,14 +35,20 @@ export function debtInterestFor(debt) {
   return debt > 0 ? Math.max(CAMPAIGN.debtInterest, Math.round(debt * CAMPAIGN.debtInterestRate * 100) / 100) : 0;
 }
 // Verdict gates. campaignVerdict uses these numbers and nothing else.
-// held is net strictly above £4,500 AND reputation at least 50.
-// £4,500.00 exactly is scraped. Below or at £0 is lost.
+// held is net strictly above £1,000 AND reputation at least 50.
+// £1,000.00 exactly is scraped. Below or at £0 is lost.
 // Insolvency (the supplier calls the tab) is a separate check: net < 0
 // at the next morning. These gates do not move that rule.
+// Retuned for the cold start (VISION.md "The attention street"): the week's
+// wealth now comes from an earned ramp, not a guaranteed funnel. Harness
+// evidence (5 seeds): do-nothing play dies insolvent by day 3–4; policies
+// that work the street land ~+£1–1.8k; the old £4.5k held gate assumed the
+// hose and is unreachable without it. Good and star keep headroom for play
+// that beats the harness policies (staffing to the traffic, hedging, timing).
 export const VERDICT_GATES = {
-  star: { netAbove: 8000, repAtLeast: 70 },
-  good: { netAbove: 5500, repAtLeast: 60 },
-  held: { netAbove: 4500, repAtLeast: 50 },
+  star: { netAbove: 4500, repAtLeast: 70 },
+  good: { netAbove: 2500, repAtLeast: 60 },
+  held: { netAbove: 1000, repAtLeast: 50 },
 };
 
 export function campaignVerdict(net, rep) {

@@ -604,6 +604,7 @@ let prepHintOpen = false;
 let peakQueue = 0, waveBalked = 0, waveServed = 0, prebatchHelped = false;
 let waveBatchServed = 0, waveStockoutAt = 0;
 let turnaways = 0, turnawayToastDone = false;
+let firstRecruitShown = false;   // cold start: celebrate the first earned customer once
 let coach = null, coachHold = false;
 let cueRun = null, cuesFinished = false;
 let rulesTaught = new Map();   // rule id → day first said; said all that day, then the ledger
@@ -879,6 +880,16 @@ const ctx = { prebatched: false, repriced: false, batchUnits: 0, batchReservedUn
 const WALK_MUL = { 60: 1, 300: 3, 1200: 6 };
 // settle window: day 1, first 12 sim-min feel uncrowded even after the sim starts
 const CALM_UNTIL_MIN = DAY_START + 12;
+// Cold start (VISION.md "The attention street"): wave thinning is a pure
+// hash of (seed, day, entry, slot) — no rng stream to save or restore, so
+// mid-day resume replays the identical thinned waves.
+function waveHash01(seed, dayNo, entry, slot) {
+  let h = (Number(seed) | 0) ^ Math.imul((dayNo | 0) + 1, 0x9e3779b1);
+  h = Math.imul(h ^ (entry | 0), 0x85ebca6b);
+  h = Math.imul(h ^ (slot | 0), 0x9e3779b1);
+  h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
 
 // PR-5 — Time-locked levers. Once commitDayPlan fires, the prep / reprice
 // levers lock for the rest of the day. Pressing them anyway charges £4.20
@@ -940,13 +951,19 @@ function tick() {
     let firstSpawn = true;
     patrons.party = party;
     patrons.partyActive = softDay ? false : (dayMin >= 840 && dayMin <= 1020);
-    for (const s of w.spawns) {
+    for (const [si, s] of w.spawns.entries()) {
       let n;
       if (softDay) {
         const expected = s.q * ECON.spawnScale * SOFT_MUL;
         n = Math.floor(expected) + (softRng() < expected - Math.floor(expected) ? 1 : 0);
       } else {
-        n = Math.max(1, Math.round(s.q * ECON.spawnScale * mul)) + (firstSpawn ? returnBonus : 0);
+        // The old Math.max(1, …) floor guaranteed every wave entry a customer
+        // no matter how unknown the stand — a hidden guaranteed funnel. Cold
+        // start thins probabilistically instead: the street is earned.
+        const expected = s.q * ECON.spawnScale * mul;
+        const fl = Math.floor(expected);
+        n = fl + (waveHash01(seedNow(), day, waveIdx - 1, si) < expected - fl ? 1 : 0)
+          + (firstSpawn ? returnBonus : 0);
       }
       firstSpawn = false;
       for (let i = 0; i < n; i++) patrons.spawn(s.c, s.z, speed > 60);
@@ -978,9 +995,21 @@ function tick() {
   if (!softDay) frontage.tick(dayMin, {
     start: DAY_START, awareness: demand.awareness, reputation: regulars.reputation,
     approach: p => street.showFrontage(p),
-    resolve: (p, converted) => street.finishFrontage(p, converted),
+    resolve: (p, converted) => {
+      street.finishFrontage(p, converted);
+      // Cold start (VISION.md): the first customer the street gives you is a
+      // moment — someone hesitated at the front and chose you.
+      if (converted && !firstRecruitShown) {
+        firstRecruitShown = true;
+        fx.card('FIRST OFF THE STREET', 'A passer-by read your board and chose you. That is how the street learns a name.');
+      }
+    },
     spawn: p => {
+      // Recruited off the pavement — they already hesitated on purpose, so
+      // the stroll slice must not swallow them.
+      patrons.recruited = true;
       const patron = patrons.spawn(p.cohort, 'counter', false);
+      patrons.recruited = false;
       if (patron) patron.pos.set(p.x, 0, p.z);
       return patron;
     },
@@ -5557,6 +5586,7 @@ function reset(coreOnly = false) {
   fx.random = fxRng;
   frontage.random = patronsConvRng;
   frontage.reset();
+  firstRecruitShown = false;
   climate = pickClimate(seedNow(), city?.name);
   street.climate = climate;
   exchange.origin = originKey(houseOrigin);   // the house persists across weeks; reset rewinds the market but not the identity
