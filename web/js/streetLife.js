@@ -558,6 +558,43 @@ export class StreetLife {
           home: i % PIGEON_ANCHORS.length,
         });
       }
+      // Street theatre (VISION.md pillar 2): a bench cat and a skateboard.
+      // The cat is a fixture — it sits on the bench end, breathes, flicks its
+      // tail and grooms on a deterministic timer (see _cat). The skateboard
+      // is a single mesh that rides under the one live skater; only one
+      // skater crosses at a time, so no instancing needed.
+      const catMat = new THREE.MeshStandardMaterial({ color: 0x8a8175, roughness: 0.95 });
+      this.cat = new THREE.Group();
+      const catBody = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.15, 0.16), catMat);
+      catBody.position.y = 0.075;
+      const catHead = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.13, 0.13), catMat);
+      catHead.position.set(0.2, 0.19, 0);
+      const earGeo = new THREE.ConeGeometry(0.035, 0.06, 4);
+      const catEarL = new THREE.Mesh(earGeo, catMat);
+      catEarL.position.set(0.2, 0.28, -0.04);
+      const catEarR = new THREE.Mesh(earGeo.clone(), catMat);
+      catEarR.position.set(0.2, 0.28, 0.04);
+      const catTail = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 0.3), catMat);
+      catTail.position.set(-0.22, 0.1, 0);
+      this.catTailPivot = catTail;
+      this.catHeadMesh = catHead;
+      this.cat.add(catBody, catHead, catEarL, catEarR, catTail);
+      for (const m of [catBody, catHead, catEarL, catEarR, catTail]) { m.castShadow = false; m.frustumCulled = false; }
+      this.cat.frustumCulled = false;
+      // Far end of the bench slab (bench centred x 5, top y 0.49).
+      this.cat.position.set(5.95, 0.49, 7.4);
+      this.cat.rotation.y = -0.5;
+      if (scene && scene.add) scene.add(this.cat);
+      this._catT = 0;
+      this.skateBoard = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.045, 0.6),
+        new THREE.MeshStandardMaterial({ color: 0x23252c, roughness: 0.55 })
+      );
+      this.skateBoard.castShadow = false;
+      this.skateBoard.frustumCulled = false;
+      this.skateBoard.visible = false;
+      if (scene && scene.add) scene.add(this.skateBoard);
+      this._skater = null;
     } finally {
       Math.random = savedRandom;
     }
@@ -756,9 +793,13 @@ export class StreetLife {
     this._since = 0;
     if (this.count >= this.cap) return;
     this._spawnOne();
-    // Vignettes: one choreographed group at a time (busker+crowd or a
-    // chatting pair), only in full mode and only when the cap has room.
+    // Vignettes: one choreographed group at a time (busker+crowd, a chatting
+    // pair, a coffee argument, or cat-watchers), only in full mode and only
+    // when the cap has room.
     if (!this.lite && !this._vgAnchor && this.free.length >= 4 && this.rng() < 0.2) this._spawnVignette();
+    // A skater crosses on its own rarer roll — it never holds a spot, so it
+    // is not gated by the vignette anchor.
+    if (!this.lite && !this._skater && this.rng() < 0.10) this._spawnSkater();
   }
 
   // Street vignettes — a small group choreographed around a pavement spot.
@@ -766,6 +807,10 @@ export class StreetLife {
   // the anchor holds the spot until it leaves, and _vgAnchor gates the next
   // group so vignettes stay sparse.
   _spawnVignette() {
+    const roll = this.rng();
+    // The catwatch group gathers around the bench cat and needs no pavement
+    // spot, so decide it before claiming one.
+    if (roll >= 0.80) return this._spawnCatWatch();
     const free = VIGNETTE_SPOTS.map((s, i) => ({ s, i })).filter(({ i }) => !this.holds.has(`vg:${i}`));
     if (!free.length) return null;
     const pick = free[(this.rng() * free.length) | 0];
@@ -782,7 +827,7 @@ export class StreetLife {
       return a;
     };
     const base = 20 + this.rng() * 14;
-    if (this.rng() < 0.5) {
+    if (roll < 0.30) {
       // Busker faces the road; the crowd arcs in front and peels off one by
       // one (staggered dwell) — a gathering that forms and dissolves.
       const anchor = mkMember(spot.x, spot.z, base + 14, 0, 'busker', edge(), edge(), hold);
@@ -795,14 +840,82 @@ export class StreetLife {
         const gz = spot.z + Math.cos(th) * 0.75 + 0.4;
         mkMember(gx, gz, base - i * 4, Math.atan2(spot.x - gx, spot.z - gz), 'crowd', edge(), edge());
       }
-    } else {
+    } else if (roll < 0.56) {
       // Two neighbours stop to talk — guaranteed to part opposite ways.
       const a1 = mkMember(spot.x - 0.38, spot.z, base * 0.7, Math.PI / 2, 'chat', LAYOUT.spawnL.x, LAYOUT.spawnR.x);
       const a2 = mkMember(spot.x + 0.38, spot.z, base * 0.7, -Math.PI / 2, 'chat', LAYOUT.spawnR.x, LAYOUT.spawnL.x);
       if (!a1 && !a2) return null;
       this._vgAnchor = a1 || a2;
+    } else {
+      // Two people square up over a coffee — close, squared, one lifts the
+      // cup in question; a third slows to watch. The street's smallest theatre.
+      const a1 = mkMember(spot.x - 0.3, spot.z, base, Math.PI / 2, 'argue', LAYOUT.spawnL.x, LAYOUT.spawnR.x);
+      const a2 = mkMember(spot.x + 0.3, spot.z, base, -Math.PI / 2, 'argue', LAYOUT.spawnR.x, LAYOUT.spawnL.x);
+      if (!a1 && !a2) return null;
+      this._vgAnchor = a1 || a2;
+      const holder = a1 || a2;
+      holder.act = 'sip';
+      holder.heldKind = 'cup';
+      this._paint(holder);
+      if (this.rng() < 0.75) {
+        const side = this.rng() < 0.5 ? -1.25 : 1.25;
+        const gx = spot.x + side, gz = spot.z + 0.5;
+        mkMember(gx, gz, base * 0.55, Math.atan2(spot.x - gx, spot.z - gz), 'crowd', edge(), edge());
+      }
     }
     return true;
+  }
+
+  // A small crowd stops on the pavement to watch the bench cat. Gathers
+  // around the cat fixture rather than a VIGNETTE_SPOT, so it holds its own
+  // 'vg:cat' gate.
+  _spawnCatWatch() {
+    if (this.holds.has('vg:cat')) return null;
+    const cat = { x: 5.95, z: 7.4 };
+    const edge = () => (this.rng() < 0.5 ? LAYOUT.spawnL.x : LAYOUT.spawnR.x);
+    const base = 16 + this.rng() * 10;
+    const mkWatcher = (gx, gz, dwell, vHold) => {
+      const face = Math.atan2(cat.x - gx, cat.z - gz);
+      const route = {
+        kind: 'vignette', lotId: null, hold: vHold || null, doorId: null, economic: false,
+        points: [pt(edge(), LAYOUT.pavementZ), pt(gx, gz, { dwell, face }), pt(edge(), LAYOUT.pavementZ)],
+      };
+      if (routeBlocked(route.points)) return null;
+      const a = this._activate(route, false);
+      if (a) a.vg = 'catwatch';
+      return a;
+    };
+    // Watchers stand a pace road-side of the bench, turned toward the cat.
+    const a1 = mkWatcher(cat.x - 0.55, cat.z + 0.95, base, 'vg:cat');
+    if (!a1) return null;
+    this._vgAnchor = a1;
+    if (this.rng() < 0.7) mkWatcher(cat.x + 0.35, cat.z + 1.0, base * 0.7, null);
+    return true;
+  }
+
+  // A skater pushes across the pavement — fast, low, board under foot. Its
+  // own rare roll in tick(); it never holds a spot or the vignette gate.
+  _spawnSkater() {
+    if (this.count >= this.cap || !this.free.length || this._skater) return null;
+    const ltr = this.rng() < 0.5;
+    const from = ltr ? LAYOUT.spawnL.x : LAYOUT.spawnR.x;
+    const to = ltr ? LAYOUT.spawnR.x : LAYOUT.spawnL.x;
+    const z = LAYOUT.pavementZ + (this.rng() - 0.5) * 0.4;
+    const route = {
+      kind: 'vignette', lotId: null, hold: null, doorId: null, economic: false,
+      points: [pt(from, z), pt(to, z)],
+    };
+    if (routeBlocked(route.points)) return null;
+    const a = this._activate(route, false);
+    if (!a) return null;
+    a.vg = 'skater';
+    a.speed = 4.4 + this.rng() * 1.4;   // ~3x a walk — a proper push
+    a.act = null;
+    a.heldKind = null;
+    a.gait = { freq: 2.6, amp: 0.12, lean: 0.2 };
+    this._skater = a;
+    this._paint(a);
+    return a;
   }
 
   // A high-speed defection already joined Sam's queue. This walker only
@@ -912,6 +1025,34 @@ export class StreetLife {
     for (const part of Object.values(this.parts)) part.instanceMatrix.needsUpdate = true;
     this._pigeons(stepScale);
     this._dogs(stepScale);
+    this._cat(stepScale);
+    // The skater's board rides under them; hide it when no skater is live.
+    if (this.skateBoard) {
+      const sk = this._skater;
+      if (sk && sk.active && !sk.hidden) {
+        this.skateBoard.visible = true;
+        this.skateBoard.position.set(sk.pos.x, 0.035, sk.pos.z);
+        this.skateBoard.rotation.set(0, sk.face, 0);
+      } else {
+        this.skateBoard.visible = false;
+      }
+    }
+  }
+
+  // The bench cat. Sits, breathes, flicks its tail and periodically dips its
+  // head to groom. Everything derives from elapsed time — no seeded draws,
+  // so replays stay identical.
+  _cat(dt) {
+    if (!this.cat) return;
+    this._catT += dt;
+    const t = this._catT;
+    this.cat.position.y = 0.49 + Math.sin(t * 1.7) * 0.006;
+    // Groom: a slow head dip every ~9s.
+    const groom = (t % 9) < 1.8 ? Math.sin(((t % 9) / 1.8) * Math.PI) : 0;
+    if (this.catHeadMesh) this.catHeadMesh.rotation.z = groom * 0.55;
+    // Tail flick, faster when a walker passes close (attention, even for cats).
+    const near = this.agents.some(a => a.active && a.walking && Math.abs(a.pos.x - 5.95) < 1.4 && Math.abs(a.pos.z - 7.4) < 1.6);
+    if (this.catTailPivot) this.catTailPivot.rotation.y = Math.sin(t * (near ? 7 : 2.4)) * 0.5;
   }
 
   // Two strays on the park lip — sniff the ground, trot to a new spot,
@@ -1284,6 +1425,7 @@ export class StreetLife {
     agent.active = false;
     if (agent.char) { try { this.scene.remove(agent.char); } catch {} agent.char = null; }
     if (agent === this._vgAnchor) this._vgAnchor = null;
+    if (agent === this._skater) this._skater = null;
     if (agent.hold) this.holds.delete(agent.hold);
     for (const part of Object.values(this.parts)) {
       part.setMatrixAt(agent.idx, ZERO);

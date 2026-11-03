@@ -56,7 +56,9 @@
    sitters at beginDay, cohort dress codes (DRESS: hat/held/gait per
    cohort), and cloned Polyfork humanoids on standing-kind agents via
    street.loadChars() + CHAR_BY_COHORT (blobs hidden beneath; sitters and
-   walkers stay instanced). Next: dog walker needs its own rig;
+   walkers stay instanced). Street theatre shipped too (attention-street
+   pillar): coffee argument, bench cat + cat-watchers, skater — see
+   `street-theatre.mjs`. Next: dog walker needs its own rig;
    delivery/hand-truck vignette; rooftop dressing (tank/antennas/laundry).
 2. Camera grammar — espressoIns/caseIns use authored view positions and
    alone bypass the r>=18 scripted clamp; lowStreet reaches phi=1.5.
@@ -198,9 +200,16 @@ of attention — you arrive as nobody in it. Four pillars, in shipping order:
    held), growth +£4267. campaign-tight/stock-loan playthroughs stage
    growth-style marketing as part of a "competent week". Tests:
    cold-start.mjs.
-2. **Street theatre** — authored, seeded moments with personality (argument
-   over a cortado, skater, park cat), one live at a time; the killer version
-   hooks moments into attention (busker at our door → awareness). TRUE GTA
+2. **Street theatre (first wave shipped)** — authored, seeded moments, one
+   live group at a time, all on the street's cosmetic stream (`streetLife.js`,
+   tests `street-theatre.mjs`). Shipped: coffee argument (squared pair, one
+   lifts the cup, a watcher), bench cat (timer-driven fixture — breathes,
+   grooms, tail flicks faster near walkers — never draws the rng) +
+   cat-watchers on their own `vg:cat` gate, and the skater (fast crossing, own
+   rare roll, board mesh rides under foot, one at a time, scatters pigeons by
+   proximity). `_spawnVignette` now branches busker / chat / argue / catwatch
+   by one roll; catwatch needs no `VIGNETTE_SPOT`. Killer version still ahead:
+   hook moments into attention (busker at our door → awareness). TRUE GTA
    emergence is impossible in a seeded bit-identical sim — authored moments
    that FEEL emergent, never systemic chaos.
 3. **Real-world snapshot** — arabica/cocoa (+weather→climate) fetched ONCE at

@@ -1,5 +1,6 @@
 // web/test/street-vignette.mjs — streetLife vignette machinery:
-//   1. tick() can form a vignette group (busker+crowd or chat pair)
+//   1. tick() can form a vignette group (busker+crowd, chat pair, coffee
+//      argument, or cat-watch — see street-theatre.mjs for the new staging)
 //   2. members are ordinary walk->dwell->walk agents sharing the cap
 //   3. only one live group at a time (_vgAnchor gate)
 //   4. anchor despawn releases the gate and the spot hold
@@ -26,7 +27,8 @@ test('vignette groups form with members on dwell routes', () => {
   }
   assert.ok(vg, 'no vignette formed in 400 cadence ticks');
   const anchor = s._vgAnchor;
-  assert.ok(anchor && anchor.vg === 'busker' || vg.every(a => a.vg === 'chat'), 'anchor should be the busker or a chat member');
+  const ANCHOR_ROLES = new Set(['busker', 'chat', 'argue', 'catwatch']);
+  assert.ok(anchor && ANCHOR_ROLES.has(anchor.vg), `anchor should hold a vignette role, got ${anchor && anchor.vg}`);
   for (const m of vg) {
     assert.equal(m.kind, 'vignette');
     assert.ok(m.path.length || m.state === 'dwell', 'member has a route or is dwelling');

@@ -218,16 +218,25 @@ awareness decay (0.055/close) to the whole street. Catchments (phase 3) are
 the allocation of that stock across doors. Zero-sum means our revenue falls
 with the floor: the economy's fixed costs and verdicts re-tune together.
 
-### Pillar 3 — Street theatre: authored moments that feel emergent
+### Pillar 3 — Street theatre: authored moments that feel emergent (first wave shipped)
 
 The substrate exists (dogs chase pigeons, busker-and-crowd, chatting pairs,
-bench sitters). Escalate toward named moments with personality — an argument
-over a cortado outside Yirg's, a skater threading the pavement, a cat on the
-warm bench. **Honest constraint: true GTA emergence is impossible in a seeded,
-bit-identical sim.** What we build is a library of authored, seeded moments
-that *read* as emergent, one live at a time so the street stays legible. The
-killer version hooks moments into the attention economy: a busker outside our
-stand gathers a crowd that converts to awareness; an argument next door spills
+bench sitters). **Honest constraint upheld: true GTA emergence is impossible
+in a seeded, bit-identical sim.** What we build is a library of authored,
+seeded moments that *read* as emergent, one live group at a time so the
+street stays legible.
+
+Shipped (first wave, `streetLife.js` + `street-theatre.mjs`): the **coffee
+argument** (a squared-up pair, one lifts the cup in question, a third slows
+to watch), the **bench cat** (a fixture that breathes, flicks its tail —
+faster when a walker passes — and grooms on a timer, never touching the
+seeded stream) with **cat-watchers** who gather road-side of the bench on
+their own `vg:cat` gate, and the **skater** (a fast crossing on its own rare
+roll, board under foot, one at a time, scatters the pigeons by proximity).
+All ride the street's cosmetic stream and stay off the café till.
+
+Next: hook moments into the attention economy — a busker outside our stand
+gathers a crowd that converts to awareness; an argument next door spills
 footfall our way. "Do interesting things" becomes "interesting things happen
 around you."
 
