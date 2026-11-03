@@ -3347,5 +3347,294 @@ export const PF_MANIFEST = {
     "page": "https://polyfork.dev/asset/organillero-67b687",
     "glb": "organillero-67b687.glb",
     "glb_bytes": 700644
+  },
+  "village-child-bef09e": {
+    "title": "Village child",
+    "kit": "salvage-commons-d0be9f",
+    "triangles": 3713,
+    "size_m": {
+      "x": 1.07,
+      "y": 1.19,
+      "z": 0.42
+    },
+    "origin_y": 0,
+    "zones": {
+      "wrap": "#e0ae5a",
+      "wrapTrim": "#e0ae5a",
+      "wrapSpot": "#a9cfae",
+      "frame": "#d2a650",
+      "brass": "#d2a650",
+      "lens": "#7a6538",
+      "goggleStrap": "#6b4a30",
+      "scarf": "#c98a35",
+      "coat": "#d8a64c",
+      "coatTrim": "#c8963f",
+      "patch": "#c08a3a",
+      "cuff": "#afc79c",
+      "cuffSpot": "#cda457",
+      "shirt": "#a3be95",
+      "denim": "#88ae8e",
+      "waistband": "#88ae8e",
+      "boot": "#7a553a",
+      "sole": "#5c4028",
+      "belt": "#86674a",
+      "strap": "#7a5638",
+      "pack": "#74523a",
+      "packTrim": "#654632",
+      "packStrap": "#7a5638",
+      "buckleMetal": "#d2a650",
+      "skin": "#d6b08a",
+      "hair": "#5c3f2a",
+      "brow": "#4a3322",
+      "eye": "#3a2c21",
+      "mouth": "#9a7458",
+      "briefs": "#a59e89",
+      "bra": "#a59e89",
+      "crease": "#b8906c"
+    },
+    "knobs": {
+      "figure": {
+        "type": "choice",
+        "default": "masculine",
+        "options": [
+          "masculine",
+          "feminine"
+        ]
+      },
+      "age": {
+        "type": "choice",
+        "default": "kid",
+        "options": [
+          "kid",
+          "teen",
+          "adult",
+          "old"
+        ]
+      },
+      "build": {
+        "type": "range",
+        "default": 1,
+        "min": 0.86,
+        "max": 1.18
+      },
+      "expression": {
+        "type": "choice",
+        "default": "neutral",
+        "options": [
+          "neutral",
+          "warm",
+          "stern",
+          "weary",
+          "alert",
+          "squint"
+        ]
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [
+      {
+        "name": "Walk",
+        "seconds": 0.97
+      }
+    ],
+    "page": "https://polyfork.dev/asset/village-child-bef09e",
+    "glb": "village-child-bef09e.glb",
+    "glb_bytes": 749860
+  },
+  "flight-attendant-befaf4": {
+    "title": "Flight Attendant",
+    "kit": "airport-43b137",
+    "triangles": 4679,
+    "size_m": {
+      "x": 2.22,
+      "y": 1.83,
+      "z": 0.93
+    },
+    "origin_y": 0,
+    "zones": {
+      "coat": "#282f3f",
+      "scarf": "#858287",
+      "boot": "#2e3546",
+      "case": "#333c52",
+      "skin": "#f2c9ab",
+      "hair": "#47301f"
+    },
+    "knobs": {
+      "wear": {
+        "type": "range",
+        "default": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "build": {
+        "type": "range",
+        "default": 0.86,
+        "min": 0.86,
+        "max": 1.18
+      },
+      "figure": {
+        "type": "choice",
+        "default": "feminine",
+        "options": [
+          "masculine",
+          "feminine"
+        ]
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [
+      {
+        "name": "Walk",
+        "seconds": 0.97
+      }
+    ],
+    "page": "https://polyfork.dev/asset/flight-attendant-befaf4",
+    "glb": "flight-attendant-befaf4.glb",
+    "glb_bytes": 915240
+  },
+  "huaso-c4847f": {
+    "title": "Huaso",
+    "kit": "chile-fiestas-patrias-87e847",
+    "triangles": 4755,
+    "size_m": {
+      "x": 1.87,
+      "y": 1.74,
+      "z": 0.58
+    },
+    "origin_y": 0,
+    "zones": {
+      "coat": "#5e412f",
+      "shirt": "#e8e4dc",
+      "strap": "#c5192e",
+      "denim": "#5e5e5e",
+      "bootShaft": "#2b2926",
+      "boot": "#c8b48c",
+      "straw": "#d8c08a",
+      "hatBand": "#1d1a17",
+      "skin": "#c0916c",
+      "hair": "#3a2a1f",
+      "stache": "#1d140f"
+    },
+    "knobs": {
+      "wear": {
+        "type": "range",
+        "default": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "chamanto": {
+        "type": "choice",
+        "default": "red-blue",
+        "options": [
+          "red-blue",
+          "earth",
+          "bright"
+        ]
+      },
+      "figure": {
+        "type": "choice",
+        "default": "masculine",
+        "options": [
+          "masculine",
+          "feminine"
+        ]
+      },
+      "age": {
+        "type": "choice",
+        "default": "adult",
+        "options": [
+          "kid",
+          "teen",
+          "adult",
+          "old"
+        ]
+      },
+      "build": {
+        "type": "range",
+        "default": 1,
+        "min": 0.86,
+        "max": 1.18
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/huaso-c4847f",
+    "glb": "huaso-c4847f.glb",
+    "glb_bytes": 914112
+  },
+  "parrilla-cook-255918": {
+    "title": "Parrilla Cook",
+    "kit": "chile-fiestas-patrias-87e847",
+    "triangles": 4783,
+    "size_m": {
+      "x": 1.86,
+      "y": 1.73,
+      "z": 0.62
+    },
+    "origin_y": 0,
+    "zones": {
+      "shirt": "#82542f",
+      "gingham": "#323848",
+      "wrap": "#9e2a2a",
+      "apron": "#f0eee8",
+      "belt": "#8a6a50",
+      "denim": "#43403e",
+      "boot": "#8b6f55",
+      "skin": "#ddae8a",
+      "hair": "#2b2a2a"
+    },
+    "knobs": {
+      "wear": {
+        "type": "range",
+        "default": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "fork": {
+        "type": "toggle",
+        "default": true
+      },
+      "colorway": {
+        "type": "choice",
+        "default": "classic",
+        "options": [
+          "classic",
+          "patria",
+          "campo"
+        ]
+      },
+      "figure": {
+        "type": "choice",
+        "default": "feminine",
+        "options": [
+          "feminine",
+          "masculine"
+        ]
+      },
+      "age": {
+        "type": "choice",
+        "default": "adult",
+        "options": [
+          "teen",
+          "adult",
+          "old"
+        ]
+      },
+      "build": {
+        "type": "range",
+        "default": 1,
+        "min": 0.86,
+        "max": 1.18
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/parrilla-cook-255918",
+    "glb": "parrilla-cook-255918.glb",
+    "glb_bytes": 907764
   }
 }
