@@ -666,7 +666,9 @@ export class StreetLife {
   // The stride of a cloned humanoid: ease the Walk action's timeScale
   // toward the agent's gait (0 on dwell or reduced motion), advance the
   // mixer, and pin the hips' root drift. Render-only — no sim, no rng.
-  // A template without a clip keeps the old sine bob.
+  // A template without a clip keeps the old sine bob. Once the stride has
+  // settled to a stand, the mixer is skipped — re-skinning a frozen pose
+  // every frame is pure waste on a dwelling crowd.
   _driveChar(a, walking, stepScale, reduced) {
     const g = a.char;
     const mixer = g.userData.charMixer;
@@ -678,9 +680,12 @@ export class StreetLife {
     const target = (walking && !reduced)
       ? Math.max(0.6, Math.min(1.5, (a.gait?.freq || 5) / 5)) : 0;
     action.timeScale += (target - action.timeScale) * Math.min(1, stepScale * 5);
+    const settled = action.timeScale < 0.005;
+    if (settled && g.userData.charSettled) return; // frozen pose already applied
     mixer.update(stepScale);
     const pin = g.userData.hipsPin;
     if (pin) { pin.hips.position.x = pin.x; pin.hips.position.z = pin.z; }
+    g.userData.charSettled = settled;
   }
 
   _charFor(agent) {

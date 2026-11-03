@@ -106,7 +106,11 @@ test('dwelling eases the stride back to a stand', () => {
   const after = action.time % 1;
   for (let i = 0; i < 30; i++) s._driveChar(a, false, 1 / 60, false);
   assert.ok(Math.abs((action.time % 1) - after) < 0.02, 'no march in place while dwelling');
-  assert.ok(tWalking !== undefined);
+  assert.equal(a.char.userData.charSettled, true, 'a settled figure stops paying for skinning');
+  // walking again wakes the mixer back up
+  for (let i = 0; i < 60; i++) s._driveChar(a, true, 1 / 60, false);
+  assert.ok(action.timeScale > 0.5, 'the stride eases back in');
+  assert.equal(a.char.userData.charSettled, false);
 });
 
 test('reduced motion keeps the figure still', () => {
