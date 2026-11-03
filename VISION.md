@@ -1,9 +1,10 @@
 # Vision — Coffee as physics (adopted Nov 2, 2026)
 
-Status: **direction, not yet implemented.** This doc records the design vision
-agreed after the "feels generic" playtest feedback. Nothing here is shipped;
-roadmaps below are proposals. ARCHITECTURE.md remains the source of truth for
-what *is* built.
+Status: **in flight.** This doc records the design vision agreed after the
+"feels generic" playtest feedback, and tracks what has shipped under it —
+each pillar section carries its own shipped notes. ARCHITECTURE.md remains
+the source of truth for what *is* built; the attention-street summary below
+is the map.
 
 ## The diagnosis
 
@@ -209,7 +210,7 @@ with 3/5 seeds lost; exchange-smart play +£1,802; street-working play
 unreachable without it. Integration playthroughs (campaign-tight,
 stock-loan) now stage marketing as part of a "competent week".
 
-### Pillar 2 — The attention economy (phase 3's better name)
+### Pillar 2 — The attention economy (phase 3's better name; slices 1–2 shipped)
 
 Footfall is a shared, scarce stock that all six shops compete for; nobody is
 born entitled to it. Mechanically: attention as a **per-shop stock** that
@@ -269,7 +270,7 @@ gathers a crowd that converts to awareness; an argument next door spills
 footfall our way. "Do interesting things" becomes "interesting things happen
 around you."
 
-### Pillar 4 — Anchored to the real world (snapshot, never live)
+### Pillar 4 — Anchored to the real world (snapshot, never live — infra shipped)
 
 The differentiator: the week you play is anchored to the market that actually
 existed that day. **Hard constraint:** live-drifting prices break bit-identical
@@ -314,16 +315,16 @@ the real forecast.
 
 ### Sequencing
 
-1. **Cold-start day 1 (first)** — the foundation the rest stand on, and the
-   one that can quietly become boring if wrong: near-zero floor, an earned
-   first-customer ignition beat, day-1-aware chapter copy, balance re-sweep.
-2. **Street theatre pass** — authored moments, cheap to layer once attention
-   is scarce enough that a moment *means* something.
-3. **Real-world snapshot** — campaign-start fetch → seed fold → Exchange
-   anchoring; orthogonal infra, shippable independently.
-4. **Attention economy / catchments** — per-shop attention stocks and the
-   zero-sum allocation (phase 3 below, restated); the full rebalance, done
-   last when the street's population story is final.
+1. **Cold-start day 1 — done** (pillar 1): near-zero floor, the earned
+   first-customer beat, day-1-aware chapter copy, balance re-sweep.
+2. **Street theatre — first wave done** (pillar 3): authored moments shipped;
+   the killer version (moments → attention) is pending.
+3. **Real-world snapshot — done** (pillar 4): market snapshot + weather seam,
+   both snapshot-never-live, both bit-identical in fallback.
+4. **Attention economy / catchments — thin slices done, capstone held**:
+   boards + lines shipped (pillar 2 slices 1–2); the multi-way zero-sum
+   allocation + full rebalance comes last, when the street's population
+   story is final.
 
 ## Open questions (to resolve before build)
 
@@ -350,8 +351,9 @@ the real forecast.
    frost from its rumour. Asymmetric, never a perfect hedge — and the price
    of the warning is the amplified swing. **Rivals now act on their own
    insight** (shipped): a specialist whose origin the coming draw names shows a
-   *tell* in the Brief (Cerrado Stand buying forward hard, Huila House riding
-   spot, Yirg Corner pulling a lot). A tell shows ~60% of the time it could,
+   *tell* in the Brief (HEARTH & RYE buying forward hard on a frost, BELL &
+   BRASS riding spot on a clean harvest, THE QUILL pulling its short-rains
+   lot). A tell shows ~60% of the time it could,
    decided by a pure hash of (seed, day, shop) — no rng stream touched — so
    presence is real and absence proves nothing. **Balance (20 seeds,
    `tools/house-sweep.mjs`):** no house is dominant. Net-worth deltas vs the open

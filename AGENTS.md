@@ -77,8 +77,11 @@
    fair/heat/rain/crisp changes street density/cadence, sky tint/sun/stars,
    and rain. The fixed Brief header explains it before opening. Climate
    refreshes from the active seed on prepare/reset; heat has room for 33
-   full-mode walkers and rain vignettes respect the reduced cap. Demand
-   reweighting and umbrellas/caps remain future work.
+   full-mode walkers and rain vignettes respect the reduced cap. `?city=`
+   campaigns now anchor the envelope to the real forecast (Open-Meteo
+   snapshot — see "Real-world market snapshot" below); seed-only campaigns
+   stay on the seeded path. Demand reweighting and umbrellas/caps remain
+   future work.
 
 ## Generated assets (Grove mirror)
 - Convex data-egress is the constraint: generated GLBs + previews are mirrored
@@ -239,10 +242,13 @@ of attention — you arrive as nobody in it. Four pillars, in shipping order:
    hook moments into attention (busker at our door → awareness). TRUE GTA
    emergence is impossible in a seeded bit-identical sim — authored moments
    that FEEL emergent, never systemic chaos.
-3. **Real-world snapshot** — arabica/cocoa (+weather→climate) fetched ONCE at
-   campaign start, folded into the seed; the week derives deterministically.
-   Never live drift (breaks replays/harness). Network optional with seeded
-   synthetic fallback (Grove-mirror philosophy). FRED/Pink Sheet/IMF free.
+3. **Real-world snapshot (infra shipped)** — arabica/cocoa levels + the
+   week's weather are fetched ONCE and cached; the week derives
+   deterministically from the snapshot. Never live drift (breaks
+   replays/harness). Network optional with seeded synthetic fallback
+   (Grove-mirror philosophy) — the synthetic path is bit-identical to the
+   classic behaviour, so the harness needs no re-sweep. Details + contract
+   in "Real-world market snapshot" below.
 4. **Attention economy / catchments (thin slice shipped)** — the four
    neighbour buildings ARE the roster now: door ids == shop ids
    (quill = THE QUILL brew bar / rain_taster, hearth = HEARTH & RYE roaster
