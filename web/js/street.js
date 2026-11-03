@@ -18,6 +18,15 @@ import { EVENTS } from './config.js';
 // insight (null for hybrids — see VISION.md: hybrids trade depth for
 // breadth). `fit` is the cohort-affinity map the demand layer can consult;
 // weights are relative (1 = neutral), not probabilities.
+//
+// Attention street (pillar 4): the four neighbour ids ARE the buildings on
+// the block — streetLife's NEIGHBOR_DOORS (quill/hearth/bell/marrow) map 1:1
+// onto this roster, so a door, an agent route and a shop row are one thing.
+// The buildings led; the coffee identities moved in:
+//   THE QUILL      brew bar + reading room — the washed-lot shelf
+//   HEARTH & RYE   the hearth is their roaster — a Brazilian origin house
+//   BELL & BRASS   the established house — roasts and reads the board early
+//   MARROW LANE    the hybrid — chocolate + coffee out of crates
 export const STREET = [
   {
     id: 'player', name: 'YOUR STAND', origin: null, method: 'espresso',
@@ -26,37 +35,40 @@ export const STREET = [
   {
     id: 'glasshouse', name: 'GLASSHOUSE', origin: null, method: 'espresso',
     hybrid: false, specialism: null, fit: { students: 1.2, commuters: 1.1 },
-    // The existing rival: a chain operation. No origin loyalty — it buys
-    // spot, so events move its costs but never its identity.
+    // The existing rival: a chain operation across the road. No origin
+    // loyalty — it buys spot, so events move its costs but never its identity.
     chain: true,
   },
   {
-    id: 'huila_house', name: 'HUILA HOUSE', origin: 'colombia', method: 'espresso',
+    id: 'bell', name: 'BELL & BRASS', origin: 'colombia', method: 'espresso',
     hybrid: false, specialism: 'harvest_ear',
-    // Roaster-café: sees the green-bean board a day early. Its insight is
-    // the harvest event itself — a clean Huila harvest is *its* good news.
+    // Roaster-café behind the brass bell: sees the green-bean board a day
+    // early. Its insight is the harvest event itself — a clean Huila harvest
+    // is *its* good news.
     fit: { creatives: 1.3, elders: 1.1 },
   },
   {
-    id: 'yirg_corner', name: 'YIRG CORNER', origin: 'eastAfrica', method: 'filter',
+    id: 'quill', name: 'THE QUILL', origin: 'eastAfrica', method: 'filter',
     hybrid: false, specialism: 'rain_taster',
-    // Brew bar: the washed-coffee belt is its shelf, so the short rains are
-    // its crisis. Its insight: it tastes the lots early — a thinning harvest
-    // shows up in its cupping notes before the wire runs it.
+    // Brew bar between the bookshelves: the washed-coffee belt is its shelf,
+    // so the short rains are its crisis. Its insight: it tastes the lots
+    // early — a thinning harvest shows up in its cupping notes before the
+    // wire runs it.
     fit: { creatives: 1.4, students: 0.9 },
   },
   {
-    id: 'cerrado_stand', name: 'CERRADO STAND', origin: 'brazil', method: 'espresso',
+    id: 'hearth', name: 'HEARTH & RYE', origin: 'brazil', method: 'espresso',
     hybrid: false, specialism: 'frost_watcher',
-    // Origin house on the Brazilian interior: frost on Minas Gerais is
-    // *its* frost. Its insight: the plateau rumour reaches it first.
+    // Origin house with the roaster in the old bread hearth: frost on Minas
+    // Gerais is *its* frost. Its insight: the plateau rumour reaches it first.
     fit: { commuters: 1.3, tourists: 1.1 },
   },
   {
-    id: 'cacao_row', name: 'CACAO & ROW', origin: null, method: 'chocolate',
+    id: 'marrow', name: 'MARROW LANE', origin: null, method: 'chocolate',
     hybrid: true, specialism: null,
-    // The hybrid: chocolate + coffee. Broad fit, diluted insight (null) —
-    // it covers the niche intersections but holds no early read.
+    // The hybrid: chocolate + coffee out of the crates on the pavement.
+    // Broad fit, diluted insight (null) — it covers the niche intersections
+    // but holds no early read.
     fit: { tourists: 1.4, students: 1.2, creatives: 1.1 },
   },
 ];
@@ -158,26 +170,26 @@ export function insightFor(shop, event, tomorrowDrift = 0) {
   const d = Number(tomorrowDrift) || 0;
   switch (shop.specialism) {
     case 'harvest_ear':
-      // Huila House reads the board a day early: rising drift is their
+      // Bell & Brass reads the board a day early: rising drift is their
       // warning, falling drift their comfort — regardless of today's event.
-      if (d > 0.005) return { head: 'HUILA HOUSE READS THE BOARD', line: 'Their roaster is quietly contracting. The green price is walking up.', edge: +1 };
-      if (d < -0.005) return { head: 'HUILA HOUSE READS THE BOARD', line: 'Their roaster is riding spot and smiling. The green price is easing.', edge: -1 };
+      if (d > 0.005) return { head: 'BELL & BRASS READS THE BOARD', line: 'Their roaster is quietly contracting. The green price is walking up.', edge: +1 };
+      if (d < -0.005) return { head: 'BELL & BRASS READS THE BOARD', line: 'Their roaster is riding spot and smiling. The green price is easing.', edge: -1 };
       return null;
     case 'rain_taster':
-      // Yirg Corner tastes the lots: a thinning harvest shows in the cup
+      // The Quill tastes the lots: a thinning harvest shows in the cup
       // before the wire runs it — only meaningful when East Africa is live.
       if (event && eventOrigin(event.id) === 'eastAfrica' && event.tier === 'bad') {
-        return { head: 'YIRG CORNER CUPPING NOTES', line: 'Their cupping table says the lots came in thin. They knew before the wire did.', edge: +1 };
+        return { head: 'THE QUILL CUPPING NOTES', line: 'Their cupping table says the lots came in thin. They knew before the wire did.', edge: +1 };
       }
       return null;
     case 'frost_watcher':
-      // Cerrado Stand feels the plateau: a frost rumour reaches the origin
+      // Hearth & Rye feels the plateau: a frost rumour reaches the origin
       // house first, and a real frost confirms what they braced for.
       if (event && event.id === 'rumour_frost') {
-        return { head: 'CERRADO STAND IS BRACING', line: 'The plateau called them overnight. They are contracting beans before the wire confirms.', edge: +1 };
+        return { head: 'HEARTH & RYE IS BRACING', line: 'The plateau called them overnight. They are contracting beans before the wire confirms.', edge: +1 };
       }
       if (event && event.id === 'frost_minas') {
-        return { head: 'CERRADO STAND TOOK THE HIT', line: 'Their canopy caught the frost. Their board is dark; their queue will be too.', edge: +1 };
+        return { head: 'HEARTH & RYE TOOK THE HIT', line: 'Their canopy caught the frost. Their board is dark; their queue will be too.', edge: +1 };
       }
       return null;
     default:
@@ -193,9 +205,9 @@ export function insightFor(shop, event, tomorrowDrift = 0) {
 // touched. Absence proves nothing; presence is real. Counter-read it.
 export const TELL_CHANCE = 0.6;
 const RIVAL_TELLS = {
-  huila_house:   { match: ['harvest_good'], line: 'HUILA HOUSE has stopped buying forward — they’re riding spot.', edge: -1 },
-  yirg_corner:   { match: ['drought_ea'],   line: 'YIRG CORNER has pulled its short-rains lot off the shelf.', edge: +1 },
-  cerrado_stand: { match: ['frost_minas', 'rumour_frost'], line: 'CERRADO STAND is buying forward — hard.', edge: +1 },
+  bell:   { match: ['harvest_good'], line: 'BELL & BRASS has stopped buying forward — they’re riding spot.', edge: -1 },
+  quill:  { match: ['drought_ea'],   line: 'THE QUILL has pulled its short-rains lot off the shelf.', edge: +1 },
+  hearth: { match: ['frost_minas', 'rumour_frost'], line: 'HEARTH & RYE is buying forward — hard.', edge: +1 },
 };
 function tellHash(seed, day, id) {
   let h = (Number(seed) | 0) ^ Math.imul((day | 0) + 1, 0x9e3779b1);
@@ -229,4 +241,44 @@ export function streetForDay(event, tomorrowDrift = 0, playerOrigin = null) {
     exposure: originExposure(shop, event),
     insight: insightFor(shop, event, tomorrowDrift),
   }));
+}
+
+// The board outside each shop says what the market did to THAT shop today.
+// Pure function of the streetForDay row (+ the live event) — the same shape
+// the Brief renders, so the pavement cannot disagree with the paper.
+// tone: 'dark' (the event hit them), 'bright' (windfall), 'bracing'
+// (acting on an early read), 'flat' (an ordinary day, standing copy).
+const BOARD_STANDING = {
+  quill:  'slow pours · quiet pages',
+  hearth: 'roasted at first light',
+  bell:   'the morning bell rings early',
+  marrow: 'cocoa · coffee · both',
+};
+const BOARD_EVENT_LINES = {
+  frost_minas:  { title: 'THE PLATEAU FROZE', sub: 'our canopy took it — short pours today' },
+  rumour_frost: { title: 'PLATEAU RUMOURS', sub: 'contracting beans until the wire confirms' },
+  drought_ea:   { title: 'THE LOTS CAME IN THIN', sub: 'the short-rains shelf is light today' },
+  harvest_good: { title: 'THE HARVEST IS CLEAN', sub: 'fresh Huila on the bar today' },
+};
+export function boardLine(row, event) {
+  if (!row || row.id === 'player') return null;
+  const standing = BOARD_STANDING[row.id] || 'open today';
+  // The event names their origin: the shop wears it on the board.
+  if (row.exposure > 1 && event && BOARD_EVENT_LINES[event.id]) {
+    const ev = BOARD_EVENT_LINES[event.id];
+    const tone = event.tier === 'good' ? 'bright' : event.tier === 'warn' ? 'bracing' : 'dark';
+    return { title: ev.title, sub: ev.sub, tone };
+  }
+  // No event on their origin, but the specialist is acting on an early read.
+  if (row.insight) {
+    const edge = row.insight.edge;
+    return {
+      title: edge > 0 ? 'BUYING AHEAD OF THE WIRE' : 'RIDING THE EASING BOARD',
+      sub: edge > 0 ? 'the roaster is contracting today' : 'spot is kind today — come taste it',
+      tone: edge > 0 ? 'bracing' : 'bright',
+    };
+  }
+  // Chains post price, not posture — Glasshouse keeps its own board.
+  if (row.chain) return null;
+  return { title: row.name, sub: standing, tone: 'flat' };
 }

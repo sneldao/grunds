@@ -216,9 +216,18 @@ of attention — you arrive as nobody in it. Four pillars, in shipping order:
    campaign start, folded into the seed; the week derives deterministically.
    Never live drift (breaks replays/harness). Network optional with seeded
    synthetic fallback (Grove-mirror philosophy). FRED/Pink Sheet/IMF free.
-4. **Attention economy / catchments** — per-shop attention stocks (awareness
-   decay pattern extended to the street), zero-sum allocation across doors
-   (= cosy-street phase 3 restated). The full rebalance, done last.
+4. **Attention economy / catchments (thin slice shipped)** — the four
+   neighbour buildings ARE the roster now: door ids == shop ids
+   (quill = THE QUILL brew bar / rain_taster, hearth = HEARTH & RYE roaster
+   house / frost_watcher, bell = BELL & BRASS / harvest_ear, marrow = MARROW
+   LANE hybrid). The old data-only names (HUILA HOUSE etc.) are gone —
+   street.mjs + house-origin.mjs pins repinned. Each shop wears its posture
+   on an A-frame board by its door: `boardLine(row, event)` in street.js
+   (pure; tone dark/bracing/bright/flat), painted at dawn in main.js from
+   the same `streetForDay` shape the Brief renders, build-time standing
+   paint in world.js (`W.setNeighborBoards`). Tests: neighbor-boards.mjs.
+   Next: responsive ghost queues per board, then multi-way zero-sum
+   allocation + full rebalance.
 - Config contradiction that motivates pillar 1: `start: 0.28 // opening-day
   awareness — nobody knows the stand yet` — the comment says nobody, the
   harness served ~3,000 cups on day 1.

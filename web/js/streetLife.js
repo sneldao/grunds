@@ -79,6 +79,8 @@ const CHAR_SCALE = 0.62;
 export const NEIGHBOR_DOORS = [
   // On the apron in front of each bay (shop fronts sit near z 3.6–4).
   // Far enough out that a body reads as a visitor, not a fixture in the wall.
+  // Attention street (pillar 4): these ids are the street.js roster ids —
+  // each door IS that coffee shop (quill = THE QUILL brew bar, etc.).
   { id: 'quill', x: -10.55, z: 5.7, face: Math.PI, seat: { x: -10.95, z: 2.45 } },
   { id: 'hearth', x: 3.55, z: 5.7, face: Math.PI, seat: { x: 3.0, z: 2.425 } },
   { id: 'bell', x: 7.9, z: 5.7, face: Math.PI, seat: { x: 8.2, z: 2.4 } },

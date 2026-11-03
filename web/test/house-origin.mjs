@@ -143,8 +143,8 @@ test('rivalTells: only a rival whose origin the draw names can tell', () => {
   assert.deepEqual(rivalTells({ id: 'stable' }, 7, 3), []);
   assert.deepEqual(rivalTells(null, 7, 3), []);
   for (let seed = 1; seed < 200; seed++) {
-    for (const t of rivalTells({ id: 'frost_minas' }, seed, 2)) assert.equal(t.id, 'cerrado_stand');
-    for (const t of rivalTells({ id: 'harvest_good' }, seed, 2)) assert.equal(t.id, 'huila_house');
+    for (const t of rivalTells({ id: 'frost_minas' }, seed, 2)) assert.equal(t.id, 'hearth');
+    for (const t of rivalTells({ id: 'harvest_good' }, seed, 2)) assert.equal(t.id, 'bell');
   }
 });
 

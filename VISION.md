@@ -218,6 +218,22 @@ awareness decay (0.055/close) to the whole street. Catchments (phase 3) are
 the allocation of that stock across doors. Zero-sum means our revenue falls
 with the floor: the economy's fixed costs and verdicts re-tune together.
 
+**Thin slice shipped (step 1 of 3).** The street is now one thing, not two
+lists: the four neighbour buildings ARE the roster — THE QUILL (brew bar +
+reading room, washed-lot shelf, `rain_taster`), HEARTH & RYE (the roaster in
+the old bread hearth, Brazilian origin house, `frost_watcher`), BELL & BRASS
+(the established house, reads the board a day early, `harvest_ear`), MARROW
+LANE (the chocolate hybrid) — door ids and roster ids are identical, so a
+door, an agent route and a shop row can no longer disagree. The old names
+(HUILA HOUSE etc.) were data-only; the buildings led and the identities moved
+in. And each shop now **wears its market posture on the pavement**: an A-frame
+board by each door, repainted at dawn from the same `streetForDay` shape the
+morning Brief renders (`boardLine` — pure, tone-mapped: dark when the event
+hits their origin, bracing when the specialist acts on an early read, bright
+on windfalls, standing copy on quiet days). Walking the street now reads the
+market. Next slices: ghost queues that respond to each board, then the
+multi-way zero-sum allocation itself.
+
 ### Pillar 3 — Street theatre: authored moments that feel emergent (first wave shipped)
 
 The substrate exists (dogs chase pigeons, busker-and-crowd, chatting pairs,

@@ -6,6 +6,7 @@ import { loadPF, registerPFNight } from './polyfork.js';
 import { woodFloor, pavement, road, awning, menuBoard, softSprite, streakSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction } from './textures.js';
 import { GLBLoader } from './loader.js';
 import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
+import { streetForDay, boardLine } from './street.js';
 import { PREMISES, dressInterior, createCutawayRig } from './premises.js';
 import { BACKDROP_FACADES, vacantRowFronts } from './farSide.js';
 import { setStockVisibility, ingredientDisplay } from './floorStock.js';
@@ -1547,6 +1548,68 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     dressRoof(parts.roof, w, h, d, 3);   // pigeons + laundry
     mountInterior('marrow', parts, w, h, d);
   })();
+
+  // ---- attention street (VISION.md pillar 4): reactive A-frame boards ----
+  // Each neighbour building puts its market posture on the pavement: the
+  // same streetForDay shape the morning Brief renders, so the street cannot
+  // disagree with the paper. Canvas textures repainted at dawn.
+  W.neighborBoards = {};
+  const boardFrames = [
+    { id: 'quill',  x: -9.65, tilt: -0.14 },
+    { id: 'hearth', x: 4.45,  tilt: 0.12 },
+    { id: 'bell',   x: 8.8,   tilt: -0.12 },
+    { id: 'marrow', x: 12.55, tilt: 0.14 },
+  ];
+  for (const bf of boardFrames) {
+    const g = new THREE.Group();
+    g.position.set(bf.x, 0, 5.15);
+    g.rotation.y = bf.tilt;
+    box(g, 0.92, 1.06, 0.055, PAL.walnutDark, 0, 0.58, 0, { rough: 0.8, cast: false });
+    const bc = document.createElement('canvas'); bc.width = 256; bc.height = 288;
+    const bg2 = bc.getContext('2d');
+    const btx = new THREE.CanvasTexture(bc); btx.colorSpace = THREE.SRGBColorSpace;
+    plane(g, 0.8, 0.9, new THREE.MeshBasicMaterial({ map: btx, toneMapped: false }), 0, 0.62, 0.033, { cast: false });
+    scene.add(g);
+    W.neighborBoards[bf.id] = { canvas: bc, ctx: bg2, tex: btx };
+  }
+  const BOARD_TONES = {
+    dark:    { bg: '#17130f', fg: '#d8b49a', rule: '#8c3f3a' },
+    bright:  { bg: '#1d2416', fg: '#e9e2c8', rule: '#c9a227' },
+    bracing: { bg: '#241d12', fg: '#e6d3ae', rule: '#b4762a' },
+    flat:    { bg: '#191c1a', fg: '#dfe0d6', rule: '#5a6258' },
+  };
+  const wrapBoard = (g2, text, max, y0, lh) => {
+    const words = String(text).split(' ');
+    let line = '', y = y0;
+    for (const w of words) {
+      const t = line ? line + ' ' + w : w;
+      if (t.length > max && line) { g2.fillText(line, 128, y); y += lh; line = w; }
+      else line = t;
+    }
+    if (line) g2.fillText(line, 128, y);
+  };
+  W.setNeighborBoards = (boards) => {
+    // boards: [{ id, title, sub, tone }] — absent/null entries keep their paint.
+    for (const b of boards || []) {
+      const nb = W.neighborBoards[b && b.id];
+      if (!nb || !b.title) continue;
+      const tone = BOARD_TONES[b.tone] || BOARD_TONES.flat;
+      const g2 = nb.ctx;
+      g2.fillStyle = tone.bg; g2.fillRect(0, 0, 256, 288);
+      g2.strokeStyle = tone.rule; g2.lineWidth = 3; g2.strokeRect(7, 7, 242, 274);
+      g2.fillStyle = tone.fg; g2.textAlign = 'center'; g2.textBaseline = 'alphabetic';
+      g2.font = '600 23px Georgia, serif';
+      wrapBoard(g2, b.title, 15, 58, 27);
+      if (b.sub) {
+        g2.font = 'italic 16px Georgia, serif';
+        wrapBoard(g2, b.sub, 24, 168, 21);
+      }
+      nb.tex.needsUpdate = true;
+    }
+  };
+  // Blank boards read as closed shops. Paint the quiet-market standing copy
+  // at build; the first dawn repaints with the day's posture.
+  W.setNeighborBoards(streetForDay(null, 0).map(r => Object.assign({ id: r.id }, boardLine(r, null) || {})));
 
   // GLASSHOUSE keeps its glowing panes and the staff behind them. The
   // street-readable interior is the outer glass: plant and cup on the left,

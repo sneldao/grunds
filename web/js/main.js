@@ -30,7 +30,7 @@ import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS, seedCityNames, seedCastNames, castName } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
-import { streetForDay, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells } from './street.js';
+import { streetForDay, boardLine, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells } from './street.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
 import { rushSpeed } from './paceNotice.js';
 import { touchPrimary } from './gestures.js';
@@ -4597,6 +4597,13 @@ function prepareDay(d) {
     : tier === 'bad' ? 'spot creeping'
     : tier === 'warn' ? 'bracing for the wire' : '';
   try { world.setRivalStrategy(rivalStrategy, CAMPAIGN.rivalStrategies[rivalStrategy].price.toFixed(2), rivalOriginLine); } catch {}
+  // Attention street (pillar 4): every neighbour's A-frame carries that
+  // shop's posture for the day — the same streetForDay shape the Brief
+  // renders, so the pavement cannot disagree with the paper.
+  try {
+    const streetRows = streetForDay(exchange.event, calculateNonLinearDrift(day + 1), originKey(houseOrigin));
+    world.setNeighborBoards(streetRows.map(r => Object.assign({ id: r.id }, boardLine(r, exchange.event) || {})));
+  } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false; _pfRushCam = false;
   frontage.reset();   // frontage conversions today
