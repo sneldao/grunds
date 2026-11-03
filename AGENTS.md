@@ -56,7 +56,12 @@
    sitters at beginDay, cohort dress codes (DRESS: hat/held/gait per
    cohort), and cloned Polyfork humanoids on standing-kind agents via
    street.loadChars() + CHAR_BY_COHORT (blobs hidden beneath; sitters and
-   walkers stay instanced). Street theatre shipped too (attention-street
+   walkers stay instanced). Humanoids now *walk*: 5/10 Polyfork figures
+   ship a rigged Walk clip; assignDonorWalk lends it to the other 5 (all
+   share one 22-bone rig — clips bind by name). _driveChar eases timeScale
+   in/out, pins hip root drift, offsets phase by idx (no rng), respects
+   reduced-motion; the busker keeps his authored pose. Street theatre
+   shipped too (attention-street
    pillar): coffee argument, bench cat + cat-watchers, skater — see
    `street-theatre.mjs`. Next: dog walker needs its own rig;
    delivery/hand-truck vignette; rooftop dressing (tank/antennas/laundry).

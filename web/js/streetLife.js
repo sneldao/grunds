@@ -72,6 +72,19 @@ export const CHAR_BY_COHORT = {
 const CHAR_KINDS = new Set(['neighbor', 'queue', 'vignette', 'glasshouse', 'frontage', 'prop', 'row', 'nqueue']);
 const CHAR_SCALE = 0.62;
 
+// Pure: a humanoid that shipped without a clip borrows the donor Walk —
+// AnimationClips bind by bone name, and every Polyfork figure carries the
+// same 22-bone rig. The busker keeps his authored pose: he plays, he does
+// not stroll. No donor (everything failed to load) changes nothing.
+export function assignDonorWalk(templates, donorWalk) {
+  if (!donorWalk) return templates;
+  for (const [cohort, list] of Object.entries(templates)) {
+    if (cohort === 'busker') continue;
+    for (const t of list || []) if (t && !t.walk) t.walk = donorWalk;
+  }
+  return templates;
+}
+
 // Shop fronts face the play camera at z ≈ 3.6. These stands are on the
 // pavement side of the door, clear of the café threshold. `seat` is a
 // chair inside the open shell (shopGroup front at z 3.6, local +z toward
@@ -629,26 +642,74 @@ export class StreetLife {
     if (!this.scene || this._charTemplates) return;
     const loader = new GLTFLoader();
     const out = {};
+    let donorWalk = null;
     await Promise.all(Object.entries(CHAR_BY_COHORT).flatMap(([cohort, ids]) =>
       ids.map(async (id, i) => {
         try {
           const gltf = await loader.loadAsync(`assets/polyfork/${id}.glb`);
-          (out[cohort] ??= [])[i] = gltf.scene;
+          // Posed scans on a shared 22-bone rig: some ship a Walk clip, some
+          // ship none at all.
+          const walk = gltf.animations.find(a => /walk/i.test(a.name)) || gltf.animations[0] || null;
+          if (walk && !donorWalk) donorWalk = walk;
+          (out[cohort] ??= [])[i] = { scene: gltf.scene, walk };
         } catch { /* a missing GLB leaves that cohort slot on blobs */ }
       })));
-    try { out.busker = [(await loader.loadAsync('assets/polyfork/organillero-67b687.glb')).scene]; } catch {}
+    // One rig, one stride: models that shipped static borrow the donor Walk.
+    try {
+      const gltf = await loader.loadAsync('assets/polyfork/organillero-67b687.glb');
+      out.busker = [{ scene: gltf.scene, walk: null }];
+    } catch {}
+    assignDonorWalk(out, donorWalk);
     this._charTemplates = out;
+  }
+
+  // The stride of a cloned humanoid: ease the Walk action's timeScale
+  // toward the agent's gait (0 on dwell or reduced motion), advance the
+  // mixer, and pin the hips' root drift. Render-only — no sim, no rng.
+  // A template without a clip keeps the old sine bob.
+  _driveChar(a, walking, stepScale, reduced) {
+    const g = a.char;
+    const mixer = g.userData.charMixer;
+    if (!mixer) {
+      if (walking) g.position.y = Math.abs(Math.sin(a.phase)) * 0.02;
+      return;
+    }
+    const action = g.userData.charAction;
+    const target = (walking && !reduced)
+      ? Math.max(0.6, Math.min(1.5, (a.gait?.freq || 5) / 5)) : 0;
+    action.timeScale += (target - action.timeScale) * Math.min(1, stepScale * 5);
+    mixer.update(stepScale);
+    const pin = g.userData.hipsPin;
+    if (pin) { pin.hips.position.x = pin.x; pin.hips.position.z = pin.z; }
   }
 
   _charFor(agent) {
     if (!this._charTemplates || !this.scene || !CHAR_KINDS.has(agent.kind)) return null;
     const list = this._charTemplates[agent.vg === 'busker' ? 'busker' : agent.cohort];
-    const tpl = list && list.filter(Boolean)[agent.idx % Math.max(1, list.filter(Boolean).length)];
+    const ok = list ? list.filter(Boolean) : null;
+    const tpl = ok && ok[agent.idx % Math.max(1, ok.length)];
     if (!tpl) return null;
-    const g = tpl.clone(true);
+    const g = tpl.scene.clone(true);
     g.scale.setScalar(CHAR_SCALE);
     g.position.set(agent.pos.x, 0, agent.pos.z);
     g.rotation.y = agent.face;
+    if (tpl.walk) {
+      // The stride lives on the clone: the update loop eases its timeScale
+      // in and out. A deterministic per-agent offset (idx, no rng) keeps
+      // the street from marching in lockstep.
+      const mixer = new THREE.AnimationMixer(g);
+      const action = mixer.clipAction(tpl.walk);
+      action.setLoop(THREE.LoopRepeat, Infinity);
+      action.time = (agent.idx * 0.37) % tpl.walk.duration;
+      action.timeScale = 0;
+      action.play();
+      g.userData.charMixer = mixer;
+      g.userData.charAction = action;
+      // Root-drift insurance: the clip may translate the hips; keep its
+      // vertical bob, pin its x/z to the authored rest spot.
+      const hips = g.getObjectByName('Hips');
+      if (hips) g.userData.hipsPin = { hips, x: hips.position.x, z: hips.position.z };
+    }
     this.scene.add(g);
     return g;
   }
@@ -1054,7 +1115,7 @@ export class StreetLife {
         a.char.visible = !a.hidden;
         a.char.position.set(a.pos.x, a.hidden ? -50 : 0, a.pos.z);
         a.char.rotation.y = a.face;
-        if (walking) a.char.position.y = Math.abs(Math.sin(a.phase)) * 0.02;
+        this._driveChar(a, walking, stepScale, !!reduced);
       }
     }
     for (const part of Object.values(this.parts)) part.instanceMatrix.needsUpdate = true;
@@ -1441,7 +1502,14 @@ export class StreetLife {
   _despawn(agent) {
     if (!agent || !agent.active) return;
     agent.active = false;
-    if (agent.char) { try { this.scene.remove(agent.char); } catch {} agent.char = null; }
+    if (agent.char) {
+      try {
+        const m = agent.char.userData.charMixer;
+        if (m) { m.stopAllAction(); m.uncacheRoot(agent.char); }
+        this.scene.remove(agent.char);
+      } catch {}
+      agent.char = null;
+    }
     if (agent === this._vgAnchor) this._vgAnchor = null;
     if (agent === this._skater) this._skater = null;
     if (agent.hold) this.holds.delete(agent.hold);
