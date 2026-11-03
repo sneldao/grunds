@@ -31,6 +31,7 @@ import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, 
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
 import { streetForDay, boardLine, neighborQueues, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells } from './street.js';
+import { anchorFrom, resolveSnapshot, loadCachedSnapshot, cacheSnapshot, fetchMarketSnapshot, FRED_KEY_KEY } from './marketSnapshot.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
 import { rushSpeed } from './paceNotice.js';
 import { touchPrimary } from './gestures.js';
@@ -114,6 +115,13 @@ const audio = new AudioEngine();
 
 // ---- the connected campaign: the Gamble + the Regulars -----------------------
 const campaignSeed = urlParams.get('seed') ? +urlParams.get('seed') : (city ? city.seed : 7);
+// Pillar 3 — an optional free FRED API key makes the live snapshot reliable
+// (keyless fredgraph.csv is often bot-walled). Supplied via ?fredKey= and
+// cached locally; never required — without it the week falls back to the
+// seeded synthetic market.
+if (urlParams.get('fredKey')) {
+  try { localStorage.setItem(FRED_KEY_KEY, String(urlParams.get('fredKey')).trim()); } catch {}
+}
 const exchange = new Exchange(campaignSeed);
 const regulars = new Regulars();
 const walkins = new WalkinPool(campaignSeed);  // Phase 1 — the day's strangers; dawn ensures the day
@@ -3833,6 +3841,25 @@ function showMorningBrief() {
     if (csum) csum.textContent = signal ? 'the wire — a warning in it' : 'the wire';
     ctxEl.open = drawerOpen('brief-context', signal);
   }
+  // Pillar 3 — the week's commodity snapshot leads the wire: real (FRED,
+  // cached at campaign start) or seeded synthetic. The line says which, and a
+  // live anchor states the opening cost basis it set.
+  {
+    const el = $('brief-market');
+    if (el) {
+      el.textContent = '';
+      if (marketAnchor && marketAnchor.line) {
+        el.style.display = '';
+        el.className = 'd-line';
+        el.style.opacity = '.85';
+        let txt = marketAnchor.line;
+        if (marketAnchor.source === 'live' && Math.abs(marketAnchor.startIndex - 1) >= 0.005) {
+          txt += ` — the week opened at ${marketAnchor.startIndex.toFixed(2)} on the bean index`;
+        }
+        el.textContent = txt;
+      } else el.style.display = 'none';
+    }
+  }
   // wire block: the signal is flat now — why it matters, the insider edge,
   // the whisper. The cited sources themselves live in the wire desk.
   const wire = $('brief-wire');
@@ -4291,6 +4318,7 @@ function capturePreDawn(enteringDay) {
       day: enteringDay,
       playerName, standName, playerRole, perkBg, houseOrigin,
       softWeekDone: !!softWeekDone,
+      anchor: marketAnchor,   // pillar 3 — the week's market snapshot rides the save
       rngState: exchange.rng && exchange.rng.state ? exchange.rng.state() : null,
       streams: {
         patrons: patronsRng && patronsRng.state ? patronsRng.state() : null,
@@ -4339,6 +4367,14 @@ function applySavedWeek(save) {
   houseOrigin = validOrigin(save.houseOrigin); exchange.origin = originKey(houseOrigin);
   try { applyPerk(); } catch {}
   if (save.seed != null) SEED_OVERRIDE = save.seed;
+  // Pillar 3 — restore the exact anchor the week started under (display +
+  // contract). Direct assign, never setAnchor: the save's beanIndex is
+  // authoritative, and saves that predate anchors stay bit-identical.
+  try {
+    marketAnchor = save.anchor || anchorFrom(null, save.seed ?? seedNow());
+    exchange.anchor = marketAnchor;
+  } catch { marketAnchor = null; }
+  refreshSnapshotCache();
   const ex = save.exchange || {};
   exchange.beanIndex = ex.beanIndex ?? 1;
   exchange.day = ex.day ?? Math.max(0, save.day - 1);
@@ -4459,6 +4495,7 @@ function prepareDay(d) {
   if (phase !== 'onboarding' && phase !== 'review') return false;
   if (d === 1 && phase === 'onboarding' && !softWeekDone) softDay = softTest !== null ? softTest : wantsSoftDay();
   if (d !== exchange.day + 1 || d < 1 || d > CAMPAIGN.days) return false;
+  if (d === 1 && !exchange.anchor) applyMarketAnchor();   // pillar 3: anchor a fresh campaign before its first dawn save (resumes arrive anchored)
   capturePreDawn(d);
   phase = 'planning';
   day = d;
@@ -5578,6 +5615,33 @@ bindPress($('floorcue-look'), () => {
 bindPress($('floorcue-next'), () => advanceFloorCue());
 bindPress($('floorcue-skip'), () => finishFloorCues('skip'));
 
+// ---- pillar 3: real-world market snapshot --------------------------------
+// The anchor is resolved SYNCHRONOUSLY at campaign start from a cached live
+// snapshot or the seeded synthetic — play never blocks on the wire. A
+// background refresh updates the cache for the *next* campaign only, so the
+// week in progress can never drift. Persisted with the save so a resumed
+// campaign reads the exact anchor it started under.
+let marketAnchor = null;
+let snapshotFetchFired = false;
+function refreshSnapshotCache() {
+  if (snapshotFetchFired) return;
+  snapshotFetchFired = true;
+  try {
+    const cached = loadCachedSnapshot(localStorage);
+    if (cached && cached.ts && Date.now() - cached.ts < 12 * 3600 * 1000) return;   // fresh enough
+    let apiKey = null;
+    try { apiKey = localStorage.getItem(FRED_KEY_KEY) || null; } catch {}
+    fetchMarketSnapshot({ apiKey }).then(s => { if (s) cacheSnapshot(localStorage, s); }).catch(() => {});
+  } catch {}
+}
+function applyMarketAnchor() {
+  try {
+    marketAnchor = anchorFrom(resolveSnapshot(localStorage, seedNow()), seedNow());
+    exchange.setAnchor(marketAnchor);
+  } catch { marketAnchor = null; }
+  refreshSnapshotCache();
+}
+
 function reset(coreOnly = false) {
   // full campaign restart: the market and the regulars rewind to their start state.
   // Only an explicit `true` skips the new day — a click event used to land
@@ -5604,6 +5668,8 @@ function reset(coreOnly = false) {
   exchange.origin = originKey(houseOrigin);   // the house persists across weeks; reset rewinds the market but not the identity
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
+  exchange.anchor = null;   // re-anchor the fresh campaign from the snapshot cache
+  applyMarketAnchor();
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
   rushFast = false;
   party = null; batchWaste = 0; batchSpend = 0; pastryWaste = 0; pastryWasteCost = 0; pastrySpend = 0; pastryOnOrder = 0; pastryCaseCap = 0; pastryMissDrinks = 0; pastryMissWalks = 0; pastryMissNoted = false; lastRetail = 0; ctx.pastryStock = null;

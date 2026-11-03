@@ -32,6 +32,21 @@ export class Exchange {
     this.contract = null;             // { price, units, fee } when locked
     this.debt = 0;                     // supplier credit (£)
     this.history = [];                // [{day, id, index, cost, margin}]
+    this.anchor = null;               // marketSnapshot anchor (pillar 3) — live or synthetic
+  }
+
+  // Pillar 3 — fold the real-world snapshot in once, at campaign start. A
+  // live anchor biases the opening bean index within a bounded band (the
+  // market that actually existed that week); the synthetic anchor keeps
+  // startIndex 1.0 so offline/harness/replay runs stay bit-identical. Only
+  // applies before the first dawn, and only once, so a resumed week is never
+  // re-anchored mid-run.
+  setAnchor(anchor) {
+    if (this.anchor) return;
+    this.anchor = anchor || null;
+    if (this.day === 0 && anchor && Number.isFinite(anchor.startIndex)) {
+      this.beanIndex = anchor.startIndex;
+    }
   }
 
   // What it costs you to make ONE drink this minute — contracts hedge spikes.

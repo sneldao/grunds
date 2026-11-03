@@ -282,6 +282,22 @@ World Bank Pink Sheet, IMF. Real weather → the climate envelope is the same
 trick and nearly free (fair/heat/rain/crisp already exists). Resolves open
 question 5.
 
+**Snapshot infra shipped** (`web/js/marketSnapshot.js` + `market-snapshot.mjs`).
+The contract is honoured exactly: a campaign resolves its market anchor
+synchronously from a cached live snapshot or a seeded synthetic — play
+never blocks on the wire and never drifts mid-week. A live value is fetched
+once in the background (FRED official JSON API when a free key is cached via
+`?fredKey=`, else keyless `fredgraph.csv`) and stored under `grunds.snapshot`
+for the *next* campaign. The anchor folds into the Exchange as a bounded
+opening `beanIndex` (`startIndex` clamped to 0.85–1.15, sensitivity 0.5 from
+arabica vs. its reference level) — a dear real market opens the week dearer.
+Crucially, the synthetic path keeps `startIndex === 1.0` bit-identical, so the
+balance harness, offline play, and every replay are untouched; only a cached
+live anchor moves the opening cost basis. The anchor rides the week save and
+is restored verbatim on resume (old saves re-anchor synthetic, never
+retroactively live). The Morning Brief's wire leads with the snapshot line so
+the player sees which market they drew.
+
 ### Sequencing
 
 1. **Cold-start day 1 (first)** — the foundation the rest stand on, and the

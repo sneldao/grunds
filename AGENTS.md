@@ -89,6 +89,25 @@
 - After new generations land (Tripo `persist`, franchise stands, new district
   kits), refresh the mirror: `node tools/mirror-assets.mjs` then redeploy.
 
+## Real-world market snapshot (pillar 4 — snapshot, never live)
+- `web/js/marketSnapshot.js` is the only place that touches the wire. A
+  campaign resolves its anchor SYNCHRONOUSLY from a cached live snapshot or a
+  seeded synthetic (`resolveSnapshot`) — play never blocks on the network and
+  never drifts mid-week. A live value is fetched once in the background
+  (`refreshSnapshotCache`, fired at campaign start/reset) and cached under
+  `grunds.snapshot` for the NEXT campaign only.
+- FRED official JSON API is used when a free key is cached (`?fredKey=` →
+  `grunds.fredKey`); otherwise keyless `fredgraph.csv` (often bot-walled).
+  Fetch is all-or-nothing: a partial read returns `null` → synthetic.
+- The anchor folds into the Exchange as a bounded opening `beanIndex`
+  (`startIndex` clamped 0.85–1.15) via `exchange.setAnchor` (once, only at
+  day 0). The synthetic path keeps `startIndex === 1.0` bit-identical, so the
+  balance harness, offline play, and every replay are untouched. The anchor
+  rides the week save (`save.anchor`) and is restored verbatim on resume;
+  pre-anchor saves re-anchor synthetic, never retroactively live.
+- Synthetic wobble draws from a dedicated stream offset (`seeded(seed+47)`),
+  never the sim streams (+17/+19/+23/+29/+43). Tests: market-snapshot.mjs.
+
 ## Mid-day beats (asks / incidents / truce)
 - No `#offer` modal any more. `presentBeat(o, incident, key)` enqueues a
   `moment` of type `ask` (highest priority) — the floor keeps running, the
