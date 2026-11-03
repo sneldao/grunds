@@ -997,7 +997,7 @@ function tick() {
     }
   }
   coachTick();
-  if (paused) { updateHUD(); return; }
+  if (paused) { _hudPending = true; return; }
   // run the floor
   const events = patrons.tick(dayMin, ctx);
   street.syncFranchise(franchise, day);
@@ -1227,7 +1227,7 @@ function tick() {
   peakQueue = Math.max(peakQueue, patrons.queueLength);
   beats();
   coachTick();
-  updateHUD();
+  _hudPending = true;
 }
 
 // Books the player can read: yesterday until the receipt, then the close.
@@ -7001,9 +7001,18 @@ function momentScan() {
 
 // ---- loop ---------------------------------------------------------------------------
 let acc = 0, last = performance.now();
+// HUD coalescing: tick() marks the HUD dirty; the loop flushes once per
+// frame. Rush/evening bursts run a dozen ticks in one frame — the old
+// per-tick updateHUD() meant a dozen synchronous DOM+canvas passes per
+// frame, which is exactly the stop-start jank at speed.
+let _hudPending = false;
 let frameNow = 0;
 let roofAmbientNoted = false;
 let _slowFrames = 0, _liteSwitched = false;
+// Shadow hysteresis: flicking shadowMap.enabled every frame a queue hovers
+// near the budget line re-triggers the shadow pass; only flip on a real
+// crossing (off above 40, back on below 32).
+let _shadowOn = true;
 // Serves and balks squash the cup or torso only — they never hold the
 // clock or punch FOV. Chalkboard presses and the wave verdict opt in
 // with always: one beat, not every service minute.
@@ -7027,16 +7036,27 @@ function loop(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   frameNow = now;
   const nowSec = now / 1000;
-  // dynamic lite fallback: 3 slow frames (>32ms) → kill shadows/bloom
-  if (!headless && !_liteSwitched && !lite && dt > 0.032) {
-    _slowFrames++;
-    if (_slowFrames >= 3) {
-      _liteSwitched = true;
-      try { renderer.shadowMap.enabled = false; postfx.dispose(); world.setLite(true); street.setLite(true); } catch {}
-    }
+  // dynamic lite fallback: 3 slow frames (>32ms) → kill shadows/bloom.
+  // The counter resets on fast frames — a transient spike (a dawn build,
+  // a burst catch-up) must not permanently downgrade the session.
+  if (!headless && !_liteSwitched && !lite) {
+    if (dt > 0.032) {
+      _slowFrames++;
+      if (_slowFrames >= 3) {
+        _liteSwitched = true;
+        try { renderer.shadowMap.enabled = false; _shadowOn = false; postfx.dispose(); world.setLite(true); street.setLite(true); } catch {}
+      }
+    } else if (_slowFrames > 0) _slowFrames = 0;
   }
   // shadow budget: at peak queue shadows are noise — save the fill rate
-  try { renderer.shadowMap.enabled = (lite || _liteSwitched) ? false : (patrons.queueLength <= 40); } catch {}
+  try {
+    const wantShadow = (lite || _liteSwitched) ? false
+      : (_shadowOn ? patrons.queueLength <= 40 : patrons.queueLength < 32);
+    if (wantShadow !== _shadowOn) {
+      _shadowOn = wantShadow;
+      renderer.shadowMap.enabled = wantShadow;
+    }
+  } catch {}
   // numbers snap to RAF, not tick: jank-free even at 20× (see updateHUD throttle)
   const quietNow = (!headless || paceTest) && isQuiet({
     phase, paused, closed, modalOpen: !!modals.top(), cardVisible: !!momentActive,
@@ -7151,6 +7171,7 @@ function loop(now) {
   // button the player would. 1.5s grace per modal so the UI animates in
   // before the click. A keyboard intent flips autoplay off (below).
   autoplayTick(now);
+  if (_hudPending) { _hudPending = false; updateHUD(); }
   if (!headless) postfx.render(now);   // headless harness skips GL
 }
   window.__grunds = {

@@ -1068,7 +1068,7 @@ export class PatronSystem {
   render(dt, now, reduced = false) {
     const d = this._d; d.rotation.order = 'YXZ';
     const P = this.parts;
-    for (const p of [...this.patrons]) {
+    for (const p of this.patrons) {
       if (!p.active) continue;
       if (!p.vis) { p.vis = p.pos.clone(); p.visPhase = p.phase; }
       if (p.vis.distanceToSquared(p.pos) > 4) p.vis.copy(p.pos);
@@ -1083,7 +1083,9 @@ export class PatronSystem {
         const vSpeed = Math.hypot(p.vis.x - p._prevVis.x, p.vis.z - p._prevVis.z) / dt;
         ratio = Math.max(0, Math.min(1.2, vSpeed / Math.max(0.05, p.speed * (this.walkMul || 1))));
       }
-      p._prevVis = { x: p.vis.x, z: p.vis.z };
+      // mutated in place — a fresh {x,z} per patron per frame was steady GC churn
+      if (!p._prevVis) p._prevVis = { x: p.vis.x, z: p.vis.z };
+      else { p._prevVis.x = p.vis.x; p._prevVis.z = p.vis.z; }
       p.visPhase = (p.visPhase ?? p.phase)
         + dt * (p.walking ? 7 * gaitFor(p.cohort).freqMul * Math.min(this.walkMul || 1, 2.2) * ratio : 1.4);
       const vx = p.vis.x, vz = p.vis.z;

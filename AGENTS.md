@@ -272,6 +272,28 @@ of attention — you arrive as nobody in it. Four pillars, in shipping order:
   awareness — nobody knows the stand yet` — the comment says nobody, the
   harness served ~3,000 cups on day 1.
 
+## Frame budget (performance pass)
+The "patchy / juddery / stop-start" report traced to per-TICK work storms,
+not GPU throughput — rush/evening bursts run up to ~19 sim ticks in one
+frame, and each tick used to drag the whole HUD with it:
+- Roaster's ticker (world.js): `draw` allocated a NEW `CanvasTexture` every
+  call (GPU leak + rebind) and repainted 900 grain rects. Now: one texture
+  for the life of the page, grain pre-rendered once and blitted, and
+  identical states skip the repaint entirely.
+- `updateHUD()` ran at the end of every `tick()`. Now tick() only sets
+  `_hudPending`; the loop flushes once per frame, before render. The 200 ms
+  text throttle inside updateHUD is unchanged.
+- Shadow budget flicked `shadowMap.enabled` every frame at queue 40. Now a
+  32/40 hysteresis band, written only on a real crossing.
+- Dynamic-lite ratchet counted slow frames but never reset — one transient
+  hitch (dawn build, burst catch-up) could permanently downgrade the
+  session. Fast frames now reset the counter.
+- patrons.render: no per-frame `[...this.patrons]` copy; `_prevVis`
+  allocated once per patron and mutated in place.
+- `web/test/perf-hygiene.mjs` pins all of the above as source contracts.
+Sim determinism is untouched — every fix is render/HUD-side only
+(balance-policies + replay gates re-ran green).
+
 ## Conventions
 - Choice surfaces: options + consequence visible, no folds for choices —
   see ARCHITECTURE.md "Choice surfaces".

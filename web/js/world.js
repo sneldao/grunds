@@ -1883,11 +1883,31 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
       const scr = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 4), mat(0xc9a227, { metal: 0.5, cast: false }));
       scr.position.set(sx, 2.60 + sy, 0.12); post.add(scr);
     }
+    // Performance: ONE CanvasTexture for the life of the page (previously a
+    // fresh texture was allocated + uploaded on every draw — and the ticker
+    // redraws on sim ticks, so rush bursts allocated a dozen GL textures per
+    // frame). The linen grain is static noise: pre-rendered once offscreen
+    // and blitted in a single drawImage instead of 900 fillRects per redraw.
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    W.tickerMat.map = tex; W.tickerMat.emissiveMap = tex;
+    const grain = document.createElement('canvas'); grain.width = 512; grain.height = 320;
+    {
+      const gg = grain.getContext('2d');
+      gg.fillStyle = 'rgba(255,255,255,.015)';
+      for (let i = 0; i < 900; i++) gg.fillRect(cosmeticRandom() * 512, cosmeticRandom() * 320, 1, 1);
+    }
+    let lastKey = null;
     const draw = (s) => {
+      // The board only changes when its numbers do — skip identical redraws.
+      const key = [s.index, s.cost, s.locked, s.margin, s.day, s.total, s.rep,
+        s.bias, s.street, s.prev, (s.history || []).join('|')].join('\u00a7');
+      if (key === lastKey) return;
+      lastKey = key;
       const g = c.getContext('2d'); g.clearRect(0, 0, 512, 320);
       g.fillStyle = '#0c0f14'; g.fillRect(0, 0, 512, 320);
-      // linen grain
-      g.fillStyle = 'rgba(255,255,255,.015)'; for (let i = 0; i < 900; i++) g.fillRect(cosmeticRandom() * 512, cosmeticRandom() * 320, 1, 1);
+      // linen grain (pre-rendered once)
+      g.drawImage(grain, 0, 0);
       // bias highlight — when Linkup tilts the deck, the market board glows
       if (s.bias && s.bias !== 1) {
         const col = s.bias > 1 ? 'rgba(208,96,59,.18)' : 'rgba(134,168,96,.14)';
@@ -1945,8 +1965,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
         g.fillStyle = 'rgba(201,162,39,.62)'; g.font = '9px ui-monospace, monospace'; g.textAlign = 'center';
         g.fillText('tap the wire for sources', 256, s.history && s.history.length > 1 ? 294 : 282);
       }
-      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
-      W.tickerMat.map = t; W.tickerMat.emissiveMap = t; W.tickerMat.needsUpdate = true;
+      tex.needsUpdate = true;
     };
     return { draw };
   })();
