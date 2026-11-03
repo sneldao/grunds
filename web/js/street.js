@@ -70,7 +70,15 @@ export const ORIGINS = [
   { id: 'brazil',     label: 'a Cerrado house', perk: 'a frost is your frost: the biggest swing on the board — and the street comes to ask' },
 ];
 export function originDef(id) { return ORIGINS.find(o => o.id === (id || null)) || ORIGINS[0]; }
-export function validOrigin(id) { return ORIGINS.some(o => o.id === (id || null)) ? (id || null) : null; }
+// `null` is "not chosen yet" (the Brief still asks). `'none'` is a choice:
+// the open table, deliberately. Anything else must be a real origin id.
+export const OPEN_TABLE = 'none';
+export function validOrigin(id) {
+  if (id === OPEN_TABLE) return OPEN_TABLE;
+  return ORIGINS.some(o => o.id && o.id === id) ? id : null;
+}
+// What the Exchange and the street math see. The open table is no origin.
+export function originKey(id) { return validOrigin(id) === OPEN_TABLE || !validOrigin(id) ? null : validOrigin(id); }
 
 export function shopById(id) {
   return STREET.find(s => s.id === id) || null;
@@ -104,6 +112,7 @@ export function originExposure(shop, event) {
 // exposure: a frost on your plateau lands ×1.4, a clean harvest on your
 // valley eases costs ×1.2. 1 (bit-identical) with no origin or no match.
 export function originAmp(origin, event) {
+  origin = originKey(origin);
   if (!origin || !event) return 1;
   return 1 + (originExposure({ origin }, event) - 1) * 0.5;
 }
@@ -112,7 +121,7 @@ export function originAmp(origin, event) {
 // origin makes the news. 1 with no origin or no match.
 export const ORIGIN_PULL = 1.04;
 export function originPull(origin, event) {
-  return originExposure({ origin }, event) > 1 ? ORIGIN_PULL : 1;
+  return originExposure({ origin: originKey(origin) }, event) > 1 ? ORIGIN_PULL : 1;
 }
 
 // The house's one insight (VISION.md: distinctive insights + specialisms).
@@ -210,7 +219,7 @@ export function rivalTells(nextEvent, seed, day) {
 // stable order. The Brief and the floor both render from this one shape so
 // the street cannot disagree with itself.
 export function streetForDay(event, tomorrowDrift = 0, playerOrigin = null) {
-  return STREET.map(shop => shop.id === 'player' ? { ...shop, origin: validOrigin(playerOrigin) } : shop).map(shop => ({
+  return STREET.map(shop => shop.id === 'player' ? { ...shop, origin: originKey(playerOrigin) } : shop).map(shop => ({
     id: shop.id,
     name: shop.name,
     origin: shop.origin,

@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Exchange } from '../js/exchange.js';
-import { ORIGINS, originAmp, originPull, validOrigin, streetForDay, houseRead, HOUSE_READS } from '../js/street.js';
+import { ORIGINS, originAmp, originPull, validOrigin, originKey, streetForDay, houseRead, HOUSE_READS, OPEN_TABLE } from '../js/street.js';
 
 const frost = { id: 'frost_minas', tier: 'cata' };
 const harvest = { id: 'harvest_good', tier: 'good' };
@@ -33,7 +33,29 @@ test('validOrigin rejects junk (stale saves)', () => {
   assert.equal(validOrigin('narnia'), null);
   assert.equal(validOrigin(undefined), null);
   assert.equal(validOrigin('brazil'), 'brazil');
-  assert.equal(ORIGINS[0].id, null);
+  assert.equal(validOrigin('none'), 'none', 'the open table is a real answer');
+  assert.equal(ORIGINS[0].id, null, 'the pick default is "not chosen", not "open table"');
+});
+
+test('originKey: "none" and null both mean no identity; junk means none', () => {
+  assert.equal(originKey('none'), null);
+  assert.equal(originKey(null), null);
+  assert.equal(originKey(undefined), null);
+  assert.equal(originKey('narnia'), null);
+  assert.equal(originKey('brazil'), 'brazil');
+});
+
+test('"none" (the chosen open table) plays exactly like no origin', () => {
+  assert.equal(originAmp('none', { id: 'frost_minas', tier: 'cata' }), 1);
+  assert.equal(originPull('none', { id: 'frost_minas', tier: 'cata' }), 1);
+  assert.equal(streetForDay({ id: 'frost_minas', tier: 'cata' }, 0, 'none').find(r => r.id === 'player').exposure, 1);
+  const none = new Exchange(13), open = new Exchange(13);
+  none.origin = OPEN_TABLE; open.origin = null;
+  for (let i = 0; i < 30; i++) {
+    none.day = open.day = 1 + (i % 5);
+    assert.deepEqual(none.roll(), open.roll());
+    assert.equal(none.beanIndex, open.beanIndex);
+  }
 });
 
 test('Exchange: same seed, origin changes only matching-event swings', () => {
@@ -60,14 +82,16 @@ test('streetForDay: the player row carries the house origin exposure', () => {
   assert.ok(house.exposure > 1);
 });
 
-test('wiring: licence picker, save, footfall pull', () => {
+test('wiring: the pick lives in the street brief, answers persist, open table is an answer', () => {
   const main = readFileSync(new URL('../js/main.js', import.meta.url), 'utf8');
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.equal(html.includes('id="lic-house"'), false, 'the licence carries no house pick');
   assert.match(main, /Your house/, 'the house pick lives in the street brief');
   assert.match(main, /!introducedSet\(\)\.has\('street'\)/, 'street block is gated until the tool is introduced');
   assert.match(main, /playerName, standName, playerRole, perkBg, houseOrigin,/);
-  assert.match(main, /originPull\(houseOrigin, exchange\.event\)/);
+  assert.match(main, /originPull\(originKey\(houseOrigin\), exchange\.event\)/);
+  assert.match(main, /houseOrigin = o\.id \|\| 'none'/, 'choosing "no origin" stores the sentinel, so the picker dismisses');
+  assert.match(main, /houseOrigin == null && validOrigin\(s\.houseOrigin\)/, 'a returning player is not re-asked');
 });
 
 test('peek is the next roll, and never spends the stream', () => {
@@ -106,7 +130,7 @@ test('houseRead: only a matching house hears, and Cerrado cannot tell talk from 
 
 test('wiring: the Brief reads the house from a peek, past-tense for rivals', () => {
   const main = readFileSync(new URL('../js/main.js', import.meta.url), 'utf8');
-  assert.match(main, /houseRead\(houseOrigin, exchange\.peek\(currentIntelBias\(\)\)\)/);
+  assert.match(main, /houseRead\(originKey\(houseOrigin\), exchange\.peek\(currentIntelBias\(\)\)\)/);
   assert.match(main, /const intelBias = currentIntelBias\(\);/);
 });
 

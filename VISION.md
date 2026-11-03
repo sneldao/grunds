@@ -123,8 +123,10 @@ becoming a coffee game itself.
    whose origin the day's event names feels it harder — the swing on your
    bean index is amplified by half the street exposure (frost on your plateau
    ×1.4, a clean harvest on your valley ×1.2) — and the street comes to ask
-   (+4% footfall). The Brief says so in its first "The street" line. The pick
-   is saved with the week. The house also holds
+   (+4% footfall). The Brief says so in its first "The street" line. The pick is shown once, in the Brief when the
+   street tool is introduced, and saved with the week. "No house origin" is a
+   real, saved answer (`'none'` sentinel) — the Exchange still sees no origin,
+   so the open table stays bit-identical (proven by the balance harness). The house also holds
    **one insight** (shipped): when the coming draw names its origin, the Brief
    says so at the open, before the wire does (`Exchange.peek` — a clone of the
    rng stream, so the seeded sequence is untouched). Huila and East Africa

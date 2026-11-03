@@ -30,7 +30,7 @@ import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS, seedCityNames, seedCastNames, castName } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
-import { streetForDay, ORIGINS, originDef, validOrigin, originPull, houseRead, rivalTells } from './street.js';
+import { streetForDay, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells } from './street.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
 import { rushSpeed } from './paceNotice.js';
 import { touchPrimary } from './gestures.js';
@@ -700,7 +700,7 @@ let lastHedge = 'hold';   // yesterday's hedge id, for Idris's vindication lines
 // threads the letter, the receipt, the district board; the background pick
 // carries one small mechanical perk (not a class — the arc is one role).
 let playerName = 'Sam', standName = 'THE CORNER CUP', playerRole = 'the new owner', perkBg = null;
-let houseOrigin = null;   // street.js ORIGINS — the player's house; null = open table
+let houseOrigin = null;   // street.js: null = not asked yet · 'none' = open table (chosen) · else an origin id
 let perkStaffMul = 1, perkCostMul = 1;   // ex-barista pace / ex-accountant trim
 // PR-4d — Web Customer Center. A footer link inside #paywall opens the
 // center; route handlers use the existing billing API. On Capacitor this
@@ -921,7 +921,7 @@ function tick() {
     const w = dayWaves[waveIdx++];
     const morningCalm = (day === 1 && w.t < 600) ? 0.52 : 1;
     const settleThin = (day === 1 && dayMin < CALM_UNTIL_MIN) ? 0.5 : 1;
-    const mul = (exchange.event?.demand || 1) * originPull(houseOrigin, exchange.event) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1) * (samTruce && day === 5 ? 0.92 : 1) * elasticity * reach;
+    const mul = (exchange.event?.demand || 1) * originPull(originKey(houseOrigin), exchange.event) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1) * (samTruce && day === 5 ? 0.92 : 1) * elasticity * reach;
     // loyalty made visible: yesterday's served × return rate reappear,
     // spread evenly so the wave keeps its shape and just runs deeper
     const returnBonus = demand.todayReturnees > 0 && dayWaves.length
@@ -3516,10 +3516,10 @@ function renderStreetBrief() {
       // exchange.event is *yesterday's close* while the Brief is up (the draw
       // happens at OPEN), so rival lines are in the past tense; the house
       // read is a peek at the coming draw on the same seeded stream.
-      const rows = streetForDay(exchange.event, calculateNonLinearDrift(day + 1), houseOrigin);
+      const rows = streetForDay(exchange.event, calculateNonLinearDrift(day + 1), originKey(houseOrigin));
       const lines = [];
-      if (houseOrigin && day >= 1 && !campaignDone) {
-        const hr = houseRead(houseOrigin, exchange.peek(currentIntelBias()));
+      if (originKey(houseOrigin) && day >= 1 && !campaignDone) {
+        const hr = houseRead(originKey(houseOrigin), exchange.peek(currentIntelBias()));
         if (hr) lines.push(`${hr.head.toLowerCase().replace(/^./, c => c.toUpperCase())}: ${hr.line}`);
       }
       // rivals act on what they know: their tell, if they show one, is a
@@ -3552,7 +3552,18 @@ function renderStreetBrief() {
           const b = document.createElement('button');
           b.type = 'button';
           b.textContent = o.label;
-          b.onclick = () => { houseOrigin = o.id; exchange.origin = houseOrigin; paint(i); renderStreetBrief(); try { capturePreDawn(day); } catch {} };
+          b.onclick = () => {
+            // `null` means "not chosen" — the open table is a real answer.
+            houseOrigin = o.id || 'none';
+            exchange.origin = originKey(houseOrigin);
+            // persist the answer only — the dawn save picks up the rest
+            try {
+              const id = JSON.parse(localStorage.getItem('grunds.identity') || '{}') || {};
+              localStorage.setItem('grunds.identity', JSON.stringify({ ...id, houseOrigin }));
+            } catch {}
+            paint(i);
+            renderStreetBrief();
+          };
           pills.appendChild(b);
         });
         paint(0);
@@ -4275,7 +4286,7 @@ function applySavedWeek(save) {
   if (save.standName) standName = save.standName;
   if (save.playerRole) playerRole = save.playerRole;
   if (save.perkBg) perkBg = save.perkBg;
-  houseOrigin = validOrigin(save.houseOrigin); exchange.origin = houseOrigin;
+  houseOrigin = validOrigin(save.houseOrigin); exchange.origin = originKey(houseOrigin);
   try { applyPerk(); } catch {}
   if (save.seed != null) SEED_OVERRIDE = save.seed;
   const ex = save.exchange || {};
@@ -5524,7 +5535,7 @@ function reset(coreOnly = false) {
   frontage.reset();
   climate = pickClimate(seedNow(), city?.name);
   street.climate = climate;
-  exchange.origin = houseOrigin;   // the house persists across weeks; reset rewinds the market but not the identity
+  exchange.origin = originKey(houseOrigin);   // the house persists across weeks; reset rewinds the market but not the identity
   exchange.beanIndex = 1.0; exchange.day = 0; exchange.contract = null; exchange.debt = 0; exchange.event = null; exchange.history = []; exchange.matchaPrice = undefined;
   exchange.lastTier = null; exchange.lastEventId = null;
   tapePrev = 1.0; offerShown = false; offerResolved = false; offerWaveMul = 1; officeRunAt = 0; oluPayoutAt = 0; estherCard = false;
@@ -6175,6 +6186,10 @@ function showLicence() {
       playerName = s.playerName; standName = s.standName;
       licRole = Math.max(0, LIC_ROLES.indexOf(s.playerRole));
       licBg = Math.max(0, LIC_BGS.findIndex(b => b.id === s.perkBg));
+      // the house is answered once; a returning player isn't asked again
+      if (houseOrigin == null && validOrigin(s.houseOrigin)) {
+        houseOrigin = validOrigin(s.houseOrigin); exchange.origin = originKey(houseOrigin);
+      }
     }
   } catch {}
   const nameEl = $('lic-name'), standEl = $('lic-stand');
@@ -6972,9 +6987,9 @@ function loop(now) {
 }
   window.__grunds = {
   // balance harness: pick the house before OPEN; read what the Brief would say
-  setHouse: (o) => { houseOrigin = validOrigin(o); exchange.origin = houseOrigin; return houseOrigin; },
+  setHouse: (o) => { houseOrigin = validOrigin(o); exchange.origin = originKey(houseOrigin); return houseOrigin; },
   tellsNow: () => rivalTells(exchange.peek(currentIntelBias()), seedNow(), day),
-  houseReadNow: () => houseRead(houseOrigin, exchange.peek(currentIntelBias())),
+  houseReadNow: () => houseRead(originKey(houseOrigin), exchange.peek(currentIntelBias())),
   stats: () => ({ day, dayMin, till, cogs, balked, served, servedRetail, defections, rivalServed, peakQueue, waveBalked, waveServed, net: till - cogs - exchange.debt, queue: patrons.queueLength, count: patrons.count, phase, hedgedCups, hedgeSavings: realizedHedgeSavings, batchUnits: ctx.batchUnits, batchSpend, batchWaste,
     turnaways, rivalTurnaways: patrons.turnaways || 0,
     emergencyCups, beanSpend, emergencySpend, sackSpend, houseLot: lotState.house, houseStock: lotState.entry(lotState.house)?.stock ?? 0,
