@@ -238,6 +238,10 @@ test('Phase 3 · loseable day 1: gouge or gut the menu and the day bleeds', asyn
   };
   const runDay = async (stage) => {
     _rs = 424242;
+    // Cold start thins day-1 traffic; this probe is about the PRICING
+    // mechanism (balks need real lines), so hold awareness at a warm level.
+    // Deterministic: both fair and replay runs set the same value.
+    G.stats().demand.awareness = 0.6;
     if (stage) assert.equal(G.stageMenu(stage), true, 'stageMenu rejected a valid stage');
     const cr = G.commitDayPlan();
     assert.ok(cr && cr.ok, 'commit failed: ' + JSON.stringify(cr));

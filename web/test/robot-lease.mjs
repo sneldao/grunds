@@ -147,6 +147,10 @@ function gouge() {
   G.stageMenu({ prices: { espresso: 9, flatwhite: 9, filter: 9 } });
 }
 function playDay(acceptRuth = false) {
+  // Cold start (VISION.md): this probe isolates machine throughput on the
+  // rush morning, so hold awareness at a level where a real rush forms —
+  // identical for the Ruth week and the robot week.
+  G.stats().demand.awareness = 0.55;
   const r = G.commitDayPlan();
   if (!r || !r.ok) fails.push('commit failed ' + JSON.stringify(r));
   const pace = G.stats().staffMul;
