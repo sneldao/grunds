@@ -25,6 +25,7 @@ export const STREET_LIMITS = {
   bench: 3,
   glasshouse: 8,
   prop: 4,
+  rivalvisit: 2,
   rowPerLot: 4,
   rowTotal: 7,
 };
@@ -314,6 +315,9 @@ export function ambientChoices({ rowLots = [], rivalHeat = 0, truce = false, dem
     { kind: 'bench', weight: thin ? 18 : 12 },
     { kind: 'glasshouse', weight: glass },
     { kind: 'prop', weight: 8 },
+    // Cosy street (VISION.md phase 1): the neighbours get their own traffic —
+    // someone whose whole purpose is the shop next door, cup in hand.
+    { kind: 'rivalvisit', weight: thin ? 6 : 10 },
   ];
   for (const lot of rowLots) {
     choices.push({
@@ -387,6 +391,14 @@ export function buildRoute(plan, rng) {
     const d = plan.door;
     points.push(pt(d.x, LAYOUT.pavementZ));
     points.push(pt(d.x, d.z, { dwell: 4.2 + roll() * 2.2, face: d.face }));
+    points.push(pt(d.x, LAYOUT.pavementZ));
+    points.push(pavementEnd(endX, roll));
+  } else if (plan.kind === 'rivalvisit' && plan.door) {
+    // A customer of the street, not of us: stop at the neighbour's door,
+    // longer than a glance, and leave with a cup (act 'sip' at spawn).
+    const d = plan.door;
+    points.push(pt(d.x + (roll() - 0.5) * 0.8, LAYOUT.pavementZ));
+    points.push(pt(d.x + (roll() - 0.5) * 0.5, d.z + 0.15, { dwell: 6 + roll() * 8, face: d.face }));
     points.push(pt(d.x, LAYOUT.pavementZ));
     points.push(pavementEnd(endX, roll));
   } else if (plan.kind === 'park' && plan.spot) {
@@ -1037,6 +1049,7 @@ export class StreetLife {
       case 'park': return !!this._peek('park');
       case 'neighbor': return !!this._peekDoor();
       case 'prop': return !!this._peekProp();
+      case 'rivalvisit': return this._kindCount('rivalvisit') < STREET_LIMITS.rivalvisit;
       case 'glasshouse':
         return !this.truce && this._kindCount('glasshouse') < STREET_LIMITS.glasshouse;
       case 'row': {
@@ -1074,6 +1087,11 @@ export class StreetLife {
       const prop = this._peekProp();
       if (!prop) return null;
       return { kind, fromLeft, prop, hold: prop.hold };
+    }
+    if (kind === 'rivalvisit') {
+      const door = NEIGHBOR_DOORS[(this.rng() * NEIGHBOR_DOORS.length) | 0];
+      if (!door) return null;
+      return { kind, fromLeft, door };
     }
     if (kind === 'glasshouse') {
       if (this.truce || this._kindCount('glasshouse') >= STREET_LIMITS.glasshouse) return null;
@@ -1212,7 +1230,7 @@ export class StreetLife {
       torso: new THREE.Color(COHORTS[cohort]?.color ?? 0xaaaaaa),
       // What they're doing while they stand: a phone-check or a sip turns a
       // figure at rest into a figure with an occupation.
-      act: (() => { const r = roll(); return r < 0.16 ? 'phone' : r < 0.34 ? 'sip' : null; })(),
+      act: (() => { const r = roll(); return route.kind === 'rivalvisit' ? 'sip' : r < 0.16 ? 'phone' : r < 0.34 ? 'sip' : null; })(),
       // Who they are: hair always, a cohort hat sometimes, a carried thing
       // often. The silhouette, not the colour, is what a person reads as.
       hair: new THREE.Color(HAIR[(roll() * HAIR.length) | 0]),

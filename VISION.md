@@ -110,6 +110,44 @@ real-world events as yours. Competition becomes legible, thematic, and
 dramatic — and every mechanic is one a generic café sim cannot copy without
 becoming a coffee game itself.
 
+## The cosy street — footfall is recruited, not spawned (Nov 2 feedback)
+
+**Feedback:** "the number of customers is overwhelming — they stream into our
+shop regardless of what we do, rather than a cosy world where people wander the
+street, go into other cafés, browse ours and leave."
+
+**Diagnosis (code-confirmed):** two disconnected traffic systems. The street's
+ambient layer is a garnish (`STREET_SEED` = 7 souls full / 3 lite); the
+economic layer is the real population, and **100% of wave spawns target our
+counter** (`wave_schedule.json` zones are all `counter`). The only non-us
+destinations are failure exits — balking mid-queue, defecting while waiting.
+Rivals receive traffic only as our loss, never as their own life. Player
+levers change flow *rate* (awareness × spawnMin..Max), never flow *direction*
+— that is exactly "regardless of what we do". Same root as the HUD feedback:
+everything moves *at* the player; the fix is indirection.
+
+**Principle:** the street belongs to itself. Most people have no business with
+us; customers should look *recruited* — a door is a place people decide about.
+Cosy is density of behaviour, not density of people.
+
+**Phases (order matters):**
+1. **Choreography before counts — shipped.** Arrivals pause 1–2 sim-minutes
+   at the door when a line has formed (`consider` state, dwell off the
+   cosmetic phase, zero new sim draws; an empty bar joins at once) and then
+   make the same join/divert decision as before. Rival doors get their own
+   ambient traffic (`rivalvisit`, capped at two — stop at the neighbour's
+   door, leave with a cup). Balkers and turnaways already strolled out via
+   the far shelf or across to the rival visibly. Harness check: net-worth
+   deltas vs the pre-change tree are symmetric noise (mean ≈ +£66 on a £7k
+   baseline) — economically neutral, as promised.
+2. **Flip the ratio** — raise ambient density + dwell behaviours, trim
+   `spawnMax` / tighten the awareness gate, add a "browsed, didn't buy" receipt
+   line. This is a rebalance: run the policy sweep afterwards, the economy is
+   tuned on funnel traffic.
+3. **The street-of-shops answer** — real rival shops with catchments, street
+   events visibly redirecting footfall between doors (the long version of this
+   feedback; it argues for accelerating the shop geometry below).
+
 ## Open questions (to resolve before build)
 
 1. Which 2–3 capitals first? Candidates should differ in ritual grammar, not

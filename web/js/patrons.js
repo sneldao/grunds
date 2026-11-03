@@ -600,6 +600,8 @@ export class PatronSystem {
         p.state = 'toRegister'; p.queueRef = 'register'; this.registerQ.push(p);
         p.goal = this._slotPos(registerSlot, this.registerQ.length - 1, p);
         this._layoutQ(this.registerQ, registerSlot);
+      } else if (p.state === 'consider' && --p.dwell <= 0) {
+        this._onArrive(p);   // the beat ends; the door decision stands
       } else if (p.state === 'sit') {
         if (p.sipAt != null && p.dwell === p.sipAt) { p.sipping = 2; if (this.fx) this.fx.steam.spawn(p.pos.x, 1.05, p.pos.z, 0, 0.22, 0, 0.9, 0.35); }
         if (p.sipping) p.sipping--;
@@ -724,6 +726,23 @@ export class PatronSystem {
   _onArrive(p) {
     switch (p.state) {
       case 'walkingIn':
+        // Cosy street (VISION.md phase 1): when a line has already formed,
+        // arrivals pause at the door and read the board before joining. The
+        // beat is cosmetic — the join/divert decision and its rolls are
+        // unchanged, and the dwell comes off the cosmetic phase, so no new
+        // sim draws are consumed. An empty bar joins at once, so the idle
+        // arrival path stays bit-identical.
+        if (!p.considered && this.counterQ.length >= 3) {
+          p.considered = true;
+          p.state = 'consider';
+          p.dwell = 1 + ((Math.abs(p.phase * 3.7) | 0) % 2);
+          p.face = Math.PI;   // the board, not the street
+          break;
+        }
+        if (this._campDivert(p)) this._leaveForRival(p, false);
+        else p.state = 'toQueue';
+        break;
+      case 'consider':
         if (this._campDivert(p)) this._leaveForRival(p, false);
         else p.state = 'toQueue';
         break;

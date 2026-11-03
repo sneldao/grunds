@@ -137,6 +137,25 @@
 - Not shipped: tells on the floor (chalkboard/queue), rivals changing sim
   behaviour, supplier stand, capital parameter layer.
 
+## Cosy street (footfall feedback, Nov 2)
+- Direction in VISION.md "The cosy street". Diagnosis: 100% of wave spawns
+  target our counter; rivals only receive traffic as our failure exits;
+  levers change flow rate, never direction.
+- Phase 1 (shipped) = choreography, no count changes: door consideration
+  beat in patrons.js — arrivals pause 1–2 sim-min at the door when a line
+  already exists (state `consider`, dwell off the cosmetic phase, ZERO new
+  sim draws, empty bar joins at once so the idle path is bit-identical);
+  the join/divert decision after the beat is the unchanged door decision.
+  Rival-door ambient traffic in streetLife.js (`rivalvisit` kind, cap 2,
+  stop at a neighbour door with a cup, own mulberry32 stream — cosmetic).
+  Balked/turnaway strolls already existed (`_leave` far-shelf route, 70%
+  visible defection). Balance harness: ±noise vs pre-change tree (mean
+  Δ ≈ +£66 on a £7k baseline — economically neutral).
+- Phase 2 = flip the ratio (more ambient, lower spawnMax, "browsed" receipt
+  line) and RE-RUN the balance sweep — the economy is tuned on funnel traffic.
+- Guard rails: seeded-floor / replay-campaign / replay-resume stay green
+  (determinism), balance-policies reconciliation stays green (ledger).
+
 ## Conventions
 - Choice surfaces: options + consequence visible, no folds for choices —
   see ARCHITECTURE.md "Choice surfaces".
