@@ -14,7 +14,7 @@ import * as THREE from '../vendor/three.module.js';
 import { LAYOUT } from '../js/config.js';
 import { StreetLife, VIGNETTE_SPOTS } from '../js/streetLife.js';
 
-export const THEATRE_ROLES = ['busker', 'chat', 'argue', 'catwatch', 'crowd', 'skater'];
+export const THEATRE_ROLES = ['busker', 'chat', 'argue', 'catwatch', 'crowd', 'skater', 'dogwalk'];
 
 function drive(seed, ticks, { lite = false } = {}) {
   const s = new StreetLife(new THREE.Group(), { lite });
@@ -38,12 +38,12 @@ function drive(seed, ticks, { lite = false } = {}) {
 
 test('the full theatre takes the stage within a day of street life', () => {
   const seen = new Set();
-  for (let seed = 11; seed <= 16 && seen.size < 5; seed++) {
+  for (let seed = 11; seed <= 18 && seen.size < 6; seed++) {
     const { byRole } = drive(seed, 2400);
     for (const k of byRole.keys()) seen.add(k);
   }
-  for (const role of ['busker', 'chat', 'argue', 'catwatch', 'skater']) {
-    assert.ok(seen.has(role), `${role} never appeared across seeds 11–16`);
+  for (const role of ['busker', 'chat', 'argue', 'catwatch', 'skater', 'dogwalk']) {
+    assert.ok(seen.has(role), `${role} never appeared across seeds 11–18`);
   }
 });
 
@@ -94,6 +94,35 @@ test('the skater crosses fast, one at a time, board under foot', () => {
   assert.equal(s.skateBoard.visible, false, 'board hidden once the skater is gone');
 });
 
+test('the dog-walker strolls once at a time with the dog on the leash', () => {
+  const s = new StreetLife(new THREE.Group(), {});
+  s.live = true;
+  s.beginDay(1, 29);
+  const w = s._spawnDogWalker();
+  assert.ok(w, 'walker route should be clear on an empty street');
+  assert.equal(w.vg, 'dogwalk');
+  assert.equal(s._spawnDogWalker(), null, 'only one dog-walker at a time');
+  assert.equal(s.leashDog.visible, true, 'the dog appears with the walker');
+  assert.equal(s.leashLine.visible, true, 'the leash appears with the dog');
+  assert.ok(w.speed < 1.5, 'an unhurried stroll, not a march');
+  // Walk them a stretch; the dog never outruns the leash.
+  for (let i = 0; i < 90; i++) s.update(1 / 30, 2, false);
+  const dg = s._leashState;
+  const dist = Math.hypot(dg.pos.x - w.pos.x, dg.pos.z - w.pos.z);
+  assert.ok(dist <= 1.3, `the dog stays on the leash (got ${dist.toFixed(2)})`);
+  // The leash line's collar end sits on the dog, the hand end on the walker.
+  const arr = s.leashLine.geometry.attributes.position.array;
+  const handD = Math.hypot(arr[0] - w.pos.x, arr[2] - w.pos.z);
+  const collarD = Math.hypot(arr[6] - dg.pos.x, arr[8] - dg.pos.z);
+  assert.ok(handD < 0.5, 'leash starts at the walker\u2019s hand');
+  assert.ok(collarD < 0.3, 'leash ends at the dog\u2019s collar');
+  // Despawn packs the dog away.
+  s._despawn(w);
+  assert.equal(s._dogWalker, null);
+  assert.equal(s.leashDog.visible, false);
+  assert.equal(s.leashLine.visible, false);
+});
+
 test('one street cat: home on the bench, cameo walk starts there', () => {
   // The cat fixture lives in world.js — streetLife owns no cat mesh.
   const s = new StreetLife(new THREE.Group(), {});
@@ -139,5 +168,5 @@ test('the theatre is deterministic — same seed, same stage directions', () => 
 test('lite streets keep the theatre off', () => {
   const { s, byRole } = drive(11, 800, { lite: true });
   assert.equal(byRole.size, 0, 'lite mode spawned theatre');
-  assert.ok(!s._skater && !s._vgAnchor);
+  assert.ok(!s._skater && !s._vgAnchor && !s._dogWalker);
 });

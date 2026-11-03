@@ -601,6 +601,48 @@ export class StreetLife {
       this.skateBoard.visible = false;
       if (scene && scene.add) scene.add(this.skateBoard);
       this._skater = null;
+      // The leashed dog (theatre wave 2): one walker, one dog, one line.
+      // Built once, hidden until _spawnDogWalker; _dogWalk drives it on
+      // timers only — never the seeded stream.
+      this._leashCoat = new THREE.MeshStandardMaterial({ color: 0x8a6a42, roughness: 0.92 });
+      const lg = new THREE.Group();
+      const lbody = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.16, 0.13), this._leashCoat);
+      lbody.position.y = 0.26;
+      const headG = new THREE.Group(); headG.position.set(0, 0.34, 0.16);
+      const lhead = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.15), this._leashCoat);
+      const lsnout = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.07), this._leashCoat);
+      lsnout.position.set(0, -0.03, 0.1);
+      const learL = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.02), this._leashCoat);
+      learL.position.set(-0.045, 0.09, -0.02);
+      const learR = learL.clone(); learR.position.x = 0.045;
+      headG.add(lhead, lsnout, learL, learR);
+      const collar = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.03, 0.05),
+        new THREE.MeshStandardMaterial({ color: 0xc9a227, roughness: 0.5 }));
+      collar.position.set(0, 0.32, 0.1);
+      const tailGeo = new THREE.BoxGeometry(0.025, 0.025, 0.15); tailGeo.translate(0, 0, -0.075);
+      const tail = new THREE.Mesh(tailGeo, this._leashCoat);
+      tail.position.set(0, 0.32, -0.15);
+      const legGeo2 = new THREE.BoxGeometry(0.03, 0.18, 0.03); legGeo2.translate(0, -0.09, 0);
+      const legs = [];
+      for (const [lx, lz] of [[-0.1, 0.09], [0.1, 0.09], [-0.1, -0.1], [0.1, -0.1]]) {
+        const leg = new THREE.Mesh(legGeo2.clone(), this._leashCoat);
+        leg.position.set(lx * 0.45, 0.19, lz);
+        legs.push(leg);
+      }
+      lg.add(lbody, headG, collar, tail, ...legs);
+      lg.visible = false;
+      lg.traverse(o => { o.castShadow = false; o.frustumCulled = false; });
+      if (scene && scene.add) scene.add(lg);
+      this.leashDog = lg;
+      this._leashParts = { headG, tail, legs };
+      this._leashState = { pos: new THREE.Vector3(), heading: 0, trot: 0, t: 0 };
+      const leashGeo = new THREE.BufferGeometry();
+      leashGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
+      this.leashLine = new THREE.Line(leashGeo, new THREE.LineBasicMaterial({ color: 0x3a2a1a }));
+      this.leashLine.visible = false;
+      this.leashLine.frustumCulled = false;
+      if (scene && scene.add) scene.add(this.leashLine);
+      this._dogWalker = null;
     } finally {
       Math.random = savedRandom;
     }
@@ -863,6 +905,9 @@ export class StreetLife {
     // A skater crosses on its own rarer roll — it never holds a spot, so it
     // is not gated by the vignette anchor.
     if (!this.lite && !this._skater && this.rng() < 0.10) this._spawnSkater();
+    // A dog-walker strolls on an even rarer roll — one at a time, unhurried,
+    // a dwell beat mid-crossing so the dog gets its sniff.
+    if (!this.lite && !this._dogWalker && this.rng() < 0.06) this._spawnDogWalker();
   }
 
   // Attention street (pillar 4, slice 2): the boards are real shops — their
@@ -1021,6 +1066,43 @@ export class StreetLife {
     return a;
   }
 
+  // The dog-walker vignette: a slow stroll with one dwell beat. The walker
+  // is a normal vignette agent (so it may wear one of the animated Polyfork
+  // humanoids); the dog, the leash and their motion live in _dogWalk.
+  _spawnDogWalker() {
+    if (this.count >= this.cap || !this.free.length || this._dogWalker) return null;
+    const ltr = this.rng() < 0.5;
+    const from = ltr ? LAYOUT.spawnL.x : LAYOUT.spawnR.x;
+    const to = ltr ? LAYOUT.spawnR.x : LAYOUT.spawnL.x;
+    const z = LAYOUT.pavementZ + (this.rng() - 0.5) * 0.35;
+    const midX = from + (to - from) * (0.4 + this.rng() * 0.2);
+    const dwell = 4 + this.rng() * 6;   // the sniff beat
+    const route = {
+      kind: 'vignette', lotId: null, hold: null, doorId: null, economic: false,
+      points: [pt(from, z), pt(midX, z, { dwell }), pt(to, z)],
+    };
+    if (routeBlocked(route.points)) return null;
+    const a = this._activate(route, false);
+    if (!a) return null;
+    a.vg = 'dogwalk';
+    a.speed = 1.15 + this.rng() * 0.25;   // unhurried
+    a.act = null;
+    a.heldKind = null;
+    a.gait = { freq: 4.2, amp: 0.28, lean: 0.04 };
+    a.dogSide = this.rng() < 0.5 ? -1 : 1;
+    this._dogWalker = a;
+    this._paint(a);
+    // The coat is chosen at spawn (stream); motion after is timers only.
+    const coats = [0x8a6a42, 0x2e2622, 0xc9b79d, 0x5a4632];
+    this._leashCoat.color.setHex(coats[(this.rng() * coats.length) | 0]);
+    const dg = this._leashState;
+    dg.pos.set(a.pos.x - Math.sin(a.face) * 0.5, 0, a.pos.z - Math.cos(a.face) * 0.5);
+    dg.heading = a.face; dg.trot = 0; dg.t = 0;
+    this.leashDog.visible = true;
+    this.leashLine.visible = true;
+    return a;
+  }
+
   // A high-speed defection already joined Sam's queue. This walker only
   // traces the zebra so the cross still reads. It never joins Sam's line.
   mirrorCrossing(from) {
@@ -1128,6 +1210,7 @@ export class StreetLife {
     for (const part of Object.values(this.parts)) part.instanceMatrix.needsUpdate = true;
     this._pigeons(stepScale);
     this._dogs(stepScale);
+    this._dogWalk(stepScale, mul);
     // The skater's board rides under them; hide it when no skater is live.
     if (this.skateBoard) {
       const sk = this._skater;
@@ -1193,6 +1276,92 @@ export class StreetLife {
       this.dogHeads[dog.i].setMatrixAt(0, d.matrix);
     }
     for (const m of [...this.dogMeshes, ...this.dogHeads]) m.instanceMatrix.needsUpdate = true;
+  }
+
+  // The leashed dog heels behind the walker: trotting to catch a taut leash,
+  // circling for a sniff during the dwell beat. Follow + gait are pure
+  // timers off the frame dt — the seeded stream is never touched here, so
+  // replays stay identical.
+  _dogWalk(dt, walkMul) {
+    if (!this.leashDog) return;
+    const mul = Number(walkMul) > 0 ? walkMul : 1;
+    const w = this._dogWalker;
+    if (!w || !w.active || w.hidden) {
+      this.leashDog.visible = false;
+      this.leashLine.visible = false;
+      return;
+    }
+    this.leashDog.visible = true;
+    this.leashLine.visible = true;
+    const dg = this._leashState;
+    dg.t += dt;
+    const fx = Math.sin(w.face), fz = Math.cos(w.face);
+    const rx = Math.cos(w.face), rz = -Math.sin(w.face);
+    const side = w.dogSide || 1;
+    const dwell = w.state === 'dwell';
+    // The heel spot sits behind and to one side of the walker; on the dwell
+    // beat the dog earns a slow sniff-circle around its owner.
+    let tx, tz;
+    if (dwell) {
+      const ang = dg.t * 0.7;
+      tx = w.pos.x + Math.sin(ang) * 0.45;
+      tz = w.pos.z + Math.cos(ang) * 0.45;
+    } else {
+      tx = w.pos.x - fx * 0.52 + rx * 0.3 * side;
+      tz = w.pos.z - fz * 0.52 + rz * 0.3 * side;
+    }
+    // The leash is a hard radius around the owner.
+    const dxH = tx - w.pos.x, dzH = tz - w.pos.z;
+    const dH = Math.hypot(dxH, dzH);
+    if (dH > 0.95) { tx = w.pos.x + (dxH / dH) * 0.95; tz = w.pos.z + (dzH / dH) * 0.95; }
+    // Trot toward the spot; the pace scales with the street's walk
+    // multiplier so a fast-forward walker never outruns the dog, and a taut
+    // leash pulls a proper catch-up trot.
+    const dx = tx - dg.pos.x, dz = tz - dg.pos.z;
+    const dist = Math.hypot(dx, dz);
+    const speed = Math.min(3.4, Math.max((w.speed || 1.2) * mul * 1.15, dist * 3.5));
+    let moving = false;
+    if (dist > 0.02) {
+      const step = Math.min(dist, speed * dt);
+      dg.pos.x += (dx / dist) * step;
+      dg.pos.z += (dz / dist) * step;
+      const want = Math.atan2(dx, dz);
+      let diff = want - dg.heading;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      dg.heading += diff * Math.min(1, dt * 8);
+      moving = step > 0.0005;
+    }
+    // Hard leash: whatever the chase does, the collar never passes the end
+    // of the lead.
+    const dW = Math.hypot(dg.pos.x - w.pos.x, dg.pos.z - w.pos.z);
+    if (dW > 1.05) {
+      dg.pos.x = w.pos.x + ((dg.pos.x - w.pos.x) / dW) * 1.05;
+      dg.pos.z = w.pos.z + ((dg.pos.z - w.pos.z) / dW) * 1.05;
+    }
+    dg.trot += dt * (moving ? 10 : 2);
+    const bob = moving ? Math.abs(Math.sin(dg.trot)) * 0.025 : 0;
+    this.leashDog.position.set(dg.pos.x, bob, dg.pos.z);
+    this.leashDog.rotation.set(0, dg.heading, 0);
+    // Diagonal-leg trot, a tail that never stops, a sniffing head on the dwell.
+    const { headG, tail, legs } = this._leashParts;
+    const swing = moving ? Math.sin(dg.trot) * 0.55 : 0;
+    legs[0].rotation.x = swing; legs[3].rotation.x = swing;
+    legs[1].rotation.x = -swing; legs[2].rotation.x = -swing;
+    tail.rotation.x = -0.4 + Math.sin(dg.t * 7) * 0.35;
+    headG.rotation.x = dwell ? Math.max(0, Math.sin(dg.t * 2.6)) * 0.5 : 0;
+    // The leash runs hand -> sag -> collar.
+    const sc = w.scale || 1;
+    const handX = w.pos.x + rx * 0.18 * side, handY = 0.72 * sc, handZ = w.pos.z + rz * 0.18 * side;
+    const cfx = Math.sin(dg.heading), cfz = Math.cos(dg.heading);
+    const colX = dg.pos.x + cfx * 0.1, colY = 0.32 + bob, colZ = dg.pos.z + cfz * 0.1;
+    const span = Math.hypot(colX - handX, colY - handY, colZ - handZ);
+    const sag = Math.max(0.02, Math.min(0.16, (0.95 - span) * 0.5));
+    const arr = this.leashLine.geometry.attributes.position.array;
+    arr[0] = handX; arr[1] = handY; arr[2] = handZ;
+    arr[3] = (handX + colX) / 2; arr[4] = (handY + colY) / 2 - sag; arr[5] = (handZ + colZ) / 2;
+    arr[6] = colX; arr[7] = colY; arr[8] = colZ;
+    this.leashLine.geometry.attributes.position.needsUpdate = true;
   }
 
   // Peck in place, hop on a timer, scatter when a walking body gets close.
@@ -1519,6 +1688,11 @@ export class StreetLife {
     }
     if (agent === this._vgAnchor) this._vgAnchor = null;
     if (agent === this._skater) this._skater = null;
+    if (agent === this._dogWalker) {
+      this._dogWalker = null;
+      if (this.leashDog) this.leashDog.visible = false;
+      if (this.leashLine) this.leashLine.visible = false;
+    }
     if (agent.hold) this.holds.delete(agent.hold);
     for (const part of Object.values(this.parts)) {
       part.setMatrixAt(agent.idx, ZERO);

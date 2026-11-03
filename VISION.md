@@ -261,9 +261,12 @@ argument** (a squared-up pair, one lifts the cup in question, a third slows
 to watch), the **bench cat** (a fixture that breathes, flicks its tail —
 faster when a walker passes — and grooms on a timer, never touching the
 seeded stream) with **cat-watchers** who gather road-side of the bench on
-their own `vg:cat` gate, and the **skater** (a fast crossing on its own rare
-roll, board under foot, one at a time, scatters the pigeons by proximity).
-All ride the street's cosmetic stream and stay off the café till.
+their own `vg:cat` gate, the **skater** (a fast crossing on its own rare
+roll, board under foot, one at a time, scatters the pigeons by proximity),
+and the **dog-walker** (an unhurried stroll with one mid-crossing sniff
+beat; a leashed dog trots at heel on a hard leash, circles during the pause,
+wagging throughout). All ride the street's cosmetic stream and stay off the
+café till.
 
 **Shipped (the attention hook):** the street's theatre now *pays*. A seeded
 timetable (`planTheatre(seed, day)`, pure in the beats.js idiom) deals three

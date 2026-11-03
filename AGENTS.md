@@ -69,8 +69,10 @@
    Verb FX rolls fall back to a patron+time hash when fx is absent — never
    `Math.random`, never the decision/cosmetic streams. Street theatre
    shipped too (attention-street
-   pillar): coffee argument, bench cat + cat-watchers, skater — see
-   `street-theatre.mjs`. Next: dog walker needs its own rig;
+   pillar): coffee argument, bench cat + cat-watchers, skater, and the
+   dog-walker (own rig: a leash dog + line trail a vignette agent —
+   heel / sniff-circle / hard-leash clamp in `_dogWalk`, timers only).
+   See `street-theatre.mjs`. Next:
    delivery/hand-truck vignette; rooftop dressing (tank/antennas/laundry).
 2. Camera grammar — espressoIns/caseIns use authored view positions and
    alone bypass the r>=18 scripted clamp; lowStreet reaches phi=1.5.
