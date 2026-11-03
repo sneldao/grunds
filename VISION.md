@@ -195,7 +195,11 @@ The frontage-conversion loop (hesitators who read the front, awareness ×
 reputation, max 3/day) is the visible earn: recruited converts never stroll
 (`patrons.recruited` guard), and the first one lands a **FIRST OFF THE
 STREET** card. Day-1 Brief copy names the fiction: "the street doesn't know
-you yet — today's crowd is earned, not given."
+you yet — today's crowd is earned, not given." The chapter cards reframe
+with it (`CHAPTERS[].d1` alt-sublines on day 1: FIRST LIGHT — "nobody
+knows your name yet", THE COMMUTE — "give them a reason to stop", THE
+MATCHA WAVE — "most won't look twice", LAST ORDERS — "every cup today
+was chosen, not given").
 
 **The rebalance, measured** (harness, 5 seeds × policies): verdict gates
 retuned with the economy — held £4,500→**£1,000**, good £5,500→**£2,500**,
