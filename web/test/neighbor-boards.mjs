@@ -79,6 +79,8 @@ test('world.js builds one A-frame per door and main.js paints them at dawn', () 
     assert.ok(world.includes(`id: '${d.id}'`), `board frame for ${d.id}`);
   }
   const main = readFileSync(new URL('../js/main.js', import.meta.url), 'utf8');
-  assert.ok(main.includes('world.setNeighborBoards(streetRows.map'), 'dawn paints the boards from streetForDay');
+  assert.ok(main.includes('world.setNeighborBoards(streetBoards)'), 'dawn paints the boards from streetForDay');
+  assert.ok(main.includes('street.setNeighborQueues(neighborQueues(streetBoards, seedNow(), d))'),
+    'dawn sets the apron queues from the same board tones');
   assert.ok(main.includes('boardLine'), 'dawn uses boardLine for the copy');
 });

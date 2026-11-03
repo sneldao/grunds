@@ -226,8 +226,15 @@ of attention — you arrive as nobody in it. Four pillars, in shipping order:
    (pure; tone dark/bracing/bright/flat), painted at dawn in main.js from
    the same `streetForDay` shape the Brief renders, build-time standing
    paint in world.js (`W.setNeighborBoards`). Tests: neighbor-boards.mjs.
-   Next: responsive ghost queues per board, then multi-way zero-sum
-   allocation + full rebalance.
+   Slice 2 also shipped — the boards have lines: `neighborQueues(boards,
+   seed, day)` in street.js maps each tone to a band (dark 0-1, bracing
+   1-2, bright 3-4, flat 1-2) via tellHash, so a shop the market hit stands
+   nearly empty while a windfall draws a line. streetLife reconciles each
+   apron to its target via `NQUEUE_SLOTS` (held `nq:<id>:<i>`) and walk-in/
+   dwell/peel-out `nqueue` members; the reconcile runs at the top of tick()
+   (posture before ambient filler). Glasshouse keeps its own stand-in
+   queue; lite streets carry none. Tests: neighbor-queues.mjs.
+   Next: multi-way zero-sum allocation + full rebalance.
 - Config contradiction that motivates pillar 1: `start: 0.28 // opening-day
   awareness — nobody knows the stand yet` — the comment says nobody, the
   harness served ~3,000 cups on day 1.

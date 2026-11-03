@@ -231,8 +231,21 @@ board by each door, repainted at dawn from the same `streetForDay` shape the
 morning Brief renders (`boardLine` — pure, tone-mapped: dark when the event
 hits their origin, bracing when the specialist acts on an early read, bright
 on windfalls, standing copy on quiet days). Walking the street now reads the
-market. Next slices: ghost queues that respond to each board, then the
-multi-way zero-sum allocation itself.
+market.
+
+**Slice 2 shipped — the boards have lines.** Each apron carries the day's
+queue, sized by the same board tone (`neighborQueues` — pure hash of
+seed/day/shop over the tone band: a shop the market hit stands nearly empty,
+a shop on a windfall has a line of 3–4). Queues are walk-in / dwell /
+peel-out members on held slots (`nqueue` kind, cosmetic stream, non-
+economic), reconciled at the top of `tick()` — posture first, so a freed
+slot goes to the line, not a passer-by. Glasshouse keeps its own stand-in
+queue; lite streets carry none. The street now *shows* the zero-sum before
+the sim ever allocates it: frost day, Hearth & Rye's apron is bare while the
+rest of the block trades on.
+
+Next slice: the multi-way zero-sum allocation itself (per-shop attention
+stocks, defection weights, the full rebalance).
 
 ### Pillar 3 — Street theatre: authored moments that feel emergent (first wave shipped)
 

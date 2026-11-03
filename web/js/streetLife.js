@@ -69,7 +69,7 @@ export const CHAR_BY_COHORT = {
   creatives: ['professor-14dc4d', 'parrilla-cook-255918'],
   tourists: ['trainspotter-ffd141', 'huaso-c4847f'],
 };
-const CHAR_KINDS = new Set(['neighbor', 'queue', 'vignette', 'glasshouse', 'frontage', 'prop', 'row']);
+const CHAR_KINDS = new Set(['neighbor', 'queue', 'vignette', 'glasshouse', 'frontage', 'prop', 'row', 'nqueue']);
 const CHAR_SCALE = 0.62;
 
 // Shop fronts face the play camera at z ≈ 3.6. These stands are on the
@@ -86,6 +86,18 @@ export const NEIGHBOR_DOORS = [
   { id: 'bell', x: 7.9, z: 5.7, face: Math.PI, seat: { x: 8.2, z: 2.4 } },
   { id: 'marrow', x: 11.7, z: 5.7, face: Math.PI, seat: { x: 11.4, z: 2.4 } },
 ];
+
+// Each shop's apron queue — slots run from the door toward the pavement.
+// Held like queue marks (nq:<id>:<i>) so two bodies never share a spot.
+export const NQUEUE_SLOTS = Object.fromEntries(NEIGHBOR_DOORS.map(door => [
+  door.id,
+  [
+    { dx: 0.02, dz: 0.38 },
+    { dx: 0.3, dz: 0.88 },
+    { dx: -0.22, dz: 1.38 },
+    { dx: 0.16, dz: 1.88 },
+  ].map(o => ({ x: door.x + o.dx, z: door.z + o.dz, face: door.face })),
+]));
 
 const DOOR_BY_ID = Object.create(null);
 for (const door of NEIGHBOR_DOORS) DOOR_BY_ID[door.id] = door;
@@ -770,6 +782,10 @@ export class StreetLife {
     const every = (this.lite ? STREET_EVERY.lite : STREET_EVERY.full) * (this.climate?.everyMul || 1);
     if (this._since < every) return;
     this._since = 0;
+    // Posture first: the apron queues are the day's statement — reconcile
+    // them before the ambient filler, so a freed slot goes to the line, not
+    // to a passer-by.
+    this._reconcileQueues();
     if (this.count >= this.cap) return;
     this._spawnOne();
     // Vignettes: one choreographed group at a time (busker+crowd, a chatting
@@ -779,6 +795,46 @@ export class StreetLife {
     // A skater crosses on its own rarer roll — it never holds a spot, so it
     // is not gated by the vignette anchor.
     if (!this.lite && !this._skater && this.rng() < 0.10) this._spawnSkater();
+  }
+
+  // Attention street (pillar 4, slice 2): the boards are real shops — their
+  // aprons carry a queue that matches the day's posture. Targets are set at
+  // dawn by setNeighborQueues (pure off the board tones); the reconciler
+  // keeps each line at its target with walk-in / dwell / peel-out members,
+  // so a queue churns like a real one. Cosmetic stream only.
+  setNeighborQueues(counts) {
+    this.nqTargets = {};
+    for (const door of NEIGHBOR_DOORS) {
+      this.nqTargets[door.id] = Math.max(0, Math.min(4, Math.floor(Number(counts && counts[door.id]) || 0)));
+    }
+  }
+  _reconcileQueues() {
+    if (this.lite || !this.nqTargets) return;
+    for (const door of NEIGHBOR_DOORS) {
+      const target = this.nqTargets[door.id] || 0;
+      if (!target) continue;
+      let live = 0;
+      for (const a of this.agents) if (a.kind === 'nqueue' && a.doorId === door.id) live++;
+      const slots = NQUEUE_SLOTS[door.id] || [];
+      for (let i = 0; i < slots.length && live < target; i++) {
+        if (this.holds.has(`nq:${door.id}:${i}`)) continue;
+        if (this.count >= this.cap || !this.free.length) return;
+        if (this._spawnQueueArrival(door, i, slots[i])) live++;
+      }
+    }
+  }
+  _spawnQueueArrival(door, i, slot) {
+    const hold = `nq:${door.id}:${i}`;
+    const fromLeft = this.rng() < 0.5;
+    const entry = fromLeft ? LAYOUT.spawnL.x : LAYOUT.spawnR.x;
+    const exit = fromLeft ? LAYOUT.spawnR.x : LAYOUT.spawnL.x;
+    const dwell = 120 + this.rng() * 180;   // a proper wait — minutes, not seconds
+    const route = {
+      kind: 'nqueue', lotId: null, hold, doorId: door.id, economic: false,
+      points: [pt(entry, LAYOUT.pavementZ), pt(slot.x, slot.z, { dwell, face: slot.face }), pt(exit, LAYOUT.pavementZ)],
+    };
+    if (routeBlocked(route.points)) return null;
+    return this._activate(route, false);
   }
 
   // Street vignettes — a small group choreographed around a pavement spot.

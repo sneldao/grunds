@@ -282,3 +282,20 @@ export function boardLine(row, event) {
   if (row.chain) return null;
   return { title: row.name, sub: standing, tone: 'flat' };
 }
+
+// The boards are real shops — their aprons carry the day's queue. Counts are
+// a pure function of the board tones (the same streetForDay shape the Brief
+// renders), plus a hash of (seed, day, shop) for placement within the band:
+// a shop the market hit stands nearly empty; a shop on a windfall has a line.
+// No rng stream — replays agree without saving anything.
+const QUEUE_BY_TONE = { dark: [0, 1], bracing: [1, 2], bright: [3, 4], flat: [1, 2] };
+export function neighborQueues(boards, seed, day) {
+  const out = {};
+  for (const b of boards || []) {
+    if (!b || !b.id || b.id === 'player' || b.id === 'glasshouse') continue;
+    const band = QUEUE_BY_TONE[b.tone] || QUEUE_BY_TONE.flat;
+    const h = tellHash(seed, day, b.id + ':queue');
+    out[b.id] = band[0] + Math.floor(h * (band[1] - band[0] + 1));
+  }
+  return out;
+}

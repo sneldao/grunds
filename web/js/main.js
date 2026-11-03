@@ -30,7 +30,7 @@ import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS, seedCityNames, seedCastNames, castName } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
-import { streetForDay, boardLine, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells } from './street.js';
+import { streetForDay, boardLine, neighborQueues, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells } from './street.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
 import { rushSpeed } from './paceNotice.js';
 import { touchPrimary } from './gestures.js';
@@ -4600,9 +4600,11 @@ function prepareDay(d) {
   // Attention street (pillar 4): every neighbour's A-frame carries that
   // shop's posture for the day — the same streetForDay shape the Brief
   // renders, so the pavement cannot disagree with the paper.
+  let streetBoards = [];
   try {
     const streetRows = streetForDay(exchange.event, calculateNonLinearDrift(day + 1), originKey(houseOrigin));
-    world.setNeighborBoards(streetRows.map(r => Object.assign({ id: r.id }, boardLine(r, exchange.event) || {})));
+    streetBoards = streetRows.map(r => Object.assign({ id: r.id }, boardLine(r, exchange.event) || {}));
+    world.setNeighborBoards(streetBoards);
   } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false; _pfRushCam = false;
@@ -4788,6 +4790,9 @@ function startTradingDay(d) {
   street.setDemandRead(read);
   street.setTruce(samTruce && d === 5);
   street.beginDay(d, seedNow());
+  // The boards are real shops: their aprons carry the day's queue (pure off
+  // the same board tones painted above — the line and the board agree).
+  try { street.setNeighborQueues(neighborQueues(streetBoards, seedNow(), d)); } catch {}
   street.syncFranchise(franchise, d);
   updateTicker();
   // Managed runs mirror through sync.finishDay at close; unmanaged/local runs
