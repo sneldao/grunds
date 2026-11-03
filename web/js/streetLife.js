@@ -643,6 +643,41 @@ export class StreetLife {
       this.leashLine.frustumCulled = false;
       if (scene && scene.add) scene.add(this.leashLine);
       this._dogWalker = null;
+      // The hand-truck (theatre wave 2): frame pivots on the wheel axle so
+      // the balance-tilt never digs into the ground. Built once, hidden
+      // until _spawnDelivery; _cartFollow drives it on timers only.
+      const truck = new THREE.Group();
+      truck.rotation.order = 'YXZ';
+      const steel = new THREE.MeshStandardMaterial({ color: 0x3f4650, roughness: 0.6 });
+      const wood = new THREE.MeshStandardMaterial({ color: 0x8a6f4d, roughness: 0.85 });
+      const burlap = new THREE.MeshStandardMaterial({ color: 0xb09a6e, roughness: 0.95 });
+      const wheelGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.03, 10);
+      wheelGeo.rotateZ(Math.PI / 2);
+      const wheels = [];
+      for (const wx of [-0.17, 0.17]) {
+        const wh = new THREE.Mesh(wheelGeo, steel);
+        wh.position.set(wx, 0, -0.02);
+        wheels.push(wh); truck.add(wh);
+      }
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.02, 0.22), steel);
+      plate.position.set(0, -0.08, 0.14);
+      const railGeo = new THREE.BoxGeometry(0.025, 0.95, 0.025);
+      const railL = new THREE.Mesh(railGeo, steel); railL.position.set(-0.16, 0.42, -0.08);
+      const railR = new THREE.Mesh(railGeo, steel); railR.position.set(0.16, 0.42, -0.08);
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.025, 0.025), steel);
+      handle.position.set(0, 0.9, -0.08);
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.24), wood);
+      crate.position.set(0, 0.04, 0.14);
+      const sack = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.18), burlap);
+      sack.position.set(0, 0.2, 0.12);
+      truck.add(plate, railL, railR, handle, crate, sack);
+      truck.visible = false;
+      truck.traverse(o => { o.castShadow = false; o.frustumCulled = false; });
+      if (scene && scene.add) scene.add(truck);
+      this.handTruck = truck;
+      this._cartParts = { wheels };
+      this._cartState = { pos: new THREE.Vector3(), heading: 0, tilt: 0, wheel: 0 };
+      this._delivery = null;
     } finally {
       Math.random = savedRandom;
     }
@@ -908,6 +943,9 @@ export class StreetLife {
     // A dog-walker strolls on an even rarer roll — one at a time, unhurried,
     // a dwell beat mid-crossing so the dog gets its sniff.
     if (!this.lite && !this._dogWalker && this.rng() < 0.06) this._spawnDogWalker();
+    // The day's delivery: a hand-truck run to one of the street's doors,
+    // rarest of the crossings — one at a time.
+    if (!this.lite && !this._delivery && this.rng() < 0.05) this._spawnDelivery();
   }
 
   // Attention street (pillar 4, slice 2): the boards are real shops — their
@@ -1103,6 +1141,74 @@ export class StreetLife {
     return a;
   }
 
+  // The delivery vignette: a hand-truck run from the street edge to one of
+  // the neighbour doors (picked at spawn on the street stream), an unload
+  // beat beside the door, then out the far side. The walker may wear an
+  // animated humanoid; the truck's motion lives in _cartFollow.
+  _spawnDelivery() {
+    if (this.count >= this.cap || !this.free.length || this._delivery) return null;
+    const door = NEIGHBOR_DOORS[(this.rng() * NEIGHBOR_DOORS.length) | 0];
+    const ltr = this.rng() < 0.5;
+    const from = ltr ? LAYOUT.spawnL.x : LAYOUT.spawnR.x;
+    const to = ltr ? LAYOUT.spawnR.x : LAYOUT.spawnL.x;
+    const z = LAYOUT.pavementZ + (this.rng() - 0.5) * 0.35;
+    const dwell = 6 + this.rng() * 7;   // the unload beat
+    const route = {
+      kind: 'vignette', lotId: null, hold: null, doorId: null, economic: false,
+      points: [pt(from, z), pt(door.x + 0.8, door.z + 0.5, { dwell, face: door.face }), pt(to, z)],
+    };
+    if (routeBlocked(route.points)) return null;
+    const a = this._activate(route, false);
+    if (!a) return null;
+    a.vg = 'delivery';
+    a.speed = 1.5 + this.rng() * 0.3;   // working pace
+    a.act = null;
+    a.heldKind = null;
+    a.gait = { freq: 5.0, amp: 0.3, lean: 0.06 };
+    this._delivery = a;
+    this._paint(a);
+    const st = this._cartState;
+    st.pos.set(a.pos.x, 0, a.pos.z);
+    st.heading = a.face; st.tilt = -0.3; st.wheel = 0;
+    this.handTruck.visible = true;
+    return a;
+  }
+
+  // The hand-truck rides half a step ahead of the walker: tilted back on
+  // the move, eased upright at the door for the unload. Pure timers off
+  // the frame dt — the seeded stream is never touched here.
+  _cartFollow(dt, walkMul) {
+    if (!this.handTruck) return;
+    const w = this._delivery;
+    if (!w || !w.active || w.hidden) { this.handTruck.visible = false; return; }
+    this.handTruck.visible = true;
+    const st = this._cartState;
+    const mul = Number(walkMul) > 0 ? walkMul : 1;
+    const fx = Math.sin(w.face), fz = Math.cos(w.face);
+    const tx = w.pos.x + fx * 0.5;
+    const tz = w.pos.z + fz * 0.5;
+    const dx = tx - st.pos.x, dz = tz - st.pos.z;
+    const dist = Math.hypot(dx, dz);
+    const speed = Math.min(3.6, Math.max((w.speed || 1.5) * mul * 1.2, dist * 4));
+    let moving = false;
+    if (dist > 0.02) {
+      const step = Math.min(dist, speed * dt);
+      st.pos.x += (dx / dist) * step;
+      st.pos.z += (dz / dist) * step;
+      moving = step > 0.0005;
+    }
+    let diff = w.face - st.heading;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    st.heading += diff * Math.min(1, dt * 6);
+    const tiltTarget = w.state === 'dwell' ? 0 : -0.3;
+    st.tilt += (tiltTarget - st.tilt) * Math.min(1, dt * 4);
+    if (moving) st.wheel += (speed * dt) / 0.09;
+    this.handTruck.position.set(st.pos.x, 0.09, st.pos.z);
+    this.handTruck.rotation.set(st.tilt, st.heading, 0);
+    for (const wh of this._cartParts.wheels) wh.rotation.x = st.wheel;
+  }
+
   // A high-speed defection already joined Sam's queue. This walker only
   // traces the zebra so the cross still reads. It never joins Sam's line.
   mirrorCrossing(from) {
@@ -1211,6 +1317,7 @@ export class StreetLife {
     this._pigeons(stepScale);
     this._dogs(stepScale);
     this._dogWalk(stepScale, mul);
+    this._cartFollow(stepScale, mul);
     // The skater's board rides under them; hide it when no skater is live.
     if (this.skateBoard) {
       const sk = this._skater;
@@ -1692,6 +1799,10 @@ export class StreetLife {
       this._dogWalker = null;
       if (this.leashDog) this.leashDog.visible = false;
       if (this.leashLine) this.leashLine.visible = false;
+    }
+    if (agent === this._delivery) {
+      this._delivery = null;
+      if (this.handTruck) this.handTruck.visible = false;
     }
     if (agent.hold) this.holds.delete(agent.hold);
     for (const part of Object.values(this.parts)) {

@@ -19,16 +19,15 @@ function mkStreet() {
 
 test('vignette groups form with members on dwell routes', () => {
   const s = mkStreet();
-  let vg = null;
-  for (let i = 0; i < 400 && !vg; i++) {
-    s.tick();
-    const found = s.agents.filter(a => a.vg);
-    if (found.length) vg = found;
-  }
-  assert.ok(vg, 'no vignette formed in 400 cadence ticks');
+  // The skater, dog-walker and delivery are independent crossings with their
+  // own gates — wait for an ANCHORED group (the ones that hold a spot).
+  for (let i = 0; i < 800 && !s._vgAnchor; i++) s.tick();
+  assert.ok(s._vgAnchor, 'no anchored vignette formed in 800 cadence ticks');
   const anchor = s._vgAnchor;
   const ANCHOR_ROLES = new Set(['busker', 'chat', 'argue', 'catwatch']);
-  assert.ok(anchor && ANCHOR_ROLES.has(anchor.vg), `anchor should hold a vignette role, got ${anchor && anchor.vg}`);
+  assert.ok(ANCHOR_ROLES.has(anchor.vg), `anchor should hold a vignette role, got ${anchor.vg}`);
+  const vg = s.agents.filter(a => a.vg && !['skater', 'dogwalk', 'delivery'].includes(a.vg));
+  assert.ok(vg.length, 'the anchored group has members');
   for (const m of vg) {
     assert.equal(m.kind, 'vignette');
     assert.ok(m.path.length || m.state === 'dwell', 'member has a route or is dwelling');

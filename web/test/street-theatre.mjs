@@ -12,9 +12,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from '../vendor/three.module.js';
 import { LAYOUT } from '../js/config.js';
-import { StreetLife, VIGNETTE_SPOTS } from '../js/streetLife.js';
+import { StreetLife, VIGNETTE_SPOTS, NEIGHBOR_DOORS } from '../js/streetLife.js';
 
-export const THEATRE_ROLES = ['busker', 'chat', 'argue', 'catwatch', 'crowd', 'skater', 'dogwalk'];
+export const THEATRE_ROLES = ['busker', 'chat', 'argue', 'catwatch', 'crowd', 'skater', 'dogwalk', 'delivery'];
 
 function drive(seed, ticks, { lite = false } = {}) {
   const s = new StreetLife(new THREE.Group(), { lite });
@@ -38,12 +38,12 @@ function drive(seed, ticks, { lite = false } = {}) {
 
 test('the full theatre takes the stage within a day of street life', () => {
   const seen = new Set();
-  for (let seed = 11; seed <= 18 && seen.size < 6; seed++) {
+  for (let seed = 11; seed <= 22 && seen.size < 7; seed++) {
     const { byRole } = drive(seed, 2400);
     for (const k of byRole.keys()) seen.add(k);
   }
-  for (const role of ['busker', 'chat', 'argue', 'catwatch', 'skater', 'dogwalk']) {
-    assert.ok(seen.has(role), `${role} never appeared across seeds 11–18`);
+  for (const role of ['busker', 'chat', 'argue', 'catwatch', 'skater', 'dogwalk', 'delivery']) {
+    assert.ok(seen.has(role), `${role} never appeared across seeds 11–22`);
   }
 });
 
@@ -123,6 +123,33 @@ test('the dog-walker strolls once at a time with the dog on the leash', () => {
   assert.equal(s.leashLine.visible, false);
 });
 
+test('the delivery runs a hand-truck to a real door and unloads', () => {
+  const s = new StreetLife(new THREE.Group(), {});
+  s.live = true;
+  s.beginDay(1, 31);
+  const a = s._spawnDelivery();
+  assert.ok(a, 'delivery route should be clear on an empty street');
+  assert.equal(a.vg, 'delivery');
+  assert.equal(s._spawnDelivery(), null, 'only one delivery at a time');
+  assert.equal(s.handTruck.visible, true, 'the truck appears with the walker');
+  // The unload beat sits beside one of the street’s real doors.
+  const unload = a.path.find(p => p.dwell > 0);
+  assert.ok(unload, 'the route has an unload dwell');
+  const door = NEIGHBOR_DOORS.find(d => Math.abs(d.x + 0.8 - unload.x) < 0.01);
+  assert.ok(door, 'the dwell aims at a neighbour door');
+  assert.ok(Math.abs(unload.z - (door.z + 0.5)) < 0.01, 'the truck parks on the apron');
+  // Walk them in; the truck heels ahead of the walker on its wheel line.
+  for (let i = 0; i < 90; i++) s.update(1 / 30, 2, false);
+  const st = s._cartState;
+  const dist = Math.hypot(st.pos.x - a.pos.x, st.pos.z - a.pos.z);
+  assert.ok(dist <= 1.1, `the truck stays with the walker (got ${dist.toFixed(2)})`);
+  assert.ok(st.tilt <= 0.02 && st.tilt >= -0.35, `the tilt stays in the balance band (${st.tilt})`);
+  // Despawn wheels the truck away.
+  s._despawn(a);
+  assert.equal(s._delivery, null);
+  assert.equal(s.handTruck.visible, false);
+});
+
 test('one street cat: home on the bench, cameo walk starts there', () => {
   // The cat fixture lives in world.js — streetLife owns no cat mesh.
   const s = new StreetLife(new THREE.Group(), {});
@@ -168,5 +195,5 @@ test('the theatre is deterministic — same seed, same stage directions', () => 
 test('lite streets keep the theatre off', () => {
   const { s, byRole } = drive(11, 800, { lite: true });
   assert.equal(byRole.size, 0, 'lite mode spawned theatre');
-  assert.ok(!s._skater && !s._vgAnchor && !s._dogWalker);
+  assert.ok(!s._skater && !s._vgAnchor && !s._dogWalker && !s._delivery);
 });
