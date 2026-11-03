@@ -2,13 +2,16 @@
 // authored, seeded street theatre. The sim never changes — these moments are
 // cosmetic, ride the street's own seeded stream, and must stay deterministic:
 //   1. the coffee argument — squared-up pair, one lifts the cup, a watcher
-//   2. the cat-watch — passers-by gather at the bench cat (own vg:cat gate)
+//   2. the cat-watch — passers-by gather at the street cat's bench
+//      (the cat itself is world.js' one street cat — LAYOUT.catHome is its
+//      home; streetLife owns no cat mesh)
 //   3. the skater — fast crossing, board under foot, one at a time
-//   4. the bench cat fixture — timer-driven, never touches the rng stream
 // Run: node --test web/test/street-theatre.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import * as THREE from '../vendor/three.module.js';
+import { LAYOUT } from '../js/config.js';
 import { StreetLife, VIGNETTE_SPOTS } from '../js/streetLife.js';
 
 export const THEATRE_ROLES = ['busker', 'chat', 'argue', 'catwatch', 'crowd', 'skater'];
@@ -91,28 +94,38 @@ test('the skater crosses fast, one at a time, board under foot', () => {
   assert.equal(s.skateBoard.visible, false, 'board hidden once the skater is gone');
 });
 
-test('the bench cat is a fixture at the bench end', () => {
+test('one street cat: home on the bench, cameo walk starts there', () => {
+  // The cat fixture lives in world.js — streetLife owns no cat mesh.
   const s = new StreetLife(new THREE.Group(), {});
-  assert.ok(s.cat, 'cat group exists');
-  assert.ok(Math.abs(s.cat.position.x - 5.95) < 0.01 && Math.abs(s.cat.position.z - 7.4) < 0.01,
-    'cat sits at the far end of the bench slab');
-  assert.ok(Math.abs(s.cat.position.y - 0.49) < 0.02, 'cat rides the bench top');
-  // The cat never claims a pavement vignette spot.
+  assert.equal(s.cat, undefined, 'streetLife must not build its own cat');
+  // The home is the far end of the bench slab (bench centred x 5, top 0.49).
+  assert.ok(Math.abs(LAYOUT.catHome.x - 5.95) < 0.01 && Math.abs(LAYOUT.catHome.z - 7.4) < 0.01);
   for (const sp of VIGNETTE_SPOTS) {
-    assert.ok(Math.hypot(sp.x - 5.95, sp.z - 7.4) > 1.5, 'vignette spot overlaps the cat');
+    assert.ok(Math.hypot(sp.x - LAYOUT.catHome.x, sp.z - LAYOUT.catHome.z) > 1.5,
+      'vignette spot overlaps the cat\u2019s bench');
   }
+  // world.js: the cameo walk leaves from the bench and the cat goes home
+  // after its sit (one cat, one street).
+  const world = readFileSync(new URL('../js/world.js', import.meta.url), 'utf8');
+  assert.ok(world.includes('W.cat.position.set(LAYOUT.catHome.x, 0.49, LAYOUT.catHome.z)'),
+    'the cat must start the day at home on the bench');
+  assert.ok(/catPath = \[new THREE\.Vector3\(L\.catHome\.x/.test(world),
+    'the 09:30 cameo must leave from the bench');
+  assert.ok(world.includes('W.catGoHome'), 'the visit ends with the cat walking home');
+  assert.ok(!/W\.cat\.visible = false/.test(world), 'the cat never leaves the world \u2014 it goes home');
 });
 
-test('cat + board animation never touch the seeded stream', () => {
+test('update() animation never touches the seeded stream', () => {
   const a = new StreetLife(new THREE.Group(), {});
   const b = new StreetLife(new THREE.Group(), {});
   a.live = b.live = true;
   a.beginDay(1, 77); b.beginDay(1, 77);
-  // Burn arbitrary animation time on one instance only.
-  for (let i = 0; i < 500; i++) a._cat(0.7);
+  // Burn arbitrary animation frames on one instance only (board, pigeons,
+  // dogs — the whole render pass).
+  for (let i = 0; i < 500; i++) a.update(0.7, 2, false);
   const ra = [a.rng(), a.rng(), a.rng()];
   const rb = [b.rng(), b.rng(), b.rng()];
-  assert.deepEqual(ra, rb, '_cat drew from the street stream');
+  assert.deepEqual(ra, rb, 'update() drew from the street stream');
 });
 
 test('the theatre is deterministic — same seed, same stage directions', () => {

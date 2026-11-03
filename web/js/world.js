@@ -828,46 +828,70 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   W.tillDrawer = box(scene, 0.62, 0.06, 0.42, 0xd8cbb2, LAYOUT.register.x, 0.62, -5.05, { cast: false });
   W.tillDrawerBaseZ = -5.05; W.tillDrawerOpenUntil = 0;
   W.popTillDrawer = () => { W.tillDrawerOpenUntil = performance.now() + 420; };
-  // street cat — a tiny capsule + head that walks spawnL->door->tables once/day
+  // The street cat — one cat, home is the far end of the bench (LAYOUT.
+  // catHome). It lives there all day (streetLife's catwatch vignette gathers
+  // onlookers around it) and at 09:30 takes its daily stroll into the café:
+  // bench → door → tables, a sit and a meow, then home again. Scattered by a
+  // long queue — it runs home, not out of the world.
   W.cat = (() => {
-    const g = new THREE.Group(); g.visible = false; scene.add(g);
+    const g = new THREE.Group(); scene.add(g);
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.32, 4, 8), mat(0x3a3d40, { rough: 0.9 }));
     body.rotation.z = Math.PI / 2; body.position.y = 0.14; g.add(body);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), mat(0x3a3d40, { rough: 0.9 }));
     head.position.set(0.22, 0.18, 0); g.add(head);
     const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.24, 6), mat(0x3a3d40, { rough: 0.9 }));
     tail.position.set(-0.22, 0.16, 0); tail.rotation.z = 0.6; g.add(tail);
+    W.catHead = head; W.catTail = tail;
     return g;
   })();
-  W.catPath = []; W.catT = 0; W.catOn = false; W.catSitsUntil = 0;
+  W.catPath = []; W.catT = 0; W.catOn = false; W.catSitsUntil = 0; W.catReturning = false;
+  W.cat.position.set(LAYOUT.catHome.x, 0.49, LAYOUT.catHome.z);
+  W.cat.rotation.y = -0.5;
   W.spawnCat = () => {
     if (W.catOn) return;
-    W.catOn = true; W.catT = 0; W.cat.visible = true; W.catSitsUntil = 0;
+    W.catOn = true; W.catReturning = false; W.catT = 0; W.cat.visible = true; W.catSitsUntil = 0;
     const L = LAYOUT;
-    W.catPath = [new THREE.Vector3(L.spawnL.x, 0, L.spawnL.z), new THREE.Vector3(L.door.x, 0, L.door.z + 0.2), new THREE.Vector3(LAYOUT.tables[2].x, 0, LAYOUT.tables[2].z)];
-    W.cat.position.copy(W.catPath[0]);
+    W.catPath = [new THREE.Vector3(L.catHome.x, 0, L.catHome.z), new THREE.Vector3(L.door.x, 0, L.door.z + 0.2), new THREE.Vector3(LAYOUT.tables[2].x, 0, LAYOUT.tables[2].z)];
+  };
+  W.catGoHome = () => {
+    const L = LAYOUT;
+    W.catPath = [W.cat.position.clone(), new THREE.Vector3(L.catHome.x, 0, L.catHome.z)];
+    W.catReturning = true;
+    W.catSitsUntil = 0;
   };
   W._catMeowed = false;
   W.updateCat = (dt, queueLen) => {
-    if (!W.catOn) return;
+    if (!W.catOn) {
+      // Home on the bench: breathe, flick the tail, groom every ~9s. The
+      // flick quickens when there's a queue — bodies about, cat alert.
+      W.catT += dt;
+      const t = W.catT;
+      W.cat.position.set(LAYOUT.catHome.x, 0.49 + Math.sin(t * 1.7) * 0.006, LAYOUT.catHome.z);
+      W.cat.rotation.y = -0.5;
+      const groom = (t % 9) < 1.8 ? Math.sin(((t % 9) / 1.8) * Math.PI) : 0;
+      W.catHead.rotation.z = groom * 0.5;
+      W.catTail.rotation.z = 0.6 + Math.sin(t * (queueLen > 0 ? 6 : 2.4)) * 0.35;
+      return;
+    }
     if (W.catSitsUntil > 0) {
       W.catSitsUntil -= dt;
       if (!W._catMeowed && W.catSitsUntil < 7.5 && W.catSitsUntil > 6.8 && W._onCatMeow) { W._onCatMeow(); W._catMeowed = true; }
-      if (W.catSitsUntil <= 0 && queueLen > 10) { W.catOn = false; W.cat.visible = false; } // scatter
-      else if (W.catSitsUntil <= 0) { W.catSitsUntil = 0; W._catMeowed = false; }
+      if (W.catSitsUntil <= 0 && queueLen > 10) { W.catGoHome(); } // scatter — home, not gone
+      else if (W.catSitsUntil <= 0) { W.catGoHome(); }            // one sit, then back to the bench
       else return;
     }
     if (W.catPath.length < 2) {
-      // at tables — sit if calm, else wander a bit
+      if (W.catReturning) { W.catOn = false; W.catReturning = false; return; }
+      // at tables — sit once if calm, run home if the queue crowds.
       if (queueLen < 4 && W.catSitsUntil === 0) { W.catSitsUntil = 8; W._catMeowed = false; }
-      else if (queueLen > 10) { W.catOn = false; W.cat.visible = false; }
+      else if (queueLen > 10) { W.catGoHome(); }
       return;
     }
     const a = W.catPath[0], b = W.catPath[1];
     const dx = b.x - W.cat.position.x, dz = b.z - W.cat.position.z;
     const dist = Math.hypot(dx, dz);
     if (dist < 0.15) { W.catPath.shift(); return; }
-    const step = 1.1 * dt;
+    const step = (W.catReturning && queueLen > 10 ? 2.4 : 1.1) * dt;
     W.cat.position.x += (dx / dist) * step; W.cat.position.z += (dz / dist) * step;
     W.cat.rotation.y = Math.atan2(dx, dz);
     // tiny bob

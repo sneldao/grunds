@@ -558,34 +558,11 @@ export class StreetLife {
           home: i % PIGEON_ANCHORS.length,
         });
       }
-      // Street theatre (VISION.md pillar 2): a bench cat and a skateboard.
-      // The cat is a fixture — it sits on the bench end, breathes, flicks its
-      // tail and grooms on a deterministic timer (see _cat). The skateboard
-      // is a single mesh that rides under the one live skater; only one
-      // skater crosses at a time, so no instancing needed.
-      const catMat = new THREE.MeshStandardMaterial({ color: 0x8a8175, roughness: 0.95 });
-      this.cat = new THREE.Group();
-      const catBody = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.15, 0.16), catMat);
-      catBody.position.y = 0.075;
-      const catHead = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.13, 0.13), catMat);
-      catHead.position.set(0.2, 0.19, 0);
-      const earGeo = new THREE.ConeGeometry(0.035, 0.06, 4);
-      const catEarL = new THREE.Mesh(earGeo, catMat);
-      catEarL.position.set(0.2, 0.28, -0.04);
-      const catEarR = new THREE.Mesh(earGeo.clone(), catMat);
-      catEarR.position.set(0.2, 0.28, 0.04);
-      const catTail = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 0.3), catMat);
-      catTail.position.set(-0.22, 0.1, 0);
-      this.catTailPivot = catTail;
-      this.catHeadMesh = catHead;
-      this.cat.add(catBody, catHead, catEarL, catEarR, catTail);
-      for (const m of [catBody, catHead, catEarL, catEarR, catTail]) { m.castShadow = false; m.frustumCulled = false; }
-      this.cat.frustumCulled = false;
-      // Far end of the bench slab (bench centred x 5, top y 0.49).
-      this.cat.position.set(5.95, 0.49, 7.4);
-      this.cat.rotation.y = -0.5;
-      if (scene && scene.add) scene.add(this.cat);
-      this._catT = 0;
+      // Street theatre (VISION.md pillar 2). The bench cat itself lives in
+      // world.js (one street cat: it sits on the bench all day and strolls
+      // into the café at 09:30) — the catwatch vignette gathers at those
+      // same bench coordinates. Here we only build the skateboard, a single
+      // mesh that rides under the one live skater.
       this.skateBoard = new THREE.Mesh(
         new THREE.BoxGeometry(0.2, 0.045, 0.6),
         new THREE.MeshStandardMaterial({ color: 0x23252c, roughness: 0.55 })
@@ -871,7 +848,7 @@ export class StreetLife {
   // 'vg:cat' gate.
   _spawnCatWatch() {
     if (this.holds.has('vg:cat')) return null;
-    const cat = { x: 5.95, z: 7.4 };
+    const cat = LAYOUT.catHome;
     const edge = () => (this.rng() < 0.5 ? LAYOUT.spawnL.x : LAYOUT.spawnR.x);
     const base = 16 + this.rng() * 10;
     const mkWatcher = (gx, gz, dwell, vHold) => {
@@ -1025,7 +1002,6 @@ export class StreetLife {
     for (const part of Object.values(this.parts)) part.instanceMatrix.needsUpdate = true;
     this._pigeons(stepScale);
     this._dogs(stepScale);
-    this._cat(stepScale);
     // The skater's board rides under them; hide it when no skater is live.
     if (this.skateBoard) {
       const sk = this._skater;
@@ -1037,22 +1013,6 @@ export class StreetLife {
         this.skateBoard.visible = false;
       }
     }
-  }
-
-  // The bench cat. Sits, breathes, flicks its tail and periodically dips its
-  // head to groom. Everything derives from elapsed time — no seeded draws,
-  // so replays stay identical.
-  _cat(dt) {
-    if (!this.cat) return;
-    this._catT += dt;
-    const t = this._catT;
-    this.cat.position.y = 0.49 + Math.sin(t * 1.7) * 0.006;
-    // Groom: a slow head dip every ~9s.
-    const groom = (t % 9) < 1.8 ? Math.sin(((t % 9) / 1.8) * Math.PI) : 0;
-    if (this.catHeadMesh) this.catHeadMesh.rotation.z = groom * 0.55;
-    // Tail flick, faster when a walker passes close (attention, even for cats).
-    const near = this.agents.some(a => a.active && a.walking && Math.abs(a.pos.x - 5.95) < 1.4 && Math.abs(a.pos.z - 7.4) < 1.6);
-    if (this.catTailPivot) this.catTailPivot.rotation.y = Math.sin(t * (near ? 7 : 2.4)) * 0.5;
   }
 
   // Two strays on the park lip — sniff the ground, trot to a new spot,

@@ -40,6 +40,7 @@ export const LAYOUT = {
   crossX: -2.2,                                     // pedestrian crossing
   farSideZ: 14.6,                                   // far pavement, just past the zebra
   spawnL: { x: -16, z: 7.8 }, spawnR: { x: 16, z: 7.8 },
+  catHome: { x: 5.95, z: 7.4 },                     // the street cat's bench (far end of the slab)
 };
 
 // Queue slot lines. The counter queue snakes out the door when it gets long —
