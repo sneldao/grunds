@@ -1214,6 +1214,34 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
         plane(parent, 0.3, 0.34, mat(cloth[i % 3], { rough: 0.95 }), cx, slope(cx) + 0.55, lz, { rx: 0, recv: false });
       }
     }
+    // One extra silhouette per roof, kept clear of the tank (left), aerial
+    // (right ridge) and laundry (back) so nothing intersects.
+    {
+      const ex = w * 0.08, ez = d * 0.04, ey = slope(ex);
+      if (variant === 0) {
+        // Condenser unit on a plinth, fan grille up, conduit running off.
+        box(parent, 0.5, 0.06, 0.4, PAL.curb, ex, ey + 0.04, ez, { cast: false });
+        box(parent, 0.44, 0.3, 0.34, PAL.steel, ex, ey + 0.22, ez);
+        cyl(parent, 0.13, 0.13, 0.02, PAL.ink, ex, ey + 0.38, ez, { cast: false, seg: 12 });
+        cyl(parent, 0.02, 0.02, 0.5, PAL.ink, ex + 0.22, ey + 0.2, ez + 0.26, { cast: false, seg: 6 });
+      } else if (variant === 1) {
+        // Two vent stacks with rain caps.
+        for (let i = 0; i < 2; i++) {
+          const vx = ex + i * 0.34 - 0.1, vh = 0.5 + i * 0.18;
+          cyl(parent, 0.05, 0.05, vh, PAL.steel, vx, ey + vh / 2, ez, { seg: 8 });
+          cyl(parent, 0.11, 0.02, 0.07, PAL.ink, vx, ey + vh + 0.04, ez, { cast: false, seg: 8 });
+        }
+      } else if (variant === 2) {
+        // Skylight — a low walnut curb with a glass pitch.
+        box(parent, 0.7, 0.1, 0.5, PAL.walnutDark, ex, ey + 0.06, ez);
+        box(parent, 0.58, 0.05, 0.4, PAL.glass, ex, ey + 0.14, ez, { cast: false, rough: 0.1, metal: 0.1 });
+      } else {
+        // Satellite dish on a short mast, tilted to the sky.
+        cyl(parent, 0.025, 0.025, 0.4, PAL.ink, ex, ey + 0.2, ez, { cast: false, seg: 6 });
+        const dish = cyl(parent, 0.2, 0.04, 0.06, PAL.cream, ex, ey + 0.46, ez, { cast: false, seg: 14 });
+        if (dish) dish.rotation.x = -0.7;
+      }
+    }
     if (variant % 2 === 1) {
       // A row of pigeons on the front gutter.
       const bird = new THREE.ConeGeometry(0.05, 0.14, 4);
