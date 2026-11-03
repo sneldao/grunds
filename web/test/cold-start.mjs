@@ -10,7 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CAMPAIGN } from '../js/config.js';
+import { CAMPAIGN, CHAPTERS } from '../js/config.js';
 import { Demand, strollShare } from '../js/demand.js';
 import { VERDICT_GATES, campaignVerdict } from '../js/economy.js';
 import { seeded } from '../js/exchange.js';
@@ -68,6 +68,14 @@ test('verdict gates retuned with the cold economy', () => {
   assert.equal(VERDICT_GATES.star.netAbove, 4500);
   assert.equal(campaignVerdict(1000.01, 50), 'held');
   assert.equal(campaignVerdict(999.99, 50), 'scarped');
+});
+
+test('day-1 chapters reframe the street as earned, not given', () => {
+  const d1 = Object.fromEntries(CHAPTERS.filter(c => c.d1).map(c => [c.k, c.d1]));
+  assert.ok(d1['FIRST LIGHT'] && /nobody knows your name/.test(d1['FIRST LIGHT']));
+  assert.ok(d1['THE COMMUTE'] && /give them a reason to stop/.test(d1['THE COMMUTE']));
+  assert.ok(d1['THE MATCHA WAVE'] && /won’t look twice/.test(d1['THE MATCHA WAVE']));
+  assert.ok(d1['LAST ORDERS'] && /chosen, not given/.test(d1['LAST ORDERS']));
 });
 
 test('a recruited hesitator never strolls — they already chose to look', () => {

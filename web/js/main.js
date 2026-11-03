@@ -1274,7 +1274,7 @@ function beats() {
   while (chapterIdx < CHAPTERS.length && dayMin >= CHAPTERS[chapterIdx].t) {
     const ch = CHAPTERS[chapterIdx++];
     if (eveningFast || (rushFast && ch.t < 840)) continue;
-    fx.card(ch.k, ch.sub); audio.card();
+    fx.card(ch.k, (day === 1 && ch.d1) || ch.sub); audio.card();
     // Beat push-ins only at readable speeds — at 20× the chapters fly by and
     // the camera would whip around every few seconds. Cards still show.
     if (ch.beat && speed <= 300) rig.focus(world.focus[ch.beat] || world.focus.wide, ch.beat === 'wide' ? 26 : 13, 5);

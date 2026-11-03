@@ -77,13 +77,19 @@ export const ECON = {
 
 // Story beats keyed to the real wave shapes in out/wave_schedule.json.
 export const CHAPTERS = [
-  { t: 360,  k: 'FIRST LIGHT',      sub: 'the regulars take their corners' },
-  { t: 420,  k: 'THE COMMUTE',      sub: 'same order, no time — keep the line under 5', beat: 'counter' },
+  // d1: cold start (VISION.md) — day 1 reframes the same street beats:
+  // the crowd is earned, not given.
+  { t: 360,  k: 'FIRST LIGHT',      sub: 'the regulars take their corners',
+    d1: 'the street wakes — nobody knows your name yet' },
+  { t: 420,  k: 'THE COMMUTE',      sub: 'same order, no time — keep the line under 5',
+    d1: 'commuters pass the board — give them a reason to stop', beat: 'counter' },
   { t: 600,  k: 'THE LAPTOP HOURS', sub: 'one pour-over, three hours — reputation walks in', beat: 'tables' },
   { t: 720,  k: 'HIGH NOON',        sub: 'the “best of” lists arrive', notebook: true, beat: 'counter' },
-  { t: 840,  k: 'THE MATCHA WAVE',  sub: 'students · 14:00 · you either batched or you didn’t', beat: 'counter', wave: true },
+  { t: 840,  k: 'THE MATCHA WAVE',  sub: 'students · 14:00 · you either batched or you didn’t',
+    d1: 'students sweep through at 14:00 — most won’t look twice', beat: 'counter', wave: true },
   { t: 1050, k: 'THE GOLDEN HOUR',  sub: 'tourists spend, regulars judge', beat: 'tables' },
-  { t: 1215, k: 'LAST ORDERS',      sub: 'count the till — the chain across the road already has', beat: 'wide' },
+  { t: 1215, k: 'LAST ORDERS',      sub: 'count the till — the chain across the road already has',
+    d1: 'count the till — every cup today was chosen, not given', beat: 'wide' },
   { t: 1240, k: 'CLOSING TIME',     sub: 'last cups out — the till is the truth', beat: 'wide' },
 ];
 
