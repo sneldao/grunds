@@ -353,6 +353,23 @@ Sim determinism is untouched — every fix is render/HUD-side only
 - `tools/prebuild-row.mjs` prebuilds showcase stands on a seed.
 - Tests: `stand-spec.mjs`, `world-spec.mjs`, `franchise.mjs`.
 
+## Surface / lighting pass (post-c6dd48b)
+- `web/js/postfx.js`: scene renders into `rtScene` with `samples: 4` —
+  canvas `antialias` does nothing on the composite path. Composite shader
+  also does unsharp mask (always, ~0.16) and a 4-tap tilt-shift DOF
+  (`uDof`, cine-gated only). `uTexel` tracks drawing-buffer size on resize.
+- `web/js/env.js`: dusk HDRI (`assets/hdri/evening_road_01_puresky_1k.hdr`,
+  Poly Haven CC0) → PMREM → `scene.environment`, intensity 0.42. GLB
+  materials get `envMapIntensity` via `applyEnvIntensity` in loader.js;
+  procedural mats via the post-load scene traverse. Headless/no-GL → no-op.
+- `web/js/contactShadow.js`: `addContactShadow(parent,x,z,w,d,opacity)` —
+  blob under stands/tables/props; headless-safe no-op (no DOM canvas).
+- `mat(color, {tex})` in world.js applies surface bakes (`plaster`,
+  `roof`, `metal`, `fabric` in textures.js) — near-white grayscale maps
+  that multiply the material colour.
+- `tools/showcase-shots.mjs` tolerates the licence `?world=` reload
+  (execution-context loss mid-evaluate = keep looping).
+
 ## Conventions
 - Choice surfaces: options + consequence visible, no folds for choices —
   see ARCHITECTURE.md "Choice surfaces".
