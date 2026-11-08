@@ -6,8 +6,10 @@ import * as THREE from '../vendor/three.module.js';
 import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS, FRANCHISE } from './config.js';
 import { buildWorld, chalkPopScale } from './world.js';
 import { initDistrictGen, districtOptOut, districtPolyforkOpt } from './districtGen.js';
-import { pickClimate, climateBrief, climateRain } from './climates.js';
+import { pickClimate, climateBrief, climateRain, CLIMATES } from './climates.js';
 import { initFranchise, morningFranchiseLines } from './franchise.js';
+import { specForLot, specPullSum } from './standSpec.js';
+import { resolveWorldSpec, refreshWorldSpec, WORLD_PROMPT_MAX } from './worldSpec.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
 import { buildDirector } from './director.js';
@@ -116,6 +118,12 @@ const audio = new AudioEngine();
 
 // ---- the connected campaign: the Gamble + the Regulars -----------------------
 const campaignSeed = urlParams.get('seed') ? +urlParams.get('seed') : (city ? city.seed : 7);
+// The described street + the judge's shortcut: `?world=` names the district
+// (spec below); `?prompt=` (or `?hackathon=1`'s default) describes the pitch
+// the moment the first brief renders.
+const worldPrompt = (urlParams.get('world') || '').trim().slice(0, WORLD_PROMPT_MAX);
+const autoPrompt = (urlParams.get('prompt') || '').trim().slice(0, FRANCHISE.promptMax);
+const hackathonMode = urlParams.has('hackathon');
 // Pillar 3 — an optional free FRED API key makes the live snapshot reliable
 // (keyless fredgraph.csv is often bot-walled). Supplied via ?fredKey= and
 // cached locally; never required — without it the week falls back to the
@@ -204,15 +212,45 @@ if (cityPackPromise) cityPackPromise.then(pack => {
   hint.hidden = !bits.length;
 });
 if (city && !headless) try { document.title = `Grunds — ${cityDisplay(city.name)}`; } catch {}
+// The described street — `?world=` (or the licence's street field) becomes
+// the district's character. The spec resolves synchronously from cache or
+// the seeded classifier — play never waits on the LLM — and the richer
+// card lands via /ai/worldspec for the NEXT campaign, the same snapshot
+// posture as the market/weather anchors. No ?world= → worldSpec stays null
+// and every path below is bit-identical.
+let worldSpec = null;
+function resolveWorld() {
+  try { worldSpec = worldPrompt ? resolveWorldSpec(localStorage, worldPrompt, Object.keys(EVENTS)) : null; }
+  catch { worldSpec = null; }
+}
+function applyWorldSpec() {
+  const spec = worldSpec && worldSpec.spec;
+  if (!spec) return;
+  // The chain's name is cosmetic; a real rival ghost landing later still wins.
+  if (spec.rivalName) COPY.rivalName = spec.rivalName;
+}
+resolveWorld();
+applyWorldSpec();
+if (worldPrompt && sync.live) {
+  refreshWorldSpec(localStorage, String(sync.url || '').replace(/\/$/, ''), worldPrompt, Object.keys(EVENTS))
+    .then(() => { if (day < 1) { resolveWorld(); applyWorldSpec(); } })
+    .catch(() => {});
+}
 // The Franchise (Tripothon S1 — Tier B): the player's words become stands
 // on The Row — three storefronts unlock across the campaign. Same posture
 // as the district — fire-and-forget, the classic street is the floor.
 const franchise = initFranchise({
-  scene, seed: SEED, classic: districtOptOut(location.search), polyfork: districtPolyforkOpt(location.search),
+  scene, seed: SEED, classic: districtOptOut(location.search),
+  // ?hackathon=1 means the REAL provider path — judges should watch Tripo
+  // grow the stand, not the instant keyword matcher. The district itself
+  // stays polyfork: the street looks finished while the stand generates.
+  polyfork: districtPolyforkOpt(location.search) && !hackathonMode,
   onPlaced: inst => world.registerPF(inst),
   onArrived: (inst, def, ls) => fx.toast(ls && ls.mine
     ? `the builders finished — ${def.name} is open`
-    : `${def.name} is open — ${ls && ls.byline ? `built by ${ls.byline}` : 'a previous owner built it'}; the rent is yours`, 'good'),
+    : def.sandbox
+      ? `${def.name} is open — ${ls && ls.byline ? `built by ${ls.byline}` : 'a previous owner built it'}; its crowd is yours`
+      : `${def.name} is open — ${ls && ls.byline ? `built by ${ls.byline}` : 'a previous owner built it'}; the rent is yours`, 'good'),
   onStatus: () => {
     if (phase === 'planning') renderFranchiseRow();
     applyConstruction(day);   // a claimed lot drops its generic scaffold prop
@@ -235,6 +273,29 @@ function applyConstruction(d) {
     for (const lot of FRANCHISE.lots) world.setRowFront(lot.id, !rowClaimed(lot.id));
   }
 }
+// Judge/deep-link path: `?prompt=` words (or `?hackathon=1`'s default)
+// describe the pitch the moment the first brief renders — once per session
+// per seed. The card then shows the worksite like any described stand.
+const HACKATHON_PROMPT = 'a tiny late-night ramen counter';
+let autoPromptFired = false;
+function maybeAutoPrompt() {
+  if (autoPromptFired || phase !== 'planning' || day < 1) return;
+  const text = autoPrompt || (hackathonMode ? HACKATHON_PROMPT : '');
+  if (!text) return;
+  const lot = franchise.nextVacant(day);
+  if (!lot || lot.sandbox !== true) return;
+  autoPromptFired = true;
+  try {
+    const k = `grunds.autoprompt.${seedNow()}`;
+    if (sessionStorage.getItem(k)) return;
+    sessionStorage.setItem(k, '1');
+  } catch {}
+  rowDraft = text;
+  rowSending = true;
+  fx.toast(`the builders are growing: “${text}”`, '');
+  franchise.describe(lot.id, text, day, null, undefined)
+    .then(() => { rowSending = false; try { renderFranchiseRow(); } catch {} });
+}
 // The Row's real state for the letter — built stands, claimed (built or
 // in the builders' hands), and leases open but unsigned as of day d.
 function rowSummary(d) {
@@ -244,12 +305,15 @@ function rowSummary(d) {
   if (!franchise.live) return null;
   const lots = franchise.lots || {};
   let built = 0, claimed = 0;
-  for (const l of FRANCHISE.lots) {
+  // The pitch is a sandbox lease, not a Row address — it never counts
+  // toward the letter's lease ledger.
+  const rowLots = FRANCHISE.lots.filter(l => !l.sandbox);
+  for (const l of rowLots) {
     const s = lots[l.id]?.status;
     if (s === 'success') built++;
     if (s === 'success' || s === 'processing') claimed++;
   }
-  const unsigned = FRANCHISE.lots.filter(l => d >= l.unlockDay && lots[l.id]?.status !== 'success' && lots[l.id]?.status !== 'processing').length;
+  const unsigned = rowLots.filter(l => d >= l.unlockDay && lots[l.id]?.status !== 'success' && lots[l.id]?.status !== 'processing').length;
   return { built, claimed, unsigned };
 }
 // Linkup market intel: fetched once per session (server-cached 6h). Tilts the
@@ -960,7 +1024,7 @@ function tick() {
     const w = dayWaves[waveIdx++];
     const morningCalm = (day === 1 && w.t < 600) ? 0.52 : 1;
     const settleThin = (day === 1 && dayMin < CALM_UNTIL_MIN) ? 0.5 : 1;
-    const mul = (exchange.event?.demand || 1) * originPull(originKey(houseOrigin), exchange.event) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1) * (samTruce && day === 5 ? 0.92 : 1) * elasticity * reach;
+    const mul = (exchange.event?.demand || 1) * originPull(originKey(houseOrigin), exchange.event) * regulars.footfallMul * demand.spawnMul() * morningCalm * settleThin * (w.t >= 840 ? offerWaveMul : 1) * (samTruce && day === 5 ? 0.92 : 1) * elasticity * reach * (worldSpec?.spec?.demandMul || 1);
     // loyalty made visible: yesterday's served × return rate reappear,
     // spread evenly so the wave keeps its shape and just runs deeper
     const returnBonus = demand.todayReturnees > 0 && dayWaves.length
@@ -971,13 +1035,13 @@ function tick() {
     for (const [si, s] of w.spawns.entries()) {
       let n;
       if (softDay) {
-        const expected = s.q * ECON.spawnScale * SOFT_MUL;
+        const expected = s.q * ECON.spawnScale * SOFT_MUL * standWaveMul(s.c, w.t);
         n = Math.floor(expected) + (softRng() < expected - Math.floor(expected) ? 1 : 0);
       } else {
         // The old Math.max(1, …) floor guaranteed every wave entry a customer
         // no matter how unknown the stand — a hidden guaranteed funnel. Cold
         // start thins probabilistically instead: the street is earned.
-        const expected = s.q * ECON.spawnScale * mul;
+        const expected = s.q * ECON.spawnScale * mul * standWaveMul(s.c, w.t);
         const fl = Math.floor(expected);
         n = fl + (waveHash01(seedNow(), day, waveIdx - 1, si) < expected - fl ? 1 : 0)
           + (firstSpawn ? returnBonus : 0);
@@ -2610,6 +2674,7 @@ function renderFranchiseRow() {
   const host = $('brief-row'); if (!host) return;
   if (softDay || phase !== 'planning' || day < 1) { host.style.display = 'none'; return; }
   const vacant = franchise.nextVacant(day);
+  maybeAutoPrompt();
   const ls = (id) => franchise.lots[id] || {};
   const building = FRANCHISE.lots.filter(l => ls(l.id).status === 'processing');
   const built = FRANCHISE.lots.filter(l => ls(l.id).status === 'success');
@@ -2710,9 +2775,14 @@ function renderFranchiseRow() {
   const title = document.createElement('div');
   title.className = 'row-title';
   title.textContent = `${vacant.name} is vacant`;
+  // The pitch is the sandbox lease: rent-free, and the stand's spec IS its
+  // effect — no purpose picker, the builders read the words and decide.
+  const isSandbox = !!(vacant && vacant.sandbox);
   const why = document.createElement('p');
   why.className = 'row-why';
-  why.textContent = `describe the stand you want there and the builders grow it — ${fmt(15, 0)} ground rent each dawn, plus whatever its purpose brings the street. first, tell them what the stand is for:`;
+  why.textContent = isSandbox
+    ? `describe the stand you want there and the builders grow it — the pitch is rent-free; its character decides who crosses the road. tell them what it is:`
+    : `describe the stand you want there and the builders grow it — ${fmt(15, 0)} ground rent each dawn, plus whatever its purpose brings the street. first, tell them what the stand is for:`;
   card.append(kick, title, why);
 
   const statusEl = document.createElement('div');
@@ -2742,7 +2812,7 @@ function renderFranchiseRow() {
     purposeBtns[p.id] = b;
     purposes.appendChild(b);
   }
-  card.appendChild(purposes);
+  if (!isSandbox) card.appendChild(purposes);
 
   const examples = document.createElement('div');
   examples.className = 'row-examples';
@@ -2789,12 +2859,14 @@ function renderFranchiseRow() {
   btn.onclick = () => {
     if (phase !== 'planning' || rowSending) return;
     const text = (input.value || '').trim();
-    if (!rowPurpose) { statusEl.textContent = 'pick what the stand is for — a draw, a hub, or a tenant'; return; }
+    if (!isSandbox && !rowPurpose) { statusEl.textContent = 'pick what the stand is for — a draw, a hub, or a tenant'; return; }
     if (!text) { statusEl.textContent = 'describe the stand — words, or a photo link'; return; }
     rowSending = true; rowError = null; rowDraft = text;
     btn.disabled = true; btn.textContent = 'sent — the builders are working';
-    statusEl.textContent = `sent to the builders — ${vacant.name} · ${rowPurposeLabel(rowPurpose).slice(3)}`;
-    franchise.describe(vacant.id, text, day, rowPurpose, (sign.value || '').trim() || undefined).then(d => {
+    statusEl.textContent = isSandbox
+      ? `sent to the builders — ${vacant.name}`
+      : `sent to the builders — ${vacant.name} · ${rowPurposeLabel(rowPurpose).slice(3)}`;
+    franchise.describe(vacant.id, text, day, isSandbox ? null : rowPurpose, (sign.value || '').trim() || undefined).then(d => {
       rowSending = false;
       if (d && (d.status === 'invalid' || d.status === 'locked')) {
         rowError = d.error || 'the builders need three words or more';
@@ -3648,6 +3720,18 @@ function renderStreetBrief() {
         paint(0);
         streetEl.appendChild(pills);
         streetEl.appendChild(cap);
+        // The described street may lean toward an origin — a suggestion,
+        // never a forced pick (the pills stay the player's answer).
+        const wsOrigin = worldSpec?.spec?.origin;
+        if (wsOrigin && wsOrigin !== 'none') {
+          const oi = ORIGINS.findIndex(o => o.id === wsOrigin);
+          if (oi >= 0) {
+            const sug = document.createElement('div');
+            sug.className = 'lic-perk';
+            sug.textContent = `the described street leans ${ORIGINS[oi].label} — pick it or don't`;
+            streetEl.appendChild(sug);
+          }
+        }
       }
       if (lines.length || (!houseOrigin && !campaignDone && streetDay != null && day > streetDay)) {
         const h = document.createElement('div');
@@ -3724,7 +3808,8 @@ function showMorningBrief() {
     }
   } catch { if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`; }
   { const el = $('brief-climate'); if (el) el.textContent = climateBrief(climate) + (weatherAnchor && weatherAnchor.source === 'live'
-      ? ` The sky this week is the real forecast${city?.name ? ' over ' + cityDisplay(city.name) : ''} (Open-Meteo).` : ''); }
+      ? ` The sky this week is the real forecast${city?.name ? ' over ' + cityDisplay(city.name) : ''} (Open-Meteo).` : '')
+      + (worldSpec?.spec ? ` Your street: ${worldSpec.spec.name || worldSpec.prompt}.${worldSpec.spec.line ? ' ' + worldSpec.spec.line : ''}` : ''); }
   const intro = $('brief-intro');
   if (intro) {
     if (firstDay && softWeekDone) {
@@ -4342,6 +4427,7 @@ function capturePreDawn(enteringDay) {
       softWeekDone: !!softWeekDone,
       anchor: marketAnchor,   // pillar 3 — the week's market snapshot rides the save
       weather: weatherAnchor,   // pillar 4 — and so does the week's real sky
+      world: worldSpec,       // and the described street's resolved spec
       rngState: exchange.rng && exchange.rng.state ? exchange.rng.state() : null,
       streams: {
         patrons: patronsRng && patronsRng.state ? patronsRng.state() : null,
@@ -4398,6 +4484,14 @@ function applySavedWeek(save) {
     exchange.anchor = marketAnchor;
   } catch { marketAnchor = null; }
   try { weatherAnchor = save.weather && save.weather.source === 'live' ? save.weather : null; } catch { weatherAnchor = null; }
+  // The described street rides the save verbatim — a resumed week keeps the
+  // spec it was dealt. Saves that predate ?world= re-resolve from the URL.
+  try {
+    worldSpec = save.world && save.world.spec
+      ? save.world
+      : (worldPrompt ? resolveWorldSpec(localStorage, worldPrompt, Object.keys(EVENTS)) : null);
+    applyWorldSpec();
+  } catch { worldSpec = null; }
   refreshSnapshotCache();
   refreshWeatherCache();
   const ex = save.exchange || {};
@@ -4717,10 +4811,35 @@ function prepareDay(d) {
 }
 const openDay = prepareDay;
 
+// The described stands' pull on the floor: each placed stand adds bounded
+// spawn weight to its own cohort inside its own hours (standSpec.js —
+// "a midnight ramen bar" literally pulls students after 18:00). Reads lot
+// state only — no rng, no clock — so a week with no stands multiplies by
+// exactly 1 and every replay stays bit-identical.
+function standWaveMul(cohort, waveT) {
+  const specs = [];
+  for (const l of FRANCHISE.lots) {
+    const s = franchise.lots[l.id];
+    if (!s || s.status !== 'success' || !s.placed) continue;
+    const spec = specForLot(s);
+    if (spec) specs.push(spec);
+  }
+  return specPullSum(specs, cohort, waveT);
+}
+
 function currentIntelBias() {
-  return marketIntel && Array.isArray(marketIntel.marketShift)
+  const base = marketIntel && Array.isArray(marketIntel.marketShift)
     ? Object.fromEntries(marketIntel.marketShift.map(s => [s.eventId, s.weightMul]))
     : null;
+  // The described street's deck lean merges under the wire intel — both
+  // are weight muls, validated + clamped in worldSpec.js. No world → base.
+  const wb = worldSpec?.spec?.bias;
+  if (!wb || !Object.keys(wb).length) return base;
+  const out = { ...(base || {}) };
+  for (const [id, mul] of Object.entries(wb)) {
+    if (EVENTS[id] && Number.isFinite(mul)) out[id] = (out[id] ?? 1) * mul;
+  }
+  return out;
 }
 function startTradingDay(d) {
   // the wire tilts the deck: live Linkup research multiplies event weights
@@ -5690,7 +5809,13 @@ function applyWeatherAnchor() {
 // The week's sky: live forecast mapped to the envelope when anchored, else
 // the seeded pickClimate — the exact classic path for harness/replay runs.
 function climateNow() {
-  return resolveClimate(weatherAnchor, () => pickClimate(seedNow(), city?.name));
+  // Live forecast wins; then the described street's sky; then the seeded
+  // pick — the exact classic path when no ?world= is in play.
+  return resolveClimate(weatherAnchor, () => {
+    const wid = worldSpec?.spec?.climate;
+    if (wid && CLIMATES[wid]) return CLIMATES[wid];
+    return pickClimate(seedNow(), city?.name);
+  });
 }
 
 function reset(coreOnly = false) {
@@ -5714,6 +5839,11 @@ function reset(coreOnly = false) {
   frontage.random = patronsConvRng;
   frontage.reset();
   firstRecruitShown = false;
+  // A fresh campaign re-rolls the described street from the (possibly
+  // just-landed) LLM card — BEFORE climateNow picks the week's sky.
+  resolveWorld();
+  applyWorldSpec();
+  if (worldPrompt && sync.live) refreshWorldSpec(localStorage, String(sync.url || '').replace(/\/$/, ''), worldPrompt, Object.keys(EVENTS)).catch(() => {});
   climate = climateNow();
   street.climate = climate;
   exchange.origin = originKey(houseOrigin);   // the house persists across weeks; reset rewinds the market but not the identity
@@ -6444,6 +6574,16 @@ function signLicence() {
   // stays put. The link another tab opens is the same street anyone gets.
   const typedCity = normalizeCityName($('lic-city')?.value || '');
   if (typedCity && (!city || typedCity !== city.name)) { location.assign(cityUrl(typedCity)); return; }
+  // The described street rides the same re-seat: typed words become the
+  // ?world= spec — identity is already persisted above, so the reload lands
+  // on the same licence with the district now described.
+  const typedWorld = ($('lic-world')?.value || '').trim().slice(0, WORLD_PROMPT_MAX);
+  if (typedWorld && typedWorld !== worldPrompt) {
+    const u = new URL(location.href);
+    u.searchParams.set('world', typedWorld);
+    location.assign(u.toString());
+    return;
+  }
   applyPerk();
   try { applyPaywallPlacements(); } catch {}
   modals.close('licence');

@@ -708,6 +708,30 @@ export const aiGossip = httpAction(async (ctx, req) => {
   }
 });
 
+// The described street — `?world=` words become the district's character.
+// Same snapshot posture as the market/weather anchors: the client resolves
+// synchronously from cache or its seeded classifier; this call is the
+// background LLM pass whose validated card serves the NEXT campaign.
+export const aiWorldSpec = httpAction(async (ctx, req) => {
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  let payload: { prompt?: string };
+  try {
+    payload = (await req.json()) as typeof payload;
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  if (typeof payload.prompt !== "string" || !payload.prompt.trim())
+    return json({ error: "prompt required" }, 400);
+  try {
+    const result = await ctx.runAction(api.worldSpec.expand, {
+      prompt: payload.prompt.slice(0, 200),
+    });
+    return json(result);
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "failed" }, 400);
+  }
+});
+
 export const aiResearch = httpAction(async (ctx) => {
   try {
     // the merged wire: Linkup + Firecrawl pipes, OpenAI "why this matters"
@@ -734,6 +758,7 @@ http.route({ path: "/revenuecat/webhook", method: "POST", handler: revenuecatWeb
 http.route({ path: "/ai/letter", method: "POST", handler: aiLetter });
 http.route({ path: "/ai/gossip", method: "POST", handler: aiGossip });
 http.route({ path: "/ai/research", method: "GET", handler: aiResearch });
+http.route({ path: "/ai/worldspec", method: "POST", handler: aiWorldSpec });
 http.route({ path: "/district/kit", method: "GET", handler: districtKit });
 http.route({ path: "/district/ensure", method: "POST", handler: districtEnsure });
 http.route({ path: "/city/pack", method: "GET", handler: cityPack });

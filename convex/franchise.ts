@@ -26,6 +26,11 @@ export const FRANCHISE_FACE_LIMIT = 15000; // stand-sized, not a prop
 export const FRANCHISE_PROMPT_MAX = 160;
 
 export const FRANCHISE_LOTS = [
+  // The Pitch — the sandbox lease. Day-1 pitch-side pop-up so a judge (or a
+  // curious player) can describe a stand in the first minute instead of
+  // waiting for the Row leases. No rent, no purpose picker — its spec IS
+  // its effect. `sandbox` is informational; the client hides the picker.
+  { lot: "pitch", name: "The Pitch", unlockDay: 1, rent: 0, sandbox: true },
   { lot: "14", name: "14 The Row", unlockDay: 3, rent: 15 },
   { lot: "11", name: "11 The Row", unlockDay: 4, rent: 15 },
   { lot: "18", name: "18 The Row", unlockDay: 5, rent: 15 },
@@ -104,9 +109,27 @@ type LotStatus = {
   day: number | null;
   purpose: string | null;
   byline: string | null;
+  spec: unknown;
+  standName: string | null;
   modelUrl: string | null;
   previewUrl: string | null;
 };
+
+// The spec column is a JSON card written by standSpec.expand (or absent on
+// legacy/polyfork rows — the client falls back to its seeded classifier).
+// Parse defensively: a corrupt row degrades to "no spec", never a throw.
+function specOf(fr: { spec?: string }): { spec: unknown; standName: string | null } {
+  if (!fr.spec) return { spec: null, standName: null };
+  try {
+    const p = JSON.parse(fr.spec);
+    if (!p || typeof p !== "object") return { spec: null, standName: null };
+    const name = typeof (p as Record<string, unknown>).name === "string"
+      ? String((p as Record<string, unknown>).name).slice(0, 48) : null;
+    return { spec: p, standName: name };
+  } catch {
+    return { spec: null, standName: null };
+  }
+}
 
 // Brief read: every built/building stand on this seed's row. Lots nobody
 // has described simply don't appear — the client derives vacancy from the
@@ -124,6 +147,7 @@ export const status = query({
         .query("tripoAssets")
         .withIndex("by_key", (q) => q.eq("key", fr.key))
         .unique();
+      const sp = specOf(fr);
       lots.push({
         lot: fr.lot ?? "14",
         status: row?.status ?? "missing",
@@ -131,6 +155,8 @@ export const status = query({
         day: fr.day,
         purpose: fr.purpose ?? null,
         byline: fr.byline ?? null,
+        spec: sp.spec,
+        standName: sp.standName,
         modelUrl: row?.modelUrl ?? null,
         previewUrl: row?.previewUrl ?? null,
       });
@@ -199,6 +225,8 @@ export const describe = action({
     prompt?: string;
     purpose?: string | null;
     byline?: string | null;
+    spec?: unknown;
+    standName?: string | null;
     claimed?: boolean;
     modelUrl?: string | null;
     error?: string;
@@ -224,10 +252,22 @@ export const describe = action({
         prompt: mine.prompt ?? prompt,
         purpose: mine.purpose ?? null,
         byline: mine.byline ?? null, // the deeds keep the builder's signature
+        spec: mine.spec ?? null,
+        standName: mine.standName ?? null,
         claimed: false, // the lot was already spoken for — nothing new written
         modelUrl: mine.modelUrl,
       };
     }
+    // The words also become a character card — the LLM reads them once and
+    // the card is stored on the row, where it drives the stand's pull on
+    // the floor for every later player too. Image prompts skip it (a URL
+    // has no words to read); every failure is a clean miss and the client
+    // falls back to its seeded classifier.
+    const specRes = isImageInput(prompt)
+      ? null
+      : await ctx.runAction(api.standSpec.expand, { prompt }).catch(() => null);
+    const specJson =
+      specRes && !specRes.fallback && specRes.spec ? JSON.stringify(specRes.spec) : undefined;
     const spec = franchiseSpec(args.seed, args.lot, prompt);
     const g = await ctx.runAction(api.tripo.generate, {
       prompt: spec.prompt,
@@ -248,8 +288,15 @@ export const describe = action({
       day: args.day,
       purpose: purpose ?? undefined,
       byline: byline ?? undefined,
+      spec: specJson,
     });
-    return { status: g.status, prompt, purpose, byline, claimed: true, modelUrl: g.modelUrl ?? null, error: g.error };
+    const specObj = specRes && !specRes.fallback ? (specRes.spec as Record<string, unknown> | null) : null;
+    return {
+      status: g.status, prompt, purpose, byline,
+      spec: specObj,
+      standName: typeof specObj?.name === "string" ? specObj.name.slice(0, 48) : null,
+      claimed: true, modelUrl: g.modelUrl ?? null, error: g.error,
+    };
   },
 });
 
@@ -264,6 +311,7 @@ export const record = internalMutation({
     day: v.number(),
     purpose: v.optional(v.string()),
     byline: v.optional(v.string()),
+    spec: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<void> => {
     const rows = await ctx.db
@@ -279,6 +327,7 @@ export const record = internalMutation({
         day: args.day,
         purpose: args.purpose,
         byline: args.byline,
+        spec: args.spec,
         createdAt: Date.now(),
       });
     } else {
@@ -290,6 +339,7 @@ export const record = internalMutation({
         day: args.day,
         purpose: args.purpose,
         byline: args.byline,
+        spec: args.spec,
         createdAt: Date.now(),
       });
     }
@@ -309,6 +359,7 @@ export const streets = query({
         .query("tripoAssets")
         .withIndex("by_key", (q) => q.eq("key", fr.key))
         .unique();
+      const sp = specOf(fr);
       const ls: LotStatus = {
         lot: fr.lot ?? "14",
         status: row?.status ?? "missing",
@@ -316,6 +367,8 @@ export const streets = query({
         day: fr.day,
         purpose: fr.purpose ?? null,
         byline: fr.byline ?? null,
+        spec: sp.spec,
+        standName: sp.standName,
         modelUrl: null,            // gallery shows previews, not GLBs
         previewUrl: row?.previewUrl ?? null,
       };

@@ -55,13 +55,14 @@ const idxHtml = readFileSync(join(ROOT, 'web/index.html'), 'utf8');
 // ============================================================
 // 1) the lot table — mirrored client/server, pinned both ends
 // ============================================================
-check('three buildable lots', FRANCHISE.lots.length === 3, `lots=${FRANCHISE.lots.length}`);
-check('lot ids are 14, 11, 18', FRANCHISE.lots.map(l => l.id).join(',') === '14,11,18', FRANCHISE.lots.map(l => l.id).join(','));
-check('lots unlock days 3, 4, 5', FRANCHISE.lots.map(l => l.unlockDay).join(',') === '3,4,5', FRANCHISE.lots.map(l => l.unlockDay).join(','));
-check('every lot pays a positive rent', FRANCHISE.lots.every(l => l.rent > 0 && l.rent <= 100));
+check('four buildable lots (the pitch + three Row leases)', FRANCHISE.lots.length === 4, `lots=${FRANCHISE.lots.length}`);
+check('lot ids are pitch, 14, 11, 18', FRANCHISE.lots.map(l => l.id).join(',') === 'pitch,14,11,18', FRANCHISE.lots.map(l => l.id).join(','));
+check('lots unlock days 1, 3, 4, 5', FRANCHISE.lots.map(l => l.unlockDay).join(',') === '1,3,4,5', FRANCHISE.lots.map(l => l.unlockDay).join(','));
+check('the pitch is the day-1 sandbox lease', FRANCHISE.lots[0].sandbox === true && FRANCHISE.lots[0].rent === 0 && FRANCHISE.lots[0].id === 'pitch');
+check('Row leases are not sandbox and pay positive rent', FRANCHISE.lots.filter(l => !l.sandbox).every(l => l.rent > 0 && l.rent <= 100));
 check('every lot is across the road (z > 14)', FRANCHISE.lots.every(l => l.position[2] > 14), FRANCHISE.lots.map(l => l.position[2]).join(','));
 check('every lot faces the café (rotationY = π)', FRANCHISE.lots.every(l => Math.abs(l.rotationY - Math.PI) < 1e-9));
-check('lots are spaced apart', new Set(FRANCHISE.lots.map(l => l.position[0])).size === 3, 'duplicate x position');
+check('lots are spaced apart', new Set(FRANCHISE.lots.map(l => l.position[0])).size === FRANCHISE.lots.length, 'duplicate x position');
 check('storefront height beats pavement props', FRANCHISE.height > 2.5, `h=${FRANCHISE.height}`);
 check('prompt cap is sane', FRANCHISE.promptMax >= 120 && FRANCHISE.promptMax <= 300, `max=${FRANCHISE.promptMax}`);
 
@@ -81,8 +82,8 @@ const dead = initFranchise({ scene: null, seed: 7, classic: false });
 check('dead init returns state', dead && dead.lots && typeof dead.lots === 'object');
 check('dead refresh is callable', typeof dead.refresh === 'function' && (dead.refresh(3), true));
 check('dead rentDue pays nothing', dead.rentDue(5) === 0, `rentDue=${dead.rentDue(5)}`);
-check('dead nextVacant offers lot 14 on day 3', dead.nextVacant(3)?.id === '14', JSON.stringify(dead.nextVacant(3)));
-check('dead nextVacant is null before day 3', dead.nextVacant(2) === null);
+check('dead nextVacant offers the pitch on day 1', dead.nextVacant(1)?.id === 'pitch', JSON.stringify(dead.nextVacant(1)));
+check('dead nextVacant still offers the pitch on day 3 until built', dead.nextVacant(3)?.id === 'pitch', JSON.stringify(dead.nextVacant(3)));
 check('dead inherited is null', dead.inherited() === null);
 check('dead describe is callable', typeof dead.describe === 'function');
 const dRes = await dead.describe('14', 'a tiny ramen counter', 3);
@@ -97,13 +98,15 @@ const hl = initFranchise({ scene: { add(){} }, seed: 7, classic: false });
 check('headless init is dead', hl.lots && fetchCalls.length === 0, `calls=${fetchCalls.length}`);
 globalThis.__headless = false;
 
-// nextVacant walks the terrace in order
-check('day 3 offers 14 only', dead.nextVacant(3)?.id === '14');
+// nextVacant walks the terrace in order — the pitch first, then the Row
+check('day 1 offers pitch only', dead.nextVacant(1)?.id === 'pitch');
+dead.lots['pitch'] = { status: 'success', placed: true, placedDay: 1, prompt: 'x', describedDay: 1, mine: true };
+check('day 1 with pitch built offers nothing (Row locked)', dead.nextVacant(1) === null, JSON.stringify(dead.nextVacant(1)));
+check('day 3 skips built pitch, offers 14', dead.nextVacant(3)?.id === '14', JSON.stringify(dead.nextVacant(3)));
 dead.lots['14'] = { status: 'success', placed: true, placedDay: 3, prompt: 'x', describedDay: 3, mine: true };
-check('day 4 skips built 14, offers 11', dead.nextVacant(4)?.id === '11');
-check('day 3 never offers 11 early (locked)', dead.nextVacant(3)?.id === '14' || dead.nextVacant(3) === null);
+check('day 4 offers 11 once 14 stands', dead.nextVacant(4)?.id === '11', JSON.stringify(dead.nextVacant(4)));
 dead.lots['11'] = { status: 'processing', placed: false, placedDay: 0, prompt: 'x', describedDay: 4, mine: true };
-check('day 4 skips processing 11, offers 18? no — 18 still locked', dead.nextVacant(4) === null, JSON.stringify(dead.nextVacant(4)));
+check('day 4 skips processing 11, offers nothing (18 locked)', dead.nextVacant(4) === null, JSON.stringify(dead.nextVacant(4)));
 check('day 5 offers 18 once 11 is building', dead.nextVacant(5)?.id === '18');
 
 // ============================================================
@@ -367,7 +370,8 @@ check('render key digests every lot status + purpose', main.includes("ls(l.id).s
 check('typed draft survives same-lot redraws', main.includes('input.value = rowDraft') && main.includes('rowDraft = input.value'));
 check('draft resets only on a new day or lot', /if \(forNow !== rowFor\) \{ rowFor = forNow;/.test(main));
 check('brief offers the next vacant lot', main.includes('franchise.nextVacant(day)'));
-check('lease card POSTs describe with lot + purpose + byline', /franchise\.describe\(vacant\.id, text, day, rowPurpose,/.test(main));
+check('lease card POSTs describe with lot + purpose + byline', /franchise\.describe\(vacant\.id, text, day, isSandbox \? null : rowPurpose,/.test(main));
+check('the pitch card skips the purpose picker', main.includes('isSandbox ? null : rowPurpose') && main.includes('if (!isSandbox) card.appendChild(purposes)') && main.includes('if (!isSandbox && !rowPurpose)'));
 check('lease card labels the three purposes', main.includes('awareness at close') && main.includes('returnees tomorrow') && main.includes('rent per dawn'));
 check('purpose labels derive from config so they cannot drift', /FRANCHISE\.purposes\.\w+\.\w+/.test(main) && main.includes('FRANCHISE.purposes.rent.rentBonus'));
 check('purpose buttons are mutually exclusive pressed-states', (main.match(/aria-pressed/g) || []).length >= 2 && main.includes('row-purpose'));
@@ -398,7 +402,7 @@ check('status route nudges mature tasks', http.includes('api.franchise.statusLiv
 check('deeds carry an optional signature', convexFr.includes('sanitizeByline') && convexFr.includes('byline: v.optional(v.string())') && schema.includes('byline'));
 check('status returns the builder signature', convexFr.includes('byline: fr.byline ?? null'));
 check('client passes byline on describe and stores it on read', frJs.includes('&byline=') && frJs.includes('ls.byline = d.byline ?? null') && frJs.includes('ls.byline = l.byline ?? null'));
-check('lease card has a deeds signature line', main.includes('brief-row-byline') && main.includes('rowByline') && /describe\(vacant\.id, text, day, rowPurpose, \(sign/.test(main));
+check('lease card has a deeds signature line', main.includes('brief-row-byline') && main.includes('rowByline') && /describe\(vacant\.id, text, day, isSandbox \? null : rowPurpose, \(sign/.test(main));
 check('signature pre-fills from the licence name', main.includes("playerName !== 'Sam' ? playerName"));
 check('streets registry + route exist', convexFr.includes('export const streets') && http.includes('/franchise/streets'));
 check('gallery page reads the registry and plays seed links', readFileSync(join(ROOT, 'web/streets.html'), 'utf8').includes('/franchise/streets') && readFileSync(join(ROOT, 'web/streets.html'), 'utf8').includes('?seed='));

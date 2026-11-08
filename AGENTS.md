@@ -331,6 +331,28 @@ frame, and each tick used to drag the whole HUD with it:
 Sim determinism is untouched — every fix is render/HUD-side only
 (balance-policies + replay gates re-ran green).
 
+## Prompt → stand / described street (Victoria VR hackathon)
+- `web/js/standSpec.js` + `convex/standSpec.ts`: player words → validated
+  stand card (name/cuisine/archetype/cohort/daypart/pull/priceTier/
+  signature). LLM via `api.standSpec.expand` when keyed; seeded classifier
+  is the always-available fallback and MUST stay bit-identical client and
+  server (tests pin it). Card persists on `franchises.spec`; `specForLot`
+  prefers the stored card, falls back to prompt classification for legacy
+  rows. `specPull(cohort, daypart)` feeds `standWaveMul` in the wave loop —
+  placed/successful stands only, per-stand ≤0.3, aggregate ≤0.6.
+- `web/js/worldSpec.js` + `convex/worldSpec.ts`: licence "your street"
+  field / `?world=` / `?prompt=` → validated world card (climate, event
+  bias vs real EVENTS ids, demand lean, rivalName, origin hint), cached by
+  prompt hash, saved on the week save. Climate precedence: live weather →
+  world spec → seeded `pickClimate`. `?hackathon=1` forces the real
+  provider path; auto-prompt only fires on the sandbox lot.
+- Franchise lots: `pitch` (day 1, rent 0, `sandbox: true`, no purpose
+  picker — spec drives its pull) + row lots 14/11/18. Both client
+  `FRANCHISE.lots` and `convex/franchise.ts` MUST stay in parity
+  (franchise.mjs pins it). Image-URL prompts skip stand-spec expansion.
+- `tools/prebuild-row.mjs` prebuilds showcase stands on a seed.
+- Tests: `stand-spec.mjs`, `world-spec.mjs`, `franchise.mjs`.
+
 ## Conventions
 - Choice surfaces: options + consequence visible, no folds for choices —
   see ARCHITECTURE.md "Choice surfaces".

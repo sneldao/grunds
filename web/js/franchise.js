@@ -17,6 +17,9 @@ import { loadPF } from './polyfork.js';
 import { seeded } from './exchange.js';
 import { baseUrl } from './convexSync.js';
 import { fmt } from './city.js';
+import { specForLot, specLine } from './standSpec.js';
+// specForLot falls back to the seeded classifier over ls.prompt, so the
+// polyfork path needs no spec plumbing of its own — the card is derived.
 
 // A fresh stand is usually ready in about two minutes. Look immediately, then
 // every 10s for six minutes, and keep looking through a failed read or a GLB
@@ -38,6 +41,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
   };
   const lotState = (id) => state.lots[id] || (state.lots[id] = {
     status: 'missing', prompt: null, describedDay: null, placed: false, placedDay: 0, mine: false, purpose: null, byline: null,
+    spec: null, standName: null,
   });
   const lotDef = (id) => FRANCHISE.lots.find((l) => l.id === id);
 
@@ -98,6 +102,13 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       if (inst?.userData?.placeholder) { ls.placed = false; return; }
       fitToSlot(inst, FRANCHISE.height);
       scene.add(inst);
+      // The spec's name goes on a little sign beside the stand — the words
+      // the player typed, readable in the street. Best-effort: a canvas or
+      // GL hiccup must never cost the stand itself.
+      try {
+        const sign = standSign(specForLot(ls)?.name || ls.standName, def);
+        if (sign) scene.add(sign);
+      } catch {}
       unscaffold(id);
       ls.placedDay = dayNow || state.day || 0; // pre-existing stands pay from day 1
       state.onPlaced?.(inst, def, ls);
@@ -138,6 +149,8 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
         ls.describedDay = l.day ?? ls.describedDay;
         ls.purpose = l.purpose ?? null; // status is authoritative — never keep a stale local one
         ls.byline = l.byline ?? null;   // the builder's signature, same rule
+        ls.spec = l.spec ?? null;       // the character card — absent on legacy rows
+        ls.standName = l.standName ?? null;
         if (ls.status === 'success' && l.modelUrl && !ls.placed) await place(l.lot, l.modelUrl, state.day, !firstRead);
         if (gen !== pollGen) return;
         if (ls.status === 'processing') { waiting = true; scaffold(l.lot); }
@@ -216,6 +229,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     ls.purpose = purpose ?? null; ls.byline = byline ?? null; ls.mine = true;
     ls.placed = true;
     scene.add(inst); unscaffold(lotId);
+    try { const sign = standSign(specForLot(ls)?.name, def); if (sign) scene.add(sign); } catch {}
     ls.placedDay = dayNow || state.day || 0;
     pfRemember(lotId, id, ls);
     state.onPlaced?.(inst, def, ls);
@@ -246,6 +260,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       if (inst?.userData?.placeholder) continue;
       Object.assign(ls, { status: 'success', prompt: s.prompt, describedDay: s.day, purpose: s.purpose ?? null, byline: s.byline ?? null, mine: true, placed: true, placedDay: s.day || 0 });
       scene.add(inst); unscaffold(lotId);
+      try { const sign = standSign(specForLot(ls)?.name, def); if (sign) scene.add(sign); } catch {}
       state.onPlaced?.(inst, def, ls);
     }
     state.live = true;
@@ -276,6 +291,8 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
         // franchise answers with the builder's own; never keep ours.
         ls.purpose = d.purpose ?? null;
         ls.byline = d.byline ?? null;
+        ls.spec = d.spec ?? null;
+        ls.standName = d.standName ?? null;
         if (d.claimed) ls.mine = true;   // claimed=false: somebody else got here first
         if (d.status === 'processing') { scaffold(lotId); armPoll(); }
         // place() owns the worksite — it comes down only after a real GLB lands.
@@ -332,6 +349,41 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
   return state;
 }
 
+// A tiny name-board on two posts beside the stand. Returns null headless —
+// the canvas may not exist in tests, and a missing sign is never fatal.
+function standSign(name, def) {
+  if (!name || typeof document === 'undefined') return null;
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 128;
+  const g = c.getContext('2d');
+  if (!g) return null;
+  g.fillStyle = '#1d1712'; g.fillRect(0, 0, 512, 128);
+  g.strokeStyle = '#c9a227'; g.lineWidth = 6; g.strokeRect(4, 4, 504, 120);
+  g.fillStyle = '#f3e9d2';
+  g.font = '600 50px Georgia, serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(String(name).toUpperCase().slice(0, 26), 256, 68);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const grp = new THREE.Group();
+  const postGeo = new THREE.BoxGeometry(0.07, 1.5, 0.07);
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x3a2c1c, roughness: 0.9 });
+  for (const x of [-0.55, 0.55]) {
+    const p = new THREE.Mesh(postGeo, postMat);
+    p.position.set(x, 0.75, 0);
+    grp.add(p);
+  }
+  const board = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.5, 0.38),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8, side: THREE.DoubleSide }),
+  );
+  board.position.y = 1.35;
+  grp.add(board);
+  grp.position.set(def.position[0] + 1.7, def.position[1], def.position[2]);
+  grp.rotationY = def.rotationY;
+  return grp;
+}
 function gbp(n) {
   const v = Math.round(Number(n) * 100) / 100;
   if (!(v > 0)) return '';
@@ -366,6 +418,14 @@ export function morningFranchiseLines(franchise, day, carry = {}) {
     if (s.purpose === 'community') lines.push(`${def.name} is open — a hub’s ${P.community.returnees} neighbours start from the next morning.`);
     else if (s.purpose === 'draw') lines.push(`${def.name} is open — the draw’s awareness starts at the next close.`);
     else if (s.purpose === 'rent') lines.push(`${def.name} is open — the tenant’s lease starts next morning.`);
+  }
+  // Every standing stand says what it IS — the spec card, seeded or LLM.
+  // One line each, standing fact like the rent: it doesn't expire.
+  for (const def of FRANCHISE.lots) {
+    const s = lots[def.id];
+    if (!s || !s.placed) continue;
+    const line = specLine(specForLot(s));
+    if (line) lines.push(`${line}.`);
   }
   return lines;
 }

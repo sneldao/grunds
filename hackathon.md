@@ -9,13 +9,76 @@
 - **Frontend:** Convex static hosting
 - **Convex deployment:** https://striped-anaconda-746.convex.cloud
 - **Components:** @convex-dev/static-hosting
-- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /sync/*, /agentmail/webhook, /agentmail/inbox, /district/kit, /district/ensure, /city/pack, /tripo/webhook), crons, static hosting
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /ai/worldspec, /sync/*, /agentmail/webhook, /agentmail/inbox, /district/kit, /district/ensure, /city/pack, /tripo/webhook), crons, static hosting
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-10-31T16:10:00Z
+- **Last updated:** 2026-11-08T00:00:00Z
 
 ## Log
+
+### 2026-11-08 - Victoria VR AI Builder Hackathon: prompt → stand logic + described streets
+
+**Event:** Victoria VR AI Builder Hackathon 2026 (browser builds; deadline
+Nov 11 16:30 CEST; repo + hosted demo + <3 min video + description).
+
+Closes the judging gap "plain language → 3D scenes *and working logic*":
+
+- **Stand specs** — `franchise.describe` now expands a text prompt into a
+  validated character card (name, cuisine, archetype, cohort, daypart, pull,
+  price tier, signature) via `convex/standSpec.ts` (LLM when keyed, seeded
+  classifier otherwise; malformed JSON never blocks). Card persists on the
+  franchise row (`schema.ts spec` field); client mirrors it in
+  `web/js/standSpec.js` with identical seeded fallback for legacy rows.
+  The card is load-bearing: `specPull` biases the wave spawn multiplier by
+  cohort + daypart (bounded: per-stand 0.3, aggregate 0.6, placed stands
+  only), the generated name signs the physical stand, and the morning
+  brief prints a `specLine` per built stand. Polyfork instant path gets
+  the same treatment via `specForLot` fallback.
+- **The Pitch** — new sandbox lot (`pitch`, day-1, rent 0, no purpose
+  picker) so judges hit prompt→3D→logic in the first minute. `?prompt=`
+  deep link auto-fills it; `?hackathon=1` forces the real provider path
+  for the showcase prompt. Image-URL prompts skip text spec expansion.
+- **Described streets** — licence gains a "your street" field +
+  `?world=` param; `convex/worldSpec.ts` + `web/js/worldSpec.js` turn words
+  into a validated, cached world card (climate, event bias vs the real
+  EVENTS deck, demand lean, rival name, origin hint) that biases
+  `climateNow`, the event deck, wave demand, and the morning brief. Saved
+  with the week; seeded fallback keeps offline/replay play identical.
+- **Showcase tooling** — `tools/prebuild-row.mjs` prebuilds stands on a
+  seed so judges inherit finished geometry on first load.
+- Validation: `test:fast` 532/532 green (incl. new `stand-spec.mjs` +
+  `world-spec.mjs` suites), `typecheck` clean. Convex `_generated` refreshed;
+  `/ai/worldspec` route live on the deployment.
+- **Open:** slow suite not run; showcase seed not yet prebuilt against
+  prod; demo video + submission pack still to record.
+
+### 2026-11-06 - Loadout AI Game Competition: deploy be38f53 + 40 s entry clip
+
+**Event:** Loadout AI Game Competition (~Nov 7 15:00 UTC close; $5k pool;
+requires 15+ s X clip tagging @loadoutprotocol + form entry).
+
+- **Deployed `be38f53`** from the clean `~/grunds-deploy` worktree — the live
+  site had been ~19 commits stale (street theatre waves, walking humanoids,
+  tier-2 bodies, rooftop dressing, both perf passes all missing live).
+  `npm install` was needed first — the main checkout's `node_modules` was
+  absent (that also explains a `district-routing.mjs` module-not-found red
+  on the pre-flight `test:fast`; 530/530 green after, typecheck clean).
+- **Entry clip:** `videos/loadout-jam/dist/grunds-loadout.mp4` — 40 s,
+  1080p h264+aac, all real gameplay captured against the deployed site.
+  New pipeline `videos/loadout-jam/capture/record.mjs` (Playwright, drives
+  `__grunds` rig queueShot / theatre() polling / skipToRush / stats) →
+  `assemble.sh` (trim, PIL caption overlays via city-remix `render_text.py`,
+  concat, seeded synth bed). Takes: real title screen, dawn pavement crowd
+  inside a live busker window, 06:33 commute + ask card, Morning Brief,
+  12:38 pre-rush interior, Tokyo street with the ¥ pack landed, evening
+  ledger, CTA card. Cut list + form/X copy in `videos/loadout-jam/ENTRY.md`.
+- **Gotcha:** playwright `page.evaluate('...rig.queueShot(name, world)')`
+  resolves bare `world` via `window.world` — it exists, but use
+  `window.__grunds.world` explicitly. Long takes that outlive their script
+  still land a playable (duration=N/A) webm — remux reads fine.
+- **Open:** X post + form submission is manual (copy is paste-ready in
+  ENTRY.md). Slow suite not run this pass.
 
 ### 2026-10-31 - film v5 + people pass: silhouettes, gaits, real humanoids
 

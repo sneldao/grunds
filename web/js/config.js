@@ -279,6 +279,10 @@ export const FRANCHISE = {
     rent:      { rentBonus: 40 },    // a tenant — a real commercial lease on the peppercorn rate
   },
   lots: [
+    // The Pitch — the day-1 sandbox lease (mirrors convex/franchise.ts).
+    // No rent, no purpose picker: the stand's spec IS its effect, so a
+    // judge can watch words become a working neighbour in the first minute.
+    { id: 'pitch', name: 'The Pitch', unlockDay: 1, rent: 0, sandbox: true, position: [5.5, 0, 15.6], rotationY: Math.PI },
     { id: '14', name: '14 The Row', unlockDay: 3, rent: 15, position: [-3, 0, 15.6], rotationY: Math.PI },
     { id: '11', name: '11 The Row', unlockDay: 4, rent: 15, position: [-9.5, 0, 15.6], rotationY: Math.PI },
     { id: '18', name: '18 The Row', unlockDay: 5, rent: 15, position: [14, 0, 15.6], rotationY: Math.PI },

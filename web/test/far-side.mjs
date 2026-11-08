@@ -47,7 +47,7 @@ test('backdrop blocks match the scaffold comments and stay off Glasshouse', () =
 test('vacant Row fronts exist for every lot with no day gate', () => {
   const fronts = vacantRowFronts();
   assert.deepEqual(fronts.map(f => f.id), FRANCHISE.lots.map(l => l.id));
-  assert.equal(fronts.length, 3);
+  assert.equal(fronts.length, FRANCHISE.lots.length);
   for (const front of fronts) {
     const lot = FRANCHISE.lots.find(l => l.id === front.id);
     assert.equal(front.x, lot.position[0]);

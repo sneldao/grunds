@@ -49,7 +49,7 @@ function providers(): Provider[] {
   ];
 }
 
-async function chat(
+export async function chat(
   prompt: string,
   maxTokens: number,
 ): Promise<{ text: string; model: string }> {
