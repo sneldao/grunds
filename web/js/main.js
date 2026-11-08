@@ -108,7 +108,9 @@ globalThis.__grundsLoadProgress = paintLoad;
 const world = buildWorld(scene, renderer, lite, { district: city ? cityDisplay(city.name) : undefined });
 const sky = buildSky(scene);                          // shader sky dome owns the backdrop
 world.useSky = true; scene.background = null;
+const urlCine = urlParams.has('cine');
 const postfx = buildPostFX(renderer, scene, camera, { lite: lite || headless });
+if (urlCine) postfx.setCine(true, true);   // capture-grade grade: vignette/CA/letterbox/split-tone
 const rig = new CameraRig(camera, renderer.domElement);
 // Chalkboard press: the existing shake helper, a short nudge. The board
 // scale lives in impact.js; this only kicks the camera.
@@ -7394,6 +7396,7 @@ function loop(now) {
   exc: exchange, reg: regulars, sync, world, rig, analytics, street, frontage,
   vitality, director, district, kitBeat, mailT, impact,
   openDay, applyReply, reset, togglePause, resolveEvening, skipToRush,
+  setCine: (b) => postfx.setCine(!!b, true),
   prepareDay, stageDayPlan, stageWeekHire, commitDayPlan, continueFromReview,
   stageShockCounter, stageCounterable, stagePastryCut,
   doPrebatch, doReprice,

@@ -38,15 +38,33 @@ void main(){
 const COMPOSITE_FRAG = `varying vec2 vUv;
 uniform sampler2D tScene; uniform sampler2D tBloom;
 uniform float uBloomInt, uVignette, uGrain, uTime;
+uniform float uCine, uCA, uBars;
 uniform vec3 uWarm;
 void main(){
-  vec3 scene = texture2D(tScene, vUv).rgb;
+  vec3 scene;
+  if (uCA > 0.0001) {                                    // cine: radial chromatic aberration
+    vec2 dir = (vUv - 0.5) * 1.41421356;
+    float ca = uCA * dot(dir, dir);
+    scene = vec3(
+      texture2D(tScene, vUv + dir * ca).r,
+      texture2D(tScene, vUv).g,
+      texture2D(tScene, vUv - dir * ca).b);
+  } else {
+    scene = texture2D(tScene, vUv).rgb;
+  }
   vec3 bloom = texture2D(tBloom, vUv).rgb;
   vec3 col = scene + bloom * uBloomInt * uWarm;                 // additive bloom, warm at night
+  float l = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(vec3(l), col, 1.0 + 0.14 * uCine);                  // cine: gentle saturation lift
+  // split-tone: teal into the shadows, warm into the highlights
+  col += vec3(-0.012, 0.004, 0.030) * (1.0 - smoothstep(0.0, 0.5, l)) * uCine;
+  col += vec3(0.045, 0.018, -0.012) * smoothstep(0.5, 1.0, l) * uCine;
   float d = length((vUv - 0.5) * 1.41421356);                  // 0 center -> ~0.707 corner
-  col *= mix(1.0, 1.0 - smoothstep(0.38, 0.78, d), uVignette);  // soft radial vignette
+  col *= mix(1.0, 1.0 - smoothstep(0.38, 0.78, d), uVignette * (1.0 + 0.9 * uCine));
   float g = fract(sin(dot(floor(gl_FragCoord.xy), vec2(127.1, 311.7)) + uTime) * 43758.5453);
-  col += (g - 0.5) * 2.0 * uGrain;                             // animated hash film grain
+  col += (g - 0.5) * 2.0 * uGrain * (1.0 + 0.6 * uCine);        // animated hash film grain
+  if (uBars > 0.0001 && (vUv.y < uBars || vUv.y > 1.0 - uBars)) // cine: letterbox bars
+    col = vec3(0.0);
   gl_FragColor = vec4(max(col, vec3(0.0)), 1.0);               // floor to avoid NaN in sRGB pow
   gl_FragColor = linearToOutputTexel(gl_FragColor);            // single linear -> sRGB encode
 }`;
@@ -70,6 +88,7 @@ export function buildPostFX(renderer, scene, camera, opts) {
     render() { safeRender(renderer, scene, camera); },   // lite default; replaced when built
     resize() {},
     setNight() {},
+    setCine() {},
     dispose() {},
   };
   if (lite) return api;                                   // core-only: plain render, no RTs
@@ -77,6 +96,7 @@ export function buildPostFX(renderer, scene, camera, opts) {
   let ok = true;
   let rtScene, rtB0, rtB1, brightMat, blurMat, compMat, quad, postScene, postCam;
   let texelX = 0, texelY = 0, cur = 0, tgt = 0;          // night params (current/target)
+  let cCur = 0, cTgt = 0;                                // cine grade params
 
   try {
     const v = new THREE.Vector2();
@@ -101,6 +121,7 @@ export function buildPostFX(renderer, scene, camera, opts) {
       tScene: { value: rtScene.texture }, tBloom: { value: rtB0.texture },
       uBloomInt: { value: 0.55 }, uWarm: { value: new THREE.Vector3(1, 1, 1) },
       uVignette: { value: 0.34 }, uGrain: { value: 0.04 }, uTime: { value: 0 },
+      uCine: { value: 0 }, uCA: { value: 0 }, uBars: { value: 0 },
     });
 
     postScene = new THREE.Scene();
@@ -115,11 +136,15 @@ export function buildPostFX(renderer, scene, camera, opts) {
     try {
       const t = (typeof timeMs === 'number' && isFinite(timeMs)) ? timeMs : 0;
       cur += (tgt - cur) * 0.06;                         // smooth day -> night transition
-      const n = cur;
+      cCur += (cTgt - cCur) * 0.06;                      // smooth grade-in for captures
+      const n = cur, c = cCur;
       brightMat.uniforms.uThreshold.value = 0.85 - 0.23 * n;     // 0.85 day -> 0.62 night
-      compMat.uniforms.uBloomInt.value = 0.55 + 0.55 * n;       // 0.55 day -> 1.10 night
+      compMat.uniforms.uBloomInt.value = 0.55 + 0.55 * n + 0.12 * c;
       compMat.uniforms.uWarm.value.set(1 + 0.18 * n, 1 - 0.07 * n, 1 - 0.34 * n);
       compMat.uniforms.uTime.value = (t * 0.001) % 100000;
+      compMat.uniforms.uCine.value = c;
+      compMat.uniforms.uCA.value = 0.016 * c;                    // ~1.6% radial CA at corners
+      compMat.uniforms.uBars.value = 0.085 * c;                  // letterbox ~8.5% top/bottom
 
       renderer.setRenderTarget(rtScene); renderer.render(scene, camera);  // 1. scene (tonemapped)
 
@@ -154,6 +179,10 @@ export function buildPostFX(renderer, scene, camera, opts) {
   };
 
   api.setNight = function (b) { tgt = b ? 1 : 0; };      // lerp toward target in render
+  api.setCine = function (b, snap) {                     // capture-grade grade (?cine=1)
+    cTgt = b ? 1 : 0;
+    if (snap) { cCur = cTgt; }
+  };
 
   api.dispose = function () {
     try {

@@ -24,6 +24,13 @@ the root so the texture resolves.
   - cup-coffee.glb, croissant.glb, cake.glb, mug.glb, carton.glb, bag.glb
   - Textures/colormap.png (required external texture for the food GLBs)
 
+## polyhaven/ — Poly Haven models (CC0 1.0, https://polyhaven.com/license)
+
+- CoffeeCart_01 (by Joe Seabuhr) — industrial coffee cart; .gltf + .bin +
+  1k JPG textures kept under `polyhaven/CoffeeCart_01/` so the loader's
+  relative sidecar resolution works. Placed in world.js as pitch-side
+  dressing. API: https://api.polyhaven.com
+
 ## polyfork/ — Polyfork free catalogue (vendored by tools/vendor-polyfork.mjs)
 
 Per-asset pages and licence: https://polyfork.dev (free low-poly tier:

@@ -810,6 +810,9 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   // Delivery moped — drives the road band; main.js moves it each frame.
   placePF(scene, 'delivery-moped-1aa2ce', { position: [-22, 0, 11.7], rotationY: -Math.PI / 2, height: 1.35, night: 'street' })
     .then((g) => { W.pfMoped = g; });
+  // Coffee cart on the pitch side — Poly Haven CC0 (.gltf + sidecars under
+  // assets/polyhaven/). Dressed beside The Pitch lot; pure set dressing.
+  place(scene, 'polyhaven/CoffeeCart_01/CoffeeCart_01_1k.gltf', { position: [7.7, 0, 16.5], rotationY: Math.PI, scale: 0.85 })
 
   // god rays — a tall translucent quad behind the café that fades with mist; used for frost/harvest mood
   W.godRayMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
