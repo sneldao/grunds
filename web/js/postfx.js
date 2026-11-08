@@ -39,6 +39,8 @@ const COMPOSITE_FRAG = `varying vec2 vUv;
 uniform sampler2D tScene; uniform sampler2D tBloom;
 uniform float uBloomInt, uVignette, uGrain, uTime;
 uniform float uCine, uCA, uBars;
+uniform float uSharp, uDof;
+uniform vec2 uTexel;
 uniform vec3 uWarm;
 void main(){
   vec3 scene;
@@ -51,6 +53,27 @@ void main(){
       texture2D(tScene, vUv - dir * ca).b);
   } else {
     scene = texture2D(tScene, vUv).rgb;
+  }
+  // tilt-shift DOF: cheap 4-tap cross blur masked to the top/bottom of the
+  // frame — the street stays sharp at the lens plane, edges melt like a
+  // tilt-shift photo. uDof is cine-gated so gameplay stays readable.
+  if (uDof > 0.001) {
+    float coc = uDof * smoothstep(0.10, 0.46, abs(vUv.y - 0.5));
+    vec2 o = uTexel * 2.2 * coc;
+    vec3 b = texture2D(tScene, vUv + vec2(o.x, 0.0)).rgb
+           + texture2D(tScene, vUv - vec2(o.x, 0.0)).rgb
+           + texture2D(tScene, vUv + vec2(0.0, o.y)).rgb
+           + texture2D(tScene, vUv - vec2(0.0, o.y)).rgb;
+    scene = mix(scene, b * 0.25, coc);
+  }
+  // unsharp mask: restores the micro-contrast bloom + grain eat — one extra
+  // tap ring, subtle enough to read as "crisper" not "haloed".
+  if (uSharp > 0.001) {
+    vec3 nb = texture2D(tScene, vUv + vec2(uTexel.x, 0.0)).rgb
+            + texture2D(tScene, vUv - vec2(uTexel.x, 0.0)).rgb
+            + texture2D(tScene, vUv + vec2(0.0, uTexel.y)).rgb
+            + texture2D(tScene, vUv - vec2(0.0, uTexel.y)).rgb;
+    scene += (scene - nb * 0.25) * uSharp;
   }
   vec3 bloom = texture2D(tBloom, vUv).rgb;
   vec3 col = scene + bloom * uBloomInt * uWarm;                 // additive bloom, warm at night
@@ -74,11 +97,14 @@ function safeRender(renderer, scene, camera) {
   try { renderer.setRenderTarget(null); renderer.render(scene, camera); } catch (_) { /* ignore */ }
 }
 
-function makeRT(w, h, depth) {
+function makeRT(w, h, depth, samples = 0) {
   return new THREE.WebGLRenderTarget(w, h, {
     minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
     wrapS: THREE.ClampToEdgeWrapping, wrapT: THREE.ClampToEdgeWrapping,
     depthBuffer: !!depth, stencilBuffer: false, generateMipmaps: false,
+    samples,   // MSAA: the composite path renders the scene into this RT, so
+               // without samples the shipped frame is aliased even though
+               // the canvas context asked for antialias.
   });
 }
 
@@ -105,7 +131,7 @@ export function buildPostFX(renderer, scene, camera, opts) {
     const wB = Math.max(1, w >> 1), hB = Math.max(1, h >> 1);
     texelX = 1 / wB; texelY = 1 / hB;
 
-    rtScene = makeRT(w, h, true);
+    rtScene = makeRT(w, h, true, 4);   // 4x MSAA — WebGL2 render-target AA
     rtScene.isXRRenderTarget = true;                       // force tonemap-into-RT (three r160)
     rtScene.texture.colorSpace = THREE.LinearSRGBColorSpace; // linear ACES stored, no sRGB encode
     rtB0 = makeRT(wB, hB, false); rtB0.texture.colorSpace = THREE.LinearSRGBColorSpace;
@@ -122,6 +148,7 @@ export function buildPostFX(renderer, scene, camera, opts) {
       uBloomInt: { value: 0.55 }, uWarm: { value: new THREE.Vector3(1, 1, 1) },
       uVignette: { value: 0.34 }, uGrain: { value: 0.04 }, uTime: { value: 0 },
       uCine: { value: 0 }, uCA: { value: 0 }, uBars: { value: 0 },
+      uSharp: { value: 0.16 }, uDof: { value: 0 }, uTexel: { value: new THREE.Vector2(1 / w, 1 / h) },
     });
 
     postScene = new THREE.Scene();
@@ -145,6 +172,8 @@ export function buildPostFX(renderer, scene, camera, opts) {
       compMat.uniforms.uCine.value = c;
       compMat.uniforms.uCA.value = 0.016 * c;                    // ~1.6% radial CA at corners
       compMat.uniforms.uBars.value = 0.085 * c;                  // letterbox ~8.5% top/bottom
+      compMat.uniforms.uDof.value = 0.85 * c;                    // tilt-shift, capture-grade only
+      compMat.uniforms.uSharp.value = 0.16 + 0.10 * c;           // micro-contrast, always on
 
       renderer.setRenderTarget(rtScene); renderer.render(scene, camera);  // 1. scene (tonemapped)
 
@@ -171,6 +200,7 @@ export function buildPostFX(renderer, scene, camera, opts) {
     try {
       const W = w | 0, H = h | 0;
       rtScene.setSize(W, H);
+      compMat.uniforms.uTexel.value.set(1 / W, 1 / H);
       const wB = Math.max(1, W >> 1), hB = Math.max(1, H >> 1);
       rtB0.setSize(wB, hB); rtB1.setSize(wB, hB);
       texelX = 1 / wB; texelY = 1 / hB;

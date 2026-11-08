@@ -30,6 +30,16 @@ the root so the texture resolves.
   1k JPG textures kept under `polyhaven/CoffeeCart_01/` so the loader's
   relative sidecar resolution works. Placed in world.js as pitch-side
   dressing. API: https://api.polyhaven.com
+- metal_trash_can, wooden_crate_01, Barrel_01, planter_box_01 — pitch-side
+  clutter and pavement greenery, same .gltf + sidecar layout, placed in
+  world.js beside the coffee cart. All CC0 1.0 via https://api.polyhaven.com
+
+## hdri/ — Poly Haven HDRIs (CC0 1.0, https://polyhaven.com/license)
+
+- evening_road_01_puresky_1k.hdr — dusk sky-only HDRI; PMREM-filtered into
+  `scene.environment` by web/js/env.js for image-based lighting on every
+  MeshStandardMaterial. Sky-only variant keeps the horizon clean for the
+  shader sky dome. API: https://api.polyhaven.com
 
 ## polyfork/ — Polyfork free catalogue (vendored by tools/vendor-polyfork.mjs)
 

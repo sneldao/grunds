@@ -3,19 +3,27 @@ import * as THREE from '../vendor/three.module.js';
 import { cosmeticRandom } from './cosmetic.js';
 import { PAL, LAYOUT, COPY } from './config.js';
 import { loadPF, registerPFNight } from './polyfork.js';
-import { woodFloor, pavement, road, awning, menuBoard, softSprite, streakSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction } from './textures.js';
+import { woodFloor, pavement, road, awning, menuBoard, softSprite, streakSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction, plaster, roofFelt, brushedMetal, fabricWeave } from './textures.js';
 import { GLBLoader } from './loader.js';
 import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
 import { streetForDay, boardLine } from './street.js';
 import { PREMISES, dressInterior, createCutawayRig } from './premises.js';
 import { BACKDROP_FACADES, vacantRowFronts } from './farSide.js';
 import { setStockVisibility, ingredientDisplay } from './floorStock.js';
+import { addContactShadow } from './contactShadow.js';
 import { fmt } from './city.js';
 
 const M = {}; // shared materials
+// Surface-pass bakes (plaster / roof felt / brushed metal / fabric weave).
+// Grayscale-ish maps meant to multiply the material colour — value + grain,
+// not hue. Lazy so headless imports never touch document.canvas.
+const SURFACE_TEX = { plaster, roof: roofFelt, metal: brushedMetal, fabric: fabricWeave };
+const _surfTex = {};
+function surfaceTex(k) { return (_surfTex[k] ??= SURFACE_TEX[k]()); }
 function mat(color, o = {}) {
-  const k = color + JSON.stringify(o);
-  if (!M[k]) M[k] = new THREE.MeshStandardMaterial({ color, roughness: o.rough ?? 0.85, metalness: o.metal ?? 0, emissive: o.em ?? 0x000000, emissiveIntensity: o.emi ?? 1, transparent: !!o.op, opacity: o.op ?? 1 });
+  const { tex, ...rest } = o;
+  const k = color + JSON.stringify(rest) + '|' + (tex || '');
+  if (!M[k]) M[k] = new THREE.MeshStandardMaterial({ color, map: tex ? surfaceTex(tex) : null, roughness: rest.rough ?? 0.85, metalness: rest.metal ?? 0, emissive: rest.em ?? 0x000000, emissiveIntensity: rest.emi ?? 1, transparent: !!rest.op, opacity: rest.op ?? 1 });
   return M[k];
 }
 function box(parent, w, h, d, color, x, y, z, o = {}) {
@@ -301,11 +309,11 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   const roomZ0 = LAYOUT.floor.z - LAYOUT.floor.d / 2;
   const roomZ1 = LAYOUT.floor.z + LAYOUT.floor.d / 2;
   const cafe = new THREE.Group(); scene.add(cafe);
-  const backWall = box(cafe, LAYOUT.floor.w, 4.4, 0.4, PAL.plaster, LAYOUT.floor.x, 2.2, roomZ0 - 0.2, { cast: false }); // back wall
-  const leftWall = box(cafe, 0.4, 4.4, LAYOUT.floor.d + 0.4, PAL.plaster, roomX0 - 0.2, 2.2, LAYOUT.floor.z, { cast: false }); // left wall
-  box(cafe, 0.3, 1.15, LAYOUT.floor.d + 0.4, PAL.wainscot, roomX1 + 0.1, 0.57, LAYOUT.floor.z, { cast: false }); // right half-wall (cutaway)
-  box(cafe, LAYOUT.floor.w, 0.9, 0.5, PAL.wainscot, LAYOUT.floor.x, 0.45, roomZ0 - 0.05, { cast: false }); // back wainscot
-  box(cafe, 0.5, 0.9, LAYOUT.floor.d + 0.4, PAL.wainscot, roomX0 - 0.05, 0.45, LAYOUT.floor.z, { cast: false });
+  const backWall = box(cafe, LAYOUT.floor.w, 4.4, 0.4, PAL.plaster, LAYOUT.floor.x, 2.2, roomZ0 - 0.2, { cast: false, tex: 'plaster' }); // back wall
+  const leftWall = box(cafe, 0.4, 4.4, LAYOUT.floor.d + 0.4, PAL.plaster, roomX0 - 0.2, 2.2, LAYOUT.floor.z, { cast: false, tex: 'plaster' }); // left wall
+  box(cafe, 0.3, 1.15, LAYOUT.floor.d + 0.4, PAL.wainscot, roomX1 + 0.1, 0.57, LAYOUT.floor.z, { cast: false, tex: 'fabric' }); // right half-wall (cutaway)
+  box(cafe, LAYOUT.floor.w, 0.9, 0.5, PAL.wainscot, LAYOUT.floor.x, 0.45, roomZ0 - 0.05, { cast: false, tex: 'fabric' }); // back wainscot
+  box(cafe, 0.5, 0.9, LAYOUT.floor.d + 0.4, PAL.wainscot, roomX0 - 0.05, 0.45, LAYOUT.floor.z, { cast: false, tex: 'fabric' });
   // front: pillars + fascia beam + sign + awning (dollhouse — no front wall)
   for (const px of [roomX0 + 0.35, -6.2, -3.4, roomX1 - 0.35]) box(cafe, 0.42, 3.6, 0.42, PAL.walnutDark, px, 1.8, roomZ1);
   const frontBeam = box(cafe, LAYOUT.floor.w, 0.7, 0.5, PAL.walnutDark, LAYOUT.floor.x, 3.75, roomZ1, { cast: false });
@@ -424,7 +432,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   box(bar, C.w, 1.02, C.d, PAL.walnut, C.x, 0.51, C.z);
   box(bar, C.w + 0.3, 0.09, C.d + 0.3, 0x7a5a3a, C.x, 1.06, C.z, { rough: 0.5 });
   // brass foot rail stays procedural (the GLB doesn't include one)
-  cyl(bar, 0.03, 0.03, C.w - 0.6, PAL.brass, C.x, 0.22, C.z + C.d / 2 + 0.22, { rz: Math.PI / 2, metal: 0.8, rough: 0.35, cast: false }); // foot rail
+  cyl(bar, 0.03, 0.03, C.w - 0.6, PAL.brass, C.x, 0.22, C.z + C.d / 2 + 0.22, { rz: Math.PI / 2, metal: 0.8, rough: 0.35, cast: false, tex: 'metal' }); // foot rail
   // Kenney kitchenBar.glb sits on the bar top, facing the customer side.
   // The GLB is roughly 1 m in the kit. Scale matches the shortened bar
   // (C.w); the procedural walnut shell above keeps it continuous.
@@ -689,6 +697,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   const seatRoll = () => { seatA = (Math.imul(seatA, 1664525) + 1013904223) >>> 0; return seatA / 4294967296; };
   for (const t of LAYOUT.tables) {
     place(scene, 'tableRound.glb', { position: [t.x, 0, t.z], scale: 1.4, rotationY: 0 });
+    addContactShadow(scene, t.x, t.z, 1.9, 1.9, 0.26);
     const n = 3, baseA = seatRoll() * Math.PI * 2;
     for (let s = 0; s < n; s++) {
       const a = baseA + (s / n) * Math.PI * 2, sx = t.x + Math.cos(a) * 1.05, sz = t.z + Math.sin(a) * 1.05;
@@ -796,12 +805,18 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   // Floor props: roaster by the left wall, display case beside it — both
   // read through the cutaway as back-bar furniture.
   placePF(scene, 'shop-coffee-roaster-c6a2b5', { position: [-7.85, 0, -3.8], rotationY: Math.PI / 2, height: 1.2, night: 'pend' });
+  addContactShadow(scene, -7.85, -3.8, 1.5, 1.1, 0.3);
   placePF(scene, 'pastry-display-case-8bcce5', { position: [-7.75, 0, -0.9], rotationY: Math.PI / 2, height: 1.35, night: 'pend' });
+  addContactShadow(scene, -7.75, -0.9, 1.2, 1.0, 0.3);
   // Pavement café set + chalkboard, right of the door queue path.
   placePF(scene, 'chalkboard-menu-board-a24d9d', { position: [-2.7, 0, 6.6], rotationY: -0.2, height: 1.1 });
+  addContactShadow(scene, -2.7, 6.6, 1.0, 0.5, 0.3);
   placePF(scene, 'bistro-table-877a6d', { position: [1.9, 0, 6.75], rotationY: 0, height: 0.75 });
+  addContactShadow(scene, 1.9, 6.75, 1.3, 1.3, 0.3);
   placePF(scene, 'bistro-chair-7c354d', { position: [1.15, 0, 6.8], rotationY: Math.PI / 2, height: 0.85 });
+  addContactShadow(scene, 1.15, 6.8, 0.55, 0.55, 0.25);
   placePF(scene, 'bistro-chair-7c354d', { position: [2.6, 0, 6.55], rotationY: -Math.PI / 2, height: 0.85 });
+  addContactShadow(scene, 2.6, 6.55, 0.55, 0.55, 0.25);
   // Street-life props (stalls, signs, lamps, stands) live in the district
   // kit instead: PF_SLOTS in districtGen.js owns them so seeded picks can
   // vary the street rather than pinning one demo set.
@@ -813,6 +828,17 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   // Coffee cart on the pitch side — Poly Haven CC0 (.gltf + sidecars under
   // assets/polyhaven/). Dressed beside The Pitch lot; pure set dressing.
   place(scene, 'polyhaven/CoffeeCart_01/CoffeeCart_01_1k.gltf', { position: [7.7, 0, 16.5], rotationY: Math.PI, scale: 0.85 })
+  addContactShadow(scene, 7.7, 16.5, 2.6, 1.6, 0.34);
+  // Pitch-side clutter (Poly Haven CC0, 1k): crate stack, barrel, trash can,
+  // and a planter give the pop-up corner some weight. Pure set dressing.
+  place(scene, 'polyhaven/wooden_crate_01/wooden_crate_01_1k.gltf', { position: [6.6, 0, 17.6], rotationY: 0.4, scale: 1.0 })
+    .then(() => addContactShadow(scene, 6.6, 17.6, 0.9, 0.9, 0.3));
+  place(scene, 'polyhaven/Barrel_01/Barrel_01_1k.gltf', { position: [8.9, 0, 17.4], rotationY: 1.2, scale: 1.0 })
+    .then(() => addContactShadow(scene, 8.9, 17.4, 0.8, 0.8, 0.3));
+  place(scene, 'polyhaven/metal_trash_can/metal_trash_can_1k.gltf', { position: [9.6, 0, 15.6], rotationY: -0.7, scale: 1.0 })
+    .then(() => addContactShadow(scene, 9.6, 15.6, 0.7, 0.7, 0.28));
+  place(scene, 'polyhaven/planter_box_01/planter_box_01_1k.gltf', { position: [-0.5, 0, 8.6], rotationY: 0, scale: 1.0 })
+    .then(() => addContactShadow(scene, -0.5, 8.6, 1.6, 0.7, 0.3));
 
   // god rays — a tall translucent quad behind the café that fades with mist; used for frost/harvest mood
   W.godRayMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
@@ -1416,7 +1442,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     const face = new THREE.Group(); g.add(face);
     const roof = new THREE.Group(); g.add(roof);
     const interior = new THREE.Group(); interior.visible = false; g.add(interior);
-    const wall = { cast: true, recv: true };
+    const wall = { cast: true, recv: true, tex: 'plaster' };
     box(shell, w - t * 2 - 0.02, 0.05, d - t * 2 - 0.02, PAL.walnutDark, 0, 0.03, 0, { cast: false, rough: 0.72 });
     box(shell, w, h, t, color, 0, h / 2, d / 2 - t / 2, wall);
     box(shell, t, h, d - t * 2, color, -w / 2 + t / 2, h / 2, 0, wall);
@@ -1457,9 +1483,9 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     const fz = -d / 2;
     const parts = openShop(g, w, h, d, PAL.plaster);
     skirt(parts.shell, w + 0.06, 0.85, d + 0.04, PAL.ink, 0.42);
-    box(parts.roof, w + 0.16, 0.18, d + 0.12, PAL.ink, 0, h + 0.06, 0, { cast: false });
-    box(parts.roof, w * 0.68, 0.28, d * 0.62, PAL.ink, 0, h + 0.28, 0);
-    box(parts.roof, w * 0.36, 0.34, d * 0.36, PAL.brass, 0, h + 0.56, 0, { metal: 0.5, rough: 0.38 });
+    box(parts.roof, w + 0.16, 0.18, d + 0.12, PAL.ink, 0, h + 0.06, 0, { cast: false, tex: 'roof' });
+    box(parts.roof, w * 0.68, 0.28, d * 0.62, PAL.ink, 0, h + 0.28, 0, { tex: 'roof' });
+    box(parts.roof, w * 0.36, 0.34, d * 0.36, PAL.brass, 0, h + 0.56, 0, { metal: 0.5, rough: 0.38, tex: 'metal' });
     cyl(parts.roof, 0.025, 0.008, 0.62, PAL.brass, 0, h + 1.02, 0, { metal: 0.55, rough: 0.35 });
     box(parts.face, 1.15, 1.35, 0.28, PAL.cream, 0, 0.85, fz - 0.1);
     // The door sits in the middle of the bay, so the lit glass is the two cheeks.
@@ -1504,7 +1530,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     const gable = new THREE.Mesh(roofGeo, mat(PAL.walnutDark, { rough: 0.86 }));
     gable.position.set(0, h, 0); gable.castShadow = true; gable.receiveShadow = true; parts.roof.add(gable);
     box(parts.roof, 0.42, 1.05, 0.42, PAL.walnut, 1.25, h + 0.72, 0.28);
-    box(parts.roof, 0.54, 0.1, 0.54, PAL.ink, 1.25, h + 1.26, 0.28, { cast: false });
+    box(parts.roof, 0.54, 0.1, 0.54, PAL.ink, 1.25, h + 1.26, 0.28, { cast: false, tex: 'roof' });
     stripedAwning(parts.face, w + 0.15, 1.35, 0, 1.72, fz - 0.12, '#4a3423', '#efe6d3');
     pane(parts.face, 0.82, 0.72, -1.4, 1.15, fz, (p, room) => {
       tinStack(p, room.x - 0.2, room.sill, room.z, 3, [PAL.brass, PAL.teal, PAL.brass]);
@@ -1559,7 +1585,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     const g = shopGroup(11.7, d, 3.6, true);
     const fz = -d / 2;
     const parts = openShop(g, w, h, d, PAL.plaster);
-    box(parts.roof, w + 0.08, 0.16, d + 0.06, PAL.matcha, 0, h + 0.05, 0, { cast: false });
+    box(parts.roof, w + 0.08, 0.16, d + 0.06, PAL.matcha, 0, h + 0.05, 0, { cast: false, tex: 'roof' });
     skirt(parts.shell, w + 0.04, 0.42, d + 0.02, PAL.walnut, 0.21);
     stripedAwning(parts.face, w + 0.25, 1.55, 0, 1.7, fz - 0.18, '#86a860', '#f6efe0');
     shopSignFace(g, 'MARROW LANE', 3.25, 0.66, 0, 2.28, fz - 0.08, '#171310', '#efe6d3', '600 56px Georgia, serif');

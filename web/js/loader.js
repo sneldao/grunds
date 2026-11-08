@@ -27,6 +27,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { GLTFLoader } from '../vendor/loaders/GLTFLoader.js';
 import { resolveAssetUrl } from './groveAssets.js';
+import { applyEnvIntensity } from './env.js';
 
 const ABSOLUTE_URL = /^(?:https?:)?\/\//i;
 
@@ -84,6 +85,7 @@ export function GLBLoader(opts = {}) {
       const root = gltf.scene || gltf.scenes?.[0];
       if (!root) return placeholder(url, 'no-scene');
       root.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+      applyEnvIntensity(root);   // shared materials → every clone inherits the IBL scale
       root.userData.source = url;
       // FIFO eviction
       if (cache.size >= cacheLimit) {

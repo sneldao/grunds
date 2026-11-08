@@ -12,6 +12,7 @@ import { specForLot, specPullSum } from './standSpec.js';
 import { resolveWorldSpec, refreshWorldSpec, WORLD_PROMPT_MAX } from './worldSpec.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
+import { initEnvironment } from './env.js';
 import { buildDirector } from './director.js';
 import { buildVitality } from './vitality.js';
 import { computeNextAction } from './nextAction.js';
@@ -111,6 +112,7 @@ world.useSky = true; scene.background = null;
 const urlCine = urlParams.has('cine');
 const postfx = buildPostFX(renderer, scene, camera, { lite: lite || headless });
 if (urlCine) postfx.setCine(true, true);   // capture-grade grade: vignette/CA/letterbox/split-tone
+initEnvironment(renderer, scene);          // IBL: dusk HDRI -> scene.environment (best-effort)
 const rig = new CameraRig(camera, renderer.domElement);
 // Chalkboard press: the existing shake helper, a short nudge. The board
 // scale lives in impact.js; this only kicks the camera.

@@ -18,6 +18,7 @@ import { seeded } from './exchange.js';
 import { baseUrl } from './convexSync.js';
 import { fmt } from './city.js';
 import { specForLot, specLine } from './standSpec.js';
+import { addContactShadow } from './contactShadow.js';
 // specForLot falls back to the seeded classifier over ls.prompt, so the
 // polyfork path needs no spec plumbing of its own — the card is derived.
 
@@ -102,6 +103,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       if (inst?.userData?.placeholder) { ls.placed = false; return; }
       fitToSlot(inst, FRANCHISE.height);
       scene.add(inst);
+      addContactShadow(scene, def.position[0], def.position[2], 2.6, 1.9, 0.32);
       // The spec's name goes on a little sign beside the stand — the words
       // the player typed, readable in the street. Best-effort: a canvas or
       // GL hiccup must never cost the stand itself.
@@ -229,6 +231,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     ls.purpose = purpose ?? null; ls.byline = byline ?? null; ls.mine = true;
     ls.placed = true;
     scene.add(inst); unscaffold(lotId);
+    addContactShadow(scene, def.position[0], def.position[2], 2.6, 1.9, 0.32);
     try { const sign = standSign(specForLot(ls)?.name, def); if (sign) scene.add(sign); } catch {}
     ls.placedDay = dayNow || state.day || 0;
     pfRemember(lotId, id, ls);
@@ -260,6 +263,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       if (inst?.userData?.placeholder) continue;
       Object.assign(ls, { status: 'success', prompt: s.prompt, describedDay: s.day, purpose: s.purpose ?? null, byline: s.byline ?? null, mine: true, placed: true, placedDay: s.day || 0 });
       scene.add(inst); unscaffold(lotId);
+      addContactShadow(scene, def.position[0], def.position[2], 2.6, 1.9, 0.32);
       try { const sign = standSign(specForLot(ls)?.name, def); if (sign) scene.add(sign); } catch {}
       state.onPlaced?.(inst, def, ls);
     }

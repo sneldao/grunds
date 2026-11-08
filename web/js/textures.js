@@ -533,3 +533,99 @@ export function tarp() {
 }
 
 export function dayHasConstruction(d) { return d >= 5; }
+
+// ——— surface pass: plaster / roof felt / brushed metal / fabric ————————
+// Grayscale-ish bakes meant to be multiplied over a material colour, so
+// they carry value + grain, not hue. RepeatWrapping; keep contrast low —
+// these sell material, they don't repaint the palette.
+
+export function plaster() {
+  const [c, g] = canvas(512, 512);
+  g.fillStyle = '#efe9dd'; g.fillRect(0, 0, 512, 512);
+  // mottled limewash patches
+  for (let i = 0; i < 260; i++) {
+    const x = cosmeticRandom() * 512, y = cosmeticRandom() * 512, r = 12 + cosmeticRandom() * 52;
+    const v = 226 + ((cosmeticRandom() * 26) | 0);
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, `rgba(${v},${v - 4},${v - 14},0.16)`);
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  // hairline cracks — sparse, faint
+  g.strokeStyle = 'rgba(90,78,60,0.10)'; g.lineWidth = 0.8;
+  for (let i = 0; i < 26; i++) {
+    let x = cosmeticRandom() * 512, y = cosmeticRandom() * 512;
+    g.beginPath(); g.moveTo(x, y);
+    for (let s = 0; s < 6; s++) { x += (cosmeticRandom() - 0.5) * 46; y += cosmeticRandom() * 22; g.lineTo(x, y); }
+    g.stroke();
+  }
+  // roller stipple
+  g.fillStyle = 'rgba(0,0,0,0.028)'; for (let i = 0; i < 5200; i++) g.fillRect(cosmeticRandom() * 512, cosmeticRandom() * 512, 1.4, 1.4);
+  g.fillStyle = 'rgba(255,255,255,0.03)'; for (let i = 0; i < 2600; i++) g.fillRect(cosmeticRandom() * 512, cosmeticRandom() * 512, 1.2, 1.2);
+  return tex(c, [1.6, 1.2]);
+}
+
+export function roofFelt() {
+  const [c, g] = canvas(512, 512);
+  g.fillStyle = '#3c3f45'; g.fillRect(0, 0, 512, 512);
+  // mineral granule speckle
+  for (let i = 0; i < 9000; i++) {
+    const v = 48 + ((cosmeticRandom() * 60) | 0);
+    g.fillStyle = `rgba(${v},${v + 2},${v + 6},0.5)`;
+    g.fillRect(cosmeticRandom() * 512, cosmeticRandom() * 512, 1.6, 1.6);
+  }
+  // felt seams — horizontal laps every 128px
+  for (let y = 0; y < 512; y += 128) {
+    g.fillStyle = 'rgba(0,0,0,0.22)'; g.fillRect(0, y, 512, 3);
+    g.fillStyle = 'rgba(255,255,255,0.07)'; g.fillRect(0, y + 3, 512, 2);
+  }
+  // weather streaks running down-slope
+  for (let i = 0; i < 40; i++) {
+    const x = cosmeticRandom() * 512, w = 3 + cosmeticRandom() * 14;
+    const grd = g.createLinearGradient(x, 0, x + w, 0);
+    grd.addColorStop(0, 'rgba(0,0,0,0)'); grd.addColorStop(0.5, 'rgba(10,10,14,0.10)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.fillRect(x, 0, w, 512);
+  }
+  return tex(c, [2.4, 1.8]);
+}
+
+export function brushedMetal() {
+  const [c, g] = canvas(512, 512);
+  g.fillStyle = '#b9bcc0'; g.fillRect(0, 0, 512, 512);
+  // horizontal brush lines
+  for (let i = 0; i < 2400; i++) {
+    const y = cosmeticRandom() * 512;
+    const v = 165 + ((cosmeticRandom() * 70) | 0);
+    g.strokeStyle = `rgba(${v},${v + 2},${v + 5},0.35)`; g.lineWidth = 0.7;
+    const x = cosmeticRandom() * 512, len = 60 + cosmeticRandom() * 380;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + len, y + (cosmeticRandom() - 0.5) * 1.5); g.stroke();
+  }
+  // occasional scuff
+  g.strokeStyle = 'rgba(60,62,66,0.18)'; g.lineWidth = 1;
+  for (let i = 0; i < 18; i++) {
+    const y = cosmeticRandom() * 512, x = cosmeticRandom() * 512;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + 30 + cosmeticRandom() * 90, y + (cosmeticRandom() - 0.5) * 6); g.stroke();
+  }
+  return tex(c, [1.4, 1.4]);
+}
+
+export function fabricWeave() {
+  const [c, g] = canvas(256, 256);
+  g.fillStyle = '#d9d4c8'; g.fillRect(0, 0, 256, 256);
+  // plain weave — alternating warp/weft bumps
+  for (let y = 0; y < 256; y += 4) {
+    for (let x = 0; x < 256; x += 4) {
+      const over = ((x / 4 + y / 4) | 0) % 2 === 0;
+      const v = over ? 205 + ((x * 7 + y * 3) % 22) : 188 + ((x * 5 + y * 11) % 22);
+      g.fillStyle = `rgb(${v},${v - 3},${v - 12})`;
+      g.fillRect(x, y, 4, 4);
+    }
+  }
+  // slub threads
+  for (let i = 0; i < 26; i++) {
+    const y = cosmeticRandom() * 256;
+    g.strokeStyle = 'rgba(120,110,92,0.16)'; g.lineWidth = 1 + cosmeticRandom() * 1.5;
+    g.beginPath(); g.moveTo(0, y); g.lineTo(256, y + (cosmeticRandom() - 0.5) * 4); g.stroke();
+  }
+  return tex(c, [3, 3]);
+}

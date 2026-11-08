@@ -38,7 +38,12 @@ try {
   await page.waitForSelector('#open:not([disabled])', { timeout: 90000 });
   await page.$eval('#open', el => el.click());
   for (let i = 0; i < 40; i++) {
-    const st = await page.evaluate(() => ({ top: window.__grunds?.modals?.top?.() || null, phase: window.__grunds?.phase }));
+    // The licence sign can trigger a ?world= reload — a navigation destroys
+    // the execution context mid-evaluate. Treat it as "still transitioning".
+    let st = null;
+    try {
+      st = await page.evaluate(() => ({ top: window.__grunds?.modals?.top?.() || null, phase: window.__grunds?.phase }));
+    } catch { await page.waitForTimeout(1500); continue; }
     if (st.top === 'brief' || st.phase === 'trading') break;
     if (st.top === 'tutorial') await page.$eval('#tskip', el => el.click()).catch(() => {});
     else if (st.top === 'licence') await page.$eval('#lic-sign', el => el.click()).catch(() => {});
