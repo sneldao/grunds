@@ -8,6 +8,7 @@
 //      + animated hash film grain, written to the default framebuffer with toneMapped=false.
 // Exactly one tonemap (scene pass) and one sRGB encode (composite pass) — never double tonemapped.
 import * as THREE from '../vendor/three.module.js';
+import { paperGrain } from './textures.js';
 
 // ---- fullscreen-quad shaders. ShaderMaterial auto-injects position/uv/matrix decls. ----
 const VERT = `varying vec2 vUv;
@@ -39,7 +40,8 @@ const COMPOSITE_FRAG = `varying vec2 vUv;
 uniform sampler2D tScene; uniform sampler2D tBloom;
 uniform float uBloomInt, uVignette, uGrain, uTime;
 uniform float uCine, uCA, uBars;
-uniform float uSharp, uDof;
+uniform float uSharp, uDof, uPaint, uPaper;
+uniform sampler2D tPaper;
 uniform vec2 uTexel;
 uniform vec3 uWarm;
 void main(){
@@ -53,6 +55,19 @@ void main(){
       texture2D(tScene, vUv - dir * ca).b);
   } else {
     scene = texture2D(tScene, vUv).rgb;
+  }
+  // light NPR: edge-preserving smooth — 4 taps weighted by colour similarity,
+  // so flat areas melt toward a painted wash while sign edges and silhouettes
+  // hold. uPaint stays low; it is a grade, not a filter.
+  if (uPaint > 0.001) {
+    vec3 acc = vec3(0.0); float wsum = 0.0;
+    vec2 px = uTexel * 1.6;
+    vec3 s;
+    s = texture2D(tScene, vUv + vec2(px.x, 0.0)).rgb; { float w = 1.0 - smoothstep(0.0, 0.14, length(s - scene)); acc += s * w; wsum += w; }
+    s = texture2D(tScene, vUv - vec2(px.x, 0.0)).rgb; { float w = 1.0 - smoothstep(0.0, 0.14, length(s - scene)); acc += s * w; wsum += w; }
+    s = texture2D(tScene, vUv + vec2(0.0, px.y)).rgb; { float w = 1.0 - smoothstep(0.0, 0.14, length(s - scene)); acc += s * w; wsum += w; }
+    s = texture2D(tScene, vUv - vec2(0.0, px.y)).rgb; { float w = 1.0 - smoothstep(0.0, 0.14, length(s - scene)); acc += s * w; wsum += w; }
+    scene = mix(scene, acc / max(wsum, 1e-4), uPaint);
   }
   // tilt-shift DOF: cheap 4-tap cross blur masked to the top/bottom of the
   // frame — the street stays sharp at the lens plane, edges melt like a
@@ -86,6 +101,12 @@ void main(){
   col *= mix(1.0, 1.0 - smoothstep(0.38, 0.78, d), uVignette * (1.0 + 0.9 * uCine));
   float g = fract(sin(dot(floor(gl_FragCoord.xy), vec2(127.1, 311.7)) + uTime) * 43758.5453);
   col += (g - 0.5) * 2.0 * uGrain * (1.0 + 0.6 * uCine);        // animated hash film grain
+  // paper tooth: static fibre texture, luminance-only mottle — the authored
+  // "this is a painting" cue. ~0.10 keeps it felt, not seen.
+  if (uPaper > 0.001) {
+    float tooth = texture2D(tPaper, gl_FragCoord.xy / 384.0).r;
+    col *= 1.0 + (tooth - 0.5) * uPaper;
+  }
   if (uBars > 0.0001 && (vUv.y < uBars || vUv.y > 1.0 - uBars)) // cine: letterbox bars
     col = vec3(0.0);
   gl_FragColor = vec4(max(col, vec3(0.0)), 1.0);               // floor to avoid NaN in sRGB pow
@@ -149,6 +170,7 @@ export function buildPostFX(renderer, scene, camera, opts) {
       uVignette: { value: 0.34 }, uGrain: { value: 0.04 }, uTime: { value: 0 },
       uCine: { value: 0 }, uCA: { value: 0 }, uBars: { value: 0 },
       uSharp: { value: 0.16 }, uDof: { value: 0 }, uTexel: { value: new THREE.Vector2(1 / w, 1 / h) },
+      uPaint: { value: 0.18 }, uPaper: { value: 0.10 }, tPaper: { value: paperGrain() },
     });
 
     postScene = new THREE.Scene();
@@ -174,6 +196,8 @@ export function buildPostFX(renderer, scene, camera, opts) {
       compMat.uniforms.uBars.value = 0.085 * c;                  // letterbox ~8.5% top/bottom
       compMat.uniforms.uDof.value = 0.85 * c;                    // tilt-shift, capture-grade only
       compMat.uniforms.uSharp.value = 0.16 + 0.10 * c;           // micro-contrast, always on
+      compMat.uniforms.uPaint.value = 0.18 + 0.12 * c;           // painterly smooth, subtle
+      compMat.uniforms.uPaper.value = 0.10 + 0.05 * c;           // paper tooth
 
       renderer.setRenderTarget(rtScene); renderer.render(scene, camera);  // 1. scene (tonemapped)
 

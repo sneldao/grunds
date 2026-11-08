@@ -629,3 +629,96 @@ export function fabricWeave() {
   }
   return tex(c, [3, 3]);
 }
+
+// ——— diorama pass: plinth edge / painted backdrop / paper grain ————————
+
+// Vertical gradient + wood grain for the city-block side faces — the
+// "table edge" the diorama sits on. Luminance stays mid so the material
+// colour does the tinting; dark at the bottom for contact AO.
+export function plinthEdge() {
+  const [c, g] = canvas(256, 128);
+  const grad = g.createLinearGradient(0, 0, 0, 128);
+  grad.addColorStop(0, '#8f7f68'); grad.addColorStop(0.55, '#7a6a55'); grad.addColorStop(1, '#4c4034');
+  g.fillStyle = grad; g.fillRect(0, 0, 256, 128);
+  // long grain streaks
+  for (let i = 0; i < 90; i++) {
+    const y = cosmeticRandom() * 128;
+    g.strokeStyle = `rgba(${30 + ((cosmeticRandom() * 40) | 0)},${24 + ((cosmeticRandom() * 30) | 0)},${16 + ((cosmeticRandom() * 20) | 0)},0.20)`;
+    g.lineWidth = 0.8 + cosmeticRandom() * 1.6;
+    g.beginPath(); g.moveTo(0, y);
+    g.bezierCurveTo(80, y + (cosmeticRandom() - 0.5) * 6, 170, y + (cosmeticRandom() - 0.5) * 6, 256, y);
+    g.stroke();
+  }
+  // a few knots
+  for (let i = 0; i < 7; i++) {
+    const x = cosmeticRandom() * 256, y = 20 + cosmeticRandom() * 90;
+    g.strokeStyle = 'rgba(30,20,12,0.35)'; g.lineWidth = 1;
+    g.beginPath(); g.ellipse(x, y, 5 + cosmeticRandom() * 8, 3 + cosmeticRandom() * 4, 0, 0, Math.PI * 2); g.stroke();
+  }
+  return tex(c, [6, 1]);
+}
+
+// Painted cyclorama flat: gradient sky-band, two rows of distant skyline
+// silhouettes, haze fade into the fog colour at the bottom. Authored once —
+// the material colour dims it at night (see world.js flatMats).
+export function backdropFlat() {
+  const [c, g] = canvas(1024, 512);
+  // sky band: cool zenith → warm horizon (reads at day; dims at night)
+  const sky = g.createLinearGradient(0, 0, 0, 300);
+  sky.addColorStop(0, '#6d7f92'); sky.addColorStop(0.55, '#9aa8b2');
+  sky.addColorStop(0.85, '#c4b8a4'); sky.addColorStop(1, '#d8cdb8');
+  g.fillStyle = sky; g.fillRect(0, 0, 1024, 300);
+  // far skyline row — pale, high
+  g.fillStyle = 'rgba(88,98,110,0.85)';
+  let x = 0;
+  while (x < 1024) {
+    const w = 40 + cosmeticRandom() * 90, h = 60 + cosmeticRandom() * 110;
+    g.fillRect(x, 300 - h, w, h);
+    x += w + 6 + cosmeticRandom() * 30;
+  }
+  // near skyline row — darker, lower, busier
+  g.fillStyle = 'rgba(52,60,70,0.9)';
+  x = -20;
+  while (x < 1024) {
+    const w = 55 + cosmeticRandom() * 110, h = 90 + cosmeticRandom() * 150;
+    g.fillRect(x, 330 - h * 0.4, w, h);
+    // sparse lit windows
+    g.fillStyle = 'rgba(232,214,160,0.5)';
+    const cols = Math.floor(w / 26), rows = Math.floor(h / 40);
+    for (let r = 0; r < rows; r++) for (let cc = 0; cc < cols; cc++)
+      if (cosmeticRandom() < 0.16) g.fillRect(x + 8 + cc * 26, 330 - h * 0.4 + 10 + r * 40, 5, 8);
+    g.fillStyle = 'rgba(52,60,70,0.9)';
+    x += w + 4 + cosmeticRandom() * 26;
+  }
+  // haze floor — fades the whole flat into the fog colour
+  const haze = g.createLinearGradient(0, 260, 0, 512);
+  haze.addColorStop(0, 'rgba(216,205,184,0)'); haze.addColorStop(0.6, 'rgba(216,205,184,0.55)');
+  haze.addColorStop(1, 'rgba(230,222,205,0.92)');
+  g.fillStyle = haze; g.fillRect(0, 260, 1024, 252);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+
+// Fine paper fibre for the postfx grade — neutral ~0.5 luminance so it
+// multiplies the frame as a subtle mottled tooth, not a colour cast.
+export function paperGrain() {
+  const [c, g] = canvas(256, 256);
+  g.fillStyle = '#808080'; g.fillRect(0, 0, 256, 256);
+  // long fibres
+  for (let i = 0; i < 700; i++) {
+    const x = cosmeticRandom() * 256, y = cosmeticRandom() * 256;
+    const a = cosmeticRandom() * Math.PI, l = 4 + cosmeticRandom() * 14;
+    const v = 96 + ((cosmeticRandom() * 64) | 0);
+    g.strokeStyle = `rgba(${v},${v},${v},0.20)`; g.lineWidth = 0.6;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+  // blotches
+  for (let i = 0; i < 40; i++) {
+    const x = cosmeticRandom() * 256, y = cosmeticRandom() * 256, r = 10 + cosmeticRandom() * 40;
+    const v = 110 + ((cosmeticRandom() * 36) | 0);
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, `rgba(${v},${v},${v},0.12)`); grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  return tex(c, [1, 1]);
+}

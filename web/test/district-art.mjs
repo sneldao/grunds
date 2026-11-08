@@ -30,7 +30,7 @@ test('fog wrap runs the existing onBeforeCompile then injects the haze ramp', ()
   assert.ok(prevRan, 'existing onBeforeCompile (lawn fade) not called');
   assert.equal(prevThis, self, 'original onBeforeCompile got wrong this');
   assert.equal(prevShader, shader, 'original onBeforeCompile got wrong shader');
-  assert.ok(shader.fragmentShader.includes('0.74 * (1.0 - exp(-max(vFogDepth, 0.0) / fogFar))'), 'haze ramp not injected');
+  assert.ok(shader.fragmentShader.includes('0.85 * (1.0 - exp(-max(vFogDepth, 0.0) / fogFar))'), 'haze ramp not injected');
   assert.ok(!shader.fragmentShader.includes('#include <fog_fragment>'), 'stock fog chunk left in place');
 });
 

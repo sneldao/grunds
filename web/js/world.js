@@ -3,7 +3,7 @@ import * as THREE from '../vendor/three.module.js';
 import { cosmeticRandom } from './cosmetic.js';
 import { PAL, LAYOUT, COPY } from './config.js';
 import { loadPF, registerPFNight } from './polyfork.js';
-import { woodFloor, pavement, road, awning, menuBoard, softSprite, streakSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction, plaster, roofFelt, brushedMetal, fabricWeave } from './textures.js';
+import { woodFloor, pavement, road, awning, menuBoard, softSprite, streakSprite, shopSign, rentSign, stateForDay, tarp, dayHasConstruction, plaster, roofFelt, brushedMetal, fabricWeave, plinthEdge, backdropFlat } from './textures.js';
 import { GLBLoader } from './loader.js';
 import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
 import { streetForDay, boardLine } from './street.js';
@@ -17,7 +17,7 @@ const M = {}; // shared materials
 // Surface-pass bakes (plaster / roof felt / brushed metal / fabric weave).
 // Grayscale-ish maps meant to multiply the material colour — value + grain,
 // not hue. Lazy so headless imports never touch document.canvas.
-const SURFACE_TEX = { plaster, roof: roofFelt, metal: brushedMetal, fabric: fabricWeave };
+const SURFACE_TEX = { plaster, roof: roofFelt, metal: brushedMetal, fabric: fabricWeave, plinth: plinthEdge };
 const _surfTex = {};
 function surfaceTex(k) { return (_surfTex[k] ??= SURFACE_TEX[k]()); }
 function mat(color, o = {}) {
@@ -85,7 +85,7 @@ export function chalkPopScale(u) {
 }
 
 const HAZE_FOG_FRAGMENT = `#ifdef USE_FOG
-float fogFactor = 0.74 * (1.0 - exp(-max(vFogDepth, 0.0) / fogFar));
+float fogFactor = 0.85 * (1.0 - exp(-max(vFogDepth, 0.0) / fogFar));
 gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);
 #endif`;
 const _hazedMaterials = new WeakSet();
@@ -217,7 +217,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
 
   // ---- ground block -------------------------------------------------------
   const g = new THREE.Group(); scene.add(g);
-  box(g, 44, 1, 34, PAL.curb, 0, -0.52, 4, { cast: false });                       // city block base
+  box(g, 44, 1, 34, 0x5d4128, 0, -0.52, 4, { cast: false, tex: 'plinth' });      // city block base — the diorama's table edge
   const woodTex = woodFloor();
   const woodMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.62, metalness: 0.02 });
   plane(g, LAYOUT.floor.w, LAYOUT.floor.d, woodMat, LAYOUT.floor.x, 0.01, LAYOUT.floor.z, { rx: -Math.PI / 2 });
@@ -238,6 +238,10 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   const roadTex = road();
   const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.92, metalness: 0.02 });
   plane(g, 44, LAYOUT.roadZ1 - LAYOUT.roadZ0, roadMat, 0, 0.015, (LAYOUT.roadZ0 + LAYOUT.roadZ1) / 2, { rx: -Math.PI / 2 });
+  // The "table" the diorama sits on: a huge matte apron under the block that
+  // runs past every edge and thins into the fog — kills the floating-slab read.
+  const apronMat = new THREE.MeshStandardMaterial({ color: 0x8b8474, roughness: 1, metalness: 0 });
+  plane(g, 240, 190, apronMat, 0, -1.03, 4, { rx: -Math.PI / 2 });
   for (let i = 0; i < 5; i++) box(g, 0.62, 0.03, 3.4, 0xd8d2c0, LAYOUT.crossX - 1 + i * 0.60, 0.03, 11.7, { cast: false, op: 0.88 }); // zebra crossing — slightly wider + decal-friendly
 
   // ---- pavement wear --------------------------------------------------------
@@ -1746,6 +1750,27 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     };
   }
 
+  // ---- painted cyclorama flats ----------------------------------------------
+  // The horizon is authored, not void: large planes with a baked skyline +
+  // haze gradient ring the block (Susurrus-style — everything serves one
+  // painted read). MeshBasicMaterial so they ignore scene lights; flatMats
+  // dim with `night` in updateTimeOfDay. Slight y-fan avoids a flat wall.
+  {
+    const flatTex = backdropFlat();
+    W.flatMats = [];
+    const flat = (x, z, w, h, ry) => {
+      const fm = new THREE.MeshBasicMaterial({ map: flatTex, side: THREE.DoubleSide, fog: true });
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), fm);
+      p.position.set(x, h / 2 - 2.5, z); p.rotation.y = ry;
+      scene.add(p); W.flatMats.push(fm);
+    };
+    flat(-38, 26, 52, 26, 0.10);    // back-left
+    flat(6, 30, 58, 30, 0);         // back-centre — the money shot horizon
+    flat(44, 24, 48, 24, -0.10);    // back-right
+    flat(-44, 6, 46, 22, Math.PI / 2);   // left wing
+    flat(46, 4, 46, 22, -Math.PI / 2);   // right wing
+  }
+
   // ---- closed gardens behind the neighbour houses ----------------------------
   // The pavement behind The Quill and behind the right-hand row is a walled
   // garden: grass, a low wall, a shut gate toward the café, a little
@@ -2319,6 +2344,8 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     // books and tins in front of it stay separate from the glow.
     for (const wm of W.winMats) wm.emissiveIntensity = Math.max(night * 0.42, duskish * 0.55);
     for (const wl of W.windowLights) wl.intensity = 0.18 * Math.max(night, duskish);
+    // Painted flats dim with the street — they are scenery, not light sources.
+    for (const fm of W.flatMats || []) fm.color.setScalar(1 - night * 0.68);
     W.night = night;
     try { W._updateDelight(performance.now()); } catch {}
   };

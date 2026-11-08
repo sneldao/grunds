@@ -368,7 +368,26 @@ Sim determinism is untouched — every fix is render/HUD-side only
   `roof`, `metal`, `fabric` in textures.js) — near-white grayscale maps
   that multiply the material colour.
 - `tools/showcase-shots.mjs` tolerates the licence `?world=` reload
-  (execution-context loss mid-evaluate = keep looping).
+  (execution-context loss mid-evaluate = keep looping). Timeouts are
+  env-tunable (`SHOT_GOTO_TIMEOUT`/`SHOT_OPEN_TIMEOUT`/`SHOT_PHASE_TIMEOUT`);
+  note `waitForFunction` takes `(fn, arg, options)` — options is the THIRD arg.
+
+## Diorama / painterly grade pass (post-ee4835c)
+- The world edge is authored, not hidden: block base uses `plinthEdge()`
+  wood grain; a 240×190 matte apron plane at y=-1.03 is "the table" the
+  diorama sits on, thinning into fog; five `backdropFlat()` painted
+  cyclorama planes (skyline silhouette + haze gradient baked into one
+  canvas texture) ring the block as `MeshBasicMaterial` (`W.flatMats`,
+  dimmed in `updateTimeOfDay` via `color.setScalar(1 - night*0.68)`).
+- Haze ramp coefficient is 0.85 (district-art.mjs pins the literal —
+  update the test if it changes again).
+- postfx composite adds light NPR: `uPaint` 4-tap edge-preserving smooth
+  (~0.18, 0.30 cine) and `uPaper` static fibre grain from `paperGrain()`
+  (~0.10, 0.15 cine) sampled at /384 px. Both are grades, not filters —
+  keep them low enough that chalkboards/sign text stays readable. No
+  Kuwahara: it smears in-world text and fights the render-scale governor.
+- `tools/showcase-shots.mjs` writes to argv[3] or `/tmp/showcase-shots`
+  (the `GRUNDS_SHOTS` env var does nothing).
 
 ## Conventions
 - Choice surfaces: options + consequence visible, no folds for choices —

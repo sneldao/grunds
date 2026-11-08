@@ -34,8 +34,11 @@ try {
   const errs = [];
   page.on('pageerror', e => errs.push(String(e.stack || e).slice(0, 600)));
   page.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text().slice(0, 200)); });
-  await page.goto(`${BASE}/?skipTutorial&seed=${SEED}&convex=${encodeURIComponent(CONVEX)}&cine=1`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForSelector('#open:not([disabled])', { timeout: 90000 });
+  const T_GOTO = Number(process.env.SHOT_GOTO_TIMEOUT || 30000);
+  const T_OPEN = Number(process.env.SHOT_OPEN_TIMEOUT || 90000);
+  const T_PHASE = Number(process.env.SHOT_PHASE_TIMEOUT || 60000);
+  await page.goto(`${BASE}/?skipTutorial&seed=${SEED}&convex=${encodeURIComponent(CONVEX)}&cine=1`, { waitUntil: 'domcontentloaded', timeout: T_GOTO });
+  await page.waitForSelector('#open:not([disabled])', { timeout: T_OPEN });
   await page.$eval('#open', el => el.click());
   for (let i = 0; i < 40; i++) {
     // The licence sign can trigger a ?world= reload — a navigation destroys
@@ -51,7 +54,7 @@ try {
     await page.waitForTimeout(1200);
   }
   await page.$eval('#brief-open', el => el.click()).catch(() => {});
-  await page.waitForFunction(() => window.__grunds.stats().phase === 'trading', { timeout: 60000 });
+  await page.waitForFunction(() => window.__grunds.stats().phase === 'trading', undefined, { timeout: T_PHASE });
   await page.evaluate(() => window.__grunds.togglePause());
   await page.waitForTimeout(2500);
 
