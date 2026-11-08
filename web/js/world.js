@@ -1769,6 +1769,11 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     flat(44, 24, 48, 24, -0.10);    // back-right
     flat(-44, 6, 46, 22, Math.PI / 2);   // left wing
     flat(46, 4, 46, 22, -Math.PI / 2);   // right wing
+    // North edge (behind the café, z < -13): same treatment, facing -z.
+    // Without these the rear quarter of the orbit reads as bare void.
+    flat(-22, -25, 46, 24, Math.PI - 0.10);
+    flat(6, -28, 54, 27, Math.PI);
+    flat(32, -23, 44, 22, Math.PI + 0.10);
   }
 
   // ---- closed gardens behind the neighbour houses ----------------------------
