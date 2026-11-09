@@ -128,11 +128,11 @@ export const CAMPAIGN = {
   days: 5,
   beanBaseCost: 1.30,       // £ per drink at index 1.0 (≈27% of £4.80)
   contractUnits: 2400,     // a contract covers one full day's made drinks at the counter
-  // Cover is priced per cup near the expected daily drift (~£0.08–0.10/unit):
-  // calm weeks bleed the fee, spikes still pay. Bigger locks cost more per cup
-  // because they sit on the board through more of the drift.
-  contractUnitFee: 0.09,   // £ per covered cup at standard size
-  contractFeeSlope: 0.025, // per-cup rate steps this much per size tier
+  // Cover is priced per cup near the expected daily drift (~£0.04–0.06/unit):
+  // calm weeks bleed the fee, spikes pay off handsomely (+EV on wire warning).
+  // Bigger locks cost slightly more per cup because they sit through more drift.
+  contractUnitFee: 0.045,  // £ per covered cup at standard size
+  contractFeeSlope: 0.015, // per-cup rate steps this much per size tier
   wastePct: 0.06,          // 6% of sales lost to waste (Business Waste / Notions)
   debtInterest: 4.0,      // daily floor on outstanding supplier credit
   debtInterestRate: 0.025, // plus 2.5%/day — the tab compounds, not just ticks

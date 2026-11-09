@@ -702,6 +702,18 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   for (const t of LAYOUT.tables) {
     place(scene, 'tableRound.glb', { position: [t.x, 0, t.z], scale: 1.4, rotationY: 0 });
     addContactShadow(scene, t.x, t.z, 1.9, 1.9, 0.26);
+    // Table bussing: small dirty mug prop shown when sitters depart until bussed
+    const dirtyGroup = new THREE.Group();
+    dirtyGroup.position.set(t.x + 0.12, 0.72, t.z + 0.1);
+    dirtyGroup.visible = false;
+    const dirtyMug = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.05, 0.12, 8),
+      new THREE.MeshStandardMaterial({ color: 0xefe6d3, roughness: 0.6 })
+    );
+    dirtyGroup.add(dirtyMug);
+    scene.add(dirtyGroup);
+    t.dirtyGroup = dirtyGroup;
+    t.dirty = false;
     const n = 3, baseA = seatRoll() * Math.PI * 2;
     for (let s = 0; s < n; s++) {
       const a = baseA + (s / n) * Math.PI * 2, sx = t.x + Math.cos(a) * 1.05, sz = t.z + Math.sin(a) * 1.05;
@@ -710,6 +722,28 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     }
   }
   W.seats = seats;
+  W.busTables = function() {
+    let count = 0;
+    for (const t of LAYOUT.tables) {
+      if (t.dirty) {
+        t.dirty = false;
+        if (t.dirtyGroup) t.dirtyGroup.visible = false;
+        count++;
+      }
+    }
+    return count;
+  };
+  W.dirtyCount = function() {
+    return LAYOUT.tables.filter(t => t.dirty).length;
+  };
+  W.markTableDirty = function(tablePos) {
+    if (!tablePos) return;
+    const t = LAYOUT.tables.find(tbl => Math.hypot(tbl.x - tablePos.x, tbl.z - tablePos.z) < 0.6);
+    if (t) {
+      t.dirty = true;
+      if (t.dirtyGroup) t.dirtyGroup.visible = true;
+    }
+  };
 
   // ---- retail shelf ---------------------------------------------------------
   // Kenney bookcaseClosedDoors.glb replaces the procedural walnut backing

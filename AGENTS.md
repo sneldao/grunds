@@ -427,6 +427,41 @@ Sim determinism is untouched — every fix is render/HUD-side only
   `decode('utf-8','surrogateescape')` / `encode(...,'surrogateescape')` to keep
   the bytes, and convert the encoding only as its own deliberate change.
 
+## Floor tactics: stance, bussing, spillover, gossip (Nov 9)
+- **Ruth's stance** (`ruthStance`, `S` key / `#stance` button, trading phase
+  only): `steady` (default) / `rush` / `craft`, cycled by `toggleRuthStance`.
+  It is a *sim* lever, not a cosmetic: `stancePaceMul` (1.35 / 0.72 / 1.0)
+  multiplies `staffed` bar-points in the serve loop, and commuter balk chance
+  gets `stanceBalkMul` (rush ×0.75 holds the line, craft ×1.35 — unconditional,
+  NOT gated on queue length). Served events carry `stance`; main.js applies
+  regular-op deltas (craft +0.03 creatives/elders, rush −0.02 creatives) and
+  `rivalReact('rush')` toasts Sam's reaction. Stance is **per-day**: reset in
+  `prepareDay` and `reset()`, never saved — a resume/restart returns to
+  steady. Picking Rush/Craft is a player input like any lever, so balance
+  policies that never call it stay bit-identical.
+- **Table bussing**: sitters mark their table dirty on `_despawn`
+  (`world.markTableDirty` → `t.dirty` + `t.dirtyGroup` mug prop). `B` key /
+  `#busbtn` → `busTables()` clears all, clink + toast. `world.dirtyCount()`
+  feeds `_campDivert`: all three dirty repels high-dwell cohorts toward
+  Glasshouse (+room pressure) even when the room isn't full. In craft stance
+  Ruth auto-busses every 20 sim-min while `counterQ` is empty; rush ignores
+  tables.
+- **Bidirectional spillover**: in the rival-queue walk-back pass, when
+  `rivalQ >= 6 && counterQ <= 2 && p.waitMin >= 2`, a 0.20 draw on
+  `patronsRng` (sim stream, saved/restored — replay-safe) moves the patron to
+  `counterQ` with `rivalOrigin: 'spillover'`; main.js toasts + clinks on
+  `rivalSpillover`. Not gated by `truceCeasefire`.
+- **Gossip**: a named regular served with `op > 0.65` and `floorRng() < 0.30`
+  triggers `fx.gossipBubbles(p, line, 'good')` — cosmetic only, routed
+  through the friendship graph (`chainDepth`). Line picks "Best pour…" when
+  craft stance or `roastMul >= 0.95`.
+- **Hedge rebalance (+EV)**: `contractUnitFee` 0.09→0.045 and
+  `contractFeeSlope` 0.025→0.015, mirrored in `convex/gameConfig.ts` — keep
+  both in lockstep. The "+£150–400 on shock weeks" payoff is **asserted, not
+  swept**: run `balance-policies` before quoting margins in VISION/docs.
+- Tests: `web/test/barista-stance.mjs` (14 checks — stance muls/balks, dirty
+  props + bussing, spillover thresholds, gossip trigger).
+
 ## Conventions
 - Import specifiers must match the tracked filename **byte for case**. CI runs
   on a case-sensitive FS; macOS does not, so `./barStaff.js` passes every

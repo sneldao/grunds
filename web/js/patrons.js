@@ -60,6 +60,7 @@ export class PatronSystem {
     this.cosmetic = cosmetic;
     this.apprenticeActive = false;
     this.staffMul = 1;   // <1 short-staffed — the bar spends fewer prep-points a tick
+    this.ruthStance = 'steady'; // Ruth's live stance: steady (1x), rush (1.35x points, lower tips), craft (0.72x points, +tips)
     this.capacityMult = 1; // shock capacity, separate from staffMul / Ruth's condition
     this.shockStaff = 0;   // extra hands from a merged shock; not a condition write
     this.reach = 1;        // marketing reach — weights who crosses, and the wave that spawned them
@@ -222,8 +223,10 @@ export class PatronSystem {
 
   // The room is judged when they would join the queue, not when they spawn.
   // High-dwell cohorts add the camp pull to the same rival roll.
+  // Unbussed tables (all dirty) repel high-dwell sitters across the road.
   _campDivert(p) {
-    if (this.truceCeasefire || !this._roomFull() || !this._highDwell(p)) return false;
+    const dirtyAll = this.world?.dirtyCount ? this.world.dirtyCount() >= 3 : false;
+    if (this.truceCeasefire || (!this._roomFull() && !dirtyAll) || !this._highDwell(p)) return false;
     if (this.rivalQ.length >= 42) return false;
     const op = this.regulars ? (this.regulars.reputation - 50) / 50 : 0;
     const pr = this._rivalPull(p.cohort, p.drink, op, FULL_ROOM_PULL);
@@ -532,7 +535,8 @@ export class PatronSystem {
     // Phase 3: points follow the drink (espresso fast, filter slow, matcha
     // slowest unless batched). Milky orders need milk stock (ctx.milkStock);
     // a dry bar loses the order to a balk, flagged once via ctx.milkOut.
-    const staffed = (ECON.barPoints + (this.skillPts || 0)) * (this.staffMul || 1);
+    const stancePaceMul = this.ruthStance === 'rush' ? 1.35 : (this.ruthStance === 'craft' ? 0.72 : 1.0);
+    const staffed = (ECON.barPoints + (this.skillPts || 0)) * (this.staffMul || 1) * stancePaceMul;
     let points = (staffed + (this.shockStaff || 0)) * (this.capacityMult ?? 1);
     let servedN = 0;
     for (let i = 0; i < this.counterQ.length && points > 0 && servedN < ECON.servePerTick;) {
@@ -567,7 +571,7 @@ export class PatronSystem {
       const ticket = (dk === 'matcha'
         ? (this.exchange ? salePrice(this.exchange, ctx.repriced) : ECON.matchaFull)
         : (ctx.menuPrices?.[dk] ?? ECON.other)) * (ctx.priceMult || 1);
-      ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: ticket, fromBatch, ...cup });
+      ev.push({ type: 'served', p, isMatcha: p.wantsMatcha, price: ticket, fromBatch, stance: this.ruthStance, ...cup });
       // Phase 5 — the serve lands on camera: a 0.9s mood reaction.
       p.reactKind = 'serve'; p.reactT = 0.9;
       p.op = (Number.isFinite(p.op) ? p.op : 0) + 0.2;
@@ -582,7 +586,10 @@ export class PatronSystem {
       if (p.state !== 'inQueue') continue;
       const dk = p.drink || (p.wantsMatcha ? 'matcha' : 'flatwhite');
       const batched = dk === 'matcha' && (ctx.batchUnits || 0) > 0 && dayMin >= (ctx.batchReservedUntil || 0);
-      const chance = balkChanceFor(dk, batched, { repriced: !!this.repriced }) * (this.balkMul || 1);
+      let stanceBalkMul = 1;
+      if (this.ruthStance === 'craft' && p.cohort === 'commuters') stanceBalkMul = 1.35;
+      else if (this.ruthStance === 'rush' && p.cohort === 'commuters') stanceBalkMul = 0.75;
+      const chance = balkChanceFor(dk, batched, { repriced: !!this.repriced }) * (this.balkMul || 1) * stanceBalkMul;
       if (p.waitMin > balkLimit(dk, batched) && this.random() < chance) {
         this.counterQ.splice(i, 1);
         this._balk(p, ev);
@@ -691,6 +698,15 @@ export class PatronSystem {
         this.counterQ.push(p);
         p.goal = this._slotPos(counterSlot, this.counterQ.length - 1, p);
         ev.push({ type: 'rivalWalkback', p });
+        walkedBack = true;
+      } else if (!this.truceCeasefire && this.rivalQ.length >= 6 && this.counterQ.length <= 2 && p.waitMin >= 2 && this.random() < 0.20) {
+        // Dynamic catchment spillover: when Glasshouse line is backed up and player queue is clear,
+        // impatient patrons in Sam's queue defect across the zebra crossing to the player!
+        this.rivalQ.splice(i, 1);
+        p.state = 'toQueue'; p.queueRef = 'counter'; p.rivalOrigin = 'spillover'; p.waitMin = 0;
+        this.counterQ.push(p);
+        p.goal = this._slotPos(counterSlot, this.counterQ.length - 1, p);
+        ev.push({ type: 'rivalSpillover', p });
         walkedBack = true;
       }
     }
@@ -810,7 +826,11 @@ export class PatronSystem {
   _despawn(p) {
     if (!p.active) return;
     p.active = false;
-    if (p.seat) { p.seat.taken = null; p.seat = null; }
+    if (p.seat) {
+      if (p.seat.table && this.world?.markTableDirty) this.world.markTableDirty(p.seat.table);
+      p.seat.taken = null;
+      p.seat = null;
+    }
     p._floorSeat = null; p._seatSettled = false;
     const z = new THREE.Matrix4().makeScale(0, 0, 0);
     for (const part of Object.values(this.parts)) { part.setMatrixAt(p.idx, z); part.instanceMatrix.needsUpdate = true; }
@@ -1246,7 +1266,7 @@ export class PatronSystem {
     this.walkMul = 1;
     this.counterQ = []; this.registerQ = []; this.rivalQ = []; this.rivalClock = 0; this.rivalCredit = 0; this.rivalChoices = 0;
     this.ghostServed = 0; this.ghostPace = 0;   // per-day; main re-binds the pace at each openDay
-    this.staffMul = 1; this.capacityMult = 1; this.shockStaff = 0; this.reach = 1; this.cupQuality = 1;
+    this.staffMul = 1; this.ruthStance = 'steady'; this.capacityMult = 1; this.shockStaff = 0; this.reach = 1; this.cupQuality = 1;
     this.balkMul = 1; this.dwellMul = 1;
     this.turnaways = 0; this.passedBy = 0; this._boardProbe = 0; this._boardEvents = [];
     this.companionsToday = [];

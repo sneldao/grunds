@@ -1197,6 +1197,15 @@ function tick() {
           fx.toast(`${scorched ? SCORCH_LINE : (STALE_LINES[e.p.cohort] || 'the room tastes yesterday’s roast')}${named}`, 'warn');
         }
       }
+      if (e.p && e.p.regularIdx >= 0) {
+        if (e.stance === 'craft' && (e.p.cohort === 'creatives' || e.p.cohort === 'elders')) {
+          const r = regulars.regulars[e.p.regularIdx];
+          if (r) r.op = Math.min(1, r.op + 0.03);
+        } else if (e.stance === 'rush' && e.p.cohort === 'creatives') {
+          const r = regulars.regulars[e.p.regularIdx];
+          if (r) r.op = Math.max(-1, r.op - 0.02);
+        }
+      }
       if (!e.isMatcha && !e.emergency) { pouredOther++; if (e.lotId) pouredByLotToday[e.lotId] = (pouredByLotToday[e.lotId] || 0) + 1; }
       servedByDrinkToday[e.drinkId || (e.isMatcha ? 'matcha' : 'flatwhite')] = (servedByDrinkToday[e.drinkId || (e.isMatcha ? 'matcha' : 'flatwhite')] || 0) + 1;
       // Phase 1 — a serve is a visit. Canon regulars append session history
@@ -1213,6 +1222,15 @@ function tick() {
           const head = walkins.recordVisit(e.p.pid, { day, drink: drinkName, outcome: 'served' });
           if (head) { e.p.stage = head.stage; e.p.visits = head.visits;
             if (head.stage === 'evangelist' && !womPids.has(womKey)) { womPids.add(womKey); evangelistServes++; } }
+        }
+      }
+      if (e.p && e.p.regularIdx >= 0) {
+        const r = regulars.regulars[e.p.regularIdx];
+        if (r && r.op > 0.65 && floorRng() < 0.30) {
+          const goodLine = (e.stance === 'craft' || (e.roastMul && e.roastMul >= 0.95))
+            ? '“Best pour on the street today.”'
+            : '“Worth the stop every time.”';
+          fx.gossipBubbles?.(e.p, goodLine, 'good');
         }
       }
       if (e.p && e.p.regularIdx < 0) {
@@ -1288,7 +1306,13 @@ function tick() {
         try { world.jeerRival(); } catch {}
       }
       if (defections === 12) fx.toast(COPY.rivalName + '’s line is out the door.', 'bad');
-    } else if (e.type === 'rivalServed') { rivalServed++; fx.coinBurst(LAYOUT.rival.x, 1.7, 15.2, 3); }
+    } else if (e.type === 'rivalServed') {
+      rivalServed++;
+      fx.coinBurst(LAYOUT.rival.x, 1.7, 15.2, 3);
+    } else if (e.type === 'rivalSpillover') {
+      fx.toast('Sam’s queue is jammed — customer crossed the street to you!', 'good');
+      try { audio.clink(); } catch {}
+    }
   }
   // Phase 3 — the milk ran dry mid-day: one honest toast, then the balks
   // speak for themselves.
@@ -1310,6 +1334,10 @@ function tick() {
     ctx.prebatched = false;
     if (dayMin >= 840 && dayMin <= 1020 && !waveStockoutAt) waveStockoutAt = dayMin;
     fx.toast('batch exhausted — made-to-order until you top up (1)', 'warn');
+  }
+  // In Craft stance, Ruth auto-wipes tables between orders when the queue is calm
+  if (patrons.ruthStance === 'craft' && patrons.counterQ.length === 0 && dayMin % 20 === 0) {
+    if (world.dirtyCount && world.dirtyCount() > 0) world.busTables();
   }
   peakQueue = Math.max(peakQueue, patrons.queueLength);
   beats();
@@ -3638,6 +3666,10 @@ function rivalReact(playerMove) {
       if (world.focus && world.focus.rival && rig.focus) rig.focus(world.focus.rival, 13, 3.5);
       fx.card('BOARD FLIPPED', `${COPY.rivalBarista}'s chalkboard now reads ${fmt(newPrice)}`);
     } catch {}
+  } else if (playerMove === 'rush') {
+    const msg = `${COPY.rivalBarista} watches Ruth pick up the pace`;
+    rivalReactLog.push({ move: 'rush', msg, ts: dayMin });
+    fx.toast(msg, 'warn');
   }
 }
 
@@ -4820,6 +4852,7 @@ function prepareDay(d) {
     world.setNeighborBoards(streetBoards);
   } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
+  ruthStance = 'steady'; updateStanceButton(); if (patrons) patrons.ruthStance = 'steady';
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false; _pfRushCam = false;
   frontage.reset();   // frontage conversions today
   nudgedStanding = false;
@@ -5594,6 +5627,57 @@ function doReprice(opts = {}) {
   lastHudText = 0;
   updateHUD();
 }
+
+// Ruth's live stance — the barista's floor posture.
+// Steady (default 1x pace), Rush (+35% pace, tip penalty), Craft (0.72x pace, +20% tips).
+let ruthStance = 'steady';
+
+function toggleRuthStance(want = null) {
+  if (phase !== 'trading') return;
+  const order = ['steady', 'rush', 'craft'];
+  if (want && order.includes(want)) ruthStance = want;
+  else {
+    const nextIdx = (order.indexOf(ruthStance) + 1) % order.length;
+    ruthStance = order[nextIdx];
+  }
+  if (patrons) patrons.ruthStance = ruthStance;
+  updateStanceButton();
+  try { audio.chalkScreech?.(); } catch {}
+  if (ruthStance === 'rush') {
+    fx.toast('Ruth: Rush — slamming the line (+35% pace, tips drop)', 'good');
+    rivalReact('rush');
+  } else if (ruthStance === 'craft') {
+    fx.toast('Ruth: Craft — artisan pour (+20% tips, commuters walk)', 'good');
+  } else {
+    fx.toast('Ruth: Steady — balanced pace and craft', '');
+  }
+}
+
+function updateStanceButton() {
+  const btn = $('stance');
+  if (!btn) return;
+  if (ruthStance === 'rush') {
+    btn.innerHTML = 'Ruth: Rush <kbd>S</kbd><small>slam line · +35% pace</small>';
+    btn.classList.add('picked');
+  } else if (ruthStance === 'craft') {
+    btn.innerHTML = 'Ruth: Craft <kbd>S</kbd><small>artisan · +20% tips</small>';
+    btn.classList.add('picked');
+  } else {
+    btn.innerHTML = 'Ruth: Steady <kbd>S</kbd><small>balanced pace & craft</small>';
+    btn.classList.remove('picked');
+  }
+}
+
+function busTables() {
+  if (phase !== 'trading') return;
+  const count = world.busTables ? world.busTables() : 0;
+  if (count > 0) {
+    try { audio.clink?.(); } catch {}
+    fx.toast(`bussed ${count} table${count > 1 ? 's' : ''} — room clean & ready`, 'good');
+  } else {
+    fx.toast('tables are already clean', '');
+  }
+}
 // ---- a regular's ask -----------------------------------------------------------
 // One offer per day on a seeded clock — a named regular, a real trade, a
 // yes/no on an in-world card that does not pause the floor. Consequences
@@ -5945,6 +6029,7 @@ function reset(coreOnly = false) {
   patrons.menuPrices = menuPrices;
   patrons.priceMult = 1;
   stagedMenu = null; stagedRoast = null;
+  ruthStance = 'steady'; updateStanceButton(); if (patrons) patrons.ruthStance = 'steady';
   toolsToday = null;
   milkDelivery = 0; lastMilky = 0; milkTipped = 0; milkToastDone = false; milkBalked = 0;
   shockCounter = null; stagedCounterable = null; shockDemandMul = 1; shockPulledFlat = false; ctx.priceMult = 1;
@@ -6261,6 +6346,8 @@ function closeRestart() {
 }
 bindPress($('prebatch'), () => doPrebatch());
 bindPress($('reprice'), () => doReprice());
+if ($('stance')) bindPress($('stance'), () => toggleRuthStance());
+if ($('busbtn')) bindPress($('busbtn'), () => busTables());
 // Phase 1 — dossiers close, the board opens fresh every time.
 $('dossier-close').onclick = () => modals.close('dossier');
 $('board-close').onclick = () => modals.close('regulars');
@@ -6349,6 +6436,8 @@ addEventListener('keydown', e => {
   markIntent();   // any game key is intent: the idle halo retires
   if (e.key === '1') doPrebatch();
   else if (e.key === '2') doReprice();
+  else if (e.key === 's' || e.key === 'S') toggleRuthStance();
+  else if (e.key === 'b' || e.key === 'B') busTables();
   else if (e.key === ' ' && started && !closed) { e.preventDefault(); togglePause(); }
   else if ((e.key === 'r' || e.key === 'R') && !$('restart-ask')?.classList.contains('show')) askRestart();
   else if (e.key === 'm' || e.key === 'M') $('mute').click();
@@ -7455,7 +7544,7 @@ function loop(now) {
   setCine: (b) => postfx.setCine(!!b, true),
   prepareDay, stageDayPlan, stageWeekHire, commitDayPlan, continueFromReview,
   stageShockCounter, stageCounterable, stagePastryCut,
-  doPrebatch, doReprice,
+  doPrebatch, doReprice, toggleRuthStance, ruthStance: () => ruthStance, busTables,
   // Headless lever: bind a rival ghost ledger (as /sync/rival returns) — the
   // async-rivals path under test. Null restores synthetic Sam.
   setRivalGhost(g) { bindRivalGhost(g); },
