@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
 import { PatronSystem, hairFor, baldAt } from '../js/patrons.js';
-import { buildBarStaff, barStaffSpec } from '../js/barStaff.js';
+import { buildBarStaff, barStaffSpec } from '../js/barstaff.js';
 import { StreetLife } from '../js/streetLife.js';
 
 // deterministic stand-ins for the two cosmetic rolls spawn takes
