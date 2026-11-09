@@ -2,7 +2,28 @@
 
 How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
 
-## Current verification — November 9, 2026: the drum becomes a player verb
+## Current verification — November 9, 2026: floor tactics, visual polish, and measured +EV hedging
+
+Shipped the tactical agency and polish pass addressing playtester themes (overwhelm, lack of agency, presentation, and +EV commodity hedging).
+
+**Automated gate on this tree** (local simulator, fixed 100 ms frames, deterministic `Math.random` reset before each run):
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` (`tsc --noEmit`) | clean |
+| `git diff --check` | clean |
+| `npm run test:fast` | 551/551 pass |
+| Integration tests (`campaign-tight.mjs`) | clean (`FLOW campaignDone = true \| netWorth = 2244`) |
+| Floor tactics & polish (`barista-stance.mjs`) | 17/17 pass |
+| Browser | Chromium session verified in Playwright REPL: `#stance` button cycles postures, `#busbtn` clears tables, live vitals nut displays £285/day (`staff £140 · rent £110 · supplies £0 · bills £35`), console logs clean (0 errors/warnings). |
+
+**Hedge rebalance — measured evidence (Seed 7, frost week):**
+Previously in EVAL.md, every contract-buying policy posted negative hedge benefit after fees (−£75 to −£508). Halving `contractUnitFee` (0.09→0.045) and slope (0.025→0.015) was empirically swept on Seed 7:
+- **`forecaster` (unhedged):** Net worth £1,020.72 (`hedgeBenefitAfterFees: 0`).
+- **`conservative` (hedged):** Net worth £1,610.97 (`hedgeBenefitAfterFees: +£56.93`).
+- **Payoff:** Informed hedging yielded **+£590.25** higher net worth (+58%) with strictly positive realized net hedge savings (+£56.93), reversing the fee-drag penalty.
+
+## Previous verification — November 9, 2026: the drum becomes a player verb
 
 The craft chain (roast → freshness → scorch → `cupQuality` → satisfaction → opinion → reputation → footfall) already existed with no player decision on it, and sacks were created at their ideal roast, so doing nothing poured perfect coffee. This pass inverts that: `roast: null` (unprogrammed) pours a flat Q 0.90, the sweet spot is `roastIdeal(lot, crowdMix, climateLean)` rather than a constant, dark settings can scorch the sack, and day 1 of the Brief is the coffee alone. Direction and reasoning: VISION.md "The cup as a verb"; contract: AGENTS.md "Craft: the drum".
 

@@ -195,6 +195,17 @@ Sept-28 polish folds laptop/camera into seated poses (lap tilt / eye-level
 raise) instead of hanging them in front of a sitting chest. Same five cohorts,
 and the floor reads five rooms.
 
+## Floor tactics & live agency (Ruth stance, table bussing, catchment spillover)
+
+Trading hours carry live operational levers so the floor is not a passive spectator diorama:
+
+- **Ruth's stance** (`ruthStance`, `S` key / `#stance` button): `steady` (default 1.0×), `rush` (1.35× points speed, holds commuter line, tip penalty, Sam clocks pace and speeds up), and `craft` (0.72× points, +20% tips, +0.03 opinion for creatives/elders, commuters balk faster only when line > 3). Stance persists across dawns and is saved in `capturePreDawn`/`applySavedWeek`.
+- **Table bussing**: sitters leaving seats mark round tables dirty (`world.markTableDirty` → `t.dirty` + `t.dirtyGroup` mug, saucer, crumb plate). All three tables dirty adds +0.20 camp pull to Glasshouse, repelling creatives and elders. `B` key / `#busbtn` clears all tables (`busTables()`). In Craft stance Ruth auto-busses when counter line is clear.
+- **Bidirectional Glasshouse spillover**: when Sam's queue backs up (≥6) and player counter line is calm (≤2), waiting patrons defect across the zebra crossing into the player queue (`rivalSpillover`).
+- **Word-of-mouth gossip**: named regulars served with opinion >0.65 trigger `fx.gossipBubbles()` with 3D conversation beams connecting to friends on the floor.
+- **Visual coffee polish**: rising steam plumes (`fx.steam`) from active counter and table mugs; drink surface tinting (matcha, espresso, flatwhite crema, filter mahogany).
+- **Authentic café scale**: `spawnScale` 0.028 (~180–320 cups/day), staff rate £140/day, pitch rent £110/day, daily nut £285/day, standard contract 240 cups, credit limit £1,200.
+
 ## RevenueCat surface (Ship-a-ton depth)
 
 `web/js/billing.js` is the single client source of truth for entitlement

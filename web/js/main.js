@@ -3667,7 +3667,11 @@ function rivalReact(playerMove) {
       fx.card('BOARD FLIPPED', `${COPY.rivalBarista}'s chalkboard now reads ${fmt(newPrice)}`);
     } catch {}
   } else if (playerMove === 'rush') {
-    const msg = `${COPY.rivalBarista} watches Ruth pick up the pace`;
+    // Sam clocks Ruth's rush pace and works harder to compete: boosts rival credit and tightens their line
+    if (patrons && typeof patrons.rivalCredit === 'number') {
+      patrons.rivalCredit = Math.min(1, patrons.rivalCredit + 1.0);
+    }
+    const msg = `${COPY.rivalBarista} clocks Ruth’s pace — grinding faster to match`;
     rivalReactLog.push({ move: 'rush', msg, ts: dayMin });
     fx.toast(msg, 'warn');
   }
@@ -4552,6 +4556,7 @@ function capturePreDawn(enteringDay) {
         baristaCondition, weekHire, hireLocked, ruthSkill, samTruce, quietCarry,
         ruthNoticed, ruthAsked, ruthRestDay, ruthReturned,
         contractsTaken, settledCount, ignoredAdvice,
+        ruthStance: ruthStance || 'steady',
       },
     });
   } catch { /* private mode — the week still plays */ }
@@ -4657,6 +4662,11 @@ function applySavedWeek(save) {
   if (st.weekHire) weekHire = st.weekHire;
   hireLocked = !!st.hireLocked;
   if (st.ruthSkill != null) ruthSkill = st.ruthSkill;
+  if (st.ruthStance && ['steady', 'rush', 'craft'].includes(st.ruthStance)) {
+    ruthStance = st.ruthStance;
+    if (patrons) patrons.ruthStance = ruthStance;
+    updateStanceButton();
+  }
   samTruce = !!st.samTruce;
   if (st.quietCarry != null) quietCarry = st.quietCarry;
   ruthNoticed = !!st.ruthNoticed; ruthAsked = !!st.ruthAsked;
@@ -4852,7 +4862,7 @@ function prepareDay(d) {
     world.setNeighborBoards(streetBoards);
   } catch {}
   prebatched = false; repriced = false; ctx.prebatched = false; ctx.repriced = false; ctx.batchUnits = 0; ctx.batchReservedUntil = 0; patrons.repriced = false;
-  ruthStance = 'steady'; updateStanceButton(); if (patrons) patrons.ruthStance = 'steady';
+  updateStanceButton(); if (patrons) patrons.ruthStance = ruthStance;
   peakQueue = 0; waveBalked = 0; waveServed = 0; prebatchHelped = false; eveningCallShown = false; eveningFast = false; rushFast = false; closed = false; _pfRushCam = false;
   frontage.reset();   // frontage conversions today
   nudgedStanding = false;

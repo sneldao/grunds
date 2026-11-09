@@ -587,8 +587,8 @@ export class PatronSystem {
       const dk = p.drink || (p.wantsMatcha ? 'matcha' : 'flatwhite');
       const batched = dk === 'matcha' && (ctx.batchUnits || 0) > 0 && dayMin >= (ctx.batchReservedUntil || 0);
       let stanceBalkMul = 1;
-      if (this.ruthStance === 'craft' && p.cohort === 'commuters') stanceBalkMul = 1.35;
-      else if (this.ruthStance === 'rush' && p.cohort === 'commuters') stanceBalkMul = 0.75;
+      if (this.ruthStance === 'craft' && p.cohort === 'commuters' && this.counterQ.length > 3) stanceBalkMul = 1.45;
+      else if (this.ruthStance === 'rush' && p.cohort === 'commuters') stanceBalkMul = 0.70;
       const chance = balkChanceFor(dk, batched, { repriced: !!this.repriced }) * (this.balkMul || 1) * stanceBalkMul;
       if (p.waitMin > balkLimit(dk, batched) && this.random() < chance) {
         this.counterQ.splice(i, 1);
@@ -699,7 +699,7 @@ export class PatronSystem {
         p.goal = this._slotPos(counterSlot, this.counterQ.length - 1, p);
         ev.push({ type: 'rivalWalkback', p });
         walkedBack = true;
-      } else if (!this.truceCeasefire && this.rivalQ.length >= 6 && this.counterQ.length <= 2 && p.waitMin >= 2 && this.random() < 0.20) {
+      } else if (!this.truceCeasefire && this.world?.seats?.length >= 3 && this.rivalQ.length >= 6 && this.counterQ.length <= 2 && p.waitMin >= 2 && this.random() < 0.20) {
         // Dynamic catchment spillover: when Glasshouse line is backed up and player queue is clear,
         // impatient patrons in Sam's queue defect across the zebra crossing to the player!
         this.rivalQ.splice(i, 1);
@@ -869,7 +869,8 @@ export class PatronSystem {
     this.parts.hat.setColorAt(p.idx, hat);
     // hair shares the _c scratch — it must land after the hat write above
     this.parts.hair.setColorAt(p.idx, this._c.set(hairFor(p.idx)));
-    this.parts.cup.setColorAt(p.idx, this._c.set(p.cupGreen ? 0x9fc46a : 0xf0ead8));
+    const cupColor = p.cupGreen ? 0x86a860 : (p.drink === 'espresso' ? 0x4a2c1a : (p.drink === 'filter' ? 0x2e1a10 : (p.drink === 'flatwhite' || p.drink === 'latte' || p.drink === 'cappuccino') ? 0xd8b27a : 0xf0ead8));
+    this.parts.cup.setColorAt(p.idx, this._c.set(cupColor));
     for (const part of Object.values(this.parts)) if (part.instanceColor) part.instanceColor.needsUpdate = true;
   }
 

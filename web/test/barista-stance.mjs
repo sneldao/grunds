@@ -11,10 +11,14 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MAIN = `${ROOT}/js/main.js`;
 const PATRONS = `${ROOT}/js/patrons.js`;
 const INDEX = `${ROOT}/index.html`;
+const WORLD = `${ROOT}/js/world.js`;
+const FX = `${ROOT}/js/fx.js`;
 
 const main = readFileSync(MAIN, 'utf8');
 const patrons = readFileSync(PATRONS, 'utf8');
 const index = readFileSync(INDEX, 'utf8');
+const world = readFileSync(WORLD, 'utf8');
+const fx = readFileSync(FX, 'utf8');
 
 test('barista-stance: HTML button declared in levers', () => {
   assert.match(index, /<button id="stance">Ruth: Steady <kbd>S<\/kbd><small>balanced pace & craft<\/small><\/button>/);
@@ -29,9 +33,9 @@ test('barista-stance: patrons scales bar prep points by stance', () => {
   assert.match(patrons, /const staffed = \(ECON\.barPoints \+ \(this\.skillPts \|\| 0\)\) \* \(this\.staffMul \|\| 1\) \* stancePaceMul/);
 });
 
-test('barista-stance: commuters balk faster in craft and hold in rush', () => {
-  assert.match(patrons, /if \(this\.ruthStance === 'craft' && p\.cohort === 'commuters'\) stanceBalkMul = 1\.35/);
-  assert.match(patrons, /else if \(this\.ruthStance === 'rush' && p\.cohort === 'commuters'\) stanceBalkMul = 0\.75/);
+test('barista-stance: commuters balk faster in craft when line > 3 and hold in rush', () => {
+  assert.match(patrons, /if \(this\.ruthStance === 'craft' && p\.cohort === 'commuters' && this\.counterQ\.length > 3\) stanceBalkMul = 1\.45/);
+  assert.match(patrons, /else if \(this\.ruthStance === 'rush' && p\.cohort === 'commuters'\) stanceBalkMul = 0\.70/);
 });
 
 test('barista-stance: main declares ruthStance and toggleRuthStance', () => {
@@ -82,4 +86,19 @@ test('rival-spillover: jammed Sam queue defects to player', () => {
 test('social-contagion: glowing regulars spread good gossip bubbles', () => {
   assert.match(main, /r\.op > 0\.65 && floorRng\(\) < 0\.30/);
   assert.match(main, /fx\.gossipBubbles\?\.\(e\.p/);
+});
+
+test('visual-polish: cup surface tinted by drink', () => {
+  assert.match(patrons, /cupColor = p\.cupGreen \? 0x86a860 : \(p\.drink === 'espresso' \? 0x4a2c1a/);
+});
+
+test('visual-polish: table clutter includes dirty mug, saucer, and crumb plate', () => {
+  assert.match(world, /const dirtySaucer = new THREE\.Mesh/);
+  assert.match(world, /const crumbPlate = new THREE\.Mesh/);
+  assert.match(world, /dirtyGroup\.add\(crumbPlate\)/);
+});
+
+test('visual-polish: steam rises from active counter and table mugs', () => {
+  assert.match(fx, /LAYOUT\.counter\.x/);
+  assert.match(fx, /LAYOUT\.tables/);
 });

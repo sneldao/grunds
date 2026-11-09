@@ -1,7 +1,7 @@
 // FX — particles (steam, coins, dust, huffs) + DOM storytelling (bubbles, cards, receipt).
 import * as THREE from '../vendor/three.module.js';
 import { softSprite } from './textures.js';
-import { COPY } from './config.js';
+import { COPY, LAYOUT } from './config.js';
 
 class Pool {
   constructor(scene, n, { size, blending, tint = 0xffffff }) {
@@ -114,6 +114,18 @@ export class FX {
         const fx = Math.sin(p.face), fz = Math.cos(p.face), rx = Math.cos(p.face), rz = -Math.sin(p.face);
         this.steam.spawn(p.pos.x + fx * 0.24 + rx * 0.14, 1.05, p.pos.z + fz * 0.24 + rz * 0.14,
           (this.random() - 0.5) * 0.08, 0.3 + this.random() * 0.15, (this.random() - 0.5) * 0.08, 1.4 + this.random(), 0.5);
+      }
+    }
+    // Steam wisps rising from the active counter espresso pickup spot
+    if (this.random() < 0.22) {
+      this.steam.spawn(LAYOUT.counter.x + 1.2 + (this.random() - 0.5) * 0.6, 1.02, LAYOUT.counter.z + 0.3,
+        (this.random() - 0.5) * 0.04, 0.22 + this.random() * 0.12, (this.random() - 0.5) * 0.04, 1.1 + this.random() * 0.5, 0.4);
+    }
+    // Steam wisps rising from table mugs
+    for (const t of LAYOUT.tables) {
+      if (this.random() < 0.10) {
+        this.steam.spawn(t.x + (this.random() - 0.5) * 0.15, 0.82, t.z + (this.random() - 0.5) * 0.15,
+          (this.random() - 0.5) * 0.03, 0.18 + this.random() * 0.10, (this.random() - 0.5) * 0.03, 0.9 + this.random() * 0.4, 0.35);
       }
     }
   }

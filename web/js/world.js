@@ -702,7 +702,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   for (const t of LAYOUT.tables) {
     place(scene, 'tableRound.glb', { position: [t.x, 0, t.z], scale: 1.4, rotationY: 0 });
     addContactShadow(scene, t.x, t.z, 1.9, 1.9, 0.26);
-    // Table bussing: small dirty mug prop shown when sitters depart until bussed
+    // Table bussing: dirty mug + saucer + crumb plate shown when sitters depart until bussed
     const dirtyGroup = new THREE.Group();
     dirtyGroup.position.set(t.x + 0.12, 0.72, t.z + 0.1);
     dirtyGroup.visible = false;
@@ -710,7 +710,19 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
       new THREE.CylinderGeometry(0.06, 0.05, 0.12, 8),
       new THREE.MeshStandardMaterial({ color: 0xefe6d3, roughness: 0.6 })
     );
+    const dirtySaucer = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.10, 0.09, 0.015, 8),
+      new THREE.MeshStandardMaterial({ color: 0xd8cbb2, roughness: 0.6 })
+    );
+    dirtySaucer.position.y = -0.055;
+    const crumbPlate = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.07, 0.012, 8),
+      new THREE.MeshStandardMaterial({ color: 0xc9a227, roughness: 0.7 })
+    );
+    crumbPlate.position.set(-0.22, -0.055, 0.08);
     dirtyGroup.add(dirtyMug);
+    dirtyGroup.add(dirtySaucer);
+    dirtyGroup.add(crumbPlate);
     scene.add(dirtyGroup);
     t.dirtyGroup = dirtyGroup;
     t.dirty = false;

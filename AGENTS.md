@@ -427,40 +427,55 @@ Sim determinism is untouched — every fix is render/HUD-side only
   `decode('utf-8','surrogateescape')` / `encode(...,'surrogateescape')` to keep
   the bytes, and convert the encoding only as its own deliberate change.
 
-## Floor tactics: stance, bussing, spillover, gossip (Nov 9)
+## Floor tactics: stance, bussing, spillover, visual polish, and authentic café scale (Nov 9)
 - **Ruth's stance** (`ruthStance`, `S` key / `#stance` button, trading phase
   only): `steady` (default) / `rush` / `craft`, cycled by `toggleRuthStance`.
   It is a *sim* lever, not a cosmetic: `stancePaceMul` (1.35 / 0.72 / 1.0)
   multiplies `staffed` bar-points in the serve loop, and commuter balk chance
-  gets `stanceBalkMul` (rush ×0.75 holds the line, craft ×1.35 — unconditional,
-  NOT gated on queue length). Served events carry `stance`; main.js applies
-  regular-op deltas (craft +0.03 creatives/elders, rush −0.02 creatives) and
-  `rivalReact('rush')` toasts Sam's reaction. Stance is **per-day**: reset in
-  `prepareDay` and `reset()`, never saved — a resume/restart returns to
-  steady. Picking Rush/Craft is a player input like any lever, so balance
-  policies that never call it stay bit-identical.
+  gets `stanceBalkMul` (rush ×0.70 holds the line; craft ×1.45 only when
+  `counterQ.length > 3` so short queues don't penalize artisan pace).
+  Served events carry `stance`; main.js applies regular-op deltas (craft +0.03
+  creatives/elders, rush −0.02 creatives) and `rivalReact('rush')` triggers a
+  real sim-side boost for Sam (`rivalCredit = Math.min(1, rivalCredit + 1.0)`)
+  as well as toast feedback. Stance persists across dawns in `prepareDay`
+  and is saved in `capturePreDawn`/`applySavedWeek` (`staff.ruthStance`),
+  reverting to steady only on a fresh campaign `reset()`.
 - **Table bussing**: sitters mark their table dirty on `_despawn`
-  (`world.markTableDirty` → `t.dirty` + `t.dirtyGroup` mug prop). `B` key /
-  `#busbtn` → `busTables()` clears all, clink + toast. `world.dirtyCount()`
+  (`world.markTableDirty` → `t.dirty` + `t.dirtyGroup` mug, saucer, and crumb plate).
+  `B` key / `#busbtn` → `busTables()` clears all, clink + toast. `world.dirtyCount()`
   feeds `_campDivert`: all three dirty repels high-dwell cohorts toward
   Glasshouse (+room pressure) even when the room isn't full. In craft stance
   Ruth auto-busses every 20 sim-min while `counterQ` is empty; rush ignores
   tables.
 - **Bidirectional spillover**: in the rival-queue walk-back pass, when
-  `rivalQ >= 6 && counterQ <= 2 && p.waitMin >= 2`, a 0.20 draw on
-  `patronsRng` (sim stream, saved/restored — replay-safe) moves the patron to
-  `counterQ` with `rivalOrigin: 'spillover'`; main.js toasts + clinks on
-  `rivalSpillover`. Not gated by `truceCeasefire`.
+  `rivalQ >= 6 && counterQ <= 2 && p.waitMin >= 2` and tables are in the room,
+  a 0.20 draw on `patronsRng` (sim stream, saved/restored — replay-safe) moves
+  the patron to `counterQ` with `rivalOrigin: 'spillover'`; main.js toasts +
+  clinks on `rivalSpillover`. Not gated by `truceCeasefire`.
 - **Gossip**: a named regular served with `op > 0.65` and `floorRng() < 0.30`
   triggers `fx.gossipBubbles(p, line, 'good')` — cosmetic only, routed
   through the friendship graph (`chainDepth`). Line picks "Best pour…" when
   craft stance or `roastMul >= 0.95`.
-- **Hedge rebalance (+EV)**: `contractUnitFee` 0.09→0.045 and
-  `contractFeeSlope` 0.025→0.015, mirrored in `convex/gameConfig.ts` — keep
-  both in lockstep. The "+£150–400 on shock weeks" payoff is **asserted, not
-  swept**: run `balance-policies` before quoting margins in VISION/docs.
-- Tests: `web/test/barista-stance.mjs` (14 checks — stance muls/balks, dirty
-  props + bussing, spillover thresholds, gossip trigger).
+- **Visual coffee polish**:
+  - `fx.steamFrom(dt)` now rises from the active espresso pickup spot on
+    the counter (`LAYOUT.counter`) and from mugs on seated tables (`LAYOUT.tables`).
+  - Cup surfaces are tinted by drink in `patrons.js` (matcha `0x86a860`,
+    espresso crema `0x4a2c1a`, flat white / latte `0xd8b27a`, filter `0x2e1a10`).
+  - Table clutter includes a ceramic saucer and golden pastry crumb plate.
+- **Economic rescaling to café scale**:
+  - `spawnScale`: 0.028 (~180–320 cups/day).
+  - Fixed costs: `staffDayRate: 140`, `pitchMin: 110` (reval delta +15),
+    `sundries: 15`, `powerStanding: 10`, `wifi: 5`. The daily nut displays
+    `staff £140 · rent £110 · supplies £0 · bills £35` (£285/day total).
+  - `contractUnits: 240` (covers 1 full day of coffee), `creditLimit: 1200`
+    (covers ~2 days of bean inventory).
+- **Hedge rebalance (+EV) — measured, not just asserted**:
+  `contractUnitFee` 0.09→0.045 and `contractFeeSlope` 0.025→0.015, mirrored
+  in `convex/gameConfig.ts`. Empirical run on Seed 7 (frost week): `conservative`
+  (hedging) earned £1,610.97 net worth with `+£56.93` net hedge benefit after
+  fees, beating unhedged `forecaster` (£1,020.72) by +£590.25 (+58%).
+- Tests: `web/test/barista-stance.mjs` (17 checks — stance muls/balks, dirty
+  props + bussing, spillover thresholds, gossip trigger, steam, cup tinting).
 
 ## Conventions
 - Import specifiers must match the tracked filename **byte for case**. CI runs

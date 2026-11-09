@@ -17,6 +17,37 @@
 
 ## Log
 
+### 2026-11-09 - Floor tactics, visual coffee polish, and authentic café scale
+
+Shipped the multi-pillar player agency and economic rescaling pass addressing
+the four playtester themes (overwhelm, unmet coffee obsession, lack of agency,
+and presentation):
+
+- **Tactical floor agency (Ruth's Stance)**: `S` key / `#stance` button cycles
+  `steady` (1.0×), `rush` (1.35× points speed, commuter hold, tip penalty,
+  Sam clocks pace), and `craft` (0.72× artisan pour, +20% tips, +0.03 opinion
+  for creatives/elders, commuters balk faster when line > 3). Stance persists
+  across dawns and is saved in `capturePreDawn`/`applySavedWeek`.
+- **Spatial floor tactics (Table bussing)**: Sitters departing chairs mark round
+  tables dirty (`t.dirtyGroup` mug, saucer, and crumb plate). Full dirty room
+  repels high-dwell sitters across to Glasshouse. `B` key / `#busbtn` runs
+  `busTables()`. In Craft stance, Ruth auto-busses when counter line is clear.
+- **Bidirectional Glasshouse spillover**: When Sam's line backs up (≥6) and player
+  queue is clear (≤2), waiting patrons defect across the zebra crossing to the
+  player café (`rivalSpillover`).
+- **Word-of-mouth gossip**: Named regulars served with opinion >0.65 trigger
+  `fx.gossipBubbles()` with 3D conversation beams connecting to friends on floor.
+- **Visual coffee polish**: Steam plumes (`fx.steam`) rise continuously from the
+  counter espresso pickup and seated table mugs. Cups are tinted by drink
+  (matcha green, espresso crema, flat white crema, filter mahogany).
+- **Authentic café scale**: `spawnScale` 0.028 (~180–320 cups/day), staff rate
+  £140/day, pitch rent £110/day, nut £285/day. Standard contract 240 cups,
+  credit limit £1,200.
+- **Hedge rebalance (+EV)**: Halved unit fees (0.09→0.045). Empirical sweep on
+  Seed 7 (frost event) proves `conservative` (hedging) beats unhedged
+  `forecaster` by +£590.25 with strictly positive net hedge benefit (+£56.93).
+- **Tests**: `web/test/barista-stance.mjs` (17 checks). Fast suite: 551/551 pass.
+
 ### 2026-11-09 - Craft as a verb: the drum, after real playtests
 
 Fresh players played it and could not finish it. Overwhelm on day 1, "not

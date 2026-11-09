@@ -73,7 +73,7 @@ export const ECON = {
   // reason instead of silently re-rolling their order.
   pricePullPerPound: 0.45, pricePullMax: 0.30, priceLureMax: 0.15,
   eightySixedTurnaway: 0.48,
-  spawnScale: 0.3,   // the 13-week dataset compressed to one day: scale demand to ~2x service at peak
+  spawnScale: 0.028,   // rescaled to authentic indie café: ~180–320 cups/day
 };
 
 // Story beats keyed to the real wave shapes in out/wave_schedule.json.
@@ -127,7 +127,7 @@ export const COPY = {
 export const CAMPAIGN = {
   days: 5,
   beanBaseCost: 1.30,       // £ per drink at index 1.0 (≈27% of £4.80)
-  contractUnits: 2400,     // a contract covers one full day's made drinks at the counter
+  contractUnits: 240,      // a contract covers one full day's made drinks at the counter
   // Cover is priced per cup near the expected daily drift (~£0.04–0.06/unit):
   // calm weeks bleed the fee, spikes pay off handsomely (+EV on wire warning).
   // Bigger locks cost slightly more per cup because they sit through more drift.
@@ -136,20 +136,20 @@ export const CAMPAIGN = {
   wastePct: 0.06,          // 6% of sales lost to waste (Business Waste / Notions)
   debtInterest: 4.0,      // daily floor on outstanding supplier credit
   debtInterestRate: 0.025, // plus 2.5%/day — the tab compounds, not just ticks
-  creditLimit: 3500,      // the supplier's tab limit — past it you settle before you hedge
+  creditLimit: 1200,      // the supplier's tab limit — past it you settle before you hedge
   startReputation: 62,     // 0..100 — the regulars' aggregate opinion
   // The operating cost sheet — what a real stand pays beyond beans. The load
   // sits in committed costs (a rostered shift, the pitch's base rent) rather
   // than per-cup: a quiet day still owes most of the nut, which is what makes
   // a bad week able to lose. The receipt prints the full P&L — the costs are
   // the education.
-  staffDayRate: 1700,     // the day's roster — committed before the weather is known
+  staffDayRate: 140,      // the day's roster — committed before the weather is known
   staffPerCup: 0.14,      // flex hands at the rush on top of the roster
   suppliesPerCup: 0.50,   // milk, cup, lid, sleeve — the rest of a real COGS
-  pitchMin: 1150,         // base pitch rent — owed even when nobody comes
+  pitchMin: 110,          // base pitch rent — owed even when nobody comes
   pitchPct: 0.12,         // turnover top-up once sales clear the breakpoint
   cardFeePct: 0.026,      // card processing on every sale
-  sundries: 30,           // insurance, cleaning, waste collection
+  sundries: 15,           // insurance, cleaning, waste collection
   // Utilities — split out of sundries so the stand can see what it burns.
   // Power is a standing charge plus every shot pulled (~£32 on a ~3,000-cup
   // day); wifi is flat but it carries the card reader, so it can go down.
@@ -184,14 +184,14 @@ export const CAMPAIGN = {
   },
   // Staffing depth — apprentice / temp options when Ruth is fatigued.
   staff: {
-    apprenticeDayRate: 2040,   // agency temps cost more than the rostered day
+    apprenticeDayRate: 170,    // agency temps cost more than the rostered day (£140)
     apprenticeTrainingFee: 12, // upfront training fee deducted at dawn
     apprenticeStaffMul: 1.05,  // combined throughput bonus
     apprenticeWasteExtra: 0.04,// minor clumsiness increases waste
     ruthApprenticeRest: 0.25,  // partial rest Ruth gains when backed by a temp
     // A week-long robot lease. Cheaper than Ruth's rostered day, slower than
     // a healthy Ruth, and the room it leaves does not refill at dawn.
-    robotDayRate: 980,
+    robotDayRate: 80,
     robotStaffMul: 0.58,
     robotBalkMul: 1.4,
     robotTipRate: 0.08,        // the gratuity that usually rides inside the ticket
