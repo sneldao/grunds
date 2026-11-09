@@ -428,6 +428,11 @@ Sim determinism is untouched — every fix is render/HUD-side only
   the bytes, and convert the encoding only as its own deliberate change.
 
 ## Conventions
+- Import specifiers must match the tracked filename **byte for case**. CI runs
+  on a case-sensitive FS; macOS does not, so `./barStaff.js` passes every
+  local run and dies with `ERR_MODULE_NOT_FOUND` on the runner. That kept main
+  red on every push from 3 Nov until `e106087`. Suspect it first when CI is
+  red and `npm test` is green locally.
 - Choice surfaces: options + consequence visible, no folds for choices —
   see ARCHITECTURE.md "Choice surfaces".
 - Sim RNG must never call bare `Math.random` — streams are `seeded(seed + n)`
