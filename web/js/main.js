@@ -1567,9 +1567,10 @@ function residualEveningCups() {
   // Scaled the same way as the live spawn loop (no event/rep multipliers —
   // the modal needs a stable number the player can trust).
   let n = 0;
+  const mul = softDay ? SOFT_MUL : 1;
   for (const w of dayWaves) {
     if (w.t < 1020) continue;
-    for (const s of w.spawns || []) n += Math.max(0, Math.round((s.q || 0) * ECON.spawnScale));
+    for (const s of w.spawns || []) n += Math.max(0, Math.round((s.q || 0) * ECON.spawnScale * mul));
   }
   return n;
 }
@@ -3281,13 +3282,15 @@ function renderLotSection() {
   roastLab.textContent = `${name} roast — this week reads ${ideal}`;
   const rMinus = document.createElement('button');
   rMinus.id = 'brief-roast-minus'; rMinus.textContent = '−'; rMinus.style.cssText = 'padding:4px 10px';
-  rMinus.onclick = () => { stagedRoast = stagedRoast === null ? 3 : Math.max(1, stagedRoast - 1); renderLotSection(); };
+  rMinus.onclick = () => { stagedRoast = stagedRoast === null ? Math.max(1, ideal - 1) : Math.max(1, stagedRoast - 1); renderLotSection(); };
   const rVal = document.createElement('span');
-  rVal.textContent = `${stagedRoast ?? 'unset'} · Q ${lotRoastQuality(selectedLot, stagedRoast).toFixed(2)}`;
-  rVal.style.cssText = 'min-width:76px;text-align:center';
+  const qVal = lotRoastQuality(selectedLot, stagedRoast);
+  const qTone = stagedRoast === null ? 'flat' : qVal >= 1.0 ? 'sweet spot' : qVal >= 0.9 ? 'good' : 'off-profile';
+  rVal.textContent = `${stagedRoast ?? 'unset'} · ${qTone} · Q ${qVal.toFixed(2)}`;
+  rVal.style.cssText = 'min-width:110px;text-align:center';
   const rPlus = document.createElement('button');
   rPlus.id = 'brief-roast-plus'; rPlus.textContent = '+'; rPlus.style.cssText = 'padding:4px 10px';
-  rPlus.onclick = () => { stagedRoast = stagedRoast === null ? 3 : Math.min(5, stagedRoast + 1); renderLotSection(); };
+  rPlus.onclick = () => { stagedRoast = stagedRoast === null ? ideal : Math.min(5, stagedRoast + 1); renderLotSection(); };
   roastRow.appendChild(roastLab); roastRow.appendChild(rMinus); roastRow.appendChild(rVal); roastRow.appendChild(rPlus);
   det.appendChild(roastRow);
   const climateLean = ROAST_CLIMATE_LEAN[climate?.id] ?? 0;
@@ -3350,7 +3353,7 @@ function applyLots() {
   // The drum's teeth: the darker you push it, the more chance you scorch the
   // sack. Dark is what the commuters and elders read as a proper coffee, so
   // the safe read and the popular read are not the same read. Draws on its
-  // own stream (+47) so a mid-day resume replays the same roast.
+  // own stream (+53) so a mid-day resume replays the same roast.
   if (entry && Number.isFinite(stagedRoast)) {
     entry.scorched = roastRng() < SCORCH_RISK[stagedRoast];
     if (entry.scorched) fx.toast(SCORCH_LINE, 'warn');
