@@ -894,15 +894,15 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   // Meshy normalizes every model into a ~1 m centred box, so each placement
   // carries its own scale and a y offset that grounds the bbox bottom.
   // Bar-top pieces sit on the counter surface like the Polyfork set above.
-  place(bar, 'meshy/cake-stand.glb', { position: [-5.15, counterTop + 0.25, -5.5], rotationY: 0.4, scale: 0.55 });
-  place(bar, 'meshy/cup-stack.glb', { position: [-4.35, counterTop + 0.14, -5.8], rotationY: -0.3, scale: 0.4 });
+  place(bar, 'meshy/cake-stand.glb', { position: [-5.15, counterTop + 0.12, -5.5], rotationY: 0.4, scale: 0.55 });
+  place(bar, 'meshy/cup-stack.glb', { position: [-4.35, counterTop + 0.125, -5.8], rotationY: -0.3, scale: 0.4 });
   place(scene, 'meshy/a-board.glb', { position: [-3.3, 0.45, 7.3], rotationY: 0.5, scale: 0.9 })
     .then(() => addContactShadow(scene, -3.3, 7.3, 0.7, 0.4, 0.26));
   place(scene, 'meshy/crate-stack.glb', { position: [5.4, 0.35, 17.0], rotationY: 0.9, scale: 0.75 })
     .then(() => addContactShadow(scene, 5.4, 17.0, 1.0, 0.8, 0.3));
-  place(scene, 'meshy/vintage-bike.glb', { position: [-10.6, 0.53, 7.7], rotationY: 0.35, scale: 1.7 })
+  place(scene, 'meshy/vintage-bike.glb', { position: [-10.6, 0.63, 7.7], rotationY: 0.35, scale: 1.7 })
     .then(() => addContactShadow(scene, -10.6, 7.7, 1.5, 0.35, 0.26));
-  place(scene, 'meshy/plant-cluster.glb', { position: [-7.4, 0.31, 7.4], rotationY: -0.4, scale: 0.9 })
+  place(scene, 'meshy/plant-cluster.glb', { position: [-7.4, 0.45, 7.4], rotationY: -0.4, scale: 0.9 })
     .then(() => addContactShadow(scene, -7.4, 7.4, 0.9, 0.7, 0.28));
   place(scene, 'meshy/guitar-case.glb', { position: [12.0, 0.16, 7.6], rotationY: 2.6, scale: 0.65 })
     .then(() => addContactShadow(scene, 12.0, 7.6, 0.8, 0.5, 0.26));
