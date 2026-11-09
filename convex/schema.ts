@@ -82,7 +82,7 @@ export default defineSchema({
     unlocked: v.boolean(),
     unlockUntil: v.number(),
     hedgedStock: v.number(),
-    roast: v.optional(v.number()),
+    roast: v.optional(v.union(v.number(), v.null())),   // null = drum unprogrammed
     scorched: v.optional(v.boolean()),
   })
     .index("by_campaign", ["campaignId"])

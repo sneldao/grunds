@@ -207,7 +207,7 @@ test('Phase 2 · dry cellar bills every emergency cup at 1.5× spot', async () =
 
 // (15) stageCellar: headless lot control mirrors the Brief pills
 test('Phase 2 · stageCellar stages house lot + top-up for policy probes', () => {
-  assert.match(main, /function stageCellar\(\{ lot, topup \} = \{\}\)/);
+  assert.match(main, /function stageCellar\(\{ lot, roast, topup \} = \{\}\)/);
   assert.match(main, /if \(!LOT_IDS\.includes\(lot\)\) return false/);
   assert.match(main, /topUpCups = restockQty\(lastPour, lotState\.entry\(selectedLot\)\?\.stock\)/);
   assert.match(main, /stageCellar,/);

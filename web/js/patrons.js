@@ -272,7 +272,7 @@ export class PatronSystem {
     const ritualSpeed = (typeof cohortDef.walkSpeed === 'number') ? cohortDef.walkSpeed : 2.1;
     // Phase 3 — the order: weighted by cohort, honoring the 86 board.
     // wantsMatcha stays as the legacy flag so batch/balk/price paths read on.
-    // Loseable day 1: when the rolled drink is 86'd, its loyalists walk at the
+    // Menu stakes: when the rolled drink is 86'd, its loyalists walk at the
     // board with a reason (turnaway) instead of silently re-rolling — gutting
     // the menu costs the day in lost sales AND reputation, not just mix.
     // The spawn still returns a patron (contract kept: callers and the queue

@@ -443,6 +443,13 @@
   #brief.first-morning { place-items: center end; background: rgba(10,8,6,.30); backdrop-filter: blur(1px); }
   #brief.first-morning #brief-summary { white-space: normal; overflow: visible; text-overflow: clip; height: auto; }
   #brief.first-morning .modal-panel { --modal-width: 460px; margin-right: 28px; height: min(760px, 86vh); height: min(760px, 86dvh); }
+  /* Day 1 leads with the coffee: the tools block carries the sack + drum, and on
+     the first morning it is the first thing after the lede, not the last thing on
+     the page. Flex order only applies inside .first-morning, so later briefs keep
+     the report order the markup pins. */
+  #brief.first-morning .modal-tier-scroll { display: flex; flex-direction: column; }
+  #brief.first-morning #brief-intro { order: -2; }
+  #brief.first-morning #brief-tools { order: -1; }
   #softintro { position: fixed; inset: 0; z-index: 31; display: grid; place-items: center;
     background: rgba(10,8,6,.30); }
   #softintro .modal-panel { --modal-width: 340px; background: var(--cream); color: var(--ink);

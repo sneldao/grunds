@@ -9,10 +9,11 @@
 // sim (main.js module scope, fresh per campaign) and pass in as args, so
 // headless policy runs can't leak state across imports.
 //
-// Cause and effect (loseable day 1): price deltas move demand at spawn time
-// (see priceDivert below) and 86ing turns loyalists away at the board (see
-// eightySixedShare) — gouging or gutting the menu can lose the day, not
-// just slow it.
+// Cause and effect (a gouged or gutted menu can lose you the day): price
+// deltas move demand at spawn time (see priceDivert below) and 86ing turns
+// loyalists away at the board (see eightySixedShare) — gouging or gutting the
+// menu costs revenue AND reputation, not just mix. The lever is the day-2
+// card, not the first morning: day 1 is the coffee.
 
 import { ECON } from './config.js';
 import { ATTACH_ITEMS } from './behavioral.js';

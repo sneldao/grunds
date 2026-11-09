@@ -1,12 +1,12 @@
 import { fmt } from './city.js';
 export const TOOL_IDS = ['coffee', 'menu', 'street', 'insurance', 'tab'];
 
-// Loseable day 1, easy-by-default: the menu tool is visible from day 1 so a
-// player CAN gouge prices or gut the menu on the first morning (and lose for
-// it). Nothing else changes on day 1 — the tool is present but quiet, the
-// Brief still teaches prep first. Later days unlock the rest on schedule.
+// Day 1 is the coffee, not the spreadsheet. The drum is the hero decision on
+// the first morning — which sack pours, and how it's roasted — and nothing
+// else is on the cards: no menu lever, no contracts, no street work, no tab.
+// The rest of the toolkit unlocks on schedule once the coffee has been tasted.
 // (Day-1 presence is hard-coded in planTools; SCHEDULE still gates the card.)
-const SCHEDULE = { coffee: 2, menu: 3, street: 4, insurance: 5 };
+const SCHEDULE = { coffee: 1, menu: 2, street: 4, insurance: 5 };
 
 export function planTools({
   day = 1, introduced = [], houseStock = 0, lastPour = 0,
@@ -18,10 +18,12 @@ export function planTools({
   const visible = new Set();
   const essentialNew = [];
   let newToday = null;
-  // Loseable day 1, easy-by-default: the menu tool is present from the first
-  // morning (a player CAN gouge or gut the menu and lose for it), but it
-  // never takes the day-1 card — the Brief still teaches prep first.
-  if (day === 1) return { visible: new Set(['menu']), newToday: null, essentialNew };
+  if (day === 1) {
+    visible.add('coffee');
+    newToday = intro.has('coffee') ? null : 'coffee';
+    if (houseStock <= 0) essentialNew.push('coffee');
+    return { visible, newToday, essentialNew };
+  }
   if (day >= 2) {
     visible.add('menu');
     for (const t of intro) if (TOOL_IDS.includes(t)) visible.add(t);
@@ -62,7 +64,7 @@ export function toolCopy(id, ctx = {}) {
       return {
         title: 'Your coffee',
         voice: 'Idris: “Three coffees are in your cellar, and each has its own crowd.”',
-        why: 'Choose today’s house coffee. Fresh beans keep regulars happy — restock before the sack runs dry.',
+        why: 'Choose today’s house coffee, then set the drum — an unprogrammed one pours flat all week. Fresh beans keep regulars happy; restock before the sack runs dry.',
         lots,
       };
     }

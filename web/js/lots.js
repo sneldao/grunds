@@ -47,14 +47,47 @@ export const FRESH_TOPUP_FRAC = 0.2;   // top-up refreshes the roast date only w
 export const STALE_NUDGE = -0.03;      // stale cup served to a roster regular
 export const AFFINITY_NUDGE = 0.05;    // fresh cup: (affinity - 1) × this
 
-// Roast program: each lot has an ideal level (1 light → 5 dark); distance
-// costs 0.1 quality per step. Creatives love light Yirg, commuters love
-// dark Cerrado — the numbers say it through quality, the room tastes it.
+// Roast program. Each lot has a *base* ideal (1 light → 5 dark) and the
+// day's crowd pulls it: light shows the origin and the creatives/tourists
+// drink for that, dark is the punch a commuter and an elder read as "a proper
+// coffee". So the same sack has two right answers a whole step apart, and the
+// only way to know which one today is to read who's coming. Distance costs
+// 0.1 quality per step.
 export const ROAST_IDEAL = { cerrado: 4, huila: 3, yirgacheffe: 2, gesha: 2 };
-export function roastQuality(lotId, level) {
-  const ideal = ROAST_IDEAL[lotId] ?? 3;
+export const ROAST_LEAN = {
+  commuters: 1, elders: 0.5, students: 0, creatives: -1, tourists: -0.5,
+};
+// The week's sky pulls the whole board. A heatwave wants the cup light and
+// iced-forward; a cold bright week wants the punch. One climate per campaign,
+// so this is what makes a Lisbon week roast differently from a Leeds one —
+// the crowd mix alone is near-balanced and rounds to zero.
+export const ROAST_CLIMATE_LEAN = { fair: 0, heat: -1, rain: 0, crisp: 1 };
+
+// Weighted crowd pull from a { cohort: cups } map. No cups → no pull.
+export function crowdRoastPull(mix = {}) {
+  let cups = 0, lean = 0;
+  for (const [cohort, q] of Object.entries(mix)) {
+    const n = Math.max(0, +q || 0);
+    if (!n) continue;
+    cups += n;
+    lean += n * (ROAST_LEAN[cohort] ?? 0);
+  }
+  return cups ? lean / cups : 0;
+}
+
+export function roastIdeal(lotId, mix, climateLean = 0) {
+  const base = ROAST_IDEAL[lotId] ?? 3;
+  return Math.min(5, Math.max(1, base + Math.round(crowdRoastPull(mix) + (+climateLean || 0))));
+}
+
+// `ideal` overrides the lot's base — that's the crowd and the sky read for this
+// week. A null level is an unprogrammed drum: the sack pours flat at 0.90, a
+// step off whatever this week's number turns out to be.
+export function roastQuality(lotId, level, ideal = null) {
+  if (level === null || level === undefined) return 0.9;
+  const target = ideal ?? ROAST_IDEAL[lotId] ?? 3;
   const lv = Math.min(5, Math.max(1, Math.round(level)));
-  return Math.round((1 - 0.1 * Math.abs(lv - ideal)) * 100) / 100;
+  return Math.round((1 - 0.1 * Math.abs(lv - target)) * 100) / 100;
 }
 
 // Wire → shelf: commodity events move specific lots with a landing lag, and
@@ -74,6 +107,10 @@ export const STALE_LINES = {
   elders: 'Olu remembers when the roast was fresh',
   tourists: 'a tourist asked if the beans are old',
 };
+// Scorch halves the cup. The risk curve that causes it lives with the caller
+// (main.js SCORCH_RISK): the darker the drum setting, the likelier the sack
+// burns. An unprogrammed drum cannot scorch — you can only burn a roast you
+// chose.
 export const SCORCH_LINE = 'today’s roast went dark — the room can tell';
 
 // £/cup to BUY right now: base × market drift × wire multiplier.
@@ -108,8 +145,8 @@ export function restockQty(pouredYesterday, onHand = 0) {
 }
 
 // LotsState — the cellar. Lots keyed by id:
-// { stock, value (£ sunk), roastedOn (day), roast (1-5), scorched,
-//   priceMul, unlocked, unlockUntil, hedgedStock }.
+// { stock, value (£ sunk), roastedOn (day), roast (1-5, or null = unprogrammed),
+//   scorched, priceMul, unlocked, unlockUntil, hedgedStock }.
 export class LotsState {
   constructor() { this.reset(); }
   reset() {
@@ -119,7 +156,7 @@ export class LotsState {
         stock: STARTER_STOCK[id] ?? 0,
         value: 0,   // opening inventory: prepaid before the week, never billed
         roastedOn: 1,
-        roast: ROAST_IDEAL[id] ?? 3,
+        roast: null,   // unprogrammed: the drum is a decision, not a default
         scorched: false,
         priceMul: 1,
         unlocked: !LOT_CATALOG[id].microlot,

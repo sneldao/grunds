@@ -343,11 +343,17 @@ check('brief carries first-morning presentation', byId('brief').classList.contai
 const intro = deepText(byId('brief-intro'));
 check('intro: welcome + Ruth role + rival + aim + stand name + stock line',
   /first five days on the street/.test(intro) && /Ruth brews and serves automatically/.test(intro)
-  && /Glasshouse/.test(intro) && /run by Sam/.test(intro) && /matcha rush/.test(intro)
+  && /Glasshouse/.test(intro) && /run by Sam/.test(intro) && /pick a sack and set the drum/.test(intro)
   && /already stocked/.test(intro) && /THE CORNER CUP/.test(intro), intro.slice(0, 300));
 check('portrait rows render for Idris and Ruth', collect(byId('brief-intro'), c => c.className === 'fm-role').length === 2);
 
 check('#brief-more is gone — the curriculum replaced the drawer', byId('brief-more') === null);
+check('day 1 defers the vacant lot: no lease prompt on the first morning',
+  byId('brief-row') && byId('brief-row').style.display === 'none',
+  byId('brief-row') && byId('brief-row').style.display);
+check('day 1 markup carries the coffee-first order rule',
+  /#brief\.first-morning #brief-tools \{ order: -1; \}/.test(indexHtml)
+  && /#brief\.first-morning \.modal-tier-scroll \{ display: flex; flex-direction: column; \}/.test(indexHtml));
 {
   const tools = byId('brief-tools');
   check('#brief-tools exists in the real markup', !!tools);
@@ -358,11 +364,23 @@ check('#brief-more is gone — the curriculum replaced the drawer', byId('brief-
 for (const id of ['brief-new', 'brief-lots', 'brief-menu', 'brief-demand', 'brief-actions', 'brief-context', 'brief-nut', 'brief-risk']) {
   const n = byId(id);
   check(`#${id} exists in the real markup`, !!n);
-  if (id === 'brief-menu') {
+  if (id === 'brief-new') {
+    check('day 1 teaches the coffee: the New today card is the cellar',
+      n && n.style.display !== 'none' && /New today/.test(deepText(n)) && /Your coffee/.test(deepText(n)),
+      `display=${n && n.style.display} text=${deepText(n).slice(0, 160)}`);
+    continue;
+  }
+  if (id === 'brief-lots') {
     const text = n ? deepText(n) : '';
-    check('day 1 menu is present but quiet — no New today card',
-      n && n.style.display !== 'none' && /menu ·/.test(text) && !/New today/.test(text),
-      `display=${n && n.style.display} text=${text.slice(0, 160)}`);
+    check('day 1 shows the cellar with the drum',
+      n && n.style.display !== 'none' && /roast/.test(text),
+      `display=${n && n.style.display} text=${text.slice(0, 200)}`);
+    check('day 1 drum starts unprogrammed', /Q 0\.90/.test(text), text.slice(0, 260));
+    continue;
+  }
+  if (id === 'brief-menu') {
+    check('day 1 hides the menu lever (it is the day-2 card)',
+      n && n.style.display === 'none', `display=${n && n.style.display}`);
     continue;
   }
   check(`day-1 curriculum leaves #${id} hidden`, n && n.style.display === 'none', `display=${n && n.style.display}`);
@@ -372,10 +390,10 @@ for (const id of ['brief-new', 'brief-lots', 'brief-menu', 'brief-demand', 'brie
 const primary = visibleText(byId('brief'));
 check('primary surface: no viability/bonus/commitment/finance talk',
   !/viable|as a bonus|committed|riding the spot|insure|the wire|2914/i.test(primary), primary.slice(0, 500));
-check('day 1 primary keeps the quiet menu row and no teaching card',
-  /menu ·/.test(primary) && !/New today/.test(primary), primary.slice(0, 800));
+check('day 1 primary carries the coffee card and the drum, not the menu',
+  /New today/.test(primary) && /Your coffee/.test(primary) && /roast/.test(primary) && !/menu ·/.test(primary), primary.slice(0, 800));
 check('curriculum day-1 primary hides every other tool row',
-  !/pouring |supplier tab|the nut|Explore the full plan|More planning details|insure the beans|work the street/i.test(primary), primary.slice(0, 500));
+  !/supplier tab|the nut|Explore the full plan|More planning details|insure the beans|work the street/i.test(primary), primary.slice(0, 500));
 check('primary surface keeps the prep choice + forecast',
   /ONE PLAN FOR THE AFTERNOON/.test(primary) && /Students arrive at 14:00/.test(primary), primary.slice(0, 500));
 writeFileSync(join(LOGS, 'first-morning-visible.txt'), primary);
@@ -393,7 +411,7 @@ check('wait one-line copy', deepText(prepBtns()[2]).includes('Wait and see') && 
 check('guided: nothing pre-selected', prepBtns().every(b => !b.classList.contains('picked') && b.getAttribute('aria-pressed') === 'false'));
 check('guided: OPEN disabled until a real choice', byId('brief-open').disabled === true);
 const ftr = () => byId('brief-summary').textContent;
-check('guided footer prompts for the plan, no big number', /Choose your afternoon plan/.test(ftr()) && /counted at closing/.test(ftr()) && !/2914|committed/i.test(ftr()), ftr());
+check('guided footer prompts for the plan, no big number', /set the drum/.test(ftr()) && /afternoon plan/.test(ftr()) && /counted at closing/.test(ftr()) && !/2914|committed/i.test(ftr()), ftr());
 
 key('Enter');
 check('Enter before a choice is a no-op — still planning, nothing spent', G.phase === 'planning' && G.stats().batchSpend === 0, `phase=${G.phase} spend=${G.stats().batchSpend}`);
@@ -514,6 +532,8 @@ check('day 1 closes into review', G.phase === 'review', 'phase=' + G.phase);
   check('day-1 receipt lesson prices the real running cost',
     lessons.some(l => /Running the café today cost £[\d.,]+/.test(l) && receipt.ops && l.includes(`£${receipt.ops.total.toFixed(2)}`)),
     JSON.stringify(lessons));
+  check('day-1 receipt lesson quotes the real house pour (coffee is the day-1 card)',
+    lessons.some(l => / cups poured · \d+ left/.test(l)), JSON.stringify(lessons));
   writeFileSync(join(LOGS, 'day1-receipt-lessons.txt'), lessons.join('\n'));
 }
 {
@@ -531,17 +551,11 @@ check('day 2 hides the first-morning intro', byId('brief-intro').style.display =
 const briefNew2 = deepText(byId('brief-new'));
 {
   const tt = G.curriculum.toolsToday || {};
-  check('day 2 makes coffee the New today card', tt.newToday === 'coffee', JSON.stringify(tt));
-  check('day 2 introduces coffee with the Your coffee card', /New today/.test(briefNew2) && /Your coffee/.test(briefNew2) && /Three coffees are in your cellar/.test(briefNew2), briefNew2.slice(0, 300));
-  check('the coffee card names every cellar lot with its crowd', /favoured by/.test(briefNew2) && (briefNew2.match(/favoured by/g) || []).length === 3, briefNew2.slice(0, 400));
-  check('the coffee card lists no locked microlot', !/Panama Gesha/.test(briefNew2), briefNew2.slice(0, 400));
-  check('the coffee card carries the running-low need line', /house coffee is running low/.test(briefNew2), briefNew2.slice(0, 400));
-  check('the coffee card row carries the roast sweet-spot hint', /ideal roast/.test(deepText(byId('brief-lots'))), deepText(byId('brief-lots')).slice(0, 300));
+  check('day 2 makes the menu the New today card', tt.newToday === 'menu', JSON.stringify(tt));
+  check('day 2 keeps the cellar visible without re-teaching it', tt.visible.has('coffee') && !/Your coffee/.test(briefNew2), JSON.stringify([...(tt.visible || [])]) + ' | ' + briefNew2.slice(0, 200));
   check('the need line is not duplicated as a row note', !/New ·/.test(deepText(byId('brief-lots'))), deepText(byId('brief-lots')).slice(0, 120));
-  const det = collect(byId('brief-lots'), c => c.tagName === 'DETAILS')[0];
-  check('the coffee row is open on its intro day', !!det && det.open === true, `open=${det && det.open}`);
 }
-check('day 2 keeps the menu row quiet but visible', byId('brief-menu').style.display !== 'none' && !/New today/.test(deepText(byId('brief-menu'))), deepText(byId('brief-menu')).slice(0, 200));
+check('day 2 opens the menu as its New today card', byId('brief-menu').style.display !== 'none', deepText(byId('brief-menu')).slice(0, 200));
 for (const id of ['brief-demand', 'brief-context']) {
   check(`day 2 keeps #${id} hidden`, byId(id).style.display === 'none', `display=${byId(id).style.display}`);
 }
@@ -581,7 +595,9 @@ check('day 2 normal prep pills are back', !!collect(byId('brief-prep'), c => c.d
   globalThis.__d2till0 = till0;
 }
 check('day 2 hint no longer claims a staged midday press is free', !/pressing 1 or 2 mid-day without it costs/.test(deepText(byId('brief-prep'))));
-check('the learning line stays quiet beside the coffee card', byId('brief-learning').style.display === 'none' || !/house coffee needs attention/.test(byId('brief-learning').textContent), byId('brief-learning').textContent);
+check('the need line rides the coffee tool, not a stale day-2 card',
+  byId('brief-learning').style.display === 'none' || !/house coffee needs attention/.test(byId('brief-learning').textContent)
+  || (G.curriculum.toolsToday || {}).visible.has('coffee'), byId('brief-learning').textContent);
 writeFileSync(join(LOGS, 'day2-brief-visible.txt'), visibleText(byId('brief')));
 
 {
@@ -605,9 +621,8 @@ check('the skipped case opened empty — retail still bought drinks', G.stats().
   const lessons = receipt && receipt.lessons || [];
   const poured = (G.curriculum.pouredByLotToday || {});
   const houseLot = G.stats().houseLot;
-  check('day-2 receipt lesson quotes the real house pour',
-    !!houseLot && lessons.some(l => new RegExp(`${poured[houseLot] || 0} cups poured`).test(l)),
-    JSON.stringify({ lessons, poured, houseLot }));
+  check('day-2 receipt lesson is the menu, the day-2 card',
+    lessons.some(l => /^Served: /.test(l)), JSON.stringify({ lessons, poured, houseLot }));
   writeFileSync(join(LOGS, 'day2-receipt-lessons.txt'), lessons.join('\n'));
 }
 G.continueFromReview();
@@ -615,7 +630,8 @@ await new Promise(r => setTimeout(r, 10));
 G.renderBrief();
 {
   const briefNew3 = deepText(byId('brief-new'));
-  check('day 3 introduces the menu card', /New today/.test(briefNew3) && /Your menu/.test(briefNew3), briefNew3.slice(0, 300));
+  check('day 3 introduces nothing new — the street is quiet by design',
+    !/New today/.test(briefNew3), briefNew3.slice(0, 300));
   check('the menu row ends · change ›', /· change ›$/.test(sumOf('brief-menu') || ''), sumOf('brief-menu'));
   check('day 3 keeps the coffee row as an introduced tool', byId('brief-lots').style.display !== 'none' && !/New today/.test(deepText(byId('brief-lots'))), deepText(byId('brief-lots')).slice(0, 120));
   const debt = G.stats().debt;
@@ -629,7 +645,7 @@ G.renderBrief();
   writeFileSync(join(LOGS, 'day3-brief-visible.txt'), visibleText(byId('brief')));
   const savedDebt = G.exc.debt;
   G.exc.debt = CAMPAIGN.creditLimit - 300;
-  G.stageCellar({ topup: 'restock' });
+  G.stageCellar({ topup: 'restock', roast: 'auto' });
   G.renderBrief();
   const lbl = (byId('brief-top-rest') || {}).textContent || '';
   const lm = lbl.match(/tab covers ~(\d+) \(£([\d.]+)\)/);

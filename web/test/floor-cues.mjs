@@ -171,7 +171,8 @@ G.renderBrief();
   check('brief pastry line names today’s case', /croissants, already in the cabinet/.test(text), text.slice(0, 400));
   check('brief price line uses the live board and the deal', text.includes(`£${DRINKS.matcha.base.toFixed(2)}`) && text.includes(`£${ECON.matchaDeal.toFixed(2)}`), text);
   const pastryRow = findId(byId('brief-prep'), 'brief-pastry');
-  check('brief spots the menu and the case', byId('brief-menu').classList.contains('cue-spot') && pastryRow && pastryRow.classList.contains('cue-spot'));
+  check('brief spots the cellar and the case', byId('brief-lots').classList.contains('cue-spot') && pastryRow && pastryRow.classList.contains('cue-spot'));
+  check('day 1 does not halo the menu — the coffee is the lesson', !byId('brief-menu').classList.contains('cue-spot'));
   check('today’s croissant count sits on the case row', pastryRow && /croissants, already in the cabinet/.test(deepText(pastryRow)), deepText(pastryRow).slice(0, 180));
 }
 

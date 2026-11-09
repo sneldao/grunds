@@ -42,7 +42,7 @@ import { touchPrimary } from './gestures.js';
 import { saveWeek, loadWeek, clearWeek, resumeLabel } from './weekSave.js';
 import { planAsk, planIncidents } from './beats.js';
 import { portraitCanvas } from './portrait.js';
-import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_IDEAL, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
+import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_CLIMATE_LEAN, roastIdeal, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, EMPTY_CASE_MOOD, starredDelivery } from './menu.js';
 import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity, strollShare } from './demand.js';
 import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu, shockOnDay, demandShockRead, dawnDemandMult } from './shocks.js';
@@ -413,6 +413,7 @@ let patronsRng = seeded(seedNow() + 17);
 let floorRng = seeded(seedNow() + 19);
 let patronsCosRng = seeded(seedNow() + 29);
 let patronsConvRng = seeded(seedNow() + 43);   // frontage conversions only
+let roastRng = seeded(seedNow() + 53);   // the drum: dark-roast scorch rolls
 const patrons = new PatronSystem(scene, world, regulars, exchange, fx, { random: patronsRng, cosmetic: patronsCosRng });
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
 // Cosmetic street life. Own meshes, own random stream — never a café wave.
@@ -632,7 +633,7 @@ let staleNoted = new Set();
 // milk delivery/stock, compost count, and Ruth's cumulative skill.
 let menuPrices = basePrices();
 let menuOffered = Object.fromEntries(DRINK_IDS.map(id => [id, true]));
-let stagedMenu = null, stagedRoast = 3;
+let stagedMenu = null, stagedRoast = null;   // null: the drum ships unprogrammed
 let milkDelivery = 0, lastMilky = 0, milkTipped = 0, milkToastDone = false, milkBalked = 0;
 let shockCounter = null, stagedCounterable = null, shockDemandMul = 1, shockPulledFlat = false;
 let demandStreetWord = '';
@@ -982,6 +983,9 @@ function waveHash01(seed, dayNo, entry, slot) {
 // change of heart. The intent is to give the morning brief real prep weight.
 const LEVER_OVERRIDE_PRICE = 4.20;
 const LEVER_OVERRIDE_GOSSIP = 0.06;
+// Scorch risk per drum setting — the cost of pushing a dark roast. Level 5
+// burns one sack in five; the drum is never free at the dark end.
+const SCORCH_RISK = { 1: 0, 2: 0, 3: 0, 4: 0.08, 5: 0.20 };
 let leversTimeLocked = false;
 let leverOverrideCount = 0;
 
@@ -1174,7 +1178,7 @@ function tick() {
         // scorch reads as stale, and Ruth (skill 1+) cups the sour shots.
         const lot = lotState.entry(e.lotId);
         const age = lotState.age(e.lotId, day);
-        const roastMul = roastQuality(e.lotId, lot?.roast ?? 3);
+        const roastMul = lotRoastQuality(e.lotId, lot?.roast);
         const scorched = !!lot?.scorched;
         let nudge = serveNudge(e.lotId, e.p.cohort, age, roastMul, scorched);
         if (ruthSkill >= 1 && nudge < 0) nudge /= 2;
@@ -2076,7 +2080,7 @@ function buildIdrisMemory(snap) {
     lastHedge: snap.lastHedge ?? null,
     boardMoved: snap.indexPrev != null ? snap.index - snap.indexPrev : 0,
     houseLot: LOT_CATALOG[lotState.house]?.name || lotState.house,
-    houseRoast: houseEntry?.roast ?? 3,
+    houseRoast: houseEntry?.roast ?? null,
     houseAge: lotState.age(lotState.house, snap.day),
     topRegular: top && top.visits > 5 ? { name: top.name, visits: top.visits } : null,
   };
@@ -2677,6 +2681,10 @@ function newStreetUrl() {
 function renderFranchiseRow() {
   const host = $('brief-row'); if (!host) return;
   if (softDay || phase !== 'planning' || day < 1) { host.style.display = 'none'; return; }
+  // Day 1 is the coffee. The vacant lot — a prompt box, three examples, a send
+  // button — is the second-smallest decision on the page and it isn't about
+  // what you pour today, so it waits for day 2. The auto-prompt still runs.
+  if (day === 1) { maybeAutoPrompt(); host.style.display = 'none'; return; }
   const vacant = franchise.nextVacant(day);
   maybeAutoPrompt();
   const ls = (id) => franchise.lots[id] || {};
@@ -3142,6 +3150,9 @@ function renderLotSection() {
   clearEl(wrap);
   if (!TT.visible.has('coffee')) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
+  // Day 1's teaching halo is the cellar, not the price board — the coffee is
+  // what the first morning is about (see floorCues' opening beat).
+  wrap.classList.toggle('cue-spot', openingTeach() && day === 1);
   {
     const houseNow = lotState.entry(selectedLot);
     const suggest = restockQty(lastPour, houseNow?.stock ?? 0);
@@ -3212,7 +3223,7 @@ function renderLotSection() {
     b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
-    b.onclick = () => { selectedLot = id; topUpCups = 0; stagedRoast = lotState.entry(id)?.roast ?? 3; renderLotSection(); renderPlanQuote(); };
+    b.onclick = () => { selectedLot = id; topUpCups = 0; stagedRoast = lotState.entry(id)?.roast ?? null; renderLotSection(); renderPlanQuote(); };
     pillRow.appendChild(b);
   }
   det.appendChild(pillRow);
@@ -3258,45 +3269,56 @@ function renderLotSection() {
     det.appendChild(status);
   }
 
-  // Phase 3 — roast stepper for the selected lot. Ideal in brackets;
-  // distance costs quality, committed with OPEN.
+  // The drum. The sweet spot is the week's, not the bean's — a commuter-heavy
+  // crowd and a cold bright sky both want it darker than a creative crowd in a
+  // heatwave, and the same sack cannot please both. Distance costs quality;
+  // the dark end risks a scorch. Committed with OPEN.
   const roastRow = document.createElement('div');
   roastRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;font-size:11px';
   const roastLab = document.createElement('span');
   roastLab.style.cssText = 'opacity:.65';
-  const ideal = ROAST_IDEAL[selectedLot] ?? 3;
-  roastLab.textContent = `${name} roast (ideal ${ideal})`;
+  const ideal = lotRoastTarget(selectedLot);
+  roastLab.textContent = `${name} roast — this week reads ${ideal}`;
   const rMinus = document.createElement('button');
   rMinus.id = 'brief-roast-minus'; rMinus.textContent = '−'; rMinus.style.cssText = 'padding:4px 10px';
-  rMinus.onclick = () => { stagedRoast = Math.max(1, stagedRoast - 1); renderLotSection(); };
+  rMinus.onclick = () => { stagedRoast = stagedRoast === null ? 3 : Math.max(1, stagedRoast - 1); renderLotSection(); };
   const rVal = document.createElement('span');
-  rVal.textContent = `${stagedRoast} · Q ${roastQuality(selectedLot, stagedRoast).toFixed(2)}`;
+  rVal.textContent = `${stagedRoast ?? 'unset'} · Q ${lotRoastQuality(selectedLot, stagedRoast).toFixed(2)}`;
   rVal.style.cssText = 'min-width:76px;text-align:center';
   const rPlus = document.createElement('button');
   rPlus.id = 'brief-roast-plus'; rPlus.textContent = '+'; rPlus.style.cssText = 'padding:4px 10px';
-  rPlus.onclick = () => { stagedRoast = Math.min(5, stagedRoast + 1); renderLotSection(); };
+  rPlus.onclick = () => { stagedRoast = stagedRoast === null ? 3 : Math.min(5, stagedRoast + 1); renderLotSection(); };
   roastRow.appendChild(roastLab); roastRow.appendChild(rMinus); roastRow.appendChild(rVal); roastRow.appendChild(rPlus);
   det.appendChild(roastRow);
+  const climateLean = ROAST_CLIMATE_LEAN[climate?.id] ?? 0;
   if (TT.newToday === 'coffee') {
     const hint = document.createElement('div');
     hint.className = 'bn-note';
-    hint.textContent = `Each coffee has a sweet spot: ideal roast ${ROAST_IDEAL[selectedLot]} for ${name}.`;
+    hint.textContent = `The drum's sweet spot this week is ${ideal} — it ships unprogrammed, and an unset one pours flat at Q 0.90`
+      + (climateLean ? `; ${climate.label} pulls the whole board ${climateLean > 0 ? 'darker' : 'lighter'}, so last week's number is not this week's.` : '.');
     det.appendChild(hint);
   }
 }
 
 // Headless-only cellar control for policy probes (break-it pass).
 // The Brief owns lot choice in the browser; this lets the headless policy
-// harness stage the same two decisions the pills make: which lot pours
-// (selectedLot) and how much to top up ('restock' → yesterday+25%,
-// 'double' → ×2, 'skip'/0 → nothing). Rejects unknown lots and locked
-// microlots; unlocked lots always stage. No DOM, no rendering.
-function stageCellar({ lot, topup } = {}) {
+// harness stage the same three decisions the pills make: which lot pours
+// (selectedLot), how the drum is set (roast: 1-5, 'auto' → today's crowd
+// read, 'clear' → unprogrammed), and how much to top up ('restock' →
+// yesterday+25%, 'double' → ×2, 'skip'/0 → nothing). Rejects unknown lots
+// and locked microlots; unlocked lots always stage. No DOM, no rendering.
+function stageCellar({ lot, roast, topup } = {}) {
   if (lot !== undefined) {
     if (!LOT_IDS.includes(lot)) return false;
     if (lotState.entry(lot)?.unlocked === false) return false;
     selectedLot = lot;
-    stagedRoast = lotState.entry(lot)?.roast ?? 3;
+    stagedRoast = lotState.entry(lot)?.roast ?? null;
+  }
+  if (roast !== undefined) {
+    if (roast === 'auto') stagedRoast = lotRoastTarget(selectedLot);
+    else if (roast === 'clear' || roast === null) stagedRoast = null;
+    else if (Number.isFinite(+roast)) stagedRoast = Math.min(5, Math.max(1, Math.round(+roast)));
+    else return false;
   }
   if (topup !== undefined) {
     if (topup === 'restock') topUpCups = restockQty(lastPour, lotState.entry(selectedLot)?.stock);
@@ -3324,7 +3346,15 @@ function fundedRestock(lotId, cups, { debt = exchange.debt, contract = exchange.
 function applyLots() {
   lotState.house = selectedLot;
   const entry = lotState.entry(selectedLot);
-  if (entry) entry.roast = Math.min(5, Math.max(1, Math.round(stagedRoast)));
+  if (entry) entry.roast = Number.isFinite(stagedRoast) ? Math.min(5, Math.max(1, Math.round(stagedRoast))) : null;
+  // The drum's teeth: the darker you push it, the more chance you scorch the
+  // sack. Dark is what the commuters and elders read as a proper coffee, so
+  // the safe read and the popular read are not the same read. Draws on its
+  // own stream (+47) so a mid-day resume replays the same roast.
+  if (entry && Number.isFinite(stagedRoast)) {
+    entry.scorched = roastRng() < SCORCH_RISK[stagedRoast];
+    if (entry.scorched) fx.toast(SCORCH_LINE, 'warn');
+  }
   topUpCups = Math.max(0, Math.floor(topUpCups));
   // The tab buys the beans: at dawn the till is empty (it fills cup by cup
   // today), so the sack rides the supplier tab — Idris's credit line up to
@@ -3394,7 +3424,6 @@ function renderMenuSection() {
   clearEl(wrap);
   if (!TT.visible.has('menu')) { wrap.style.display = 'none'; wrap.classList.remove('cue-spot'); return; }
   wrap.style.display = '';
-  wrap.classList.toggle('cue-spot', openingTeach() && day === 1);
   if (!stagedMenu) stagedMenu = { prices: { ...menuPrices }, offered: { ...menuOffered } };
   stagedMenu.prices.matcha = stagedPrep.reprice ? ECON.matchaDeal : priceForDay(day);
 
@@ -3480,11 +3509,30 @@ function applyMenu() {
   stagedMenu = null;
 }
 
+// Cups the day's waves expect per cohort. Derived from the schedule, so it is
+// a read of who is coming — never an rng draw, and identical on replay.
+function crowdCupMix() {
+  const mix = {};
+  for (const w of dayWaves || []) for (const s of w.spawns || []) {
+    if (!s || !s.c) continue;
+    mix[s.c] = (mix[s.c] || 0) + (s.q || 0);
+  }
+  return mix;
+}
+
+// The drum. null is "unprogrammed" and pours a flat medium.
+function lotRoastTarget(id) { return roastIdeal(id, crowdCupMix(), ROAST_CLIMATE_LEAN[climate?.id] ?? 0); }
+function lotRoastQuality(id, level) { return roastQuality(id, level, lotRoastTarget(id)); }
+function entryRoastQuality(id) {
+  const e = lotState.entry(id);
+  return lotRoastQuality(id, e ? e.roast : null);
+}
+
 function currentCupQuality() {
   const id = lotState.house;
   const e = lotState.entry(id);
   if (!e) return 1;
-  return cupQuality(lotState.age(id, day), roastQuality(id, e.roast ?? 3), !!e.scorched);
+  return cupQuality(lotState.age(id, day), entryRoastQuality(id), !!e.scorched);
 }
 
 // One counter merges with the day's baseline before anyone reads the milk.
@@ -4439,6 +4487,7 @@ function capturePreDawn(enteringDay) {
         fx: fxRng && fxRng.state ? fxRng.state() : null,
         cos: patronsCosRng && patronsCosRng.state ? patronsCosRng.state() : null,
         conv: patronsConvRng && patronsConvRng.state ? patronsConvRng.state() : null,
+        roast: roastRng && roastRng.state ? roastRng.state() : null,
       },
       exchange: {
         beanIndex: exchange.beanIndex, day: exchange.day, debt: exchange.debt,
@@ -4517,6 +4566,7 @@ function applySavedWeek(save) {
   fxRng = seeded((save.seed || seedNow()) + 23, ss.fx);
   patronsCosRng = seeded((save.seed || seedNow()) + 29, ss.cos);
   patronsConvRng = seeded((save.seed || seedNow()) + 43, ss.conv);
+  roastRng = seeded((save.seed || seedNow()) + 53, ss.roast);
   frontage.random = patronsConvRng;
   patrons.random = patronsRng;
   patrons.cosmetic = patronsCosRng;
@@ -4742,7 +4792,7 @@ function prepareDay(d) {
   patrons.menuOffered = menuOffered;
   patrons.menuPrices = menuPrices;
   ctx.menuPrices = menuPrices;
-  stagedRoast = lotState.entry(selectedLot)?.roast ?? 3;
+  stagedRoast = lotState.entry(selectedLot)?.roast ?? null;
   patrons.dwellMul = 1 + (dayMods.dwellBonus || 0);
   // Cosy street phase 2 (VISION.md): the same awareness that brings volume
   // decides how much of it is door traffic vs street traffic.
@@ -5837,6 +5887,7 @@ function reset(coreOnly = false) {
   fxRng = seeded(seedNow() + 23);
   patronsCosRng = seeded(seedNow() + 29);
   patronsConvRng = seeded(seedNow() + 43);
+  roastRng = seeded(seedNow() + 53);
   patrons.random = patronsRng;
   patrons.cosmetic = patronsCosRng;
   fx.random = fxRng;
@@ -5890,7 +5941,7 @@ function reset(coreOnly = false) {
   patrons.menuOffered = menuOffered;
   patrons.menuPrices = menuPrices;
   patrons.priceMult = 1;
-  stagedMenu = null; stagedRoast = 3;
+  stagedMenu = null; stagedRoast = null;
   toolsToday = null;
   milkDelivery = 0; lastMilky = 0; milkTipped = 0; milkToastDone = false; milkBalked = 0;
   shockCounter = null; stagedCounterable = null; shockDemandMul = 1; shockPulledFlat = false; ctx.priceMult = 1;

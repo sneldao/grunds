@@ -9,12 +9,12 @@ export function firstMorningCopy() {
     welcome: 'These are your first five days on the street. The street doesn\u2019t know you yet \u2014 today\u2019s crowd is earned, not given. Keep the café in business and make it a place people want to return to.',
     ruthRole: 'Ruth brews and serves automatically. You choose how to prepare, watch the room, and step in when your plan needs attention.',
     rival: 'Across the road is Glasshouse, run by Sam. His café is your rival — but today is about learning your own.',
-    aim: 'Today: handle the afternoon matcha rush and learn what your choice changes.',
-    stocked: 'Your opening coffee supplies are already stocked.',
+    aim: 'Today: pick a sack and set the drum. The cup is the thing you decide — the afternoon plan hangs off what it tastes like.',
+    stocked: 'Your opening coffee is already stocked — which sack pours, and how the drum is set, is yours.',
     planTitle: 'ONE PLAN FOR THE AFTERNOON',
     forecast: 'Students arrive at 14:00 for matcha. How would you like to prepare?',
     openLabel: 'OPEN THE CAFÉ →',
-    choosePrompt: 'Choose your afternoon plan, then open the café.',
+    choosePrompt: 'Choose the sack, set the drum, choose your afternoon plan, then open the café.',
     lateNote:
       'You can change this plan until opening. After noon, choosing your first batch costs ' +
       `${fmt(ECON.batchCost + 4.20)}` +

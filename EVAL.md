@@ -2,7 +2,46 @@
 
 How we check gameplay correctness and readiness. Automated regression checks, scripted economy probes, and fresh-player understanding are separate forms of evidence; none alone establishes that the game is engaging.
 
-## Current verification — October 7, 2026: bookend policies measure the spread
+## Current verification — November 9, 2026: the drum becomes a player verb
+
+The craft chain (roast → freshness → scorch → `cupQuality` → satisfaction → opinion → reputation → footfall) already existed with no player decision on it, and sacks were created at their ideal roast, so doing nothing poured perfect coffee. This pass inverts that: `roast: null` (unprogrammed) pours a flat Q 0.90, the sweet spot is `roastIdeal(lot, crowdMix, climateLean)` rather than a constant, dark settings can scorch the sack, and day 1 of the Brief is the coffee alone. Direction and reasoning: VISION.md "The cup as a verb"; contract: AGENTS.md "Craft: the drum".
+
+**Automated gate on the shipped tree** (local simulator, no identity perk, fixed 100 ms frames, deterministic `Math.random` reset before each run):
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` (`tsc --noEmit`) | clean |
+| `git diff --check` | clean |
+| `npm run test:fast` | 534/534 pass |
+| `npm run test:slow` (playthroughs, balance grid, replay gates) | 77/77 pass |
+| Determinism re-run after the stream move (`balance-policies`, `replay-campaign`, `replay-resume`, `seeded-floor`, `campaign`, `campaign-tight`, `stock-loan`) | 27/27 pass |
+| Craft/day-1 surfaces (`roast`, `menu-pricing`, `floor-cues`, `orientation`, `perf-hygiene`, `agency`) | 33/33 pass |
+| Browser | Chromium on the real tutorial path (seed 7, no `?skipTutorial`): Brief visual order `intro → new → lots → prep`, pitch and menu hidden, cellar drawer open, `Colombia Huila roast — this week reads 2` with the heat pull named. Screenshots only — no pixel baseline. |
+
+**Balance before/after.** Same harness, ten seeds × ten policies, run twice: once on a clean `f7dda1e` worktree (before) and once on this tree (after). Both grids are deterministic, so a difference is attributable to the change rather than to sampling. Means to the pound.
+
+| Policy | Before | After | Δ | Verdict distribution (before → after) |
+|---|---:|---:|---:|---|
+| Passive | £129 | £27 | −£103 | 6 lost · 2 scarped · 1 held · 1 good — unchanged |
+| Queue | £1,026 | £1,026 | 0 | unchanged |
+| Optimal | £674 | £674 | 0 | unchanged |
+| Delayed | £962 | £962 | 0 | unchanged |
+| Growth | £4,132 | £4,110 | −£22 | 8 held · 2 scarped — unchanged |
+| Engaged | £4,572 | £4,574 | +£2 | 10 held — unchanged |
+| Forecaster | £1,945 | £1,965 | +£21 | unchanged |
+| Conservative | £1,939 | £1,726 | −£213 | 3 good · 5 held → 1 good · 7 held |
+| Aggressive | £1,412 | £1,505 | +£94 | 2 lost → 1 lost · 1 scarped |
+| Reckless | −£615 | −£742 | −£127 | 8 lost · 2 held — unchanged |
+
+Three findings.
+
+1. **The floor got lower without becoming a trap.** Passive lost ~£103 of a £129 mean and every one of its cups now pours at Q 0.90 (reputation 59.5 → 58.6, cups served −0.6%), but its verdict distribution is identical — 6 of 10 weeks were already lost, and none joined. The worst campaign moved −£79 (−£1,867 → −£1,946). This is the cold-start lesson held: unknown must read as *unearned*, not as *dead*.
+2. **The verb has a price, and it is not uniform.** Policies that leave the drum unprogrammed (passive, reckless) pay; policies whose week happens to read the same as the old static ideal (queue, optimal, delayed) are bit-identical; conservative (−£213) and aggressive (+£94) move once the target comes from the sky and the crowd instead of the bean. Competent play overall is untouched (engaged +£2).
+3. **What the harness cannot say.** It only ever programs the drum to `'auto'` — a player who sets a deliberately wrong number, or chases level 5 and eats a scorch, is unmodelled. Ten seeds is a diagnostic sample and the per-campaign spread (passive alone runs −£1.9k to +£3.2k) dwarfs every Δ above. Treat these as direction, not effect size, and read them as *not evidence of fun*: whether the new day 1 is understood, and whether a Q value next to a −/+ pair reads as craft rather than arithmetic, is the fresh-player question below.
+
+**Caught during this pass:** the scorch roll was first assigned seed offset `+47`, which `marketSnapshot.js` already draws for the synthetic bean wobble — two nominally independent random events sharing one sequence. The drum now uses `+53`, and `roast.mjs` fails if any module outside `main.js` takes that offset. Offsets are a shared namespace; grep before assigning one.
+
+## Previous verification — October 7, 2026: bookend policies measure the spread
 
 Same ten seeds as the grids below, now × **ten** policies — `web/test/balance-policies.mjs` gains an `optimal` upper bound (the `queue` ruleset plus strictly-better moves: morning batch staged free in the Brief via `game.stagePrep`, batch at queue≥4 pre-peak, top-ups on a dry batch, +EV offers only, no hedging, no marketing) and a `delayed` lower bound (same rules, every intra-day action landing 300ms of wall clock later, ≈20 sim-minutes at speed 1200). Local simulator, no identity perk, fixed 100ms frames, deterministic `Math.random` reset before play. Harness source hash `1a0ccbc932b1795ea7958a43f12a37a2608cac19d73dfeb1a01abe77b315d28e`. Ten-seed diagnostic pilot; verdicts ride the unchanged `campaignVerdict` ladder. This is not an isolated marketing-ROI estimate.
 
@@ -208,7 +247,7 @@ Means are rounded to the pound from the 80-run grids at those two commits. The e
 
 | Check | Requirement / scope | Evidence / limitation |
 |---|---|---|
-| Same seed → same run | Seeded market behavior and reproducible scripted probes. | Decision and cosmetic draws ride separate seeded streams (`patronsRng` +17, `patronsCosRng` +29, `floorRng` +19, `fxRng` +23); `replay-campaign.mjs` replays a full week identically at three frame clocks and `replay-resume.mjs` proves dawn saves resume byte-identically. Browser-rendered replay is still unproven. |
+| Same seed → same run | Seeded market behavior and reproducible scripted probes. | Decision and cosmetic draws ride separate seeded streams (`patronsRng` +17, `patronsCosRng` +29, `floorRng` +19, `fxRng` +23, the drum's scorch roll +53); `replay-campaign.mjs` replays a full week identically at three frame clocks and `replay-resume.mjs` proves dawn saves resume byte-identically. Browser-rendered replay is still unproven. |
 | Event fairness | The pity timer protects the first three days; days four and five retain the gamble. | `intel.mjs`, `clamp-asymmetry.mjs`; no blanket guarantee against consecutive catastrophes. |
 | Economy baseline | Historical 13-week revenue ≈ GBP 157k and source-data cake attach rate 8.2%. | Dataset context, not a current gameplay or player-engagement measurement. |
 | Deterministic gate | Loop tests (`smoke`, `campaign`, `campaign-tight`) seed `Math.random`; `intel.mjs` pins bias behavior. | Controlled headless fixtures, not unseeded browser replay proof. |
@@ -220,21 +259,41 @@ Means are rounded to the pound from the 80-run grids at those two commits. The e
 - `out/square_item_sales.csv` — 13-week deterministic café export (26.5k rows) from `transform.py`
 - Planted signals: matcha riser, banana loaf faller, 8.2% cake attach rate
 
-## Fresh-player playtest gate — next step; not yet measured
+## Fresh-player playtest — feedback received Nov 9, 2026; the structured gate was never scored
 
-**Build to test:** release `c94b822`, deployed to the Convex dev site at https://striped-anaconda-746.convex.site. Use a fresh browser profile/session for each participant so saved identity, curriculum and tutorial state do not carry over. The environment should be the deployed dev build; backend and static assets are live there. This is a five-person formative test, not a statistically powered balance study.
+Real fresh players did play the deployed build, and the developer reported their feedback directly. **Drop-off was located at the opening — the Day-1 Brief and the first trading morning.** Four themes came back:
+
+1. **Overwhelm** — too much to think about straight off the bat.
+2. **Presentation** — "graphics not that good".
+3. **Agency** — not enough of it; too much of the week feels prescribed.
+4. **Promise unmet** — a name like *grunds* promises coffee obsession; what players got was an operations sim that treats coffee as a resource.
+
+Honest limits on this evidence. The sessions were not run against the facilitator script below, so there is no per-participant record, no verbatim answers, no observed-continuation notes, and **no `x/5` clarity score exists for this group**. Participant count, devices and profiles were not captured either. These are reported themes from a formative conversation — enough to justify a direction change, not enough to re-tune prices or verdicts from, and not a substitute for the scored gate.
+
+### What the Nov 9 craft change does about each theme
+
+Direction and implementation are in VISION.md → "The cup as a verb"; the mechanics contract is in AGENTS.md → "Craft: the drum".
+
+- **Theme 1 (overwhelm)** — day 1 is one decision. The curriculum introduces only the coffee (`SCHEDULE.coffee: 1`); the menu, street and insurance tools stay hidden; the vacant-lot pitch is deferred (`renderFranchiseRow` returns early on day 1); the Brief's visual order puts the cellar first. Unmeasured whether the remaining decisions — sack, drum, afternoon plan — are still too many; that is exactly what a scored re-run should answer.
+- **Theme 3 (agency)** — the drum is a verb with no correct answer handed to you. An unprogrammed drum ships flat (Q 0.90); the sweet spot is contested by the crowd mix *and* the week's sky (`ROAST_CLIMATE_LEAN`), and pushing dark buys scorch risk (8% at 4, 20% at 5) that costs £18 and a fresh roast clock. Doing nothing is now worse than before by design.
+- **Theme 4 (promise)** — the cup is the thing you decide, and everything else hangs off what it tastes like (roast → `cupQuality` → satisfaction → opinion → reputation → footfall). The Brief line and the receipt both speak about the coffee, not the ledger.
+- **Theme 2 (graphics)** — **not addressed by this change.** The surface/lighting and diorama passes (`ee4835c`, `72fd9f5`, `f7dda1e`) preceded this feedback and are separate work; the report stands open.
+
+### Gate re-run against the craft build — next step; not yet measured
+
+**Build to test:** the committed craft change on top of `f7dda1e`, deployed to the Convex dev site at https://striped-anaconda-746.convex.site. Use a fresh browser profile/session for each participant so saved identity, curriculum and tutorial state do not carry over. Do not use `?skipTutorial` — it bypasses the day-1 curriculum this gate exists to measure. Five people; a formative test, not a statistically powered balance study.
 
 **Facilitator:** run from a fresh session. Do not explain the controls or recommend a strategy. Record any help the player requests. Do not intervene when they make a choice you consider suboptimal. Ask after the receipt, before Day 2:
 
 ```
 1. In your own words, what are you trying to accomplish over the five days?
-2. Which morning approach did you choose, and what did you expect it to change?
+2. On the first morning, what did you decide about the coffee? What did you expect that to change?
 3. What happened at 14:00? What could you still do, and why do you think customers stayed or walked?
 4. Which person do you remember, and what happened between you?
 5. What would you do differently tomorrow? Would you choose to play another day? Why?
 ```
 
-Record answers and observed actions separately. In an initial group of five fresh players, the proposed clarity gate is at least four who can explain the objective, make a meaningful choice without coaching from the observer, explain prep versus discount, understand why customers stayed or walked, and identify something to change tomorrow. In-game guidance is allowed; observer assistance must be recorded.
+Record answers and observed actions separately. In an initial group of five fresh players, the proposed clarity gate is at least four who can explain the objective, name one thing they decided about the cup (and why it might taste different next week), make a meaningful choice without coaching from the observer, explain prep versus discount, understand why customers stayed or walked, and identify something to change tomorrow. In-game guidance is allowed; observer assistance must be recorded. Watch specifically for whether players touch the drum at all on day 1 — an ignored verb is a finding, not a preference.
 
 Engagement is a separate qualitative check: observe whether players voluntarily continue to Day 2 before asking about intent, remember a named character and an interaction, and express a specific reason to try again. No engagement result or submission approval is claimed. Automated checks do not establish understanding or engagement.
 
@@ -242,8 +301,8 @@ Engagement is a separate qualitative check: observe whether players voluntarily 
 
 For each participant, capture (with consent):
 
-- Session/build identifier (`c94b822`), date, device/browser, fresh-profile confirmation, and any technical interruption.
-- The participant's unprompted morning plan, whether they found the cellar/restock control, and whether they changed it; record the choice and rationale without grading it during the session.
+- Session/build identifier (the deployed craft build, `f7dda1e` + the Nov 9 change), date, device/browser, fresh-profile confirmation, and any technical interruption.
+- The participant's unprompted first morning: which sack they chose, whether they found the drum and set it, and whether they changed it later; record the choice and rationale without grading it during the session.
 - 14:00 observations: whether they notice the queue and levers, what they think prep versus discount changes, any customers walking, and what they believe caused that outcome.
 - At the finale receipt: whether they notice and can explain the "turning point" row; whether the attributed cost matches what they noticed during play.
 - Requested help and facilitator intervention (quote or summarize), plus verbatim answers to the five questions above.
@@ -257,6 +316,7 @@ After five sessions, summarize the five participants individually before aggrega
 2. **Triage findings by evidence:** first fix blockers (can't open, understand, or complete a day); then repeated comprehension failures; then economy/incentive tuning supported by repeated observed choices. Leave prices and costs unchanged until the results show what players misread versus what is actually under-rewarded.
 3. **Re-run the balance grid after any economy change.** The current 80-run results use scripted policies that now restock and settle competently; passive/reckless are intentionally weak baselines. Marketing currently shows weak marginal return because service capacity binds near opening demand. Treat a demand/capacity retune as a separate, measured proposal, not as a playtest conclusion.
 4. **Record the outcome here and in `hackathon.md`:** participant count and context, clarity `x/5`, repeated friction, voluntary continuation, technical issues, and the next agreed change. Do not claim engagement, balance, or release readiness from automated tests alone.
+5. **Presentation stays an open finding.** "Graphics not that good" is a player-reported theme with no automated or scored evidence behind it, and the Nov 9 craft change does not touch it. Judge it in the re-run by device and screenshot rather than assuming the diorama/surface passes resolved it.
 
 ## Reproduce
 

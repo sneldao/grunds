@@ -76,8 +76,10 @@ standing still loses.
 ## How a week plays
 
 The floor is a **connected 5-day campaign**, not a closed loop. At 06:00 the
-**Morning Brief** pauses the street for the day's plan (sized bean hedge against the
-ticker + wire); you trade the day's waves — commuters, the 14:00 matcha rush; at
+**Morning Brief** pauses the street for the day's plan (on day 1 it is the
+coffee — which sack pours and how the drum is set; after that, a sized bean
+hedge against the ticker + wire); you trade the day's waves — commuters, the
+14:00 matcha rush; at
 11:00 a regular asks; incidents bite in the afternoon; at close a **receipt** prints
 the real ledger (staff, milk, rent, tab interest, hedge benefit) and the **Roaster's
 Letter** arrives for review — on connected runs you can post your plan to Idris's
@@ -90,7 +92,9 @@ receipt. Full mechanics in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 The street now uses seeded, vendored Polyfork props by default. Small groups and passers-by dress the pavement; a separate simulation clock gives frontage visitors a chance to enter, based on awareness and reputation, with at most three successful spawns per day. Pausing, graphics mode, and saved-week resumes do not change those conversion draws.
 
-A seeded fair, hot, wet, or crisp week changes the street's appearance and ambient crowd. The Morning Brief explains this before opening. Week climate adds no demand modifier; the existing daily event deck still controls its own demand effects. Closing camera frames hold through review and lead into the next morning's crane.
+A seeded fair, hot, wet, or crisp week changes the street's appearance and ambient crowd. The Morning Brief explains this before opening. Week climate adds no demand modifier, but it does pull the roaster's drum a whole step — a heatwave reads the cup lighter, a cold bright week darker — so the sky changes what the right roast number is even when it changes nothing else; the existing daily event deck still controls its own demand effects. Closing camera frames hold through review and lead into the next morning's crane.
+
+The cup itself is a decision: the drum ships unprogrammed and an unset one pours a flat Q 0.90 all week. Its sweet spot is the lot's base read, pulled by who is coming (commuters and elders read dark as "a proper coffee", creatives read the same shot as burnt) and by the week's sky. Pushing past level 4 risks scorching the sack — 8% at 4, 20% at 5 — so the dark end is never free.
 
 ## Data layer
 

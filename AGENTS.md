@@ -389,11 +389,50 @@ Sim determinism is untouched — every fix is render/HUD-side only
 - `tools/showcase-shots.mjs` writes to argv[3] or `/tmp/showcase-shots`
   (the `GRUNDS_SHOTS` env var does nothing).
 
+## Craft: the drum (Nov 9 playtest pivot)
+- The cup is a verb now. `roast: null` means **unprogrammed** and pours a flat
+  Q 0.90 — sacks are no longer created at their ideal. Never reintroduce a
+  `?? 3` fallback on a roast read; `roastQuality(lot, null)` returns 0.9 by
+  contract, and every consumer (serve loop, receipt, letter, convex mirror)
+  passes the nullable value through.
+- The sweet spot moves: `roastIdeal(lotId, crowdMix, climateLean)` = lot base
+  (`ROAST_IDEAL`) + `crowdRoastPull(mix)` (`ROAST_LEAN` per cohort) +
+  `ROAST_CLIMATE_LEAN` (heat −1, crisp +1). `lotRoastTarget(id)` in main.js is
+  the single place that assembles it — the stepper label, the Q preview and the
+  serve loop all read it, so they cannot disagree.
+- **The schedule is cohort-flat.** `out/wave_schedule.json` has one cohort
+  distribution and `wavesForDay` shifts only commuter *timing*, so any per-day
+  mechanic derived from the crowd mix reads a constant (the first cut of this
+  feature was inert for exactly this reason). Print a signal across days 1–5
+  for two seeds before building on it. Climate is what actually varies.
+- Scorch is bought, not gifted: `SCORCH_RISK` (0.08 at level 4, 0.20 at 5)
+  rolls on `roastRng` = `seeded(seed + 53)` inside `applyLots`, saved/restored
+  as `streams.roast`. **Offsets are a shared namespace** — +47 was already the
+  market-snapshot wobble, and `roast.mjs` now fails if any non-main module
+  draws +53. Pick a free offset by grepping, not by assuming. The frost-ask
+  scorch still exists as the incident variant.
+- Day 1 is the coffee: `SCHEDULE = { coffee: 1, menu: 2, street: 4,
+  insurance: 5 }`, `planTools` hard-codes the day-1 branch, and
+  `renderFranchiseRow` defers the vacant-lot prompt to day 2 (the auto-prompt
+  still runs). `#brief.first-morning` uses flex `order` to put the lede then
+  the tools block above the afternoon plan — markup order is unchanged and
+  `franchise.mjs` still pins `#brief-row` above `#brief-prep`.
+- `stageCellar({ lot, roast, topup })` gained `roast` (1–5, `'auto'` →
+  this week's read, `'clear'`/null → unprogrammed) so headless policies can
+  play the drum. `balance-policies.mjs` stages `roast: 'auto'` for every
+  competent policy and leaves passive/reckless unprogrammed, so the verb has a
+  measurable price against the floor.
+- `web/test/orientation.mjs` is **not valid UTF-8** (23 stray cp1252
+  0x92/0x94 bytes). Edit/Write refuse it; patch it with
+  `decode('utf-8','surrogateescape')` / `encode(...,'surrogateescape')` to keep
+  the bytes, and convert the encoding only as its own deliberate change.
+
 ## Conventions
 - Choice surfaces: options + consequence visible, no folds for choices —
   see ARCHITECTURE.md "Choice surfaces".
 - Sim RNG must never call bare `Math.random` — streams are `seeded(seed + n)`
   (`patronsRng` +17 decisions, `patronsCosRng` +29 spawn paint, `floorRng`
-  +19, `fxRng` +23, `patronsConvRng` +43 frontage — saved/restored/reset as
-  `streams.conv`); `web/test/seeded-floor.mjs` and `replay-campaign.mjs`
+  +19, `fxRng` +23, `patronsConvRng` +43 frontage, `roastRng` +53 drum scorch
+  — saved/restored/reset as `streams.conv` / `streams.roast`);
+  `web/test/seeded-floor.mjs` and `replay-campaign.mjs`
   guard it.

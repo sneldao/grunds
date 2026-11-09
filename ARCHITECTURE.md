@@ -523,7 +523,8 @@ one modal with a pause/inert contract, and disclosure never changes economics:
   `planTools({day, introduced, houseStock, lastPour, debt, contract,
   threatToday, threatYesterday, unlockAll})` → `{visible, newToday,
   essentialNew}`. A flat `#brief-tools` slot stack; at most one "New today"
-  card per day (coffee ≥2, menu ≥3, street ≥4, insurance ≥5 or any
+  card per day (coffee day 1 — the only tool visible that morning, menu ≥2,
+  street ≥4, insurance ≥5 or any
   threat/contract). Needs beat schedule: an unintroduced needed coffee takes the
   day's card; a live tab renders as a `New ·` note inside its row. The
   introduced set persists to `localStorage['grunds.curriculum']` only on a
@@ -781,8 +782,16 @@ stack. Estimate: 4–6 weeks. Phases are dependency-ordered.
 - Drink menu: espresso / flat white / filter / matcha (+ seasonal). Recipe
   cost, margin, cohort affinity, **prep time** (slow pourovers at rush =
   throughput tradeoff). Reprice lever graduates into menu pricing.
-- Daily roast level per lot (light → dark slider; scorch events join the
-  incident rotation). Multiplier tables on existing levers.
+- Daily roast level per lot — **reworked Nov 9 into a player verb** (see
+  VISION.md "The cup as a verb"). The drum ships **unprogrammed**
+  (`roast: null` → flat Q 0.90); the sweet spot is
+  `roastIdeal(lot, crowdMix, climateLean)` — the lot's base read, pulled by
+  the day's cohort mix (`ROAST_LEAN`) and a full step by the week's sky
+  (`ROAST_CLIMATE_LEAN`: heat −1, crisp +1). Scorch is bought, not scripted:
+  `SCORCH_RISK` rolls on stream `+53` at plan commit (0.08 at level 4, 0.20 at
+  5). The old "scorch joins the incident rotation" path survives only as the
+  scripted incident variant. Convex mirrors all of it; `roast` is
+  `v.optional(v.union(v.number(), v.null()))`.
 - Waste economy: `batchWaste` surfaced on the receipt in red, milk
   spoilage, stale-bean penalties. Pre-batch finally has felt downside.
 - Wire existing `trainingSpend` to Ruth's throughput/quality/waste — she

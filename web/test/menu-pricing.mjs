@@ -154,10 +154,11 @@ test('Phase 3 · Brief stages prices + 86 board; commit applies', () => {
   assert.match(main, /stageMenu\(\{ prices, offered \}/);
 });
 
-// (10) Loseable day 1, easy-by-default: a gouged/gutted menu loses real
+// (10) The menu can lose you a day: a gouged/gutted menu loses real
 // revenue AND walks real patrons (not just mix-shift), while a fair board
-// keeps the day. Runs the live sim headless — no DOM, no GL.
-test('Phase 3 · loseable day 1: gouge or gut the menu and the day bleeds', async () => {
+// keeps the day. Runs the live sim headless — no DOM, no GL. The lever is
+// taught on day 2 now, but the mechanism is day-independent.
+test('Phase 3 · gouge or gut the menu and the day bleeds', async () => {
   const anyProxy = () => new Proxy(function () {}, {
     get: (t, k) => {
       if (k === Symbol.toPrimitive) return h => h === 'string' ? 'WebGL 2.0' : 1;

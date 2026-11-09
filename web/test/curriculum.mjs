@@ -7,11 +7,14 @@ const ok = (cond, name) => { if (cond) { pass++; } else { fail++; console.error(
 
 {
   const r = planTools({ day: 1, introduced: [], houseStock: 100, lastPour: 50, debt: 0 });
-  ok(r.visible.has('menu') && r.newToday === null, 'day 1: menu present but quiet (loseable, not taught)');
+  ok(r.visible.has('coffee') && r.newToday === 'coffee' && !r.visible.has('menu'),
+    'day 1: the coffee is the whole morning — drum taught, menu lever withheld');
 }
 {
-  const r = planTools({ day: 2, introduced: [], houseStock: 100, lastPour: 50, debt: 0 });
-  ok(r.newToday === 'coffee' && r.visible.has('coffee') && r.visible.has('menu'), 'day 2: coffee card, menu stays a quiet row (used day 1, carded day 3)');
+  const r = planTools({ day: 2, introduced: ['coffee'], houseStock: 100, lastPour: 50, debt: 0 });
+  ok(r.newToday === 'menu' && r.visible.has('coffee') && r.visible.has('menu'), 'day 2: menu card, coffee already taught on day 1');
+  const repeat = planTools({ day: 2, introduced: [], houseStock: 100, lastPour: 50, debt: 0 });
+  ok(repeat.newToday === 'coffee', 'day 2 with nothing introduced: the coffee repeats before the menu moves on');
 }
 {
   const r = planTools({ day: 3, introduced: ['coffee'], houseStock: 100, lastPour: 50, debt: 0 });

@@ -13,9 +13,82 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-11-08T00:00:00Z
+- **Last updated:** 2026-11-09T00:00:00Z
 
 ## Log
+
+### 2026-11-09 - Craft as a verb: the drum, after real playtests
+
+Fresh players played it and could not finish it. Overwhelm on day 1, "not
+enough agency — too much prescribed", and a name that promises coffee
+obsession the game never delivers. The sessions were reported, not scored
+(EVAL.md keeps the two separate). Diagnosis in
+[VISION.md](VISION.md) "The cup as a verb"; the code answer was that a full
+craft chain already existed (roast → freshness → scorch → `cupQuality` →
+satisfaction → reputation → footfall) with **no player verb on it**, and
+`LotsState.reset` created every sack at `roast: ROAST_IDEAL[id]` — so doing
+nothing produced perfect coffee.
+
+- **Inverted the default.** `roast: null` is unprogrammed and pours a flat
+  **Q 0.90** (`roastQuality(lot, null) === 0.9`). Removed every `?? 3`
+  fallback across the serve loop, `buildIdrisMemory`, the lot pills,
+  `applyLots`, and the per-day reset; `convex/lots.ts` creates sacks
+  unprogrammed too, and `convex/schema.ts` widened to
+  `roast: v.optional(v.union(v.number(), v.null()))` (repo's convex 1.45
+  `v.union` is variadic, not array-based).
+- **The sweet spot moves.** `roastIdeal(lotId, crowdMix, climateLean)` =
+  lot base + `crowdRoastPull` over `ROAST_LEAN` (commuters/elders pull dark,
+  creatives/tourists light) + `ROAST_CLIMATE_LEAN` (heat −1, crisp +1).
+  `lotRoastTarget(id)` in main.js is the single assembly point so the label,
+  the Q preview and the serve loop cannot disagree. Mirrored in
+  `convex/gameConfig.ts`.
+- **Caught an inert feature.** The first cut read only the crowd mix — and
+  `out/wave_schedule.json` carries one cohort distribution on days 2–5 while
+  `wavesForDay` shifts commuter *timing* alone, so the pull was 0.01 every
+  day and the "crowd read" was bit-identical to the static constant it
+  replaced. The climate lean is what gave it teeth; at crisp a cerrado now
+  reads 5, which is the scorch end.
+- **Scorch is bought, not gifted.** `SCORCH_RISK = {4: 0.08, 5: 0.20}` rolls
+  on a new `roastRng = seeded(seed + 53)` (+47 was already the market wobble
+  — offsets are a shared namespace; grep before taking one; `roast.mjs` now
+  guards it) inside `applyLots`, saved/restored as `streams.roast`. Level 5
+  burns one sack in five; the scripted frost-ask incident still exists as its
+  own path.
+- **Priced the change on the grid.** Ran `balance-policies` twice — clean
+  `f7dda1e` worktree vs this tree, ten seeds × ten policies, both
+  deterministic. Passive £129 → £27 and reckless −£615 → −£742 (both leave the
+  drum unprogrammed), conservative −£213 / aggressive +£94 (the target moved),
+  queue/optimal/delayed bit-identical, engaged +£2. Passive's verdict mix is
+  unchanged at 6 lost / 10, so the floor got lower without becoming a trap.
+  Full table in EVAL.md.
+- **Day 1 is the coffee.** `SCHEDULE.coffee` 2→1 with the day-1 branch of
+  `planTools` carrying only it; menu/street/insurance/tab hidden, the
+  vacant-lot prompt box deferred to day 2 (`renderFranchiseRow`, auto-prompt
+  still runs), and `#brief.first-morning` flex-orders the lede then the tools
+  block above the afternoon plan. The cellar drawer auto-opens so the drum is
+  never behind a fold, and the teaching halo moved off the price board onto
+  the cellar.
+- **UI.** The stepper shows `unset · Q 0.90`, ± programs the drum to a medium
+  first then walks the dial, and the hint names the sky as the reason the
+  number moved. `letter.js` gains the "you never set the drum" line, and the
+  coffee card now says so too ("…then set the drum — an unprogrammed one pours
+  flat all week"). The stale "loseable day 1" framing was retired from
+  `menu.js`, `patrons.js` and `menu-pricing.mjs`: the mechanism still loses
+  days, but the menu lever is now the day-2 card.
+- **Harness.** `stageCellar` takes `roast` (1–5 / `'auto'` / `'clear'`) and
+  competent balance policies now program the drum while passive/reckless stay
+  unprogrammed, so the craft verb has a measurable price against the floor.
+- **Verified in Chromium** on the real (non-`skipTutorial`) path, seed 7:
+  `visualOrder = [intro, new, lots, prep]`, pitch and menu hidden, cellar
+  drawer open, `Colombia Huila roast — this week reads 2` with the heat pull
+  named. `tsc` clean; `test:fast` 534/534.
+- **Tests:** `roast.mjs` (+crowd/climate/scorch contracts, convex mirror
+  regexes), `curriculum.mjs`, `lot-economy.mjs`, `floor-cues.mjs`,
+  `orientation.mjs` day-1 surfaces. `orientation.mjs` is not valid UTF-8 (23
+  cp1252 bytes) and was patched losslessly via `surrogateescape`.
+- **Held:** day 1 still carries the hire line, the matcha plan and the pastry
+  case; and the cup is still a number, not a taste — the obsession the name
+  promises is the next thing.
 
 ### 2026-11-08 - Victoria VR AI Builder Hackathon: prompt → stand logic + described streets
 

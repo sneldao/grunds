@@ -1,7 +1,7 @@
 import { query, mutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
-import { LOT_CATALOG, STARTER_STOCK, ROAST_IDEAL } from "./gameConfig";
+import { LOT_CATALOG, STARTER_STOCK } from "./gameConfig";
 
 // Phase 2 — physical coffee inventory, server mirror. Purchases, scheduled
 // wire moves, and unlock windows live here; intra-day pours are floor-sim
@@ -25,7 +25,7 @@ export async function ensureLots(ctx: MutationCtx, campaignId: Id<"campaigns">) 
       unlocked: !def.microlot,
       unlockUntil: 0,
       hedgedStock: 0,
-      roast: ROAST_IDEAL[lotId] ?? 3,
+      roast: null,   // unprogrammed: the drum is a decision, not a default
       scorched: false,
     });
   }

@@ -339,6 +339,74 @@ the real forecast.
    allocation + full rebalance comes last, when the street's population
    story is final.
 
+## The cup as a verb — playtest feedback (Nov 9, 2026)
+
+Fresh players played it and could not finish it. Their complaints, in their
+words: too much to think about straight off the bat; the graphics are not
+good enough; **not enough agency** — too much is prescribed; and a
+disappointment that a game called *grunds* never delivers the coffee
+obsession the name promises. The sessions were conversational, not scored —
+see EVAL.md for what was and was not recorded.
+
+Those are not four problems. They are one: **the game transmits abstract
+information and withholds sensory consequence.** Everything legible is a
+number about a market; nothing legible is a cup.
+
+The evidence was in the code, not the screenshots. A complete craft chain
+already existed — roast → freshness → scorch → `cupQuality` → satisfaction →
+reputation → footfall — with **no player verb anywhere on it**. Worse,
+`LotsState.reset` created every sack at `roast: ROAST_IDEAL[id]`, and
+`ROAST_IDEAL` is a fixed table, so the chain's answer was a constant and
+**doing nothing produced perfect coffee**. The one way to scorch was to
+decline a scripted 11:00 ask, so even the failure was prescribed. That is the
+whole "not enough agency" complaint in three lines of code.
+
+### What shipped
+
+- **The drum ships unprogrammed.** `roast: null` is the new default and an
+  unset drum pours a flat **Q 0.90** all week. Not choosing is now a choice
+  with a taste, which is the only way a lever teaches anything.
+- **The sweet spot is the week's, not the bean's.**
+  `roastIdeal(lot, crowdMix, climateLean)` — the lot's base read, pulled by
+  who is coming (commuters and elders read dark as "a proper coffee";
+  creatives read the same shot as burnt) and pulled a whole step by the sky
+  (`heat −1`, `crisp +1`). A cold week pushes the workhorse huila to level 4
+  and the cerrado to 5 — which is exactly where the scorch risk lives.
+- **Scorch is bought, not gifted.** `SCORCH_RISK = {4: 0.08, 5: 0.20}` rolls on
+  its own seeded stream (`+53`) when the plan commits. The dark end is never
+  free, so pushing it is a decision rather than a decoration.
+- **Day 1 is the coffee.** The cellar and the drum are the first morning's
+  lesson; the menu, street, insurance and tab cards stay on schedule behind
+  it, and the vacant-lot prompt box — a text field, three examples and a send
+  button — waits until day 2.
+
+### The trap this found
+
+The first cut of "the crowd decides the roast" was **inert and looked fine in
+tests**. `out/wave_schedule.json` carries one cohort distribution and
+`wavesForDay` shifts only commuter *timing*, so the crowd mix is byte-identical
+on days 2–5 and the weighted pull rounds to 0.01 — the crowd-read ideal
+collapsed back onto the static constant it was meant to replace. Any mechanic
+that reads "who is coming today" out of the schedule is reading a constant;
+check that a signal actually moves before building on it. Climate is the one
+input that genuinely differs between campaigns, which is why it carries the
+variation.
+
+### Deliberately not done
+
+- Day 1 still carries the hire line, the afternoon matcha plan and tomorrow's
+  pastry case. They overlap the craft lesson in vocabulary but not in
+  mechanism, and cutting them means cutting the scripted tutorial with them.
+- The harness now programs the drum (`stageCellar({ roast: 'auto' })` for every
+  competent policy, unprogrammed for passive/reckless), so the verb has a
+  price against the floor — but that price has not been read against the
+  documented bookends yet. Until it is, this change is proven not to break the
+  economy, not proven to reward craft.
+- The cup is still not *shown*. The readout is a number next to a −/+ pair.
+  The complaint was that the game never delivers the obsession, and a Q value
+  does not deliver it — taste, colour, and a room that reacts are the payoff,
+  and they are the next thing.
+
 ## Open questions (to resolve before build)
 
 1. Which 2–3 capitals first? Candidates should differ in ritual grammar, not

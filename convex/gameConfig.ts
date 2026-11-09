@@ -109,15 +109,37 @@ export const STALE_AFTER = 2;
 export const STALE_NUDGE = -0.03;
 export const AFFINITY_NUDGE = 0.05;
 
-// Phase 3 — roast program mirror (web/js/lots.js). Ideal level per lot
-// (1 light → 5 dark); distance costs 0.1 quality per step. cupQuality and
-// serveNudge take the roast multiplier + scorch flag with the same defaults
-// both sides, so the mirror never diverges on omitted args.
+// Phase 3 — roast program mirror (web/js/lots.js). A lot's base ideal is
+// (1 light → 5 dark), the day's crowd pulls it, and distance costs 0.1
+// quality per step. A null level is an unprogrammed drum: it pours a flat
+// medium. cupQuality and serveNudge take the roast multiplier + scorch flag
+// with the same defaults both sides, so the mirror never diverges on omitted
+// args.
 export const ROAST_IDEAL: Record<string, number> = { cerrado: 4, huila: 3, yirgacheffe: 2, gesha: 2 };
-export function roastQuality(lotId: string, level: number): number {
-  const ideal = ROAST_IDEAL[lotId] ?? 3;
+export const ROAST_LEAN: Record<string, number> = {
+  commuters: 1, elders: 0.5, students: 0, creatives: -1, tourists: -0.5,
+};
+export const ROAST_CLIMATE_LEAN: Record<string, number> = { fair: 0, heat: -1, rain: 0, crisp: 1 };
+export function crowdRoastPull(mix: Record<string, number> = {}): number {
+  let cups = 0, lean = 0;
+  for (const [cohort, q] of Object.entries(mix)) {
+    const n = Math.max(0, +q || 0);
+    if (!n) continue;
+    cups += n;
+    lean += n * (ROAST_LEAN[cohort] ?? 0);
+  }
+  return cups ? lean / cups : 0;
+}
+export function roastIdeal(lotId: string, mix?: Record<string, number>, climateLean = 0): number {
+  const base = ROAST_IDEAL[lotId] ?? 3;
+  if (!mix && !climateLean) return base;
+  return Math.min(5, Math.max(1, base + Math.round(crowdRoastPull(mix) + (+climateLean || 0))));
+}
+export function roastQuality(lotId: string, level: number | null | undefined, ideal: number | null = null): number {
+  if (level === null || level === undefined) return 0.9;
+  const target = ideal ?? ROAST_IDEAL[lotId] ?? 3;
   const lv = Math.min(5, Math.max(1, Math.round(level)));
-  return Math.round((1 - 0.1 * Math.abs(lv - ideal)) * 100) / 100;
+  return Math.round((1 - 0.1 * Math.abs(lv - target)) * 100) / 100;
 }
 export function cupQuality(ageDays: number, roastMul = 1, scorched = false): number {
   const base = ageDays <= 1 ? 1 : ageDays <= STALE_AFTER ? 0.85 : 0.6;
