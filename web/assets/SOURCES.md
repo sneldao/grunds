@@ -101,6 +101,18 @@ normalize).
   - edit: first 12 s of 59.6 s source, highpass 90 Hz / lowpass 900 Hz,
     0.5 s fade in/out, mono, 32 kHz, 64 kbps MP3, peak ≈ −9 dB
 
+## meshy/ — Meshy-generated assets (vendored by tools/vendor-meshy.mjs)
+
+AI-generated via the Meshy API (https://www.meshy.ai); generated offline,
+committed as GLBs. Meshy output licence: check meshy.ai terms for commercial
+use of generated assets. manifest.json records task ids, models, credits.
+
+Placed in world.js / streetLife.js: cake-stand, cup-stack (bar top),
+a-board, crate-stack, vintage-bike, plant-cluster, guitar-case, street-piano
+(pavement), cat (bench cat GLB swap), skateboard (skater deck swap),
+street-musician.walk (rigged busker, own 24-joint rig + Walk clip).
+Vendored but not yet placed: roof-tank, roof-dish, roof-antenna.
+
 ## icons/ — Morning Brief + vitals ink glyphs (Game-icons.net, CC BY 3.0)
 
 Four by Delapouite and one by rihlsul, all CC BY 3.0

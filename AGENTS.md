@@ -115,6 +115,29 @@
   fall back to the classic procedural path **without a network request**.
 - After new generations land (Tripo `persist`, franchise stands, new district
   kits), refresh the mirror: `node tools/mirror-assets.mjs` then redeploy.
+- Meshy (offline asset source, never runtime): `tools/vendor-meshy.mjs`
+  generates via the Meshy API into `web/assets/meshy/` + manifest.json.
+  Key: `MESHY_API_KEY` in `.env.local`. Defaults follow Meshy's game-asset
+  guidance — `meshy-t2`/`meshy-t2.5` Smart Topology + `meshy-n1` textures;
+  `--rig` auto-rigs humanoids (GLB + baked walk). meshy-n1 refine of a
+  non-7.1 text preview needs `--texture-image`. MCP server
+  `@meshy-ai/meshy-mcp-server` is wired in `~/.config/devin/mcp_config.json`
+  for agent-driven generation. `--preview-task <id>` resumes an orphaned
+  preview task (e.g. after a 429 on refine) instead of paying for a new one.
+  Downloads are auto-optimized (`gltf-transform`: WebP textures @1k,
+  geometry compression OFF — the vendored GLTFLoader has no meshopt/draco
+  decoder); `--optimize-existing` re-runs it over the whole dir, `--no-optimize`
+  skips. 16 GLBs total ≈8.5 MB.
+  Meshy GLBs arrive as ~1 m centred boxes (min.y ≈ −0.5): `place()` does NOT
+  normalize — each placement's scale/y must ground the bbox bottom itself
+  (probe with `tools/meshy-probe.mjs`, which reports world bboxes of every
+  `meshy/*` instance; `tools/meshy-shots.mjs` is the screenshot harness).
+  Skinned chars go through `loadChars()` — the walk GLB carries mesh + clip.
+  Vendored so far: bar-top cake-stand/cup-stack, pavement a-board/crate-stack/
+  vintage-bike/plant-cluster/guitar-case/street-piano, cat.glb (replaces the
+  procedural cat when it lands), skateboard.glb (streetLife deck swap),
+  street-musician.walk.glb (second busker), roof-{tank,dish,antenna}.glb
+  (spares, not yet placed).
 
 ## Real-world market snapshot (pillar 4 — snapshot, never live)
 - `web/js/marketSnapshot.js` is the only place that touches the wire. A
