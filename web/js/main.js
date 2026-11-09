@@ -7548,7 +7548,7 @@ function loop(now) {
   tetherWifi,
   get wifiOutage() { return wifiOutage ? { ...wifiOutage, status: outageStatus(wifiOutage, dayMin) } : null; },
   states: () => patrons.patrons.reduce((m, p) => ((m[p.state] = (m[p.state] || 0) + 1), m), {}),
-  exc: exchange, reg: regulars, sync, world, rig, analytics, street, frontage,
+  exc: exchange, reg: regulars, sync, world, scene, rig, analytics, street, frontage,
   vitality, director, district, kitBeat, mailT, impact,
   openDay, applyReply, reset, togglePause, resolveEvening, skipToRush,
   setCine: (b) => postfx.setCine(!!b, true),

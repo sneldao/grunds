@@ -592,14 +592,36 @@ export class StreetLife {
       // into the café at 09:30) — the catwatch vignette gathers at those
       // same bench coordinates. Here we only build the skateboard, a single
       // mesh that rides under the one live skater.
-      this.skateBoard = new THREE.Mesh(
+      // The skater's deck is a Group so the Meshy GLB can replace the box
+      // deck once it lands (same visible/position contract either way).
+      this.skateBoard = new THREE.Group();
+      const deck = new THREE.Mesh(
         new THREE.BoxGeometry(0.2, 0.045, 0.6),
         new THREE.MeshStandardMaterial({ color: 0x23252c, roughness: 0.55 })
       );
-      this.skateBoard.castShadow = false;
-      this.skateBoard.frustumCulled = false;
+      deck.position.y = 0.02;
+      this.skateBoard.add(deck);
+      this.skateBoard.traverse(o => { o.castShadow = false; o.frustumCulled = false; });
       this.skateBoard.visible = false;
       if (scene && scene.add) scene.add(this.skateBoard);
+      // Meshy deck (tools/vendor-meshy.mjs): normalised ~1 m box — scale to
+      // a 0.75 m board and ground it. Skipped headless (no DOM fetch).
+      if (scene && scene.add && !globalThis.__noGLB) {
+        new GLTFLoader().loadAsync('assets/meshy/skateboard.glb').then((gltf) => {
+          const m = gltf.scene;
+          const bb = new THREE.Box3().setFromObject(m);
+          const size = bb.getSize(new THREE.Vector3());
+          const s = 0.75 / Math.max(size.x, size.z);
+          const c = bb.getCenter(new THREE.Vector3());
+          m.scale.setScalar(s);
+          m.position.set(-c.x * s, -(bb.min.y) * s + 0.02, -c.z * s);
+          // The procedural deck ran long on z; if the GLB's long axis is x,
+          // quarter-turn it so the skater doesn't ride sideways.
+          if (size.x > size.z) m.rotation.y = Math.PI / 2;
+          m.traverse(o => { o.castShadow = false; o.frustumCulled = false; });
+          this.skateBoard.clear(); this.skateBoard.add(m);
+        }).catch(() => {});
+      }
       this._skater = null;
       // The leashed dog (theatre wave 2): one walker, one dog, one line.
       // Built once, hidden until _spawnDogWalker; _dogWalk drives it on
@@ -737,6 +759,15 @@ export class StreetLife {
     try {
       const gltf = await loader.loadAsync('assets/polyfork/organillero-67b687.glb');
       out.busker = [{ scene: gltf.scene, walk: null }];
+    } catch {}
+    // Meshy busker (tools/vendor-meshy.mjs --rig): street-musician.walk.glb
+    // ships the skinned mesh and its Walk clip in one file — a second
+    // busker flavour alongside the organ grinder. Own 24-joint rig, so it
+    // keeps its own clip and never takes the Polyfork donor.
+    try {
+      const m = await loader.loadAsync('assets/meshy/street-musician.walk.glb');
+      const walk = m.animations.find(a => /walk/i.test(a.name)) || m.animations[0] || null;
+      if (walk) (out.busker ??= []).push({ scene: m.scene, walk });
     } catch {}
     assignDonorWalk(out, donorWalk);
     this._charTemplates = out;
