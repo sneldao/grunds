@@ -238,7 +238,9 @@ function applyWorldSpec() {
   const spec = worldSpec && worldSpec.spec;
   if (!spec) return;
   // The chain's name is cosmetic; a real rival ghost landing later still wins.
-  if (spec.rivalName) COPY.rivalName = spec.rivalName;
+  // The sign was baked at world build — re-bake it so the street itself
+  // carries the spec's name, not just the copy.
+  if (spec.rivalName) { COPY.rivalName = spec.rivalName; world.setRivalName?.(spec.rivalName); }
 }
 resolveWorld();
 applyWorldSpec();

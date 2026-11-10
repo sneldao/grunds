@@ -7,7 +7,7 @@
 | Field | Value |
 |---|---|
 | Hosted demo | https://grunds.trustfall.xyz/ |
-| Demo (prompt-first entry) | https://grunds.trustfall.xyz/?prompt=a+tiny+late-night+ramen+counter |
+| Demo (prompt-first entry) | https://grunds.trustfall.xyz/?prompt=a+tiny+late-night+ramen+counter&world=a+rainy+night+market+against+MOON+NOODLE |
 | Repo | https://github.com/sneldao/grunds |
 | Video | `out/demo/demo.mp4` (70 s — upload or host wherever the form takes it) |
 

@@ -82,6 +82,7 @@ check('fallback response → null', (await refreshWorldSpec(mem(), 'http://x', '
 check('?world= param parsed', main.includes("urlParams.get('world')"));
 check('?prompt= + ?hackathon=1 parsed', main.includes("urlParams.get('prompt')") && main.includes("urlParams.has('hackathon')"));
 check('provider path is the default; vendored only on explicit opt-in', main.includes('districtPolyforkExplicit(location.search) && !hackathonMode && !autoPrompt'));
+check('described rival lands on the physical sign', main.includes('world.setRivalName?.(spec.rivalName)'));
 check('auto prompt only fires on the sandbox lot', main.includes('lot.sandbox !== true') && main.includes('maybeAutoPrompt()'));
 check('world spec resolved at boot', main.includes('resolveWorldSpec(localStorage, worldPrompt'));
 check('climate prefers live weather, then the described street, then seeded', /resolveClimate\(weatherAnchor, \(\) => \{[\s\S]{0,300}worldSpec\?\.spec\?\.climate[\s\S]{0,200}pickClimate/.test(main));

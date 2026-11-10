@@ -1039,6 +1039,14 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   const rvSignTex = shopSign(COPY.rivalName, '#e8f0ee', '#27403c', '600 40px Georgia, serif');
   W.rivalSignMat = new THREE.MeshStandardMaterial({ map: rvSignTex, emissive: 0xbfe8e2, emissiveMap: rvSignTex, emissiveIntensity: 0.25, roughness: 0.7 });
   plane(rv, 3.4, 0.64, W.rivalSignMat, 0, 2.05, -1.07, { ry: Math.PI });
+  // A described street can rename the chain after the sign was baked —
+  // swap the texture in place so the board reads the spec's name.
+  W.setRivalName = (name) => {
+    if (!name || !W.rivalSignMat) return;
+    const tex = shopSign(String(name).toUpperCase().slice(0, 24), '#e8f0ee', '#27403c', '600 40px Georgia, serif');
+    W.rivalSignMat.map?.dispose?.();
+    W.rivalSignMat.map = tex; W.rivalSignMat.emissiveMap = tex; W.rivalSignMat.needsUpdate = true;
+  };
   const rvStratC = document.createElement('canvas'); rvStratC.width = 512; rvStratC.height = 64;
   const rvStratG = rvStratC.getContext('2d');
   const rvStratTex = new THREE.CanvasTexture(rvStratC); rvStratTex.colorSpace = THREE.SRGBColorSpace;
