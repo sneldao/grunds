@@ -1383,17 +1383,32 @@ function renderWeekStanding() {
   el.className = 'bs-' + stand.tone;
   // The ledger strip is every morning. The rule sentences are said once,
   // then only while the condition they name is actually live.
-  const chip = document.createElement('div');
-  chip.className = 'bs-chip';
-  chip.textContent = stand.chip;
-  el.appendChild(chip);
   const taughtDay = rulesTaught.get('standing');
   const says = stand.warns.length ? stand.warns
     : (taughtDay != null && taughtDay !== day) ? [] : stand.teaches;
-  for (const line of says) {
-    const p = document.createElement('p');
-    p.textContent = line;
-    el.appendChild(p);
+  if (!stand.warns.length && says.length) {
+    const det = document.createElement('details');
+    det.className = 'bs-more';
+    const sum = document.createElement('summary');
+    sum.className = 'bs-chip';
+    sum.textContent = stand.chip;
+    det.appendChild(sum);
+    for (const line of says) {
+      const p = document.createElement('p');
+      p.textContent = line;
+      det.appendChild(p);
+    }
+    el.appendChild(det);
+  } else {
+    const chip = document.createElement('div');
+    chip.className = 'bs-chip';
+    chip.textContent = stand.chip;
+    el.appendChild(chip);
+    for (const line of says) {
+      const p = document.createElement('p');
+      p.textContent = line;
+      el.appendChild(p);
+    }
   }
   if (!stand.warns.length) rulesTaught.set('standing', day);
 }
@@ -1407,16 +1422,13 @@ function beats() {
     // Beat push-ins only at readable speeds — at 20× the chapters fly by and
     // the camera would whip around every few seconds. Cards still show.
     if (ch.beat && speed <= 300) rig.focus(world.focus[ch.beat] || world.focus.wide, ch.beat === 'wide' ? 26 : 13, 5);
-    if (ch.notebook) fx.notebook(true);
     if (ch.wave) {
       rig.shake(0.3);
       if (prebatched) { fx.toast(`the wave hits a warm till — ${ctx.batchUnits} cups reserved`, 'good'); prebatchHelped = true; }
       else fx.toast('the wave hits a cold bar — 4 minutes a cup', 'bad');
     }
   }
-  if (dayMin >= 840) fx.notebook(prebatched ? false : dayMin < 900);
-  // The tutorial owns the rule at open. The notebook comes back at noon
-  // and again if the 14:00 wave arrives with a cold bar.
+  if (dayMin >= 840) fx.notebook(false);   // it only ever closes here; opening is the `notebook` button's job
   // Day-2 forecast tease: ~17:30 day 1, once per campaign. Gives a reason to replay.
   if (day === 1 && !forecastShown && dayMin >= 1050 && !closed && !eveningFast) {
     forecastShown = true;
@@ -2192,7 +2204,7 @@ function renderIdrisAsk() {
   const cost = 60 * price;
   if (till < cost) return;   // no insulting offers
   const row = document.createElement('div');
-  row.style.cssText = 'margin-top:10px;font-size:11.5px';
+  row.style.cssText = 'margin-top:10px;font-size:var(--fs-1)';
   const q = document.createElement('div');
   q.style.cssText = 'font-style:italic;opacity:.8;margin-bottom:6px';
   q.textContent = `“Panama gesha in — sixty cups, going fast. Want me to hold you a sack at ${fmt(cost)}?” — Idris`;
@@ -2234,6 +2246,7 @@ function markBriefChoice(id) {
         : id === 'settle' ? `settling ${fmt(exchange.debt)}`
         : `${String(id).replace('contract_', '')} cover · ~${(hedgeTerms(id, contractFeeExtra)?.units || 0).toFixed(0)} cups`;
       selTxt.style.display = selTxt.textContent ? '' : 'none';
+      updateBriefFold($('brief-actions'), `beans · ${selTxt.textContent || 'riding the spot'} · change ›`);
     }
   } catch {}
 }
@@ -2541,6 +2554,7 @@ function renderPlanQuote() {
   clearEl(nutEl);
   const det = document.createElement('details');
   det.id = 'brief-nut-details';
+  det.className = 'brief-fold';
   if (drawerOpen('brief-nut-details', wasOpen || q.contractFee > 0 || q.interest > 0 || q.settlement || q.training || q.sampling || q.marketing)) det.open = true;
   watchDrawer(det, 'brief-nut-details');
   const sum = document.createElement('summary');
@@ -2576,17 +2590,17 @@ function renderPrepSection() {
   if (day === 1) { renderFirstDayChoices(wrap); renderPastryCut(wrap); renderShockCounter(wrap); appendLoanLine(wrap); return; }
 
   const lab = document.createElement('div');
-  lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
+  lab.style.cssText = 'font-size:var(--fs-1);letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
   lab.textContent = 'this morning';
   const qbtn = document.createElement('button');
   qbtn.textContent = '?';
-  qbtn.style.cssText = 'font-size:10px;opacity:.5;background:none;border:none;cursor:pointer;padding:0 4px';
+  qbtn.style.cssText = 'font-size:var(--fs-1);opacity:.5;background:none;border:none;cursor:pointer;padding:0 4px';
   qbtn.setAttribute('aria-label', 'what happens if I press 1 or 2 without staging');
   lab.appendChild(qbtn);
   wrap.appendChild(lab);
 
   const hint = document.createElement('div');
-  hint.style.cssText = 'font-size:10.5px;opacity:.6;margin-bottom:6px;font-style:italic';
+  hint.style.cssText = 'font-size:var(--fs-1);opacity:.6;margin-bottom:6px;font-style:italic';
   hint.textContent = `change your plan freely before opening · after noon the first switch costs ${fmt(4.2)} (a late batch adds ${fmt(40, 0)} stock); a routine batch top-up is ${fmt(40, 0)} with no opinion hit`;
   hint.style.display = prepHintOpen ? '' : 'none';
   qbtn.onclick = () => { prepHintOpen = !prepHintOpen; hint.style.display = prepHintOpen ? '' : 'none'; };
@@ -2609,8 +2623,8 @@ function renderPrepSection() {
     b.dataset.prep = def.key;
     const sel = isSelected(def.key);
     b.innerHTML = `${sel ? '✓ ' : ''}${def.label}${def.cost ? ` · −${fmt(def.cost)}` : ''}` +
-      `<br><span style="font-size:10px;font-weight:400;opacity:.72">${def.desc}</span>`;
-    b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
+      `<br><span style="font-size:var(--fs-1);font-weight:400;opacity:.72">${def.desc}</span>`;
+    b.style.cssText = 'font-size:var(--fs-1);padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     else if (def.key === 'hold') { b.style.opacity = '0.7'; }
     b.title = `change your plan freely before opening · after noon the first switch costs ${fmt(4.2)} (a late batch adds ${fmt(40, 0)} stock)`;
@@ -2658,7 +2672,7 @@ function appendLoanLine(wrap) {
   const line = document.createElement('div');
   line.id = 'brief-loan';
   line.textContent = stagedLoan > 0 ? `borrow ${fmt(stagedLoan, 0)} or skip` : 'borrow or skip';
-  line.style.cssText = 'font-size:11px;margin-top:6px;cursor:pointer';
+  line.style.cssText = 'font-size:var(--fs-1);margin-top:6px;cursor:pointer';
   line.onclick = () => {
     if (phase !== 'planning') return;
     const steps = [0, 400, 800, 1200, 1600];
@@ -2877,7 +2891,7 @@ function renderFranchiseRow() {
   send.className = 'row-send';
   const btn = document.createElement('button');
   btn.id = 'brief-row-send';
-  btn.textContent = 'send to the builders'; btn.style.fontSize = '10px';
+  btn.textContent = 'send to the builders'; btn.style.fontSize = 'var(--fs-1)';
   send.append(input, btn);
   card.appendChild(send);
 
@@ -2920,6 +2934,12 @@ function renderFranchiseRow() {
     });
   };
   host.appendChild(card);
+  try {
+    const t = host.querySelector && host.querySelector('.row-title');
+    const head = t && t.textContent ? t.textContent.replace(/^The /, 'the ') : 'the vacant lot';
+    foldBriefSection(host, 'row', `the Row · ${head} · change ›`,
+      !!(host.querySelector && host.querySelector('#brief-restock,.row-teaser,.row-bonus')));
+  } catch {}
 }
 
 function stageLoan(amount) {
@@ -2989,11 +3009,11 @@ function applySeizureBoard() {
 function renderFirstDayChoices(wrap) {
   const FM = firstMorningCopy();
   const title = document.createElement('div');
-  title.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55';
+  title.style.cssText = 'font-size:var(--fs-1);letter-spacing:.18em;text-transform:uppercase;opacity:.55';
   title.textContent = FM.planTitle;
   const fc = document.createElement('div');
   fc.id = 'brief-prep-forecast';
-  fc.style.cssText = 'font-family:var(--serif);font-size:14px;font-style:italic;margin:4px 0 8px';
+  fc.style.cssText = 'font-family:var(--serif);font-size:var(--fs-3);font-style:italic;margin:4px 0 8px';
   fc.textContent = FM.forecast;
   wrap.append(title, fc);
   const pick = (key) => {
@@ -3055,26 +3075,26 @@ function renderPastryCut(wrap) {
   row.id = 'brief-pastry';
   row.style.cssText = 'margin-top:8px';
   const lab = document.createElement('div');
-  lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
+  lab.style.cssText = 'font-size:var(--fs-1);letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
   lab.className = 'brief-icon-label brief-icon-pastry';
   lab.textContent = 'tomorrow’s croissant case';
   row.appendChild(lab);
   const rule = document.createElement('div');
-  rule.style.cssText = 'font-size:11px;line-height:1.35;margin-bottom:4px';
+  rule.style.cssText = 'font-size:var(--fs-1);line-height:1.35;margin-bottom:4px';
   rule.textContent = 'An empty case still sells the drink. One in four leaves, and the room notices.';
   row.appendChild(rule);
   const todayLine = pastryTodayLine(pastryOnOrder);
   if (todayLine) {
     const today = document.createElement('div');
     today.id = 'brief-pastry-today';
-    today.style.cssText = 'font-size:11px;line-height:1.35;margin-bottom:4px';
+    today.style.cssText = 'font-size:var(--fs-1);line-height:1.35;margin-bottom:4px';
     today.textContent = todayLine;
     row.appendChild(today);
   }
   if (openingTeach() && day === 1) row.classList.add('cue-spot');
   if (day >= CAMPAIGN.days) {
     const note = document.createElement('div');
-    note.style.cssText = 'font-size:10px;opacity:.55;font-style:italic';
+    note.style.cssText = 'font-size:var(--fs-1);opacity:.55;font-style:italic';
     note.textContent = 'the week ends tonight — no case tomorrow';
     row.appendChild(note);
     wrap.appendChild(row);
@@ -3085,17 +3105,20 @@ function renderPastryCut(wrap) {
     { id: 'brief-pastry-half', share: 0.5, label: 'bake half' },
     { id: 'brief-pastry-none', share: 1, label: 'skip tomorrow’s case' },
   ];
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px';
   for (const def of choices) {
     const b = document.createElement('button');
     b.id = def.id;
     const sel = pastryCut === def.share;
     b.textContent = (sel ? '✓ ' : '') + def.label;
-    b.style.cssText = 'display:block;width:100%;margin-top:4px;font-size:11px;text-align:left;padding:6px 9px';
+    b.style.cssText = 'font-size:var(--fs-1);text-align:center;padding:6px 9px';
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     b.onclick = () => { stagePastryCut(def.share); renderPrepSection(); };
-    row.appendChild(b);
+    grid.appendChild(b);
   }
+  row.appendChild(grid);
   wrap.appendChild(row);
 }
 
@@ -3108,7 +3131,7 @@ function renderShockCounter(wrap) {
   row.id = 'brief-shock';
   row.style.cssText = 'margin-top:8px';
   const lab = document.createElement('div');
-  lab.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
+  lab.style.cssText = 'font-size:var(--fs-1);letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-bottom:4px';
   lab.textContent = { machine_breaks: 'the machine is limping', dairy_crunch: 'the oat milk is short', health_inspector: 'the inspector is in' }[id] || 'today’s complication';
   row.appendChild(lab);
   const staged = stagedCounterable && stagedCounterable.id === id ? stagedCounterable.counter : null;
@@ -3122,7 +3145,7 @@ function renderShockCounter(wrap) {
     b.dataset.counter = def.key == null ? '' : def.key;
     const sel = staged === def.key;
     b.textContent = (sel ? '✓ ' : '') + def.label + (def.cost ? ` · −${fmt(def.cost)}` : '');
-    b.style.cssText = 'display:block;width:100%;margin-top:4px;font-size:11px;text-align:left;padding:6px 9px';
+    b.style.cssText = 'display:block;width:100%;margin-top:4px;font-size:var(--fs-1);text-align:left;padding:6px 9px';
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     b.onclick = () => { stageCounterable(id, def.key); renderPrepSection(); };
@@ -3215,6 +3238,7 @@ function renderLotSection() {
   const stale = house && isStale(age);
   const det = document.createElement('details');
   det.id = 'brief-lot-details';
+  det.className = 'brief-fold';
   const houseEmpty = !!house && house.stock <= 0;
   const houseLow = !!house && lastPour > 0 && house.stock < lastPour;
   const cellarDry = LOT_IDS.every(id => (lotState.entry(id)?.stock ?? 0) <= 0);
@@ -3226,7 +3250,7 @@ function renderLotSection() {
   det.appendChild(sum);
   if (houseEmpty) {
     const warn = document.createElement('div');
-    warn.style.cssText = 'font-size:11px;color:#8a4a2a;margin:4px 0 6px';
+    warn.style.cssText = 'font-size:var(--fs-1);color:#8a4a2a;margin:4px 0 6px';
     warn.textContent = cellarDry
       ? 'cellar’s dry — every cup today bills an emergency sack at 1.5× spot'
       : 'house lot empty — choose another lot or restock; a completely dry cellar bills 1.5× spot';
@@ -3249,7 +3273,7 @@ function renderLotSection() {
     const fresh = age <= 1 ? '● fresh' : isStale(age) ? '● STALE' : '● day ' + age;
     b.textContent = `${sel ? '✓ ' : ''}${entry.name} · ${fmt(price)}/cup · ${st.stock} in sack · ${fresh}`;
     b.title = entry.blurb;
-    b.style.cssText = 'font-size:11px;padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
+    b.style.cssText = 'font-size:var(--fs-1);padding:7px 11px;flex:1;min-width:0;text-align:left;line-height:1.35';
     if (sel) { b.style.borderColor = 'var(--matcha)'; b.style.background = 'rgba(134,168,96,.16)'; b.style.color = '#2a241c'; }
     b.setAttribute('aria-pressed', sel ? 'true' : 'false');
     b.onclick = () => { selectedLot = id; topUpCups = 0; stagedRoast = lotState.entry(id)?.roast ?? null; renderLotSection(); renderPlanQuote(); };
@@ -3269,7 +3293,7 @@ function renderLotSection() {
       b.id = id;
       const sel = topUpCups === cups && cups > 0;
       b.textContent = `${sel ? '✓ ' : ''}${label}`;
-      b.style.cssText = 'font-size:11px;padding:6px 10px;flex:1;min-width:0';
+      b.style.cssText = 'font-size:var(--fs-1);padding:6px 10px;flex:1;min-width:0';
       if (sel) { b.style.borderColor = 'var(--brass)'; b.style.background = 'rgba(201,162,39,.18)'; b.style.color = '#2a241c'; }
       b.onclick = () => { topUpCups = (topUpCups === cups) ? 0 : cups; renderLotSection(); renderPlanQuote(); };
       return b;
@@ -3293,7 +3317,7 @@ function renderLotSection() {
   }
   if (notes.length) {
     const status = document.createElement('div');
-    status.style.cssText = 'font-size:10px;letter-spacing:.04em;opacity:.55;font-style:italic';
+    status.style.cssText = 'font-size:var(--fs-1);letter-spacing:.04em;opacity:.55;font-style:italic';
     status.textContent = notes.join(' · ');
     det.appendChild(status);
   }
@@ -3303,7 +3327,7 @@ function renderLotSection() {
   // heatwave, and the same sack cannot please both. Distance costs quality;
   // the dark end risks a scorch. Committed with OPEN.
   const roastRow = document.createElement('div');
-  roastRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;font-size:11px';
+  roastRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;font-size:var(--fs-1)';
   const roastLab = document.createElement('span');
   roastLab.style.cssText = 'opacity:.65';
   const ideal = lotRoastTarget(selectedLot);
@@ -3464,6 +3488,7 @@ function renderMenuSection() {
   const changed = wasOpen || off.length > 0 || stagedPrep.reprice || DRINK_IDS.some(id => id !== 'matcha' && stagedMenu.prices[id] !== bases[id]);
   const det = document.createElement('details');
   det.id = 'brief-menu-details';
+  det.className = 'brief-fold';
   if (TT.newToday === 'menu' || drawerOpen('brief-menu-details', changed)) det.open = true;
   watchDrawer(det, 'brief-menu-details');
   const sum = document.createElement('summary');
@@ -3476,7 +3501,7 @@ function renderMenuSection() {
   for (const id of DRINK_IDS) {
     const def = DRINKS[id];
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:4px;font-size:11px';
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:4px;font-size:var(--fs-1)';
     const nm = document.createElement('span');
     nm.style.cssText = 'flex:1;min-width:0';
     nm.textContent = `${def.name} · ${def.points}pt${def.milk ? ' · milk' : ''}`;
@@ -3494,7 +3519,7 @@ function renderMenuSection() {
       row.appendChild(nm); row.appendChild(val);
       const byPlan = document.createElement('span');
       byPlan.textContent = 'set by the plan';
-      byPlan.style.cssText = 'opacity:.55;font-size:10px;padding:4px 2px';
+      byPlan.style.cssText = 'opacity:.55;font-size:var(--fs-1);padding:4px 2px';
       row.appendChild(byPlan);
     } else {
       row.appendChild(nm); row.appendChild(minus); row.appendChild(val); row.appendChild(plus);
@@ -3511,14 +3536,14 @@ function renderMenuSection() {
     } else {
       const always = document.createElement('span');
       always.textContent = 'always on';
-      always.style.cssText = 'opacity:.5;font-size:10px;padding:4px 2px';
+      always.style.cssText = 'opacity:.5;font-size:var(--fs-1);padding:4px 2px';
       row.appendChild(always);
     }
     det.appendChild(row);
   }
 
   const hint = document.createElement('div');
-  hint.style.cssText = 'font-size:10px;letter-spacing:.04em;opacity:.55;font-style:italic';
+  hint.style.cssText = 'font-size:var(--fs-1);letter-spacing:.04em;opacity:.55;font-style:italic';
   hint.textContent = 'slow brews cost the rush — 86 with intent';
   det.appendChild(hint);
 }
@@ -3725,6 +3750,7 @@ function renderRivalLine() {
   // breakdown — sprung open while the player trails Sam
   const det = document.createElement('details');
   det.id = 'brief-rival-details';
+  det.className = 'brief-fold';
   if (drawerOpen('brief-rival-details', wasOpen || delta < 0)) det.open = true;
   watchDrawer(det, 'brief-rival-details');
   const sum = document.createElement('summary');
@@ -3849,12 +3875,117 @@ function renderStreetBrief() {
         }
         streetEl.style.display = '';
       } else streetEl.style.display = 'none';
+      // While the house pick is on the table the whole block folds to one row.
+      try {
+        if (streetEl.style.display !== 'none' && streetEl.querySelector && streetEl.querySelector('.lic-pills')) {
+          const on = streetEl.querySelector('.lic-pills button.on');
+          foldBriefSection(streetEl, 'street', `the street · ${on ? on.textContent : 'no house origin'} · change ›`, day === streetDay + 1);
+        }
+      } catch {}
     } catch { streetEl.style.display = 'none'; }
   }
 }
 
+// Fold state lives only for the day's brief — cleared each dawn, kept across
+// the section-local re-renders a click inside the fold triggers.
+const briefFoldOpen = new Map();
+function foldBriefSection(el, key, summaryText, openByDefault) {
+  if (!el || typeof el.appendChild !== 'function' || !el.children) return;
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') return;
+  const only = el.children.length === 1 ? el.children[0] : null;
+  if (only && only.tagName === 'DETAILS' && only.classList && only.classList.contains('brief-fold')) {
+    updateBriefFold(el, summaryText);
+    return;
+  }
+  const det = document.createElement('details');
+  det.className = 'brief-fold';
+  det.open = briefFoldOpen.has(key) ? briefFoldOpen.get(key) : !!openByDefault;
+  det.addEventListener?.('toggle', () => { try { briefFoldOpen.set(key, !!det.open); } catch {} });
+  const sum = document.createElement('summary');
+  sum.textContent = summaryText;
+  const body = document.createElement('div');
+  body.className = 'brief-fold-body';
+  for (const c of [...el.children]) body.appendChild(c);
+  det.appendChild(sum);
+  det.appendChild(body);
+  el.appendChild(det);
+}
+function updateBriefFold(el, summaryText) {
+  const only = el && el.children && el.children.length === 1 ? el.children[0] : null;
+  if (!only || !only.classList || !only.classList.contains('brief-fold')) return;
+  const s = only.querySelector ? only.querySelector('summary') : null;
+  if (s) s.textContent = summaryText;
+}
+
+// Read-only brief sections taller than ~96px collapse behind a "more" toggle
+// so the required call stays in view. Idempotent — re-rendered sections lose
+// their toggle and are re-judged on the next pass.
+function clampBriefSections() {
+  const body = document.querySelector('#brief .modal-tier-scroll');
+  if (!body || typeof body.getBoundingClientRect !== 'function') return;
+  const tools = $('brief-tools');
+  const secs = [...(body.children || [])];
+  if (tools) secs.push(...(tools.children || []));
+  for (const sec of secs) {
+    if (!sec || !sec.classList || typeof sec.getBoundingClientRect !== 'function') continue;
+    let toggle = null;
+    for (const c of sec.children || []) if (c.classList && c.classList.contains('brief-more')) toggle = c;
+    const rect = sec.getBoundingClientRect();
+    const visible = !!(rect && rect.height > 0 && rect.width > 0);
+    const skip = sec.id === 'brief-prep' || sec.id === 'brief-tools' || sec.tagName === 'DETAILS';
+    const hasCtl = !!(sec.querySelectorAll && [...sec.querySelectorAll('button,input,select,a')]
+      .filter(e => e !== toggle)
+      .find(e => { const r = e.getBoundingClientRect && e.getBoundingClientRect(); return r && r.height > 0 && r.width > 0; }));
+    const h = Math.max(rect.height, typeof sec.scrollHeight === 'number' ? sec.scrollHeight : 0);
+    if (!skip && visible && !hasCtl && h > 96) {
+      // only touch the DOM on a state change — the observer re-runs us on it
+      if (!sec.classList.contains('brief-clamp')) sec.classList.add('brief-clamp');
+      if (!toggle) {
+        toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'brief-more';
+        toggle.onclick = () => {
+          const open = sec.classList.toggle('brief-clamp-open');
+          toggle.textContent = open ? 'less' : 'more';
+          try { toggle.setAttribute('aria-expanded', open ? 'true' : 'false'); } catch {}
+        };
+        sec.appendChild(toggle);
+      }
+      const open = sec.classList.contains('brief-clamp-open');
+      const label = open ? 'less' : 'more';
+      if (toggle.textContent !== label) toggle.textContent = label;
+      try { if (toggle.getAttribute('aria-expanded') !== String(open)) toggle.setAttribute('aria-expanded', String(open)); } catch {}
+    } else {
+      if (sec.classList.contains('brief-clamp')) sec.classList.remove('brief-clamp');
+      if (sec.classList.contains('brief-clamp-open')) sec.classList.remove('brief-clamp-open');
+      if (toggle && toggle.remove) toggle.remove();
+    }
+  }
+  updateBriefScrollEdges();
+}
+// The edge fades mean "there's more this way" — never dim the visible top.
+function updateBriefScrollEdges() {
+  const sc = document.querySelector('#brief .modal-tier-scroll');
+  if (!sc || !sc.classList) return;
+  if (typeof sc.scrollTop !== 'number' || typeof sc.scrollHeight !== 'number') return;
+  sc.classList.toggle('at-top', sc.scrollTop <= 0);
+  sc.classList.toggle('at-bottom', sc.scrollTop + (sc.clientHeight || 0) >= sc.scrollHeight - 1);
+}
+try {
+  const _briefScroll = document.querySelector('#brief .modal-tier-scroll');
+  if (_briefScroll) {
+    updateBriefScrollEdges();
+    _briefScroll.addEventListener?.('scroll', updateBriefScrollEdges, { passive: true });
+    if (typeof MutationObserver === 'function') {
+      new MutationObserver(() => { try { if (modals.top && modals.top() === 'brief') clampBriefSections(); } catch {} })
+        .observe(_briefScroll, { childList: true, subtree: true, attributes: true });
+    }
+  }
+} catch {}
+
 function showMorningBrief() {
   const el = $('brief'); if (!el) return;
+  briefFoldOpen.clear();
   const snap = {
     day, event: exchange.event, index: exchange.beanIndex, cost: exchange.costPerCup,
     sold: lastDayStats ? lastDayStats.sold : null, balked: lastDayStats ? lastDayStats.balked : 0,
@@ -3898,9 +4029,21 @@ function showMorningBrief() {
       }
     }
   } catch { if (head) head.textContent = `Day ${day}/${CAMPAIGN.days} · plan before opening`; }
-  { const el = $('brief-climate'); if (el) el.textContent = climateBrief(climate) + (weatherAnchor && weatherAnchor.source === 'live'
+  { const el = $('brief-climate'); if (el) {
+      el.classList.remove('open');
+      try { el.setAttribute('aria-expanded', 'false'); } catch {}
+      if (!el._climWired) {
+        el._climWired = true;
+        const toggle = () => {
+          el.classList.toggle('open');
+          try { el.setAttribute('aria-expanded', el.classList.contains('open') ? 'true' : 'false'); } catch {}
+        };
+        el.addEventListener('click', toggle);
+        el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+      }
+      el.textContent = climateBrief(climate) + (weatherAnchor && weatherAnchor.source === 'live'
       ? ` The sky this week is the real forecast${city?.name ? ' over ' + cityDisplay(city.name) : ''} (Open-Meteo).` : '')
-      + (worldSpec?.spec ? ` Your street: ${worldSpec.spec.name || worldSpec.prompt}.${worldSpec.spec.line ? ' ' + worldSpec.spec.line : ''}` : ''); }
+      + (worldSpec?.spec ? ` Your street: ${worldSpec.spec.name || worldSpec.prompt}.${worldSpec.spec.line ? ' ' + worldSpec.spec.line : ''}` : ''); } }
   const intro = $('brief-intro');
   if (intro) {
     if (firstDay && softWeekDone) {
@@ -3946,7 +4089,7 @@ function showMorningBrief() {
       const houseNow = lotState.entry(selectedLot);
       if (houseNow && houseNow.stock > 0) {
         const st = document.createElement('p');
-        st.style.cssText = 'opacity:.75;font-size:12.5px';
+        st.style.cssText = 'opacity:.75;font-size:var(--fs-2)';
         st.textContent = FM.stocked;
         intro.appendChild(st);
       }
@@ -4037,7 +4180,7 @@ function showMorningBrief() {
     const signal = !!(marketIntel?.marketShift?.length || exchange.event);
     const csum = ctxEl.querySelector && ctxEl.querySelector('summary');
     if (csum) csum.textContent = signal ? 'the wire — a warning in it' : 'the wire';
-    ctxEl.open = drawerOpen('brief-context', signal);
+    ctxEl.open = drawerOpen('brief-context', false);
   }
   // Pillar 3 — the week's commodity snapshot leads the wire: real (FRED,
   // cached at campaign start) or seeded synthetic. The line says which, and a
@@ -4076,12 +4219,12 @@ function showMorningBrief() {
         };
       }
       if (shift && (shift.why || shift.reason)) {
-        const why = document.createElement('div'); why.style.marginTop = '8px'; why.style.fontSize = '10.5px';
+        const why = document.createElement('div'); why.style.marginTop = '8px'; why.style.fontSize = 'var(--fs-1)';
         why.style.opacity = '.72'; why.textContent = 'why this matters · ' + String(shift.why || shift.reason).slice(0, 160);
         wire.appendChild(why);
       }
       // insider tilt callout
-      const edge = document.createElement('div'); edge.style.marginTop = '8px'; edge.style.fontSize = '10px';
+      const edge = document.createElement('div'); edge.style.marginTop = '8px'; edge.style.fontSize = 'var(--fs-1)';
       edge.style.letterSpacing = '.12em'; edge.style.textTransform = 'uppercase'; edge.style.opacity = '.45';
       if (billing.isSubscribed() && shift) {
         edge.textContent = 'insider tilt — ' + (shift.eventId || 'deck') + ' ×' + shift.weightMul;
@@ -4095,7 +4238,7 @@ function showMorningBrief() {
         const tier = EVENTS[shift.eventId]?.tier;
         const lean = tier === 'good' ? 'kind' : tier === 'cata' || tier === 'bad' ? 'against you' : tier === 'warn' ? 'nervous' : 'flat';
         const w = document.createElement('div');
-        w.style.cssText = 'margin-top:6px;font-size:10.5px;opacity:.78;font-style:italic';
+        w.style.cssText = 'margin-top:6px;font-size:var(--fs-1);opacity:.78;font-style:italic';
         w.textContent = `the circuit whispers — the board leans ${lean}`;
         wire.appendChild(w);
       }
@@ -4124,6 +4267,7 @@ function showMorningBrief() {
     if (TT.newToday !== 'street') {
       const det = document.createElement('details');
       det.id = 'brief-demand-details';
+  det.className = 'brief-fold';
       if (drawerOpen('brief-demand-details', wasOpen || stagedLabels !== '' || day === D.sponsorDay)) det.open = true;
       watchDrawer(det, 'brief-demand-details');
       const sum = document.createElement('summary');
@@ -4133,7 +4277,7 @@ function showMorningBrief() {
       host = det;
     } else {
       const t = document.createElement('div');
-      t.style.cssText = 'font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55';
+      t.style.cssText = 'font-size:var(--fs-1);letter-spacing:.18em;text-transform:uppercase;opacity:.55';
       t.textContent = `work the street — awareness ${demand.pips()}`;
       demandRow.appendChild(t);
       // first appearance gets its reason: yesterday's balked cups are the
@@ -4141,7 +4285,7 @@ function showMorningBrief() {
       if (lastDayStats) {
         const intro = document.createElement('div');
         intro.id = 'brief-demand-intro';
-        intro.style.cssText = 'font-size:10.5px;opacity:.7;font-style:italic;margin:2px 0 5px';
+        intro.style.cssText = 'font-size:var(--fs-1);opacity:.7;font-style:italic;margin:2px 0 5px';
         intro.textContent = `new lever — the street forgets overnight. Yesterday ${lastDayStats.balked} walked; this buys tomorrow’s crowd.`;
         demandRow.appendChild(intro);
       }
@@ -4154,7 +4298,7 @@ function showMorningBrief() {
     ];
     if (day >= CAMPAIGN.days) {
       const note = document.createElement('div');
-      note.style.cssText = 'font-size:10px;opacity:.55;font-style:italic';
+      note.style.cssText = 'font-size:var(--fs-1);opacity:.55;font-style:italic';
       note.textContent = 'benefits tomorrow; this is the final day';
       host.appendChild(note);
     }
@@ -4261,7 +4405,7 @@ function showMorningBrief() {
     else if (canChooseStaffing(day, baristaCondition) || earnedRest) {
       staffRow.style.display = '';
       const t = document.createElement('div');
-      t.style.cssText = 'font-size:10.5px;opacity:.78;margin-bottom:5px;font-style:italic';
+      t.style.cssText = 'font-size:var(--fs-1);opacity:.78;margin-bottom:5px;font-style:italic';
       t.textContent = earnedRest && !(baristaCondition < 0.55)
         ? 'The week earned Ruth a rest — send her home this morning, or keep her on.'
         : baristaCondition < 0.25
@@ -4282,6 +4426,7 @@ function showMorningBrief() {
         home.setAttribute('aria-pressed', mode === 'home' ? 'true' : 'false');
         apprentice.setAttribute('aria-pressed', mode === 'apprentice' ? 'true' : 'false');
         push.setAttribute('aria-pressed', mode === 'push' ? 'true' : 'false');
+        try { updateBriefFold(staffRow, `Ruth · ${{ home: 'send her home', apprentice: 'hire apprentice', push: 'push on' }[mode]} · change ›`); } catch {}
       };
       sel(planDraft && planDraft.staffing !== 'work' ? planDraft.staffing : 'push', false);
       home.onclick = () => sel('home', true);
@@ -4294,7 +4439,7 @@ function showMorningBrief() {
       // locking tomorrow's staffing for a friend who becomes a regular.
       if (ruthRestDay === day) {
         const note = document.createElement('div');
-        note.style.cssText = 'font-size:11px;margin-top:6px;font-style:italic';
+        note.style.cssText = 'font-size:var(--fs-1);margin-top:6px;font-style:italic';
         note.textContent = 'Ruth’s day off — promised. Solo bar today; she’ll be back.';
         staffRow.append(note);
         if (planDraft) planDraft.staffing = 'home';
@@ -4308,7 +4453,7 @@ function showMorningBrief() {
           // the cause reads yesterday: drowned floor → the rush; else the opens.
           const cause = (lastDayStats?.balked || 0) > 50 ? RUTH_CAUSES.rush : RUTH_CAUSES.opens;
           const line = document.createElement('div');
-          line.style.cssText = 'font-size:11px;margin-top:6px;font-style:italic';
+          line.style.cssText = 'font-size:var(--fs-1);margin-top:6px;font-style:italic';
           line.textContent = `Ruth, quietly: “${cause}”`;
           ask.replaceWith(line);
           if (day < CAMPAIGN.days) {
@@ -4327,10 +4472,18 @@ function showMorningBrief() {
         staffRow.append(ask);
       } else if (ruthAsked && ruthRestDay > 0 && ruthRestDay >= day) {
         const note = document.createElement('div');
-        note.style.cssText = 'font-size:11px;margin-top:6px;font-style:italic';
+        note.style.cssText = 'font-size:var(--fs-1);margin-top:6px;font-style:italic';
         note.textContent = `promised: Ruth rests day ${ruthRestDay} — and she’ll bring someone.`;
         staffRow.append(note);
       }
+      try {
+        if (staffRow.style.display !== 'none' && staffRow.querySelectorAll && staffRow.querySelectorAll('button').length >= 2) {
+          const selB = [...staffRow.querySelectorAll('button')].find(b => b.getAttribute && b.getAttribute('aria-pressed') === 'true');
+          const frag = selB ? selB.textContent.replace(/^✓ /, '').split(' · ')[0]
+            : (t.textContent || '').split(' — ')[0].split('—')[0].trim();
+          foldBriefSection(staffRow, 'staff', `Ruth · ${frag} · change ›`, baristaCondition < 0.55);
+        }
+      } catch {}
     } else staffRow.style.display = 'none';
   }
   // choice row: sizing is the position — header says what this means in one line
@@ -4347,13 +4500,13 @@ function showMorningBrief() {
       actions.appendChild(note);
     }
     const lab = document.createElement('div');
-    lab.style.fontSize = '10px'; lab.style.letterSpacing = '.18em';
+    lab.style.fontSize = 'var(--fs-1)'; lab.style.letterSpacing = '.18em';
     lab.style.textTransform = 'uppercase'; lab.style.opacity = '.55';
     lab.textContent = showIns ? 'beans' : 'supplier tab';
     actions.appendChild(lab);
     const hint = document.createElement('div');
     hint.id = 'brief-sel';
-    hint.style.fontSize = '10.5px'; hint.style.opacity = '.6'; hint.style.marginBottom = '4px';
+    hint.style.fontSize = 'var(--fs-1)'; hint.style.opacity = '.6'; hint.style.marginBottom = '4px';
     hint.textContent = '';
     actions.appendChild(hint);
     for (const act of L.actions) {
@@ -4369,6 +4522,7 @@ function showMorningBrief() {
       b.onclick = () => { if (applyReply(act.id)) markBriefChoice(act.id); };
       actions.appendChild(b);
     }
+    try { foldBriefSection(actions, 'actions', `${lab.textContent} · ${hint.textContent || 'riding the spot'} · change ›`, false); } catch {}
     }
   }
   briefChoice = planDraft ? planDraft.hedge : null;
@@ -4424,7 +4578,20 @@ function showMorningBrief() {
   // PR-3 — Convex caption fires every dawn the Brief opens
   setBeatPower('brief', BEAT_POWERED.brief);
   renderWeekStanding();
+  // Autofocus goes to the first focusable in the scroll body — the standing
+  // summary and the climate line are Tab-reachable but never the landing spot.
+  try {
+    for (const n of el.querySelectorAll('[data-modal-autofocus]') || []) n.removeAttribute('data-modal-autofocus');
+    const sc = el.querySelector('.modal-tier-scroll');
+    for (const f of sc ? sc.querySelectorAll('a[href],button,input,textarea,select,summary,[tabindex]') : []) {
+      const r = f.getBoundingClientRect && f.getBoundingClientRect();
+      if (r && r.width > 0 && r.height > 0) { f.setAttribute('data-modal-autofocus', ''); break; }
+      if (typeof f.getBoundingClientRect !== 'function') { f.setAttribute('data-modal-autofocus', ''); break; }
+    }
+  } catch {}
   modals.open('brief');
+  try { updateBriefScrollEdges(); } catch {}
+  try { clampBriefSections(); } catch {}
   try { analytics.track('brief_shown', { day, event: exchange.event ? exchange.event.id : null, index: exchange.beanIndex, hasWire: !!marketIntel }); } catch {}
 }
 
@@ -6559,9 +6726,26 @@ if (sysBar) {
   moreBtn.id = 'sys-more';
   moreBtn.textContent = 'more';
   moreBtn.title = 'more controls';
-  moreBtn.onclick = () => { sysBar.classList.toggle('more-open'); layoutMobile(); };
+  moreBtn.setAttribute?.('aria-expanded', 'false');
+  const setMore = (open) => {
+    sysBar.classList.toggle('more-open', open);
+    moreBtn.textContent = open ? 'less' : 'more';
+    try { moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); } catch {}
+    layoutMobile();
+  };
+  moreBtn.onclick = () => setMore(!sysBar.classList.contains('more-open'));
   sysBar.appendChild(moreBtn);
+  document.addEventListener?.('pointerdown', e => {
+    if (sysBar.classList.contains('more-open') && !(e.target && typeof sysBar.contains === 'function' && sysBar.contains(e.target))) setMore(false);
+  });
 }
+const nbBtn = $('notebookbtn');
+if (nbBtn) bindPress(nbBtn, () => {
+  const nb = $('notebook');
+  fx.notebook(!(nb && nb.classList.contains('show')));
+});
+const nbEl = $('notebook');
+if (nbEl) nbEl.addEventListener?.('click', () => fx.notebook(false));
 const roofBtn = $('roofpeek');
 const ROOF_KEY = 'grunds.roofs';
 function readRoofPref() {
@@ -6695,6 +6879,8 @@ function showLicence() {
   if (kicker && city) kicker.textContent = `one week, one stand · ${cityDisplay(city.name)}`;
   const cityEl = $('lic-city');
   if (cityEl && city && !cityEl.value) cityEl.value = city.name;
+  const licMore = $('lic-more');
+  if (licMore && (cityEl?.value || $('lic-world')?.value)) licMore.open = true;
   const wrap = $('lic-step');
   if (wrap) { wrap.classList.remove('si-in'); void wrap.offsetWidth; wrap.classList.add('si-in'); }
   modals.open('licence');

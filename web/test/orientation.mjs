@@ -483,7 +483,7 @@ check('coach stays hidden while the Brief owns the stage', byId('coach').hidden 
 
 {
   const skip = byId('brief-pastry-none');
-  check('day 1 can skip tomorrow’s case inside prep', !!skip && skip.parentElement && skip.parentElement.parentElement === byId('brief-prep'), skip && skip.id);
+  check('day 1 can skip tomorrow’s case inside prep', !!skip && skip.closest('#brief-prep') === byId('brief-prep'), skip && skip.id);
   skip.click();
   check('the skip stages the full cut for tomorrow', G.stats().pastryCut === 1, String(G.stats().pastryCut));
 }
@@ -574,7 +574,7 @@ check('day 2 normal prep pills are back', !!collect(byId('brief-prep'), c => c.d
 {
   const prep = byId('brief-prep');
   const half = byId('brief-pastry-half');
-  check('day 2 asks to shrink tomorrow�s croissant case inside prep', !!half && half.parentElement && half.parentElement.parentElement === prep, half && half.parentElement && half.parentElement.id);
+  check('day 2 asks to shrink tomorrow�s croissant case inside prep', !!half && half.closest('#brief-prep') === prep, half && half.parentElement && half.parentElement.id);
   half.click();
   check('baking half stages the existing cut', G.stats().pastryCut === 0.5, String(G.stats().pastryCut));
   byId('brief-pastry-full').click();
@@ -785,7 +785,7 @@ G.renderBrief();
   writeFileSync(join(LOGS, 'brief-wire-calm.txt'), `summary: ${wireSum()}\nopen: ${wireCtx.open}\n\n${visibleText(wireCtx)}`);
   G.exc.event = { id: 'frost_minas', tier: 'cata', head: 'FROST HITS MINAS', line: 'The belt froze overnight.' };
   G.renderBrief();
-  check('a market signal opens the wire and says so', wireCtx.open === true && wireSum() === 'the wire — a warning in it', `open=${wireCtx.open} "${wireSum()}"`);
+  check('a market signal flags the wire in its summary, still folded', wireCtx.open === false && wireSum() === 'the wire — a warning in it', `open=${wireCtx.open} "${wireSum()}"`);
   writeFileSync(join(LOGS, 'brief-wire-warning.txt'), `summary: ${wireSum()}\nopen: ${wireCtx.open}\n\n${visibleText(wireCtx)}`);
   G.exc.event = null;
   check('the desk door still sits in the markup', !!byId('brief-desklink'));

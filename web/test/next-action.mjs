@@ -44,7 +44,7 @@ check('directive strings kept verbatim',
   /regular asks at <b>11:00<\/b>/.test(a1.text) &&
   /<b>11:00<\/b> ask/.test(a2.text), 'text drift from the shipped copy');
 const a2b = computeNextAction({ dayMin: 700, queue: 3, offerShown: true });
-check('after the ask, the read is 14:00', a2b.id === 'watch' && /<b>1<\/b> reserves 40 cups for it \(£40\.00\) or <b>2<\/b> cuts the price/.test(a2b.text), JSON.stringify(a2b));
+check('after the ask, the read is 14:00', a2b.id === 'watch' && /<b>1<\/b> reserves cups or <b>2<\/b> cuts the price/.test(a2b.text), JSON.stringify(a2b));
 
 for (const s of [{}, { dayMin: 700, queue: 7, prebatched: true, mailPending: true }]) {
   const r = computeNextAction(s);

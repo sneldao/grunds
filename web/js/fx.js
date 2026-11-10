@@ -469,7 +469,10 @@ export class FX {
     }
     setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 900); }, 5200);
   }
-  notebook(show) { document.getElementById('notebook').classList.toggle('show', show); }
+  notebook(show) {
+    document.getElementById('notebook').classList.toggle('show', show);
+    try { document.getElementById('notebookbtn')?.setAttribute('aria-pressed', show ? 'true' : 'false'); } catch {}
+  }
   receipt(stats) {
     const el = document.getElementById('receipt');
     const gen = this._receiptGen = (this._receiptGen || 0) + 1;

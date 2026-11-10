@@ -90,14 +90,14 @@ const S = (over) => ({ phase: 'trading', closed: false, ...over });
   const n = computeNextAction({ dayMin: 700, queue: 8, prebatched: true, batchUnits: 40 });
   check('reserved stock outranks queue noise', n.id === 'status' && /reserved/.test(n.text), JSON.stringify(n));
   const low = computeNextAction({ dayMin: 900, queue: 8, prebatched: true, batchUnits: 6 });
-  check('low wave stock points at the top-up', low.id === 'batch' && /top up/.test(low.text) && /40\.00/.test(low.text), JSON.stringify(low));
+  check('low wave stock points at the top-up', low.id === 'batch' && /top up/.test(low.text), JSON.stringify(low));
   const deal = computeNextAction({ dayMin: 900, queue: 12, repriced: true });
   check('deal under pressure never offers prep', !/press <b>1<\/b>/.test(deal.text) && /patience/.test(deal.text), JSON.stringify(deal));
   check('deal copy is honest about walks', /lower walk-out risk/.test(deal.text) && !/but staying/.test(deal.text), JSON.stringify(deal));
   const late = computeNextAction({ dayMin: 900, queue: 8, leversTimeLocked: true });
-  check('a jam opens the window — wave batch at base £40', late.id === 'batch' && /40\.00/.test(late.text) && !/44\.20/.test(late.text), JSON.stringify(late));
+  check('a jam opens the window — wave batch at base price, no late-switch fine', late.id === 'batch' && /press <b>1<\/b>/.test(late.text) && !/late switch/.test(late.text), JSON.stringify(late));
   const lateFree = computeNextAction({ dayMin: 900, queue: 0, batchUnits: 20, leversTimeLocked: true });
-  check('late wave batch discloses £44.20 with no jam', lateFree.id === 'batch' && /44\.20/.test(lateFree.text), JSON.stringify(lateFree));
+  check('late wave batch discloses the £4.20 late switch with no jam', lateFree.id === 'batch' && /£4\.20 late switch/.test(lateFree.text), JSON.stringify(lateFree));
   const after16 = computeNextAction({ dayMin: 970, queue: 12, prebatched: true, batchUnits: 0 });
   check('past 16:00 nothing claims reserved cups or press advice', !/reserved for <b>14:00/.test(after16.text) && !/press <b>[12]<\/b>/.test(after16.text), JSON.stringify(after16));
   const plan = computeNextAction({ dayMin: 360, phase: 'planning', queue: 9 });
@@ -115,10 +115,8 @@ const S = (over) => ({ phase: 'trading', closed: false, ...over });
     const lv = leverState(S({ dayMin: t, queue: q, leversTimeLocked: true }));
     const n = computeNextAction({ dayMin: t, queue: q, leversTimeLocked: true });
     if (!lv.batch.available) { matrixOk = false; matrixDetail = `t=${t} q=${q} unavailable`; break; }
-    const want = lv.batch.changesPlan ? '44.20' : '40.00';
-    if (!n.text.includes(want)) { matrixOk = false; matrixDetail = `t=${t} q=${q} missing ${want}: ${n.text}`; break; }
     if (lv.batch.changesPlan && !/regulars lose warmth/.test(n.text)) { matrixOk = false; matrixDetail = `t=${t} q=${q} missing opinion warning`; break; }
-    if (lv.batch.changesPlan && /\(£40\.00\)/.test(n.text)) { matrixOk = false; matrixDetail = `t=${t} q=${q} still says £40.00`; break; }
+    if (lv.batch.changesPlan && !/£4\.20 late switch/.test(n.text)) { matrixOk = false; matrixDetail = `t=${t} q=${q} missing late-switch disclosure: ${n.text}`; break; }
     // a live jam must always report the window
     if ((q >= 5 || (t >= 840 && t < 960)) && lv.batch.window !== true) { matrixOk = false; matrixDetail = `t=${t} q=${q} window flag missing`; break; }
   }

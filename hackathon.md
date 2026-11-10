@@ -13,9 +13,39 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-11-09T00:00:00Z
+- **Last updated:** 2026-11-10T15:35:00Z
 
 ## Log
+
+### 2026-11-10 - UI density, HUD streamlining, and Brief progressive disclosure
+
+Shipped comprehensive UI density improvements across desktop and mobile,
+reducing visual noise and scrolling across the core game loop:
+
+- **Brief progressive disclosure**: Day 1 scroll content reduced from 1,379px
+  to 815px; later days (days 2–5) reduced from ~2,400px to ~1,085–1,313px.
+  The required morning prep decision stays front-and-centre on top, while
+  optional tools and panels (`#brief-street`, `#brief-row`, `#brief-staff`,
+  `#brief-actions`, `#brief-lots`, `#brief-menu`, `#brief-demand`, `#brief-rival`,
+  `#brief-nut`, `#brief-context`) fold into clean 32–46px summary rows
+  (`· change ›`) that expand on tap. Croissant options lay out in a compact
+  3-column grid.
+- **HUD & Levers**: Screen share trimmed from 35% to 26% on desktop rush and
+  68% to 57% on phone rush. Lever buttons display prices directly, eliminating
+  redundant price duplication in the goal line and toasts. Late-switch fine
+  disclosures are stated once cleanly.
+- **System controls & mobile layout**: Controls consolidated to speed, pause,
+  and a "more" fold for secondary tools (stand, camera, photo, see inside,
+  sound, notebook, restart week). Notebook button toggles notebook visibility on
+  demand rather than intrusive auto-opening. Mobile lever buttons expand to
+  full-width 2×2 grid with standard ≥44px touch targets.
+- **Typography & modal density**: Standardized on a 4-step font scale
+  (11 / 12.5 / 14 / 16px). Licence modal folds optional city/world customization
+  behind an expandable details row, and the daily receipt ledger defaults
+  closed to fit cleanly without scrolling.
+- **Automated density audit**: Built and shipped `tools/ui-audit.mjs` to
+  headlessly play and verify UI geometry, scroll heights, font scales, and HUD
+  screen share across desktop and mobile form factors.
 
 ### 2026-11-09 - Floor tactics, visual coffee polish, and authentic café scale
 

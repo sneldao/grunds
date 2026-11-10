@@ -28,7 +28,7 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8');
   const html = read('web/index.html');
   for (const id of ['licence', 'lic-name', 'lic-stand', 'lic-roles', 'lic-bgs', 'lic-sign', 'lic-step', 'lic-step-0'])
     assert.ok(html.includes(`id="${id}"`), `index.html has #${id}`);
-  assert.ok(!html.includes('lic-more'), 'the old licence fold id is gone');
+  assert.ok(html.includes('<details id="lic-more"'), 'city & street sit behind the optional fold');
   assert.ok(!html.includes('id="lic-next"'), 'no Next step — one confirm');
   assert.ok(html.includes('value="Sam"') && html.includes('value="THE CORNER CUP"'), 'name and stand are pre-filled');
   assert.ok(!html.includes('id="lic-optional"'), 'role and background are a visible choice, not a fold');
@@ -54,7 +54,7 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8');
   assert.ok(main.includes("e.key === 'Enter' && modals.top() === 'licence'")
     && /tagName === 'INPUT'/.test(main), 'Enter inside the fields signs');
   assert.ok(main.includes('.onclick = signLicence'), 'the Sign button activates signLicence');
-  assert.ok(!main.includes('paintLicMore') && !main.includes('lic-more'), 'the old fold is gone from the code');
+  assert.ok(main.includes('lic-more'), 'the optional fold opens when a city or street is prefilled');
   assert.ok(main.includes("nameEl.value = playerName || 'Sam'"), 'defaults stay filled');
   const escBlock = main.slice(main.indexOf('onEscape:'), main.indexOf('onShortcut:'));
   assert.ok(!escBlock.includes('licence'), 'Escape stays inert on the licence');

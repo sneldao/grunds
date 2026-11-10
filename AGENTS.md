@@ -14,6 +14,12 @@
   load 60+ starves the suite and flakes timing-sensitive tests.
 - `npm run typecheck` — `tsc --noEmit`
 - Licence/identity surface: `node web/test/identity.mjs web/test/orientation.mjs`
+- UI density audit: `UI_OUT=/tmp/ui-audit node tools/ui-audit.mjs` plays day 1
+  headlessly (desktop first-timer + vet, and 390×844 phone) on its own preview
+  server (port 8791), screenshots every modal + the HUD into UI_OUT, and prints
+  per-shot JSON — modal header/footer boxes, scrollH/clientH, section offsets,
+  font sizes, HUD `chromeShare`. ~8–10 min on swiftshader; never run it
+  alongside the test suites or another audit (load flakes both).
 - Narrow: `node --test web/test/frontage.mjs web/test/polyfork-lighting.mjs web/test/camera-grammar.mjs web/test/climates.mjs`
 
 ## Deploy (`npm run deploy:site`)
@@ -509,6 +515,40 @@ Sim determinism is untouched — every fix is render/HUD-side only
   fees, beating unhedged `forecaster` (£1,020.72) by +£590.25 (+58%).
 - Tests: `web/test/barista-stance.mjs` (17 checks — stance muls/balks, dirty
   props + bussing, spillover thresholds, gossip trigger, steam, cup tinting).
+
+## UI density, HUD streamlining, and Brief folding pass (Nov 10)
+- **Brief progressive disclosure & folding**:
+  - Day 1 scroll content reduced from 1,379px to 815px (desktop) / 1,165px (phone).
+  - Days 2–5 scroll content reduced from ~2,400px to ~1,085–1,313px. Optional tools
+    and secondary panels (`#brief-street`, `#brief-row`, `#brief-staff`, `#brief-actions`,
+    `#brief-lots`, `#brief-menu`, `#brief-demand`, `#brief-rival`, `#brief-nut`,
+    `#brief-context`) render as single-line summary rows (`.brief-fold > summary` with
+    `· change ›`, ~32–46px) that open on tap.
+  - Morning prep / required decision stays on top. State persists across section-local
+    re-renders during planning.
+  - Pastry case options lay out in a compact 3-column grid (`#brief-pastry`).
+- **HUD & Levers**:
+  - HUD screen share reduced from 35% to 26% (desktop rush) / 68% to 57% (phone rush).
+  - Goal line no longer duplicates prices; prices live on the lever buttons only.
+  - Late-switch disclosure is stated once without redundant price repetition.
+  - System controls streamlined: speed (1×/5×/20×), pause, and `more` toggle. Secondary
+    controls (stand, camera, photo, see inside, sound, notebook, restart week) fold
+    behind `more` with outside-click and Escape dismissal.
+  - Notebook no longer auto-opens across gameplay; toggled via the notebook button.
+- **Phone responsive layout**:
+  - Fixed desktop `max-width` constraining lever and system rows on mobile. Levers span
+    full width in a 2×2 grid with ≥44px touch targets.
+- **Type scale & Modals**:
+  - Standardized Brief, HUD, and modal typography onto a 4-step token scale
+    (`--fs-1: 11px`, `--fs-2: 12.5px`, `--fs-3: 14px`, `--fs-4: 16px`).
+  - Licence modal folds optional city/world fields behind `<details id="lic-more">`
+    (auto-expanded if pre-filled), keeping background perks visible.
+  - Receipt modal keeps the ledger drawer folded by default so the summary fits
+    without scrolling.
+- **UI Density Audit**:
+  - `tools/ui-audit.mjs` plays day 1 headlessly across desktop (first-timer & vet)
+    and mobile (390×844) viewports, screenshotting modals and HUD with automated
+    box, scroll, and chrome share metrics.
 
 ## Conventions
 - Import specifiers must match the tracked filename **byte for case**. CI runs
