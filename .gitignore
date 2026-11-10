@@ -29,3 +29,6 @@ dist/
 .copilot/
 .agents/
 .perch/
+
+# demo-video intermediates — re-render via tools/demo-video.mjs
+out/demo/raw/*.webm

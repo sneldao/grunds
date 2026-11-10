@@ -53,6 +53,13 @@
   at fixed spots in `world.js`.
 - Screenshot harness: `tools/pf-shots.mjs` (PF_SEED / PF_EXTRA env) →
   `/tmp/pf-shots/`; drives `__grunds.rig` + a `director` dusk layer.
+- Video harness: `tools/demo-video.mjs` → `out/demo/demo.mp4`. Two
+  Playwright takes + marker-cut ffmpeg concat. Hard-won rules:
+  `sky.update(dayMin)` rewrites the backdrop every frame, so director
+  time-pins can't fake dusk — film real dusk by holding evening trade
+  open (`#evening-hold`); `modals.top()` calls `rig.release()`, so dismiss
+  `#moment` cards before aiming the rig; mark timestamps drift ~±10 s vs
+  video time on slow boots — verify cut windows against raw frames.
 
 ## Street / camera roadmap (post-feedback, agreed order)
 1. Street vignettes — busker+crowd & chatting pairs in streetLife.js
