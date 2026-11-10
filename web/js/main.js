@@ -5,7 +5,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { ECON, CHAPTERS, COPY, LAYOUT, CAMPAIGN, VERDICTS, REGULAR_ROSTER, EVENTS, FRANCHISE } from './config.js';
 import { buildWorld, chalkPopScale } from './world.js';
-import { initDistrictGen, districtOptOut, districtPolyforkOpt } from './districtGen.js';
+import { initDistrictGen, districtOptOut, districtPolyforkOpt, districtPolyforkExplicit } from './districtGen.js';
 import { pickClimate, climateBrief, climateRain, CLIMATES } from './climates.js';
 import { initFranchise, morningFranchiseLines } from './franchise.js';
 import { specForLot, specPullSum } from './standSpec.js';
@@ -240,15 +240,17 @@ if (worldPrompt && sync.live) {
     .then(() => { if (day < 1) { resolveWorld(); applyWorldSpec(); } })
     .catch(() => {});
 }
-// The Franchise (Tripothon S1 — Tier B): the player's words become stands
-// on The Row — three storefronts unlock across the campaign. Same posture
-// as the district — fire-and-forget, the classic street is the floor.
+// The Franchise: the player's words become stands on The Row — three
+// storefronts unlock across the campaign. Same posture as the district —
+// fire-and-forget, the classic street is the floor.
 const franchise = initFranchise({
   scene, seed: SEED, classic: districtOptOut(location.search),
-  // ?hackathon=1 means the REAL provider path — judges should watch Tripo
-  // grow the stand, not the instant keyword matcher. The district itself
-  // stays polyfork: the street looks finished while the stand generates.
-  polyfork: districtPolyforkOpt(location.search) && !hackathonMode,
+  // Stand descriptions go through the builders — LLM spec + real generation —
+  // by default in live sessions; the vendored path is for sessions that
+  // asked for it by name (?district=polyfork), and for the failure fallback
+  // inside state.describe. A ?prompt= always takes the real path: the words
+  // a judge typed must grow a real stand, not a keyword-matched stand-in.
+  polyfork: districtPolyforkExplicit(location.search) && !hackathonMode && !autoPrompt,
   onPlaced: inst => world.registerPF(inst),
   onArrived: (inst, def, ls) => fx.toast(ls && ls.mine
     ? `the builders finished — ${def.name} is open`

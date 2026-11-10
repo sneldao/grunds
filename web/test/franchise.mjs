@@ -221,6 +221,22 @@ check('claimed:false does not mark the stand mine', live.lots['18'].mine === fal
 live.lots['18'].mine = true;
 await live.describe('18', 'a book nook', 5, 'draw');
 check('retry preserves earlier authorship', live.lots['18'].mine === true);
+
+// Provider-first describe: an unreachable builders endpoint falls back to
+// the vendored archetype so a described lot is never left empty.
+live.lots['18'] = { status: 'missing', prompt: null, describedDay: null, placed: false, placedDay: 0, mine: false, purpose: null, byline: null, spec: null, standName: null, marker: null };
+fetchImpl = () => Promise.reject(new Error('builders down'));
+const fb = await live.describe('18', 'a taco stand', 5);
+check('provider failure falls back to vendored describe', fb.status === 'success' && live.lots['18'].placed === true, `status=${live.lots['18'].status}`);
+check('fallback stand keeps the typed words', live.lots['18'].prompt === 'a taco stand', `prompt=${live.lots['18'].prompt}`);
+check('fallback marks the stand ours', live.lots['18'].mine === true);
+// An unintelligible response (500/HTML error page → {}) takes the same path.
+live.lots['18'] = { status: 'missing', prompt: null, describedDay: null, placed: false, placedDay: 0, mine: false, purpose: null, byline: null, spec: null, standName: null, marker: null };
+fetchImpl = async () => ({ ok: false, json: async () => { throw new Error('not json'); } });
+const fb2 = await live.describe('18', 'a noodle bar', 5);
+check('garbage response falls back too', fb2.status === 'success' && live.lots['18'].placed === true, `status=${live.lots['18'].status}`);
+live.lots['18'] = { status: 'missing', prompt: null, describedDay: null, placed: false, placedDay: 0, mine: false, purpose: null, byline: null, spec: null, standName: null, marker: null };
+
 // A status read is authoritative too: a stale local purpose clears.
 fetchImpl = async () => ({ ok: true, json: async () => ({ lots: [
   { lot: '14', status: 'success', prompt: 'a tiny ramen counter', day: 3, purpose: 'rent', modelUrl: 'https://x/14.glb', previewUrl: null },

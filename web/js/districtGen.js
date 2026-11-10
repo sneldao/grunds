@@ -57,6 +57,13 @@ export function districtPolyforkOpt(search) {
   return true;
 }
 
+// True only when the vendored district was asked for by name. Polyfork is
+// the default, so callers distinguishing "the user opted in" from "the
+// default happened" must test this rather than districtPolyforkOpt.
+export function districtPolyforkExplicit(search) {
+  return /(^|[?&])(district=polyfork|pfDistrict)($|[=&])/.test(search || '');
+}
+
 // Slot -> vendored candidate ids. Picked with a seeded LCG stream
 // (seed + 977), city folded in so a named street still grows its own props.
 const PF_SLOTS = {

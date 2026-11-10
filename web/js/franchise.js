@@ -275,8 +275,13 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
 
   state.describe = async (lotId, text, dayNow, purpose, byline) => {
     if (dead) return { status: 'error', error: 'the builders could not be reached' };
-    if (polyfork) return pfDescribe(lotId, text, dayNow, purpose, byline);
-    if (!base) return { status: 'error', error: 'the builders could not be reached' };
+    // Vendored-only sessions (explicit ?district=polyfork) and sessions with
+    // no Convex bridge take the instant archetype path; everyone else asks
+    // the builders first — LLM spec + real generation — and falls back to
+    // the same instant path when the builders can't answer, so a described
+    // lot is never left empty. Fallback stands are session-only: pfHydrate
+    // stays gated on polyfork, so they do not re-place on reload.
+    if (polyfork || !base) return pfDescribe(lotId, text, dayNow, purpose, byline);
     try {
       const r = await fetch(
         `${base}/franchise/describe?seed=${seed}&lot=${encodeURIComponent(lotId)}&day=${dayNow || state.day || 0}&prompt=${encodeURIComponent(text)}` +
@@ -301,11 +306,10 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
         if (d.status === 'processing') { scaffold(lotId); armPoll(); }
         // place() owns the worksite — it comes down only after a real GLB lands.
         else if (d.modelUrl) place(lotId, d.modelUrl, state.day);
+        return d;
       }
-      return d;
-    } catch {
-      return { status: 'error', error: 'the builders could not be reached' };
-    }
+    } catch {}
+    return pfDescribe(lotId, text, dayNow, purpose, byline);
   };
 
   // Rent: every standing stand pays at each open. placedDay guards the
