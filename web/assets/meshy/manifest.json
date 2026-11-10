@@ -15,7 +15,7 @@
     "thumbnail": "a-board.png",
     "generated": "2026-11-09T20:13:13.481Z"
   },
-  "_generated": "2026-11-09",
+  "_generated": "2026-11-10",
   "_source": "https://www.meshy.ai — Meshy API; licence: generated output, see meshy.ai terms",
   "vintage-bike": {
     "id": "vintage-bike",
@@ -36,18 +36,18 @@
   "guitar-case": {
     "id": "guitar-case",
     "source": "meshy",
-    "task_id": "01a1c19c-cc7f-7412-ab8d-cc7f140ce570",
-    "kind": "text-to-3d",
-    "prompt": "open guitar case on pavement with acoustic guitar leaning inside, a few coins beside it",
-    "image": null,
+    "task_id": "01a1c4a5-f9e1-7519-8d40-f0c4edc95385",
+    "kind": "image-to-3d",
+    "prompt": null,
+    "image": "meshy-ref-1794300573700.png",
     "ai_model": "meshy-t2",
     "model_type": "smart-topology",
-    "target_polycount": 5000,
-    "texture_model": "meshy-7.1",
-    "credits": 10,
+    "target_polycount": 4000,
+    "texture_model": "meshy-n1",
+    "credits": 15,
     "glb": "guitar-case.glb",
     "thumbnail": "guitar-case.png",
-    "generated": "2026-11-09T18:41:21.293Z"
+    "generated": "2026-11-10T08:49:59.999Z"
   },
   "plant-cluster": {
     "id": "plant-cluster",
@@ -132,34 +132,34 @@
   "crate-stack": {
     "id": "crate-stack",
     "source": "meshy",
-    "task_id": "01a1c19c-cca6-7262-bc55-06998daa97b5",
-    "kind": "text-to-3d",
-    "prompt": "two stacked wooden market crates with paper bags of coffee beans and bread loaves, café frontage",
-    "image": null,
+    "task_id": "01a1c4a6-7d8a-711a-9942-68a8f85b43ec",
+    "kind": "image-to-3d",
+    "prompt": null,
+    "image": "carton.png",
     "ai_model": "meshy-t2",
     "model_type": "smart-topology",
     "target_polycount": 4000,
-    "texture_model": "meshy-7.1",
-    "credits": 10,
+    "texture_model": "meshy-n1",
+    "credits": 15,
     "glb": "crate-stack.glb",
     "thumbnail": "crate-stack.png",
-    "generated": "2026-11-09T18:41:48.796Z"
+    "generated": "2026-11-10T08:50:32.930Z"
   },
   "cat": {
     "id": "cat",
     "source": "meshy",
-    "task_id": "01a1c19c-fc00-7453-9e1b-1dd6e54cbd78",
-    "kind": "text-to-3d",
-    "prompt": "sitting grey tabby cat, side profile, alert, tail curled around paws",
-    "image": null,
+    "task_id": "01a1c4a2-d9ce-736f-bcce-c27ec2320f60",
+    "kind": "image-to-3d",
+    "prompt": null,
+    "image": "meshy-ref-1794300368750.png",
     "ai_model": "meshy-t2",
     "model_type": "smart-topology",
     "target_polycount": 4000,
-    "texture_model": "meshy-7.1",
-    "credits": 10,
+    "texture_model": "meshy-n1",
+    "credits": 15,
     "glb": "cat.glb",
     "thumbnail": "cat.png",
-    "generated": "2026-11-09T18:41:55.320Z"
+    "generated": "2026-11-10T08:47:42.690Z"
   },
   "street-musician": {
     "id": "street-musician",
@@ -186,18 +186,18 @@
   "skateboard": {
     "id": "skateboard",
     "source": "meshy",
-    "task_id": "01a1c1a1-92f8-7521-a2fe-eaec03b69561",
-    "kind": "text-to-3d",
-    "prompt": "wooden skateboard with orange wheels, side profile",
-    "image": null,
+    "task_id": "01a1c4a5-3777-718f-9845-fb9adaf41bab",
+    "kind": "image-to-3d",
+    "prompt": null,
+    "image": "meshy-ref-1794300523938.png",
     "ai_model": "meshy-t2",
     "model_type": "smart-topology",
     "target_polycount": 4000,
     "texture_model": "meshy-n1",
-    "credits": 10,
+    "credits": 15,
     "glb": "skateboard.glb",
     "thumbnail": "skateboard.png",
-    "generated": "2026-11-09T18:46:11.643Z"
+    "generated": "2026-11-10T08:49:07.634Z"
   },
   "cup-stack": {
     "id": "cup-stack",
@@ -218,17 +218,17 @@
   "street-piano": {
     "id": "street-piano",
     "source": "meshy",
-    "task_id": "01a1c1bb-9445-72e0-9223-bced13ecaba8",
-    "kind": "text-to-3d",
-    "prompt": "small upright street piano, dark wood, side profile, three-quarter view",
-    "image": null,
+    "task_id": "01a1c4a7-4287-7052-9bad-967f8e2f5d46",
+    "kind": "image-to-3d",
+    "prompt": null,
+    "image": "meshy-ref-1794300657285.png",
     "ai_model": "meshy-t2",
     "model_type": "smart-topology",
     "target_polycount": 4000,
     "texture_model": "meshy-n1",
-    "credits": 10,
+    "credits": 15,
     "glb": "street-piano.glb",
     "thumbnail": "street-piano.png",
-    "generated": "2026-11-09T19:14:42.096Z"
+    "generated": "2026-11-10T08:51:32.939Z"
   }
 }
