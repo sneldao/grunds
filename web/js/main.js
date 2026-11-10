@@ -9,7 +9,7 @@ import { initDistrictGen, districtOptOut, districtPolyforkOpt, districtPolyforkE
 import { pickClimate, climateBrief, climateRain, CLIMATES } from './climates.js';
 import { initFranchise, morningFranchiseLines } from './franchise.js';
 import { specForLot, specPullSum } from './standSpec.js';
-import { resolveWorldSpec, refreshWorldSpec, WORLD_PROMPT_MAX } from './worldSpec.js';
+import { resolveWorldSpec, refreshWorldSpec, worldSpecHash, WORLD_PROMPT_MAX } from './worldSpec.js';
 import { buildSky } from './sky.js';
 import { buildPostFX } from './postfx.js';
 import { initEnvironment } from './env.js';
@@ -167,7 +167,14 @@ director.add('vitalityGlow', (ctx) => {
 // Optional Convex mirror: offline-first, fire-and-forget. Configure with
 // ?convex=https://<deploy>.convex.site — the floor never blocks on it.
 const sync = initSync();
-const SEED = urlParams.get('seed') ? +urlParams.get('seed') : (city ? city.seed : 7);
+// A described stand gets an unclaimed world of its own: with no explicit
+// ?seed=, a ?prompt= session seeds from the prompt's hash so a judge's
+// words can never collide with somebody else's claim on the shared
+// default street. Same words → same seed → the generated GLB is cached
+// and lands instantly for the next session.
+const SEED = urlParams.get('seed')
+  ? +urlParams.get('seed')
+  : (autoPrompt ? worldSpecHash(autoPrompt) : (city ? city.seed : 7));
 // PR-4b — founder replay can swap the seed at runtime. reset() seeds the
 // exchange from this variable, so updates flow through the next reset.
 let SEED_OVERRIDE = null;
