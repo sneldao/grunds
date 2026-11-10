@@ -15,9 +15,32 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-11-10T15:35:00Z
+- **Last updated:** 2026-11-10T19:30:00Z
 
 ## Log
+
+### 2026-11-10 - Provider-first describe + prompt-derived seeds (judge path)
+
+- **`?prompt=` is the judge link — `?hackathon=1` no longer needed.**
+  `franchise.describe` POSTs `/franchise/describe` (LLM spec + real
+  generation) by default in live sessions (`01c728e`). The vendored
+  keyword path runs only on explicit `?district=polyfork`/`?pfDistrict`
+  (`districtPolyforkExplicit`), no-bridge sessions, and provider failure —
+  a described lot never stays empty.
+- **Prompt-derived seed (`bfb14e0`):** `?prompt=` with no `?seed=` seeds
+  from `worldSpecHash(prompt)` — a live lot on a shared seed returns
+  `claimed:false` and ignores the new prompt, so judge-typed words would
+  have produced the previous claim's stand on seed 7. Same words → same
+  seed → cached GLB lands instantly; new words → fresh unclaimed street.
+- **Verified live:** POST `/franchise/describe` (seed 987, fresh prompt)
+  → `processing` → `success` with a real Tripo GLB in ~90 s. Tripo
+  answered despite "idle pending credits" notes — confirm provider.
+- **Open:** `spec:null` on describes — `standSpec.expand` returning
+  fallback server-side though `OPENAI_API_KEY` is set; check
+  `npx convex logs`. Seeded classifier covers the card client-side.
+- Tests: 552 `test:fast` green + new fallback pins. Docs consolidated:
+  prior-event files → `docs/archive/` (`061c6b8`), PLAN.md is the
+  final-day battle plan.
 
 ### 2026-11-10 - UI density, HUD streamlining, and Brief progressive disclosure
 

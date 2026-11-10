@@ -379,9 +379,21 @@ Sim determinism is untouched — every fix is render/HUD-side only
 
 ## Prompt → stand / described street
 Natural language is a first-class input to the simulation, not a demo add-on.
-Every path below is live for all users; `?hackathon=1` is an internal
-provider-path flag (forces LLM over seeded classifier for the pitch lot)
-and must never surface as a user-visible concept.
+Every path below is live for all users.
+
+- **Describe routing:** live sessions POST `/franchise/describe` by default —
+  LLM spec + real generation. The vendored keyword path (`pfDescribe`,
+  seeded spec fallback) runs only for explicit `?district=polyfork` /
+  `?pfDistrict` opt-ins (`districtPolyforkExplicit`), sessions with no
+  Convex bridge, and as the failure fallback so a described lot never
+  stays empty. Fallback stands are session-only (pfHydrate stays gated
+  on the polyfork flag). `?hackathon=1` remains an internal flag that
+  also auto-fills the default pitch prompt.
+- **Prompt-derived seed:** with no explicit `?seed=`, a `?prompt=` session
+  seeds from `worldSpecHash(prompt)` so described stands land on an
+  unclaimed world — a live lot on a shared seed returns `claimed:false`
+  and ignores the new prompt. Same words → same seed → the GLB is
+  content-cached and instant for the next session.
 
 - `web/js/standSpec.js` + `convex/standSpec.ts`: player words → validated
   stand card (name/cuisine/archetype/cohort/daypart/pull/priceTier/
