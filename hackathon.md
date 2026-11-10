@@ -1,7 +1,10 @@
 # Hackathon log
 
 - **Project:** Grunds
-- **Event:** Convex All Gas Hackathon
+- **Event:** Victoria VR AI Builder Hackathon 2026 (active — deadline Nov 11
+  16:30 CEST; repo + hosted demo + <3 min video + description; see
+  SUBMISSION.md). Past events: Convex All Gas Hackathon, Spatial
+  Intelligence + Generative 3D Hackathon (Founders Inc., Sept 5).
 - **What it does:** A live 3D coffee-district economy game where players run café stands and AI patrons with persistent memory buy based on cohorts, commodity events, and gossip.
 - **Live app:** https://grunds.trustfall.xyz (public domain; Vercel `grunds-proxy`
   rewrites all paths to https://striped-anaconda-746.convex.site, still live itself)

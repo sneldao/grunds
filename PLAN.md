@@ -21,7 +21,7 @@ for convex/ changes. Deploy per AGENTS.md (worktree, not /tmp).
 | B | LLM attribution: `spec.model` stamped server-side in `standSpec.expand`/`worldSpec.expand`; `specLine` appends `· via {model}` (`· shaped by AI` on pre-provenance cards); Brief "Your street" appends `· shaped by {model}` on `source==='live'`; desk `.d-foot` provenance footer from `intel.feed` (`· an LLM read the tape` only when a shift carries `why`). | standSpec.js/.ts, worldSpec.js/.ts, main.js, desk.js, index.html | **done — test:fast green, typecheck green** |
 | C | Showcase seed + ui-audit run | tools/ui-audit.mjs | **prebuild done; audit blocked on machine load** |
 | D | Demo video — `tools/demo-video.mjs`: two Playwright takes (prompt-intro + one continuous session) + marker-cut ffmpeg assembly → `out/demo/demo.mp4` (~70 s, 8 segments). Committed: tool + final mp4 + cut markers; raw `.webm` takes gitignored (re-render to re-cut). | tools/demo-video.mjs, out/demo/ | **done — usable cut; polish notes below** |
-| E | Submission pack | — | not started |
+| E | Submission pack — `SUBMISSION.md`: links, tagline + paste-ready long description, built-with, pre-submit checklist. hackathon.md header updated to Victoria VR (Convex All Gas marked past). | SUBMISSION.md, hackathon.md | **done — gate is the deploy** |
 
 ## Open items / collisions
 
