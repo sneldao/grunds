@@ -29,7 +29,7 @@ try {
   page.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text().slice(0, 200)); });
   page.on('framenavigated', f => { if (f === page.mainFrame()) errs.push('nav: ' + f.url().slice(0, 140)); });
   await page.goto(`${BASE}/?skipTutorial&seed=${process.env.PF_SEED || '7'}&${process.env.PF_EXTRA || 'district=polyfork'}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForSelector('#open:not([disabled])', { timeout: 90000 });
+  await page.waitForFunction(() => { const b = document.querySelector('#open'); return b && !b.disabled; }, null, { timeout: 120000, polling: 1000 });
   await page.$eval('#open', el => el.click());
   for (let i = 0; i < 40; i++) {
     const st = await page.evaluate(() => ({ top: window.__grunds?.modals?.top?.() || null, phase: window.__grunds?.phase }));

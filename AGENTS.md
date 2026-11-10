@@ -128,6 +128,16 @@
   geometry compression OFF — the vendored GLTFLoader has no meshopt/draco
   decoder); `--optimize-existing` re-runs it over the whole dir, `--no-optimize`
   skips. 16 GLBs total ≈8.5 MB.
+  Style matching (prefer over bare `--prompt`): render an in-game GLB with
+  `tools/render-asset.mjs <assets/x.glb> <out.png> iso` and pass it as
+  `--image`; when no in-game model exists, `--ref-prompt "<stylized
+  low-poly … plain cream background>"` makes a text-to-image reference
+  (~3 cr) and feeds it to image-to-3D. `--ref-task <id>` reuses a paid
+  reference. Text-to-image lives at `/openapi/v1/text-to-image` (the spec's
+  bare `/v1/...` 404s) and returns `image_urls[]`.
+  Headless probes under machine load: wait for `#open` enabled via
+  `waitForFunction` with interval polling — `waitForSelector(...visible)`
+  timed out under load even though the button was ready.
   Meshy GLBs arrive as ~1 m centred boxes (min.y ≈ −0.5): `place()` does NOT
   normalize — each placement's scale/y must ground the bbox bottom itself
   (probe with `tools/meshy-probe.mjs`, which reports world bboxes of every

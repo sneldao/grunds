@@ -113,6 +113,12 @@ a-board, crate-stack, vintage-bike, plant-cluster, guitar-case, street-piano
 street-musician.walk (rigged busker, own 24-joint rig + Walk clip).
 Vendored but not yet placed: roof-tank, roof-dish, roof-antenna.
 
+Style-matched via image-to-3D: cup-stack, cake-stand, a-board,
+plant-cluster, vintage-bike and crate-stack from renders of our own GLBs
+(cup-coffee, cake, chalkboard-menu-board, potted-olive-tree,
+delivery-moped, carton); cat, skateboard, guitar-case and street-piano
+from Meshy text-to-image references. Task ids are in manifest.json.
+
 ## icons/ — Morning Brief + vitals ink glyphs (Game-icons.net, CC BY 3.0)
 
 Four by Delapouite and one by rihlsul, all CC BY 3.0

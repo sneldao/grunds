@@ -12,6 +12,7 @@
 //   node tools/vendor-meshy.mjs --name stall-crate --prompt "folding market crate"
 //   node tools/vendor-meshy.mjs --name busker --prompt "busker with guitar" \
 //       --model-type smart-topology --model meshy-t2.5 --polycount 15000 --rig
+//   node tools/vendor-meshy.mjs --name cat --ref-prompt "stylized low-poly cat, plain background"
 //   node tools/vendor-meshy.mjs --balance
 //
 // Defaults follow Meshy's own guidance for game assets: Smart Topology
@@ -112,6 +113,30 @@ async function toImageUrl(v) {
   return `data:${mime};base64,${b64}`;
 }
 
+// --ref-prompt generates a reference image via text-to-image first, then
+// runs image-to-3d on it — the style-match path when no in-game GLB exists
+// to render (cat, skateboard, piano…). --ref-model picks the image model
+// (default nano-banana-2-lite, ~3 credits).
+async function genRefImage(prompt) {
+  // --ref-task <id> reuses an already-succeeded text-to-image task.
+  const reuse = arg('--ref-task');
+  const id = reuse || (await api('/openapi/v1/text-to-image', {
+    method: 'POST',
+    body: JSON.stringify({
+      ai_model: arg('--ref-model', 'nano-banana-2-lite'),
+      prompt,
+      aspect_ratio: '1:1',
+    }),
+  })).result;
+  const t = await waitTask('/openapi/v1/text-to-image', id);
+  const url = t.image_urls?.[0];
+  if (!url) throw new Error(`text-to-image ${t.id} has no image url: ${JSON.stringify(t.result || t).slice(0, 300)}`);
+  const tmp = join('/tmp', `meshy-ref-${Date.now()}.png`);
+  await download(url, tmp);
+  console.log(`  ref image -> ${tmp}`);
+  return tmp;
+}
+
 async function createTask(body) {
   const { result } = await api(body.__path, { method: 'POST', body: JSON.stringify(body.payload) });
   return result;
@@ -125,10 +150,10 @@ if (has('--balance')) {
 }
 
 const name = arg('--name');
-const image = arg('--image');
+let image = arg('--image');
 const prompt = arg('--prompt');
-if (!name || (!image && !prompt)) {
-  console.error('need --name and one of --image <path|url|-> |--prompt <text>');
+if (!name || (!image && !prompt && !arg('--ref-prompt') && !arg('--ref-task'))) {
+  console.error('need --name and one of --image <path|url|-> |--prompt <text> |--ref-prompt <text>');
   process.exit(2);
 }
 
@@ -141,6 +166,12 @@ const pbr = has('--pbr');
 const previewOnly = has('--preview-only');
 const doRig = has('--rig');
 const doOptimize = !has('--no-optimize');
+
+// --ref-prompt materializes a reference image, then flows through the
+// normal image-to-3d path below.
+if (!image && (arg('--ref-prompt') || arg('--ref-task'))) {
+  image = await genRefImage(arg('--ref-prompt'));
+}
 
 const targetFormats = ['glb'];
 const common = {
