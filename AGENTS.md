@@ -370,7 +370,12 @@ frame, and each tick used to drag the whole HUD with it:
 Sim determinism is untouched — every fix is render/HUD-side only
 (balance-policies + replay gates re-ran green).
 
-## Prompt → stand / described street (Victoria VR hackathon)
+## Prompt → stand / described street
+Natural language is a first-class input to the simulation, not a demo add-on.
+Every path below is live for all users; `?hackathon=1` is an internal
+provider-path flag (forces LLM over seeded classifier for the pitch lot)
+and must never surface as a user-visible concept.
+
 - `web/js/standSpec.js` + `convex/standSpec.ts`: player words → validated
   stand card (name/cuisine/archetype/cohort/daypart/pull/priceTier/
   signature). LLM via `api.standSpec.expand` when keyed; seeded classifier
@@ -379,12 +384,42 @@ Sim determinism is untouched — every fix is render/HUD-side only
   prefers the stored card, falls back to prompt classification for legacy
   rows. `specPull(cohort, daypart)` feeds `standWaveMul` in the wave loop —
   placed/successful stands only, per-stand ≤0.3, aggregate ≤0.6.
+  `spec.source` (`'llm' | 'seeded'`) is returned on every card and used
+  client-side to decide whether to show LLM attribution in the Brief.
 - `web/js/worldSpec.js` + `convex/worldSpec.ts`: licence "your street"
   field / `?world=` / `?prompt=` → validated world card (climate, event
   bias vs real EVENTS ids, demand lean, rivalName, origin hint), cached by
   prompt hash, saved on the week save. Climate precedence: live weather →
-  world spec → seeded `pickClimate`. `?hackathon=1` forces the real
-  provider path; auto-prompt only fires on the sandbox lot.
+  world spec → seeded `pickClimate`. Auto-prompt fires once per session on
+  the sandbox lot when `?prompt=` is set or the internal hackathonMode flag
+  is true.
+- **New-visitor onboarding overlay** (`#prompt-intro`): shown on first load
+  when there is no saved week and no `?prompt=` already in the URL. Explains
+  "type a stand — it becomes a world" with a pre-filled example, a text
+  input, a **Go** link (→ `?prompt=[value]`) and a **Lite mode** link
+  (→ `?prompt=[value]&lite=1`). Dismissed by signing the licence normally.
+  This is the game's natural entry point for new visitors, not a judge mode.
+- **LLM attribution** in the Morning Brief: when `spec.source === 'llm'`
+  the stand's `specLine` appends `· via {spec.model}` (`· shaped by AI` on
+  cards that predate model provenance). The world spec brief line appends
+  `· shaped by {spec.model}` when `worldSpec.source === 'live'` — the
+  Open-Meteo credit stays in its own live-weather clause. The model name
+  is stamped server-side: `convex/{standSpec,worldSpec}.expand` write the
+  provider's real model onto the card before caching, and the client
+  validators carry it through (`spec.model`, clamped 40 chars). Always on;
+  no URL flag required.
+- **LLM attribution** in the Wire desk: a `.d-foot` footer on the research
+  report built from `intel.feed` (the pipes research.ts actually merged):
+  `linkup + firecrawl crawled this · an LLM read the tape · Convex served
+  it`. The middle clause only appears when a shift carries an OpenAI `why`.
+  Shown whenever the desk opens with intel — no flag.
+- **`?lite=1`**: disables GLB humanoid loading (`street.loadChars` guard in
+  main.js), `shadowMap.enabled = false` (world.js), street vignettes +
+  neighbour queues stay off (every streetLife spawner is `!this.lite`-
+  gated), street cap drops to `STREET_CAP.lite`, postfx off, pixel ratio
+  clamps to 1.0. Offered as a footer link in the licence modal
+  ("on a slow device? try lite mode") for all users — hidden when lite is
+  already on, and a typed street rides forward as `?world=` on the reload.
 - Franchise lots: `pitch` (day 1, rent 0, `sandbox: true`, no purpose
   picker — spec drives its pull) + row lots 14/11/18. Both client
   `FRANCHISE.lots` and `convex/franchise.ts` MUST stay in parity

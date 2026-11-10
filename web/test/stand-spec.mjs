@@ -74,6 +74,14 @@ check('specForLot falls back to the prompt', specForLot({ prompt: 'a vinyl bar' 
 check('specForLot tolerates junk spec + no prompt', specForLot({ spec: 'garbage' }) === null);
 check('specLine names who and when', /students/.test(specLine(ramen)) && /18:00/.test(specLine(ramen)));
 
+// ---- LLM attribution ------------------------------------------------------------
+check('validator preserves model provenance', normalizeSpec({ name: 'X', model: 'gpt-4o-mini' }).model === 'gpt-4o-mini');
+check('validator drops junk model', normalizeSpec({ name: 'X', model: 42 }).model === null);
+const llmRamen = normalizeSpec({ name: 'R', cohort: 'students', pull: 0.2, source: 'llm', model: 'gpt-4o-mini' });
+check('specLine credits the model on LLM cards', specLine(llmRamen).includes(' · via gpt-4o-mini'));
+check('specLine falls back to shaped-by-AI without a model', specLine(normalizeSpec({ name: 'R', source: 'llm' })).includes(' · shaped by AI'));
+check('seeded cards carry no attribution', !/via |shaped by AI/.test(specLine(ramen)));
+
 // ---- client wiring --------------------------------------------------------------
 check('main imports the spec module', main.includes("from './standSpec.js'"));
 check('wave loop multiplies by standWaveMul', (main.match(/standWaveMul\(s\.c, w\.t\)/g) || []).length >= 2);
@@ -90,6 +98,7 @@ check('status returns the parsed spec + stand name', convexFr.includes('spec: sp
 check('standSpec action exists and is cached', convexSpec.includes('export const expand') && convexSpec.includes('cachePut') && convexSpec.includes('spec:v1:'));
 check('standSpec sanitizes cohort/pull/daypart', convexSpec.includes('sanitizeStandSpec') && convexSpec.includes('COHORTS.includes'));
 check('image prompts skip the spec call', convexFr.includes('isImageInput(prompt)\n      ? null'));
+check('expand stamps the provider model on the card', convexSpec.includes('spec.model = model'));
 
 console.log(fails.length ? `\nFAIL (${fails.length}):\n - ${fails.join('\n - ')}` : '\nPASS — stand specs: words → card → bounded cohort/daypart pull');
 process.exit(fails.length ? 1 : 0);

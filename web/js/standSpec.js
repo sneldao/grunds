@@ -130,6 +130,9 @@ export function normalizeSpec(raw) {
     signature: str(raw.signature, 48) || arch?.signature || '',
     quirk: str(raw.quirk, 90) || '',
     source: str(raw.source, 12) || 'llm',
+    // Which provider model wrote the card — set server-side post-sanitize,
+    // absent on specs cached before attribution shipped.
+    model: typeof raw.model === 'string' ? str(raw.model, 40) || null : null,
   };
 }
 
@@ -179,5 +182,8 @@ export function specLine(spec) {
   const who = spec.cohort ? (COHORT_LABEL[spec.cohort] || spec.cohort) : 'the street';
   const when = spec.daypart ? ` between ${MIN_LABEL(spec.daypart[0])} and ${MIN_LABEL(spec.daypart[1])}` : '';
   const quirk = spec.quirk && spec.source !== 'seeded' ? ` — ${spec.quirk}` : '';
-  return `${spec.name} pulls ${who}${when}${quirk}`;
+  // AI attribution is a standing fact like the pull itself: an LLM-shaped
+  // stand says so, seeded ones stay silent. `model` names the provider.
+  const via = spec.source === 'llm' ? (spec.model ? ` · via ${spec.model}` : ' · shaped by AI') : '';
+  return `${spec.name} pulls ${who}${when}${quirk}${via}`;
 }

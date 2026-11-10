@@ -401,6 +401,8 @@
     border-bottom: 1px dashed rgba(23,19,16,.15); font-size: var(--fs-2); }
   .d-why { opacity: .55; font-size: var(--fs-1); text-align: right; max-width: 60%; }
   .d-card { font-size: var(--fs-1); letter-spacing: 1px; text-transform: uppercase; opacity: .45; margin: -2px 0 6px; }
+  .d-foot { font-size: var(--fs-1); letter-spacing: .12em; text-transform: uppercase; opacity: .4; margin-top: 14px; padding-top: 8px;
+    border-top: 1px dashed rgba(23,19,16,.15); }
   #desk-edge { font-size: var(--fs-1); line-height: 1.5; opacity: .7; margin-top: 12px; padding-top: 10px;
     border-top: 1px solid rgba(29,74,72,.18); }
   #desk-edge a { color: #1d4a48; }
@@ -626,6 +628,21 @@
   #restart-ask p { font-family: var(--serif); font-size: var(--fs-4); line-height: 1.5; }
   #restart-ask button { margin-right: 8px; }
   .t-controls { font-size: 11px; opacity: .55; margin-top: 26px; letter-spacing: .04em; }
+
+  /* ---- first-visit prompt intro: the described stand is the front door ---- */
+  #prompt-intro { margin: 0 auto 20px; max-width: 330px; }
+  #prompt-intro[hidden] { display: none; }
+  #prompt-intro .pi-line { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: rgba(239,230,211,.6); margin-bottom: 9px; }
+  #prompt-intro-input { width: 100%; box-sizing: border-box; padding: 9px 12px; font-family: var(--serif); font-style: italic;
+    font-size: 14px; text-align: center; background: rgba(10,8,6,.55); border: 1px solid rgba(201,162,39,.4); color: var(--cream); }
+  #prompt-intro-input:focus { outline: none; border-color: var(--brass); box-shadow: 0 0 22px rgba(201,162,39,.18); }
+  #prompt-intro .pi-links { margin-top: 9px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+  #prompt-intro .pi-links a { color: var(--brass); text-decoration: none; border-bottom: 1px dotted rgba(201,162,39,.65); margin: 0 10px; }
+  #prompt-intro .pi-links a:hover { color: #e8c75a; }
+  #licence .lic-lite { display: block; margin-top: 10px; text-align: center; font-size: var(--fs-1); font-style: italic;
+    color: #7a5a2a; opacity: .75; text-decoration: none; }
+  #licence .lic-lite:hover { opacity: 1; text-decoration: underline; }
+  #licence .lic-lite[hidden] { display: none; }
 
   /* ---- tutorial overlay ---- */
   #tutorial { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(8,6,4,.62); backdrop-filter: blur(6px); }
@@ -1012,6 +1029,7 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
       </div>
       <footer class="modal-footer">
         <button id="lic-sign">SIGN THE WEEK →</button>
+        <a href="#" id="lic-lite" class="lic-lite" hidden>on a slow device? try lite mode</a>
       </footer>
     </div>
   </div>
@@ -1082,6 +1100,11 @@ Pick one. They walk to Glasshouse once the line passes 5.</p>
       <div class="t-sub">THE DISTRICT</div>
       <p class="t-tag">A café to make your own. Five days to find your feet on the street.</p>
       <p class="t-tag" style="font-size:11px; letter-spacing:.14em; opacity:.75; margin-top:-8px;">Ruth handles the orders. You make the calls.</p>
+      <div id="prompt-intro" hidden>
+        <div class="pi-line">type a stand — it becomes a world</div>
+        <input id="prompt-intro-input" type="text" maxlength="160" value="a tiny late-night ramen counter" autocomplete="off" spellcheck="false">
+        <div class="pi-links"><a href="#" id="prompt-intro-go">build it →</a><a href="#" id="prompt-intro-lite">lite mode</a></div>
+      </div>
       <button id="open" disabled>loading the street…</button>
       <button id="resume" hidden type="button">resume day 1</button>
       <p id="boot-note" class="t-controls" hidden></p>

@@ -50,6 +50,8 @@ check('validator uppercases rivalName', raw.rivalName === 'NOODLE HOUSE');
 check('empty spec → null', validateWorldSpec({}) === null && validateWorldSpec(null) === null && validateWorldSpec('rain') === null);
 check('bad climate → null climate', validateWorldSpec({ name: 'x', climate: 'snow' }).climate === null);
 check('seeded classifier output validates', !!validateWorldSpec(classifyWorld('a rainy street'), EVENT_IDS));
+check('validator preserves model provenance', validateWorldSpec({ name: 'x', model: 'gpt-4o-mini' }).model === 'gpt-4o-mini');
+check('validator drops non-string model', validateWorldSpec({ name: 'x', model: 42 }).model === null);
 
 // ---- cache + resolve ---------------------------------------------------------------
 const storage = mem();
@@ -88,10 +90,12 @@ check('demand lean rides the wave multiplier', main.includes('worldSpec?.spec?.d
 check('world spec rides the week save', main.includes('world: worldSpec') && main.includes('save.world && save.world.spec'));
 check('licence has a street field that re-seats with ?world=', idxHtml.includes('id="lic-world"') && main.includes("u.searchParams.set('world', typedWorld)"));
 check('brief names the described street', main.includes('Your street: ${worldSpec.spec.name'));
+check('brief credits the model on live world specs', main.includes("worldSpec.source === 'live'") && main.includes("shaped by ${worldSpec.spec.model || 'AI'}"));
 check('origin hint is a suggestion not a pick', main.includes('the described street leans'));
 
 // ---- backend ------------------------------------------------------------------------------
 check('worldSpec action exists + cached', convexWs.includes('export const expand') && convexWs.includes('worldspec:v1:') && convexWs.includes('cachePut'));
+check('expand stamps the provider model on the card', convexWs.includes('spec.model = model'));
 check('worldSpec sanitizes against the real deck ids', convexWs.includes('EVENT_IDS') && convexWs.includes('sanitizeWorldSpec'));
 check('http: /ai/worldspec POST route', http.includes('path: "/ai/worldspec"') && http.includes('method: "POST"'));
 check('http handler validates the prompt', /aiWorldSpec[\s\S]{0,600}prompt required/.test(http));

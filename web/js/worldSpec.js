@@ -62,6 +62,9 @@ export function validateWorldSpec(raw, eventIds = []) {
     demandMul,
     rivalName: rivalName || null,
     origin,
+    // Provider model that wrote the card — set server-side, absent on
+    // cache entries that predate attribution.
+    model: typeof raw.model === 'string' ? str(raw.model, 40) || null : null,
   };
   // A spec that says nothing isn't a spec.
   if (!spec.name && !spec.line && !spec.climate && !Object.keys(spec.bias).length &&

@@ -61,13 +61,16 @@ export const expand = action({
       }
     }
     try {
-      const { text } = await chat(
+      const { text, model } = await chat(
         `You are the character writer for a coffee-district sim. A player described a street stand in a few words. Answer with ONE JSON object and nothing else — no markdown, no prose — with keys: name (a short stand name, ≤6 words, title case), cuisine (≤4 words), archetype (one of: nightEats, studyHall, thirdPlace, singleOrigin, grabAndGo, pastry, community, market), cohort (one of: commuters, creatives, students, elders, tourists — who it pulls), daypart ([startMin, endMin] in minutes 360–1260 the crowd comes, or null for all day), pull (0.12–0.28 how strongly it pulls that cohort), priceTier (cheap|mid|premium), signature (its one famous item, ≤5 words), quirk (one flavour detail, ≤12 words). Match the words honestly; a ramen bar pulls students late, a wine bar pulls creatives afternoons.\n\nWords: ${prompt}`,
         320,
       );
       const m = text.match(/\{[\s\S]*\}/);
       const spec = sanitizeStandSpec(m ? JSON.parse(m[0]) : null);
       if (spec) {
+        // Provenance rides the card so the client can credit the model that
+        // shaped the stand — the actual provider model, never a guess.
+        spec.model = model;
         await ctx.runMutation(api.apiCache.cachePut, {
           key, value: JSON.stringify(spec), ttlMs: SPEC_TTL_MS,
         });

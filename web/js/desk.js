@@ -121,6 +121,17 @@ export function initDesk({ billing, analytics, modals } = {}) {
     if (!srcs.length && !shifts.length) {
       const p = document.createElement('div'); p.className = 'd-card'; p.textContent = 'The wire is quiet today.'; body.appendChild(p);
     }
+    // Provenance footer — credit the pipes that actually fed this desk.
+    // intel.feed is written by convex/research.ts from whichever crawls
+    // answered; a shift carrying `why` means an LLM wrote the tape read.
+    const foot = document.createElement('div');
+    foot.className = 'd-foot';
+    const feeds = Array.isArray(intel.feed) && intel.feed.length
+      ? intel.feed.join(' + ') + ' crawled this'
+      : 'the wires ran quiet';
+    const shaped = shifts.some(s => s.why) ? ' · an LLM read the tape' : '';
+    foot.textContent = `${feeds}${shaped} · Convex served it`;
+    body.appendChild(foot);
   }
 
   // Free commodity education: every player gets the headlines + summary.

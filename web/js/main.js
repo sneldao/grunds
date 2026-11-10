@@ -418,7 +418,7 @@ const patrons = new PatronSystem(scene, world, regulars, exchange, fx, { random:
 patrons.walkins = walkins;   // Phase 1 — walk-in identity draws from the day pool
 // Cosmetic street life. Own meshes, own random stream — never a café wave.
 const street = new StreetLife(scene, { lite });
-try { street.loadChars?.().catch(() => {}); } catch {}   // featured humanoids; blobs meanwhile
+if (!lite) try { street.loadChars?.().catch(() => {}); } catch {}   // featured humanoids skip on lite; blobs meanwhile
 const frontage = new FrontageConversions(patronsConvRng);
 // Pillar 4 — the weather anchor (real forecast for ?city= campaigns). Cached
 // live snapshot read synchronously at boot; a fresh campaign re-resolves in
@@ -4043,7 +4043,8 @@ function showMorningBrief() {
       }
       el.textContent = climateBrief(climate) + (weatherAnchor && weatherAnchor.source === 'live'
       ? ` The sky this week is the real forecast${city?.name ? ' over ' + cityDisplay(city.name) : ''} (Open-Meteo).` : '')
-      + (worldSpec?.spec ? ` Your street: ${worldSpec.spec.name || worldSpec.prompt}.${worldSpec.spec.line ? ' ' + worldSpec.spec.line : ''}` : ''); } }
+      + (worldSpec?.spec ? ` Your street: ${worldSpec.spec.name || worldSpec.prompt}.${worldSpec.spec.line ? ' ' + worldSpec.spec.line : ''}`
+        + (worldSpec.source === 'live' ? ` · shaped by ${worldSpec.spec.model || 'AI'}` : '') : ''); } }
   const intro = $('brief-intro');
   if (intro) {
     if (firstDay && softWeekDone) {
@@ -6881,6 +6882,23 @@ function showLicence() {
   if (cityEl && city && !cityEl.value) cityEl.value = city.name;
   const licMore = $('lic-more');
   if (licMore && (cityEl?.value || $('lic-world')?.value)) licMore.open = true;
+  // Lite is a real mode, not a hidden fallback: every signer sees the offer
+  // (already-lite sessions hide it). The reload keeps the URL's params; a
+  // typed street rides forward as ?world= so the description survives.
+  {
+    const liteA = $('lic-lite');
+    if (liteA) {
+      liteA.hidden = !!lite;
+      liteA.onclick = e => {
+        e.preventDefault();
+        const u = new URL(location.href);
+        u.searchParams.set('lite', '1');
+        const w = ($('lic-world')?.value || '').trim().slice(0, WORLD_PROMPT_MAX);
+        if (w) u.searchParams.set('world', w);
+        location.assign(u.toString());
+      };
+    }
+  }
   const wrap = $('lic-step');
   if (wrap) { wrap.classList.remove('si-in'); void wrap.offsetWidth; wrap.classList.add('si-in'); }
   modals.open('licence');
@@ -7333,6 +7351,35 @@ bindPress($('open'), () => {
   else { started = true; audio.start(); openDay(1); rig.crane(); }
 });
 bindPress($('resume'), () => resumeWeek());
+
+// First-visit entry: a fresh browser (no saved week, no ?prompt= already)
+// gets to type a stand before the licence — the described stand is the
+// game's natural front door, not a separate mode. Deep links and returning
+// saves skip it; scripted runs (headless/demo) never see it.
+{
+  const pi = $('prompt-intro');
+  if (pi) {
+    const fresh = !headless && !demoMode && !autoPrompt && !loadWeek(localStorage);
+    pi.hidden = !fresh;
+    if (fresh) {
+      const input = $('prompt-intro-input');
+      const go = (liteMode) => {
+        const v = (input?.value || '').trim().slice(0, FRANCHISE.promptMax);
+        const u = new URL(location.href);
+        if (v) u.searchParams.set('prompt', v); else u.searchParams.delete('prompt');
+        if (liteMode) u.searchParams.set('lite', '1');
+        if (v || liteMode) { location.assign(u.toString()); return; }
+        pi.hidden = true;   // blank + build it = the default district, as promised
+      };
+      $('prompt-intro-go')?.addEventListener('click', e => { e.preventDefault(); go(false); });
+      $('prompt-intro-lite')?.addEventListener('click', e => { e.preventDefault(); go(true); });
+      input?.addEventListener('keydown', e => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); go(false); }
+      });
+    }
+  }
+}
 
 const MOMENT_TTL = 45;
 const MOMENT_PRIO = { ask: -2, plan: -1, returning: 0, ruth: 1, sam: 2, line: 3, counter: 4 };

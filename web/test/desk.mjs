@@ -56,6 +56,10 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
   assert.ok(d.includes('pw-buy') && d.includes('purchasePass'),
     'paywall runs the purchase flow');
   assert.ok(d.includes('textContent'), 'intel renders via textContent, not innerHTML');
+  assert.ok(d.includes('d-foot') && d.includes('intel.feed') && d.includes('Convex served it'),
+    'desk credits the pipes that fed it (provenance footer)');
+  assert.ok(d.includes("shifts.some(s => s.why)"),
+    'LLM credit only shows when a shift carries an AI-written why');
 }
 
 // 4) UI surfaces exist and are wired in main.js.
@@ -64,6 +68,7 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
   for (const id of ['desk', 'desk-body', 'desk-edge', 'paywall', 'pw-buy', 'pw-restore', 'wirebtn', 'desklink']) {
     assert.ok(html.includes(`id="${id}"`), `index.html has #${id}`);
   }
+  assert.ok(html.includes('.d-foot'), 'index.html styles the desk provenance footer');
   const main = read('web/js/main.js');
   assert.ok(main.includes("from './billing.js'") && main.includes("from './desk.js'"),
     'main.js imports billing + desk');

@@ -68,13 +68,16 @@ export const expand = action({
       }
     }
     try {
-      const { text } = await chat(
+      const { text, model } = await chat(
         `You are the world-builder for a coffee-district sim. A player described the street they want in a few words. Answer with ONE JSON object and nothing else — keys: name (what to call their street, ≤6 words), line (one flavour sentence ≤20 words), climate (fair|heat|rain|crisp or null), bias (object mapping event ids to weight multipliers 0.3–2.5; allowed ids: ${EVENT_IDS.join(", ")} — e.g. a rainy street boosts rain_soak, a hungry street boosts hype_matcha), demandMul (0.85–1.15 overall footfall lean), rivalName (a short name for the rival chain across the road, ≤4 words uppercase, or null), origin (colombia|eastAfrica|brazil|none or null — the coffee-origin identity that fits the street, or null). Match the words honestly; keep it small and coherent.\n\nWords: ${prompt}`,
         340,
       );
       const m = text.match(/\{[\s\S]*\}/);
       const spec = sanitizeWorldSpec(m ? JSON.parse(m[0]) : null);
       if (spec) {
+        // Provenance rides the card — the Brief credits the model that
+        // shaped the street, so keep the real provider name on the spec.
+        spec.model = model;
         await ctx.runMutation(api.apiCache.cachePut, {
           key, value: JSON.stringify(spec), ttlMs: WORLD_SPEC_TTL_MS,
         });
