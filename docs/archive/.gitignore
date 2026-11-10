@@ -5,6 +5,7 @@
 **/.media/
 **/review/
 **/work/
+**/dist/
 *.mp4
 *.webm
 *.mov

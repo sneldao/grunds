@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tools/mint-pipeline.mjs — Generative District pre-warmer (TRIPOTHON.md §4).
+// tools/mint-pipeline.mjs — Generative District pre-warmer (docs/archive/TRIPOTHON.md §4).
 // (Name kept for continuity: `district:ensure` now routes Tripo first, Mint
 // as fallback, server-side — this tool is provider-agnostic.)
 //

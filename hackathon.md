@@ -1,11 +1,10 @@
 # Hackathon log
 
 - **Project:** Grunds
-- **Event:** Victoria VR AI Builder Hackathon 2026 (active — deadline Nov 11
+- **Event:** Victoria VR AI Builder Hackathon 2026 — deadline Nov 11
   16:30 CEST; repo + hosted demo + <3 min video + description; see
-  SUBMISSION.md). Past events: Convex All Gas Hackathon, Spatial
-  Intelligence + Generative 3D Hackathon (Founders Inc., Sept 5).
-- **What it does:** A live 3D coffee-district economy game where players run café stands and AI patrons with persistent memory buy based on cohorts, commodity events, and gossip.
+  SUBMISSION.md, final-day plan in PLAN.md.
+- **What it does:** A live 3D coffee-district economy game where players run café stands and patron cohorts with persistent memory buy on price, events, and gossip.
 - **Live app:** https://grunds.trustfall.xyz (public domain; Vercel `grunds-proxy`
   rewrites all paths to https://striped-anaconda-746.convex.site, still live itself)
 - **Repo:** https://github.com/sneldao/grunds
@@ -201,15 +200,15 @@ requires 15+ s X clip tagging @loadoutprotocol + form entry).
   `npm install` was needed first — the main checkout's `node_modules` was
   absent (that also explains a `district-routing.mjs` module-not-found red
   on the pre-flight `test:fast`; 530/530 green after, typecheck clean).
-- **Entry clip:** `videos/loadout-jam/dist/grunds-loadout.mp4` — 40 s,
+- **Entry clip:** `docs/archive/loadout-jam/dist/grunds-loadout.mp4` — 40 s,
   1080p h264+aac, all real gameplay captured against the deployed site.
-  New pipeline `videos/loadout-jam/capture/record.mjs` (Playwright, drives
+  New pipeline `docs/archive/loadout-jam/capture/record.mjs` (Playwright, drives
   `__grunds` rig queueShot / theatre() polling / skipToRush / stats) →
   `assemble.sh` (trim, PIL caption overlays via city-remix `render_text.py`,
   concat, seeded synth bed). Takes: real title screen, dawn pavement crowd
   inside a live busker window, 06:33 commute + ask card, Morning Brief,
   12:38 pre-rush interior, Tokyo street with the ¥ pack landed, evening
-  ledger, CTA card. Cut list + form/X copy in `videos/loadout-jam/ENTRY.md`.
+  ledger, CTA card. Cut list + form/X copy in `docs/archive/loadout-jam/ENTRY.md`.
 - **Gotcha:** playwright `page.evaluate('...rig.queueShot(name, world)')`
   resolves bare `world` via `window.world` — it exists, but use
   `window.__grunds.world` explicitly. Long takes that outlive their script
@@ -234,7 +233,7 @@ Validation: 488 full-suite tests passed, then 11 targeted checks passed after fi
 
 ### 2026-10-28 - film assembled, full suite green (SandBase AI City Remix)
 **"Dear Newcomer: A Letter from Lisbon" is assembled:**
-`videos/city-remix/dist/final.mp4` — 90.30 s, 1920×1080 h264 + aac, 18
+`docs/archive/city-remix/dist/final.mp4` — 90.30 s, 1920×1080 h264 + aac, 18
 subtitle strips + 2 letter cards burned from PIL renders, seeded synth bed
 mixed at −19.7 dB mean. All 15 review stills QC'd against FACTS.md: "about
 €4" only, no café names in the subtitle track, João/patrons shown only as
@@ -260,16 +259,16 @@ game characters, no partnership or geography claims.
 
 ### 2026-10-28 - 1f9b80a (SandBase AI City Remix — film + entry)
 Built and captured the submission film **"Dear Newcomer: A Letter from
-Lisbon"** (90.3 s, 15 scenes, `videos/city-remix/direction/06-final.json` —
+Lisbon"** (90.3 s, 15 scenes, `docs/archive/city-remix/direction/06-final.json` —
 shot list, letter, subtitles and timing authored by MiniMax M3.1 Flash via
 SandBase, prompts/responses archived in `direction/`). New pipeline:
-- `videos/city-remix/assemble.mjs` — validates the script (60–180 s,
+- `docs/archive/city-remix/assemble.mjs` — validates the script (60–180 s,
   subtitle ≤42 chars/line, ≤15 cps, in-scene windows), renders cards +
   subtitle strips via PIL (`render_text.py`; local ffmpeg 8.1 has no
   drawtext/libass), trims each take's scripted hold window, concatenates,
   burns subtitles as timed PNG overlays, mixes the seeded synth music bed,
   and emits QC stills + loudness. Smoke-tested end to end.
-- `videos/city-remix/capture/record-city-shots.mjs` — 13 real gameplay
+- `docs/archive/city-remix/capture/record-city-shots.mjs` — 13 real gameplay
   takes of the live `?city=` street at 1080p: licence typing, minted
   Lisbon facts (about-€4 hint), wide/low orbits over the LISBON decal,
   euro ticker, morning brief, patron rush, rival swing, till, the printed
@@ -364,7 +363,7 @@ video's call-to-action lands on a live feature, not a demo of one.
   go fully local when a pack carries ≥ 6 names. Door steam toned down —
   overlapping sprites read as one white blob on camera. The film's script is
   directed by M3.1 via SandBase; prompts + responses live in
-  `videos/city-remix/direction/` (locked draft `04-final.json`, ~94 s,
+  `docs/archive/city-remix/direction/` (locked draft `04-final.json`, ~94 s,
   Lisbon writes to the newcomer — every shot a real capture).
 - **Local cast (`6599b09`).** Packs gain a `cast` list — 8 more local names
   for the canon regulars, distinct from walk-in `names` and `barista` so a
@@ -656,7 +655,7 @@ Playtest critique answered: the stand read as making money automatically — no 
 - Gate 27/27, `tsc` clean, deployed and verified live (`config.js` serves `start: 0.28`).
 
 ### 2026-09-22 - Working tree - The demo re-cut: the Sep-19 build on camera
-- **`videos/grunds-demo/scripts/record2.mjs` (new):** three more scripted Playwright passes against the live site. `d-halo` idles the floor until the brass halo pulses under the same target the goal strip names. `e-photo-card` presses `p`, waits out the bake, then drives the `pc-save` download so `capture/assets/share-card.png` is the real `buildShareCard` output — the composition shows the card itself, not a mockup. `f-letter-theater` plays a full day at 20×, posts the letter to the second AgentMail inbox, then fires an inbound reply through the `/agentmail/webhook` shared-secret path — the reply lands mid-read and the letter grows a "✉ Idris replied" line while the flag/knock/envelope play behind the modal.
+- **`docs/archive/grunds-demo/scripts/record2.mjs` (new):** three more scripted Playwright passes against the live site. `d-halo` idles the floor until the brass halo pulses under the same target the goal strip names. `e-photo-card` presses `p`, waits out the bake, then drives the `pc-save` download so `capture/assets/share-card.png` is the real `buildShareCard` output — the composition shows the card itself, not a mockup. `f-letter-theater` plays a full day at 20×, posts the letter to the second AgentMail inbox, then fires an inbound reply through the `/agentmail/webhook` shared-secret path — the reply lands mid-read and the letter grows a "✉ Idris replied" line while the flag/knock/envelope play behind the modal.
 - **Recording hardening:** Playwright's video finalize hung on `ctx.close()` with a saturated encode (one ~28-minute hang silently ate the theater tail). Both record scripts now race context/browser close against a watchdog and screenshot the end state to `capture/shots/`, so a hung pipe can't eat the evidence.
 - **The new cut:** `index.html` rebuilt to 108 s across 11 beats — title → licence → brief → 20× day → halo → letter post → reply theater → wire desk → live board → photo mode → the stamped card → end card. `npm run check` clean; rendered `renders/grunds-demo_2026-09-22_02-48-00.mp4` (48.7 MB, 1:48). The full sponsor loop is now on camera: Firecrawl wire → OpenAI why → Convex live state → AgentMail round-trip.
 
@@ -683,10 +682,10 @@ Five committed features (206a5a4 → 534eef6), each with its own headless suite 
 - **Provider-agnostic spine:** `tripoAssets` gains a `provider` field — Mint generates today, the Tripo v3 adapter (`convex/tripo.ts`, `verifyTripo` webhook + reaper cron) flips in if credits land (Sep 18 gate). Mint has no seed params, so District Seed determinism is key memoization: generate once per seed, cache forever — same seed, same street.
 - **Client cross-fades** generated GLBs over the procedural base with per-slot scale normalization; `?classicDistrict` + failure fallback keep the demo unblockable.
 - **Morning Brief progressive disclosure:** news-only letter (sizing paragraph + wire citation de-duped into buttons/wire), wire folded into `<details>`, `decide — size the position` over the commit row — plus an honesty fix: day 1 no longer prints a phantom "Spot closed up N%" (the tape needs a yesterday).
-- Agency + smoke PASS, live; gate 18/18 at this commit. Tripothon build log started alongside: `TRIPOTHON-LOG.md`, plan in `TRIPOTHON.md`.
+- Agency + smoke PASS, live; gate 18/18 at this commit. Tripothon build log started alongside: `docs/archive/TRIPOTHON-LOG.md`, plan in `docs/archive/TRIPOTHON.md`.
 
 ### 2026-09-15 - The demo video: real gameplay, sponsor loop end-to-end
-The three-minute cap needed the product, not a pitch reel — so `videos/grunds-demo` is a HyperFrames composition assembled from Playwright-recorded live gameplay at 1920×1080, not mockups.
+The three-minute cap needed the product, not a pitch reel — so `docs/archive/grunds-demo` is a HyperFrames composition assembled from Playwright-recorded live gameplay at 1920×1080, not mockups.
 - **`scripts/record.mjs`** drives the real site through three clips: (a) licence → tutorial → Morning Brief → hedge → floor, (b) a full day at 20× → Roaster's Letter → "post this letter to…" (AgentMail), (c) the Wire desk with `linkup`/`firecrawl` origin tags. Recording gotchas that mattered: `#open` stays `disabled` until the GLBs place (DOM clicks on disabled buttons are silent no-ops), and Playwright's actionability wait stalls on the animating overlays — direct `el.click()` evals everywhere.
 - **`index.html`** sequences six trimmed segments (~95s) under Iowan caption cards: licence → brief → the day at 20× → the letter and its post row → the wire desk → the live district board → end card with the `convex.site` URL and the sponsor roll. Music bed is a synthesized pad (ffmpeg) — voiceover deliberately held until the cut is approved.
 - **A real bug fell out of recording:** typing an email into the post row fired global game keys — the `r` in an address ran `reset()` and wiped the campaign mid-keystroke. `main.js`'s keydown handler now returns early when the target is an input/textarea (after the licence gate, which still owns Enter-to-sign inside its own fields). Verified live: the letter stays open while `[redacted inbox]` types in.

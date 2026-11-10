@@ -1025,7 +1025,7 @@ brief/offer/evening/letter/paywall modals exactly as a player would,
 `__grunds.stats()` publishes ~40 metrics, and `?seed=N` replayable links exist.
 
 Note that Playwright is **already in the project**, just not where the gate
-looks: `videos/grunds-demo/scripts/record{,2}.mjs` drive the live site through
+looks: `docs/archive/grunds-demo/scripts/record{,2}.mjs` drive the live site through
 licence → Brief → hedge → floor → letter → webhook reply. **Those scripts make
 zero assertions and install no `pageerror`/`console` listeners** — they are a
 capture pipeline, not a test pipeline, and `playwright` is not a `package.json`

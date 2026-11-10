@@ -3,7 +3,7 @@
 // provider resolves — and an already-grown slot is never re-grown.
 //   1. pure helpers: pickSlotRow / providerOrder / shouldFallBack
 //   2. tripoSpecForSlot: deterministic per (seed, slot), house-style negative,
-//      face limits inside TRIPOTHON.md §7 discipline, keys differ by provider
+//      face limits inside docs/archive/TRIPOTHON.md §7 discipline, keys differ by provider
 //   3. ensure() against a stubbed ctx: cached-mint no-op, Tripo-first,
 //      fallback on refusal/throw, never throws when both providers fail
 //   4. kit() reads both keys and reports the provider

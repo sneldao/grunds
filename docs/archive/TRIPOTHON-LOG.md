@@ -1,3 +1,5 @@
+> **Archived.** Reference from an earlier event — retained for the 3D-asset generation pipeline notes (Tripo/Mint/Grove). The current submission is the Victoria VR AI Builder Hackathon 2026; see `../../SUBMISSION.md` and `../../PLAN.md`.
+
 # Tripothon S1 — build log
 
 - **Project:** Grunds — The District (the Generative District)

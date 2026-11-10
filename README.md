@@ -1,10 +1,12 @@
 # Grunds — The District
 
-A live 3D coffee district where **players run competing café stands** and **AI patrons
-decide where to buy** — real commodity prices, behavioural cohorts, and word-of-mouth
-gossip, all visible on the floor. Built at the **Spatial Intelligence + Generative 3D
-Hackathon** (Founders Inc., Sept 5) and rebuilt as a **persistent multiplayer product
-on Convex**.
+A live 3D coffee district where **players run competing café stands** and **patron
+cohorts with persistent memory decide where to buy** — real commodity prices,
+behavioural cohorts, and word-of-mouth gossip, all visible on the floor.
+
+**Entry for the [Victoria VR AI Builder Hackathon 2026](https://www.victoriavr.com/news/ai-builder-hackathon-2026-the-building-period-2042daf3)** —
+plain language becomes a working 3D district: describe a stand or a street and the
+sim builds it, then runs it as a persistent multiplayer world on Convex.
 
 ## ▶ Play it
 
@@ -12,7 +14,7 @@ on Convex**.
 Served by Convex static hosting ([direct link](https://striped-anaconda-746.convex.site));
 connected mode runs the multiplayer backend with live commodity news in the wire.
 
-Demo video: `videos/grunds-demo` (recorded gameplay + HyperFrames title treatment).
+Demo video: `out/demo/demo.mp4` (70 s submission cut; harness `tools/demo-video.mjs`).
 
 | Current state | |
 |---|---|
@@ -150,6 +152,6 @@ URL params: `?seed=N`, `?speed=60|300|1200`, `?lite`, `?skipTutorial`,
 | [EVAL.md](EVAL.md) | Playtest protocol, balance evidence, readiness criteria |
 | [ART.md](ART.md) | Art direction and asset rules |
 | [AGENTS.md](AGENTS.md) | Working notes for coding agents |
-| [TRIPOTHON.md](TRIPOTHON.md) | 3D asset generation saga (Tripo/Mint/Grove) |
-
-Built at Founders Inc., San Francisco. Sept 5, 2026.
+| [SUBMISSION.md](SUBMISSION.md) | Hackathon submission pack — links, description, checklist |
+| [PLAN.md](PLAN.md) | Final-day sprint plan for the submission |
+| [docs/archive/TRIPOTHON.md](docs/archive/TRIPOTHON.md) | 3D asset generation saga (Tripo/Mint/Grove) — archived |
