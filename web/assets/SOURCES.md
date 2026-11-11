@@ -160,8 +160,9 @@ committed as WebP. Pro plan permits commercial use of generated maps.
 Derived from our own `pavement()` canvas bake (web/js/textures.js)
 uploaded as the start image — same slab grid, pixel-aligned, tiles
 seamlessly. Create at 1K with "Inpaint seams" off; only NRM + ROUGH
-kept (COL/DISP/SPEC discarded). Opt-in experiment: applied to the
-pavement material by world.js only when the `?pbr` URL flag is set.
+kept (COL/DISP/SPEC discarded). Applied to the pavement material by
+world.js only while it rains (lazy-loaded on first rain; dry days never
+fetch them).
 
 - `pbrgen/pavement-nrm.webp` — 1024² normal map, OpenGL convention
   (three.js-ready, no Y flip), q92 WebP

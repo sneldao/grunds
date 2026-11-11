@@ -34,3 +34,11 @@ export function climateBrief(climate) {
 export function climateRain(climate, eventId) {
   return Math.max(climate?.rain || 0, eventId === 'rain_soak' ? 0.9 : 0);
 }
+
+// Wet-street look: rain drives pavement/road glossier + darker. pave/road
+// are effective roughness targets (0.92 = today's dry value); ×1.8 makes
+// the rain climate (0.55) read fully wet.
+export function wetSurface(rain) {
+  const wet = Math.max(0, Math.min(1, (rain || 0) * 1.8));
+  return { wet, pave: 0.92 - 0.56 * wet, road: 0.92 - 0.5 * wet, paveTint: 1 - 0.22 * wet, roadTint: 1 - 0.18 * wet };
+}

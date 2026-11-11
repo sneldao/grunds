@@ -45,6 +45,9 @@ test('Phase 5 · rain day is event + visuals + demand', () => {
   assert.ok(world.includes('W.setRain'), 'world must define setRain');
   assert.ok(main.includes('rain_soak'), 'prepareDay branches on rain');
   assert.ok(main.includes("world.setRain"), 'rain drives the street layer');
+  assert.ok(world.includes('wetSurface('), 'rain wetness drives pavement/road');
+  assert.ok(world.includes('pbrgen/pavement-nrm.webp'), 'PBRgen maps lazy-load on rain');
+  assert.ok(!world.includes("get('pbr')"), 'the ?pbr URL flag is gone');
 });
 
 test('Phase 5 · camera grammar names every shot', () => {

@@ -161,6 +161,13 @@
   procedural cat when it lands), skateboard.glb (streetLife deck swap),
   street-musician.walk.glb (second busker), roof-{tank,dish,antenna}.glb
   (spares, not yet placed).
+- PBRgen (app.pbrgen.com, offline asset source, never runtime): make maps
+  from our own canvas bakes via "Start from an image", Create at 1K with
+  Inpaint seams off. NRM is OpenGL convention; only NRM+ROUGH are vendored
+  to `web/assets/pbrgen/`. `wetSurface(rain)` in climates.js drives
+  pavement/road roughness+tint from `world.setRain`; the maps lazy-load on
+  first rain (dry days never fetch). Screenshot harness
+  `tools/pbrgen-shots.mjs` → /tmp/pbrgen-shots.
 
 ## Real-world market snapshot (pillar 4 — snapshot, never live)
 - `web/js/marketSnapshot.js` is the only place that touches the wire. A

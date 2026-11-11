@@ -7,6 +7,7 @@ import { woodFloor, pavement, road, awning, menuBoard, softSprite, streakSprite,
 import { GLBLoader } from './loader.js';
 import { DRINKS, DRINK_IDS, basePrices, menuPrice } from './menu.js';
 import { streetForDay, boardLine } from './street.js';
+import { wetSurface } from './climates.js';
 import { PREMISES, dressInterior, createCutawayRig } from './premises.js';
 import { BACKDROP_FACADES, vacantRowFronts } from './farSide.js';
 import { setStockVisibility, ingredientDisplay } from './floorStock.js';
@@ -227,19 +228,6 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   const scuff = new THREE.Mesh(scuffGeo, scuffMat); scuff.rotation.x = -Math.PI / 2; scuff.position.set(-6.2, 0.02, -1.8); g.add(scuff);
   const paveTex = pavement();
   const paveMat = new THREE.MeshStandardMaterial({ map: paveTex, roughness: 0.92, metalness: 0.01 });
-  // Opt-in PBRgen experiment: ?pbr adds generated normal+roughness maps; ?pbr=wet dials gloss.
-  const pbrOpt = new URLSearchParams(location.search).get('pbr');
-  if (pbrOpt !== null) {
-    paveMat.roughness = pbrOpt === 'wet' ? 0.55 : 1.38;
-    const texLoader = new THREE.TextureLoader();
-    const wire = (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.copy(paveTex.repeat); t.anisotropy = 8; };
-    texLoader.load('assets/pbrgen/pavement-nrm.webp', (nrm) => {
-      wire(nrm); paveMat.normalMap = nrm; paveMat.normalScale.set(0.8, 0.8); paveMat.needsUpdate = true;
-    });
-    texLoader.load('assets/pbrgen/pavement-rough.webp', (rough) => {
-      wire(rough); paveMat.roughnessMap = rough; paveMat.needsUpdate = true;
-    });
-  }
   plane(g, 44, 3.6, paveMat, 0, 0.02, LAYOUT.pavementZ, { rx: -Math.PI / 2 });
   // The hall that used to surround the tables is the neighbours' ground:
   // The Quill on the left, Hearth & Rye / Bell & Brass / Marrow Lane on
@@ -251,6 +239,9 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   const roadTex = road();
   const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.92, metalness: 0.02 });
   plane(g, 44, LAYOUT.roadZ1 - LAYOUT.roadZ0, roadMat, 0, 0.015, (LAYOUT.roadZ0 + LAYOUT.roadZ1) / 2, { rx: -Math.PI / 2 });
+  // Rain-driven wetness: eased rain amount → glossier + darker pavement/road;
+  // PBRgen normal+rough maps lazy-load on first rain (dry days never fetch).
+  W._wetSurf = { paveMat, roadMat, paveTex, rain: 0, maps: 0, _applied: 0 };
   // The "table" the diorama sits on: a huge matte apron under the block that
   // runs past every edge and thins into the fog — kills the floating-slab read.
   const apronMat = new THREE.MeshStandardMaterial({ color: 0x8b8474, roughness: 1, metalness: 0 });
@@ -2367,6 +2358,34 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
           if (arr[i + 1] < 0) arr[i + 1] += 6;
         }
         attr.needsUpdate = true;
+      }
+    }
+    // Wet-street look: ease rain amount; scalar roughness+tint apply
+    // immediately, PBRgen maps lazy-load once and re-apply when ready.
+    {
+      const s = W._wetSurf;
+      s.rain += (W._rainTarget - s.rain) * Math.min(1, d * 0.5);
+      if (s.maps === 0 && s.rain > 0.01) {
+        s.maps = 1;
+        const texLoader = new THREE.TextureLoader();
+        const wire = (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.copy(s.paveTex.repeat); t.anisotropy = 8; };
+        let nrm = null, rough = null;
+        const done = () => {
+          wire(nrm); wire(rough);
+          s.paveMat.normalMap = nrm; s.paveMat.normalScale.set(0.6, 0.6);
+          s.paveMat.roughnessMap = rough; s.paveMat.needsUpdate = true;
+          s.maps = 2; s._applied = -1;
+        };
+        texLoader.load('assets/pbrgen/pavement-nrm.webp', (t) => { nrm = t; if (rough) done(); });
+        texLoader.load('assets/pbrgen/pavement-rough.webp', (t) => { rough = t; if (nrm) done(); });
+      }
+      if (Math.abs(s.rain - s._applied) > 0.002) {
+        s._applied = s.rain;
+        const w = wetSurface(s.rain);
+        s.paveMat.roughness = s.maps === 2 ? w.pave / 0.65 : w.pave;
+        s.paveMat.color.setScalar(w.paveTint);
+        s.roadMat.roughness = w.road;
+        s.roadMat.color.setScalar(w.roadTint);
       }
     }
     if (doorSteam.length) {

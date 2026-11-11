@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import * as THREE from '../vendor/three.module.js';
-import { CLIMATES, CLIMATE_IDS, pickClimate, climateBrief, climateRain } from '../js/climates.js';
+import { CLIMATES, CLIMATE_IDS, pickClimate, climateBrief, climateRain, wetSurface } from '../js/climates.js';
 import { buildSky } from '../js/sky.js';
 import { StreetLife, STREET_CAP, STREET_POOL_CAP } from '../js/streetLife.js';
 import { LAYOUT } from '../js/config.js';
@@ -125,4 +125,22 @@ test('sky: the climate tint is gone by night', () => {
   assert.equal(rain.zen, fair.zen, 'the night zenith carries no climate tint');
   assert.equal(rain.hor, fair.hor, 'the night horizon carries no climate tint');
   sky.dispose();
+});
+
+test('wetSurface: dry is bit-identical, rain darkens + glosses monotonically', () => {
+  const dry = { wet: 0, pave: 0.92, road: 0.92, paveTint: 1, roadTint: 1 };
+  assert.deepEqual(wetSurface(0), dry);
+  assert.deepEqual(wetSurface(null), dry);
+  assert.ok(Math.abs(wetSurface(0.55).wet - 0.99) < 1e-9);
+  assert.equal(wetSurface(0.9).wet, 1);
+  let prev = wetSurface(0);
+  for (const rain of [0.3, 0.55]) {
+    const w = wetSurface(rain);
+    assert.ok(w.pave < prev.pave && w.road < prev.road && w.paveTint < prev.paveTint && w.roadTint < prev.roadTint);
+    prev = w;
+  }
+  for (const rain of [0, 0.3, 0.55, 0.9, 1]) {
+    const w = wetSurface(rain);
+    for (const v of [w.pave, w.road, w.paveTint, w.roadTint]) assert.ok(v > 0 && v <= 1);
+  }
 });
