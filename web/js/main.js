@@ -333,11 +333,18 @@ function rowSummary(d) {
 }
 // Linkup market intel: fetched once per session (server-cached 6h). Tilts the
 // dawn deck via exchange.openDay(bias) and is cited in the roaster's letter.
-let marketIntel = null;
-if (sync.live && sync.intel) sync.intel().then(r => {
-  marketIntel = r;
-  if (r && $('wirebtn') && day >= 2) $('wirebtn').style.display = '';
-});
+let marketIntel = null, intelTriedAt = 0;
+// One boot fetch, then lazy retries once the wire desk is actually
+// reachable (day 2+): a transient /ai/research miss at boot must not lock
+// the desk out for the whole run.
+const wantIntel = () => {
+  if (!sync.live || !sync.intel) return;
+  sync.intel().then(r => {
+    marketIntel = r;
+    if (r && $('wirebtn') && day >= 2) $('wirebtn').style.display = '';
+  });
+};
+wantIntel();
 if (sync.managed && sync.managed()) sync.beginRun(SEED).catch(() => {});
 // Async rival: fetch the strongest week another stand logged on this seed —
 // their ledger paces the Glasshouse and their name takes Sam's beats.
@@ -5510,7 +5517,10 @@ function updateHUD() {
         ? 'reserved for 14:00' : (dayMin >= 840 && dayMin < 1020 ? 'cups left' : 'cups ready');
   }
   if ($('skiprush')) $('skiprush').hidden = !canSkipToRush();
-  if ($('wirebtn')) $('wirebtn').style.display = (day >= 2 && marketIntel) ? '' : 'none';
+  if ($('wirebtn')) {
+    if (!marketIntel && day >= 2 && performance.now() - intelTriedAt > 30000) { intelTriedAt = performance.now(); wantIntel(); }
+    $('wirebtn').style.display = (day >= 2 && marketIntel) ? '' : 'none';
+  }
   if ($('floorstats')) $('floorstats').hidden = day < 2 || (phase === 'trading' && !vitalsOn);
   if ($('syncbadge')) $('syncbadge').hidden = day < 2;
   if ($('district')) $('district').hidden = day < 2;
