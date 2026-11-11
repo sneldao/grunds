@@ -114,6 +114,45 @@ export function pickIdleAgents(agents, cap = IDLE_CAP) {
   return ranked.slice(0, cap).map(x => x.a);
 }
 
+// The shared rig binds in a T: arms along X, legs already down. A still
+// figure stands with the arms at the sides. The walk and idle clips
+// override this while they have weight.
+const ARM_DOWN_L = [0, 0, -Math.SQRT1_2, Math.SQRT1_2];
+const ARM_DOWN_R = [0, 0, Math.SQRT1_2, Math.SQRT1_2];
+const STAND_BONES = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head',
+  'LeftShoulder', 'LeftArm', 'LeftForeArm', 'LeftHand',
+  'RightShoulder', 'RightArm', 'RightForeArm', 'RightHand',
+  'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase',
+  'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase'];
+function standQuat(name) {
+  if (name === 'LeftArm') return ARM_DOWN_L;
+  if (name === 'RightArm') return ARM_DOWN_R;
+  return [0, 0, 0, 1];
+}
+export function armsAtSides(root) {
+  if (!root) return root;
+  const left = root.getObjectByName('LeftArm');
+  const right = root.getObjectByName('RightArm');
+  if (left) left.quaternion.set(...ARM_DOWN_L);
+  if (right) right.quaternion.set(...ARM_DOWN_R);
+  return root;
+}
+export function standClip() {
+  const tracks = STAND_BONES.map(name => {
+    const q = standQuat(name);
+    return new THREE.QuaternionKeyframeTrack(name + '.quaternion', [0, 1], [...q, ...q]);
+  });
+  return new THREE.AnimationClip('Stand', 1, tracks);
+}
+export function assignStand(templates, clip) {
+  if (!clip) return templates;
+  for (const [cohort, list] of Object.entries(templates)) {
+    if (cohort === 'busker') continue;
+    for (const t of list || []) if (t) t.stand = clip;
+  }
+  return templates;
+}
+
 // Shop fronts face the play camera at z ≈ 3.6. These stands are on the
 // pavement side of the door, clear of the café threshold. `seat` is a
 // chair inside the open shell (shopGroup front at z 3.6, local +z toward
@@ -781,6 +820,7 @@ export class StreetLife {
           // ship none at all.
           const walk = gltf.animations.find(a => /walk/i.test(a.name)) || gltf.animations[0] || null;
           if (walk && !donorWalk) donorWalk = walk;
+          armsAtSides(gltf.scene);
           (out[cohort] ??= [])[i] = { scene: gltf.scene, walk };
         } catch { /* a missing GLB leaves that cohort slot on blobs */ }
       })));
@@ -799,6 +839,7 @@ export class StreetLife {
       if (walk) (out.busker ??= []).push({ scene: m.scene, walk });
     } catch {}
     assignDonorWalk(out, donorWalk);
+    assignStand(out, standClip());
     try {
       const res = await fetch(new URL('../assets/polyfork/idles.json', import.meta.url));
       if (res.ok) {
@@ -825,23 +866,33 @@ export class StreetLife {
     }
     const action = g.userData.charAction;
     const idle = g.userData.charIdle;
+    const stand = g.userData.charStand;
     const wantIdle = !!(idle && playIdle && !reduced && !walking);
-    if (idle) {
-      const idleTarget = wantIdle ? 1 : 0;
+    const wantStand = !!(stand && !walking && !wantIdle);
+    if (idle || stand) {
       const k = Math.min(1, stepScale * 4);
-      idle.weight += (idleTarget - idle.weight) * k;
-      if (idle.weight < 0.001) idle.weight = 0;
-      if (idle.weight > 0.999) idle.weight = 1;
-      if (action) action.weight = 1 - idle.weight;
+      const ease = (act, target) => {
+        if (!act) return;
+        act.weight += (target - act.weight) * k;
+        if (act.weight < 0.001) act.weight = 0;
+        if (act.weight > 0.999) act.weight = 1;
+      };
+      ease(idle, wantIdle ? 1 : 0);
+      ease(stand, wantStand ? 1 : 0);
+      if (action) action.weight = Math.max(0, 1 - (idle ? idle.weight : 0) - (stand ? stand.weight : 0));
     }
     let settled = true;
     if (action) {
       const target = (walking && !reduced)
         ? Math.max(0.6, Math.min(1.5, (a.gait?.freq || 5) / 5)) : 0;
       action.timeScale += (target - action.timeScale) * Math.min(1, stepScale * 5);
-      settled = action.timeScale < 0.005 && (!idle || idle.weight < 0.01);
+      // An idle keeps the mixer awake. A stand is one pose, so once it
+      // has the body the mixer can stop.
+      settled = action.timeScale < 0.005
+        && (!idle || idle.weight < 0.01)
+        && (!wantStand || stand.weight > 0.99);
     } else {
-      settled = !idle || idle.weight < 0.01;
+      settled = (!idle || idle.weight < 0.01) && (!wantStand || stand.weight > 0.99);
     }
     if (settled && g.userData.charSettled) return; // frozen pose already applied
     mixer.update(stepScale);
@@ -869,7 +920,7 @@ export class StreetLife {
     g.scale.setScalar(CHAR_SCALE);
     g.position.set(agent.pos.x, 0, agent.pos.z);
     g.rotation.y = agent.face;
-    if (tpl.walk || (tpl.idles && tpl.idles.length)) {
+    if (tpl.walk || (tpl.idles && tpl.idles.length) || tpl.stand) {
       // The stride lives on the clone: the update loop eases its timeScale
       // in and out. A deterministic per-agent offset (idx, no rng) keeps
       // the street from marching in lockstep. An idle, when the template
@@ -891,6 +942,13 @@ export class StreetLife {
         idle.weight = 0;
         idle.play();
         g.userData.charIdle = idle;
+      }
+      if (tpl.stand) {
+        const stand = mixer.clipAction(tpl.stand);
+        stand.setLoop(THREE.LoopRepeat, Infinity);
+        stand.weight = 0;
+        stand.play();
+        g.userData.charStand = stand;
       }
       g.userData.charMixer = mixer;
       // Root-drift insurance: the clip may translate the hips; keep its

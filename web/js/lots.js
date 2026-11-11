@@ -166,6 +166,16 @@ export function tasteLine(lotId, level, ideal = null, { scorched = false, stale 
   const note = d === 0 ? TASTE_ON[lotId] : d < 0 ? TASTE_LIGHT[lotId] : TASTE_DARK[lotId];
   return `${name}. ${note || 'A cup of coffee.'}`;
 }
+
+// The clause a regular can say out loud. Same cup as tasteLine, without
+// the sack's name, wrapped as speech.
+export function tasteBubble(lotId, level, ideal = null) {
+  const line = tasteLine(lotId, level, ideal);
+  const name = LOT_CATALOG[lotId]?.name;
+  const note = name && line.startsWith(`${name}. `) ? line.slice(name.length + 2) : line;
+  const said = note.replace(/\.$/, '');
+  return said ? `“${said}.”` : '';
+}
 export function isStale(ageDays) { return ageDays > STALE_AFTER; }
 
 // Opinion delta for serving one roster regular a cup of (lot, cohort, age).

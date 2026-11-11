@@ -86,6 +86,7 @@ test('rival-spillover: jammed Sam queue defects to player', () => {
 test('social-contagion: glowing regulars spread good gossip bubbles', () => {
   assert.match(main, /r\.op > 0\.65 && floorRng\(\) < 0\.30/);
   assert.match(main, /fx\.gossipBubbles\?\.\(e\.p/);
+  assert.match(main, /tasteBubble\(e\.lotId, pouredLevel, lotRoastTarget\(e\.lotId\)\)/);
 });
 
 test('visual-polish: cup surface tinted by drink', () => {

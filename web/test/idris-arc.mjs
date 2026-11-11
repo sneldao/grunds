@@ -57,6 +57,12 @@ test('Phase 4 · roast and regular lines quote real state', () => {
   assert.match(stale.body, /Fresh sacks or cold regulars/i);
   const fresh = composeLetter({ ...base, idris: { ...idris, houseLot: 'Brazil Cerrado', houseRoast: 4, houseAge: 1 } });
   assert.match(fresh.body, /keep it there/);
+  const cupped = composeLetter({
+    ...base,
+    idris: { ...idris, houseLot: 'Colombia Huila', houseRoast: 3, houseAge: 1, houseTaste: 'Colombia Huila. Red apple and caramel, the cup the room expects.' },
+  });
+  assert.match(cupped.body, /I cupped that pour\. Colombia Huila\. Red apple and caramel/);
+  assert.ok(!cupped.body.includes('keep it there'));
   const reg = composeLetter({ ...base, idris: { ...idris, topRegular: { name: 'Mara', visits: 9 } } });
   assert.match(reg.body, /Mara.*9 days running/);
   const loyal = composeLetter({ ...base, idris: { ...idris, loyal: true, contractsTaken: 3 } });

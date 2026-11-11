@@ -131,6 +131,7 @@ function idrisRoastLine(s) {
   if (!m || !m.houseLot) return '';
   const stale = (m.houseAge ?? 0) > 2;
   if (stale) return `That ${m.houseLot} is on day ${m.houseAge} of the roast and it shows. Fresh sacks or cold regulars — pick one.`;
+  if (m.houseTaste) return `I cupped that pour. ${m.houseTaste}`;
   if (m.houseRoast == null) return `You never set the drum on that ${m.houseLot}. It pours flat. One number on the dial and the room changes.`;
   return `That ${m.houseLot} at roast ${m.houseRoast} — keep it there. The room can taste the difference even if the till can’t.`;
 }

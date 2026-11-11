@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
 import { readFileSync } from 'node:fs';
-import { StreetLife, assignDonorWalk, assignIdles, pickIdleAgents, IDLE_CAP } from '../js/streetLife.js';
+import { StreetLife, assignDonorWalk, assignIdles, assignStand, armsAtSides, standClip, pickIdleAgents, IDLE_CAP } from '../js/streetLife.js';
 
 // A minimal stand-in rig: just the bones the clip targets.
 function fakeRig(name = 'figure') {
@@ -198,6 +198,33 @@ test('a dwelling figure eases into its idle; walking and reduced motion do not',
   b.char = s._charFor(b);
   for (let i = 0; i < 60; i++) s._driveChar(b, false, 1 / 60, true, true);
   assert.ok(b.char.userData.charIdle.weight < 0.05, 'reduced motion stays on the rest pose');
+});
+
+test('a dwell eases onto the stand pose, arms at the sides', () => {
+  const root = rigWithArm();
+  armsAtSides(root);
+  assert.ok(root.getObjectByName('LeftArm').quaternion.z < -0.5);
+  const full = standClip();
+  assert.ok(full.tracks.some(t => t.name === 'LeftArm.quaternion'));
+  assert.ok(full.tracks.some(t => t.name === 'RightArm.quaternion'));
+  const arm = full.tracks.find(t => t.name === 'LeftArm.quaternion');
+  const tpl = {
+    commuters: [{ scene: rigWithArm(), walk: fakeWalk(1), stand: new THREE.AnimationClip('Stand', 1, [arm]) }],
+    busker: [{ scene: rigWithArm(), walk: null }],
+  };
+  assignStand(tpl, standClip());
+  assert.ok(tpl.commuters[0].stand);
+  assert.equal(tpl.busker[0].stand, undefined);
+  const s = life(tpl);
+  const a = agent(0);
+  a.char = s._charFor(a);
+  for (let i = 0; i < 90; i++) s._driveChar(a, false, 1 / 60, false, false);
+  assert.ok(a.char.userData.charStand.weight > 0.95, 'the stand takes the body');
+  assert.ok(a.char.userData.charAction.weight < 0.05, 'the stride steps aside');
+  assert.ok(a.char.getObjectByName('LeftArm').quaternion.z < -0.5, 'the arm hangs');
+  assert.equal(a.char.userData.charSettled, true, 'a held stand stops the mixer');
+  for (let i = 0; i < 40; i++) s._driveChar(a, true, 1 / 60, false, false);
+  assert.ok(a.char.userData.charStand.weight < 0.5, 'walking leaves the stand');
 });
 
 test('pickIdleAgents prefers a vignette and stops at the cap', () => {

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
   ROAST_IDEAL, ROAST_LEAN, ROAST_CLIMATE_LEAN, crowdRoastPull, roastIdeal, SCORCH_LINE,
-  roastQuality, cupQuality, tasteLine, serveNudge, LotsState,
+  roastQuality, cupQuality, tasteLine, tasteBubble, serveNudge, LotsState,
 } from '../js/lots.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -78,6 +78,8 @@ test('Phase 3 · cupQuality multiplies age, roast, scorch', () => {
 test('the drum speaks in a tasting sentence, not a number', () => {
   assert.equal(tasteLine('huila', null, 3), 'Colombia Huila, unprogrammed. A flat cup, the apple barely there.');
   assert.equal(tasteLine('huila', 3, 3), 'Colombia Huila. Red apple and caramel, the cup the room expects.');
+  assert.equal(tasteBubble('huila', 3, 3), '“Red apple and caramel, the cup the room expects.”');
+  assert.equal(tasteBubble('yirgacheffe', 2, 2), '“Jasmine and bergamot. The florals are the point.”');
   assert.equal(tasteLine('huila', 1, 3), 'Colombia Huila. Bright apple, and the caramel never arrives.');
   assert.equal(tasteLine('huila', 5, 3), 'Colombia Huila. Caramel slips into brown sugar, then bitter.');
   // the week's read moves: level 2 is right in a heat week, wrong on the base

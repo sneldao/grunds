@@ -42,7 +42,7 @@ import { touchPrimary } from './gestures.js';
 import { saveWeek, loadWeek, clearWeek, resumeLabel } from './weekSave.js';
 import { planAsk, planIncidents } from './beats.js';
 import { portraitCanvas } from './portrait.js';
-import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_CLIMATE_LEAN, roastIdeal, roastQuality, cupQuality, tasteLine, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
+import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_CLIMATE_LEAN, roastIdeal, roastQuality, cupQuality, tasteLine, tasteBubble, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, EMPTY_CASE_MOOD, starredDelivery } from './menu.js';
 import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity, strollShare } from './demand.js';
 import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu, shockOnDay, demandShockRead, dawnDemandMult } from './shocks.js';
@@ -1261,9 +1261,17 @@ function tick() {
       if (e.p && e.p.regularIdx >= 0) {
         const r = regulars.regulars[e.p.regularIdx];
         if (r && r.op > 0.65 && floorRng() < 0.30) {
-          const goodLine = (e.stance === 'craft' || (e.roastMul && e.roastMul >= 0.95))
+          let goodLine = e.stance === 'craft'
             ? '“Best pour on the street today.”'
             : '“Worth the stop every time.”';
+          if (!e.isMatcha && e.lotId) {
+            const poured = lotState.entry(e.lotId);
+            const pouredLevel = poured ? poured.roast : null;
+            const onRead = lotRoastQuality(e.lotId, pouredLevel) >= 0.95
+              && !(poured && poured.scorched)
+              && !isStale(lotState.age(e.lotId, day));
+            if (onRead) goodLine = tasteBubble(e.lotId, pouredLevel, lotRoastTarget(e.lotId));
+          }
           fx.gossipBubbles?.(e.p, goodLine, 'good');
         }
       }
@@ -2157,6 +2165,14 @@ function buildIdrisMemory(snap) {
     houseLot: LOT_CATALOG[lotState.house]?.name || lotState.house,
     houseRoast: houseEntry?.roast ?? null,
     houseAge: lotState.age(lotState.house, snap.day),
+    houseTaste: (() => {
+      const age = lotState.age(lotState.house, snap.day);
+      if (age > 2) return null;
+      const level = houseEntry ? houseEntry.roast : null;
+      return tasteLine(lotState.house, level, lotRoastTarget(lotState.house), {
+        scorched: !!(houseEntry && houseEntry.scorched),
+      });
+    })(),
     topRegular: top && top.visits > 5 ? { name: top.name, visits: top.visits } : null,
   };
 }
