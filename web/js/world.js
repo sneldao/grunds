@@ -468,27 +468,49 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   };
   // Polyfork coffee-grinder-6f962a replaces the procedural hopper+body.
   placePF(bar, 'coffee-grinder-6f962a', { position: [-7.55, 1.106, -5.5], rotationY: 0, height: 0.45 });
-  // 3 bar stools at the customer-side of the bar (Kenney stoolBar.glb)
+  // Three stools on the customer side. Same walnut and brass as the
+  // foot rail, so the counter reads as one café.
   for (const dx of [-2.2, 0, 2.2]) {
-    place(scene, 'stoolBar.glb', { position: [C.x + dx, 0, C.z + C.d / 2 + 1.0], scale: 1.0, rotationY: Math.PI });
+    const sx = C.x + dx, sz = C.z + C.d / 2 + 1.0;
+    cyl(scene, 0.18, 0.18, 0.045, PAL.walnut, sx, 0.66, sz, { rough: 0.5, seg: 12 });
+    cyl(scene, 0.035, 0.04, 0.64, PAL.ink, sx, 0.32, sz, { metal: 0.35, rough: 0.45, seg: 8 });
+    const foot = new THREE.Mesh(
+      new THREE.TorusGeometry(0.16, 0.012, 6, 14),
+      mat(PAL.brass, { metal: 0.7, rough: 0.35 }),
+    );
+    foot.rotation.x = Math.PI / 2;
+    foot.position.set(sx, 0.22, sz);
+    foot.castShadow = false;
+    scene.add(foot);
   }
   // pastry case — Polyfork display case on the bar; the stock slots are
   // children of pc so setPastryStock keeps working unchanged.
   const pc = new THREE.Group(); pc.position.set(-4.3, 1.1, -5.4); bar.add(pc);
   placePF(pc, 'pastry-display-case-8bcce5', { position: [0, 0, 0], height: 0.8, night: 'pend' });
   const pastryCols = [0xd89a5a, 0xc46a7a, 0x9a6a3a, 0xe0c47a, 0x8a5a3a, 0xd87f9a];
-  // Pastry items: 3 croissants (procedural torus -> Kenney croissant.glb)
-  // and 3 cakes (procedural box -> Kenney cake.glb).
+  // Pastries are the bar's own still-life, not a second food kit inside
+  // the Polyfork case. Even slots are a walnut crescent; odd slots are a
+  // cream bun. The slot group is what setPastryStock shows and hides.
   const pastrySlots = [];
   pastryCols.forEach((col, i) => {
     const slot = new THREE.Group(); pc.add(slot); pastrySlots.push(slot);
     const px = -0.32 + (i % 3) * 0.32, py = i < 3 ? 0.14 : 0.42, pz = -0.1 + (i % 2) * 0.2;
-    if (i % 3 === 0) {
-      // croissant.glb replaces the procedural torus donut
-      place(slot, 'croissant.glb', { position: [px, py, pz], scale: 0.7, rotationY: Math.PI / 4 });
+    const g = new THREE.Group();
+    g.position.set(px, py, pz);
+    g.rotation.y = (i % 3) * 0.5;
+    slot.add(g);
+    if (i % 2 === 0) {
+      const crescent = new THREE.Mesh(
+        new THREE.TorusGeometry(0.055, 0.018, 5, 8, Math.PI * 1.35),
+        mat(PAL.walnut, { rough: 0.62 }),
+      );
+      crescent.rotation.x = Math.PI / 2;
+      crescent.rotation.z = 0.35;
+      crescent.castShadow = true;
+      g.add(crescent);
     } else {
-      // cake.glb replaces the procedural box pastry (the largest one in the case)
-      place(slot, 'cake.glb', { position: [px, py, pz], scale: 0.45, rotationY: 0 });
+      cyl(g, 0.048, 0.044, 0.036, PAL.cream, 0, 0.018, 0, { rough: 0.5, seg: 8 });
+      cyl(g, 0.034, 0.034, 0.01, col, 0, 0.038, 0, { rough: 0.45, seg: 8, cast: false });
     }
   });
   W._pastrySlots = pastrySlots;
@@ -674,29 +696,27 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
       else box(cafe, 0.2, 0.3, 0.14, [0xb59a6a, 0x6a7a8a][i % 2], jx, sy + 0.19, -6.38, { cast: false });
     }
   }
-  // pendant lamps over the bar — Kenney lampRoundTable.glb replaces the
-  // cord+cone shade; the emissive bulb stays procedural so the time-of-day
-  // director (W.bulbMats) can still drive the glow.
+  // Pendants over the bar. Brass shade, cord, and the bulb the
+  // time-of-day director still drives through W.bulbMats.
   W.bulbMats = [];
+  const shadeMat = new THREE.MeshStandardMaterial({ color: PAL.brass, metalness: 0.55, roughness: 0.42, side: THREE.DoubleSide });
   for (const px of [-7.4, -5.4, -3.4]) {
-    place(cafe, 'lampRoundTable.glb', { position: [px, 2.7, -5.2], scale: 0.6, rotationY: 0 });
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.18, 8, 1, true), shadeMat);
+    shade.position.set(px, 2.98, -5.2);
+    shade.castShadow = true;
+    cafe.add(shade);
     const bm = new THREE.MeshStandardMaterial({ color: 0xfff2d8, emissive: 0xffd2a0, emissiveIntensity: 1.55 });
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), bm); bulb.position.set(px, 2.9, -5.2); cafe.add(bulb);
     W.bulbMats.push(bm);
-    // cord — thin brass tube from fascia to shade
-    cyl(cafe, 0.012, 0.012, 0.65, 0xc9a227, px, 3.3, -5.2, { metal: 0.45, rough: 0.45, cast: false });
+    cyl(cafe, 0.012, 0.012, 0.65, PAL.brass, px, 3.3, -5.2, { metal: 0.45, rough: 0.45, cast: false });
   }
 
   // ---- tables --------------------------------------------------------------
-  // A small Kenney sideTable.glb next to the table cluster — used for the
-  // server's pickup tray. (Procedural equivalent would be one more
-  // cylinder+leg; the GLB is a free win.)
-  place(scene, 'sideTable.glb', { position: [-1.6, 0, -2.15], scale: 1.0, rotationY: 0 });
-  // Kenney tableRound.glb + chairModernCushion.glb replace the procedural
-  // 3-cylinder-per-table + 2-cylinder-per-chair construction. Seats[] is
-  // still emitted with the same shape so patrons.js's sit logic is
-  // unchanged. tableRound is roughly 1.0 m diameter in the kit, matching
-  // the procedural 0.68 m radius we used.
+  // Pickup stand beside the cluster. Walnut, like the bar.
+  cyl(scene, 0.28, 0.28, 0.045, PAL.walnut, -1.6, 0.72, -2.15, { rough: 0.55, seg: 12 });
+  cyl(scene, 0.06, 0.07, 0.68, PAL.walnutDark, -1.6, 0.36, -2.15, { rough: 0.6, seg: 8 });
+  // Round walnut tables and chairs. Seat x/z stay on the old ring: those
+  // coordinates are sim inputs (walk distance and seat order).
   const seats = [];
   // Seat angles set walk distances and seat order, so they are sim inputs:
   // a fixed private LCG (not Math.random) keeps the layout identical every
@@ -704,11 +724,13 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   let seatA = 0x5EA75;
   const seatRoll = () => { seatA = (Math.imul(seatA, 1664525) + 1013904223) >>> 0; return seatA / 4294967296; };
   for (const t of LAYOUT.tables) {
-    place(scene, 'tableRound.glb', { position: [t.x, 0, t.z], scale: 1.4, rotationY: 0 });
+    cyl(scene, 0.68, 0.68, 0.05, PAL.walnut, t.x, 0.68, t.z, { rough: 0.55, seg: 16 });
+    cyl(scene, 0.08, 0.1, 0.62, PAL.walnutDark, t.x, 0.34, t.z, { rough: 0.6, seg: 8 });
+    cyl(scene, 0.26, 0.26, 0.04, PAL.walnut, t.x, 0.04, t.z, { rough: 0.6, seg: 12, cast: false });
     addContactShadow(scene, t.x, t.z, 1.9, 1.9, 0.26);
     // Table bussing: dirty mug + saucer + crumb plate shown when sitters depart until bussed
     const dirtyGroup = new THREE.Group();
-    dirtyGroup.position.set(t.x + 0.12, 0.72, t.z + 0.1);
+    dirtyGroup.position.set(t.x + 0.12, 0.77, t.z + 0.1);
     dirtyGroup.visible = false;
     const dirtyMug = new THREE.Mesh(
       new THREE.CylinderGeometry(0.06, 0.05, 0.12, 8),
@@ -733,7 +755,15 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     const n = 3, baseA = seatRoll() * Math.PI * 2;
     for (let s = 0; s < n; s++) {
       const a = baseA + (s / n) * Math.PI * 2, sx = t.x + Math.cos(a) * 1.05, sz = t.z + Math.sin(a) * 1.05;
-      place(scene, 'chairModernCushion.glb', { position: [sx, 0, sz], scale: 1.0, rotationY: a + Math.PI });
+      const chair = new THREE.Group();
+      chair.position.set(sx, 0, sz);
+      chair.rotation.y = Math.atan2(t.x - sx, t.z - sz);
+      scene.add(chair);
+      box(chair, 0.42, 0.045, 0.42, PAL.walnut, 0, 0.46, 0, { rough: 0.55 });
+      for (const [lx, lz] of [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]]) {
+        box(chair, 0.04, 0.46, 0.04, PAL.ink, lx, 0.23, lz, { metal: 0.2, rough: 0.5 });
+      }
+      box(chair, 0.42, 0.36, 0.04, PAL.walnut, 0, 0.7, -0.19, { rough: 0.55 });
       seats.push({ x: sx, z: sz, face: Math.atan2(t.x - sx, t.z - sz), taken: null, table: t });
     }
   }
@@ -762,11 +792,9 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   };
 
   // ---- retail shelf ---------------------------------------------------------
-  // Kenney bookcaseClosedDoors.glb replaces the procedural walnut backing
-  // box. The 3 shelf layers and 18 product items (loaves, coffee bags,
-  // jars) stay procedural because they are shop content, not furniture.
+  // Walnut back and boards. The loaves, bags, and jars are the stock.
   const R = LAYOUT.retail;
-  place(scene, 'bookcaseClosedDoors.glb', { position: [R.x - 0.3, 0, R.z], scale: [1.4, 2.7, 0.7], rotationY: 0 });
+  box(scene, 0.08, 2.35, R.d + 0.15, PAL.walnut, R.x - 0.62, 1.25, R.z, { cast: false, rough: 0.7 });
   for (let s = 0; s < 3; s++) {
     const sy = 0.6 + s * 0.75;
     box(scene, R.w + 0.3, 0.06, R.d, 0x7a5a3a, R.x - 0.15, sy, R.z, { cast: false });
@@ -831,16 +859,25 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   box(scene, 1.8, 0.08, 0.5, PAL.walnut, 5, 0.45, 7.4);                              // bench
   for (const bx of [4.3, 5.7]) box(scene, 0.1, 0.45, 0.5, 0x2a2c2e, bx, 0.22, 7.4);
   box(scene, 1.8, 0.5, 0.08, PAL.walnut, 5, 0.75, 7.62, { cast: false });
-  // planters flanking the door — Kenney pottedPlant.glb replaces the
-  // procedural box+sphere pair. The pot is ~0.6 m tall in the kit, scale 0.6
-  // puts the foliage at the same 0.72 m height as the procedural version.
-  // W.plant: the living plant — three sphere "leaves" we tint by queue health.
+  // Plaster pots flanking the door. The right crown is the living plant:
+  // three leaves tinted by queue health.
   for (const px of [-6.5, -3.6]) {
-    place(scene, 'pottedPlant.glb', { position: [px, 0, LAYOUT.door.z + 0.6], scale: 0.6, rotationY: 0 });
+    cyl(scene, 0.22, 0.18, 0.28, PAL.plaster, px, 0.16, LAYOUT.door.z + 0.6, { rough: 0.75, seg: 10 });
+    cyl(scene, 0.24, 0.24, 0.035, PAL.walnut, px, 0.31, LAYOUT.door.z + 0.6, { rough: 0.6, seg: 10, cast: false });
   }
-  // living plant crown (3 spheres above the right planter beside the door)
+  {
+    const left = new THREE.Group();
+    left.position.set(-6.5, 0.4, LAYOUT.door.z + 0.6);
+    scene.add(left);
+    const leaf = mat(0x6b8a4a, { rough: 0.9 });
+    for (let i = 0; i < 3; i++) {
+      const ms = new THREE.Mesh(new THREE.SphereGeometry(0.2 - i * 0.035, 8, 6), leaf);
+      ms.position.set((i - 1) * 0.16, 0.12 + Math.abs(i - 1) * 0.05, (i % 2 ? 0.1 : -0.08));
+      left.add(ms);
+    }
+  }
   W.plantMats = [];
-  W.plantGroup = new THREE.Group(); W.plantGroup.position.set(-3.6, 0.9, LAYOUT.door.z + 0.6); scene.add(W.plantGroup);
+  W.plantGroup = new THREE.Group(); W.plantGroup.position.set(-3.6, 0.4, LAYOUT.door.z + 0.6); scene.add(W.plantGroup);
   for (let i = 0; i < 3; i++) {
     const pm = new THREE.MeshStandardMaterial({ color: 0x6b8a4a, roughness: 0.9, emissive: 0x2a3d18, emissiveIntensity: 0 });
     const ms = new THREE.Mesh(new THREE.SphereGeometry(0.22 - i * 0.04, 8, 6), pm);
@@ -856,12 +893,11 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   placePF(bar, 'batch-brew-urn-f54a3b', { position: [-3.15, counterTop, -5.9], rotationY: 0, height: 0.5 });
   placePF(bar, 'pos-terminal-f1273c', { position: [-1.05, counterTop, -5.45], rotationY: 0, height: 0.4, night: 'pend' });
   placePF(bar, 'takeaway-coffee-cup-1fd6dd', { position: [-1.6, counterTop, -4.95], rotationY: 0.4 });
-  // Floor props: roaster by the left wall, display case beside it — both
-  // read through the cutaway as back-bar furniture.
+  // Floor props: the roaster by the left wall. The display case lives on
+  // the bar (one case, the one that holds the stock). A second case here
+  // was the same Polyfork asset again.
   placePF(scene, 'shop-coffee-roaster-c6a2b5', { position: [-7.85, 0, -3.8], rotationY: Math.PI / 2, height: 1.2, night: 'pend' });
   addContactShadow(scene, -7.85, -3.8, 1.5, 1.1, 0.3);
-  placePF(scene, 'pastry-display-case-8bcce5', { position: [-7.75, 0, -0.9], rotationY: Math.PI / 2, height: 1.35, night: 'pend' });
-  addContactShadow(scene, -7.75, -0.9, 1.2, 1.0, 0.3);
   // Pavement café set + chalkboard, right of the door queue path.
   placePF(scene, 'chalkboard-menu-board-a24d9d', { position: [-2.7, 0, 6.6], rotationY: -0.2, height: 1.1 });
   addContactShadow(scene, -2.7, 6.6, 1.0, 0.5, 0.3);
@@ -895,11 +931,7 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     .then(() => addContactShadow(scene, -0.5, 8.6, 1.6, 0.7, 0.3));
 
   // Meshy-generated dressing (tools/vendor-meshy.mjs → web/assets/meshy/).
-  // Meshy normalizes every model into a ~1 m centred box, so each placement
-  // carries its own scale and a y offset that grounds the bbox bottom.
-  // Bar-top pieces sit on the counter surface like the Polyfork set above.
-  place(bar, 'meshy/cake-stand.glb', { position: [-5.15, counterTop + 0.12, -5.5], rotationY: 0.4, scale: 0.55 });
-  place(bar, 'meshy/cup-stack.glb', { position: [-4.35, counterTop + 0.125, -5.8], rotationY: -0.3, scale: 0.4 });
+  // The counter stays the Polyfork café kit. These sit on the pavement.
   place(scene, 'meshy/a-board.glb', { position: [-3.3, 0.45, 7.3], rotationY: 0.5, scale: 0.9 })
     .then(() => addContactShadow(scene, -3.3, 7.3, 0.7, 0.4, 0.26));
   place(scene, 'meshy/crate-stack.glb', { position: [5.4, 0.375, 17.0], rotationY: 0.9, scale: 0.75 })

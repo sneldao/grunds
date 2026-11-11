@@ -156,11 +156,11 @@
   (probe with `tools/meshy-probe.mjs`, which reports world bboxes of every
   `meshy/*` instance; `tools/meshy-shots.mjs` is the screenshot harness).
   Skinned chars go through `loadChars()` — the walk GLB carries mesh + clip.
-  Vendored so far: bar-top cake-stand/cup-stack, pavement a-board/crate-stack/
+  Vendored so far: bar-top cake-stand/cup-stack, pavement crate-stack/
   vintage-bike/plant-cluster/guitar-case/street-piano, cat.glb (replaces the
   procedural cat when it lands), skateboard.glb (streetLife deck swap),
-  street-musician.walk.glb (second busker), roof-{tank,dish,antenna}.glb
-  (spares, not yet placed).
+  street-musician.walk.glb (second busker), a-board.glb,
+  roof-{tank,dish,antenna}.glb (spares, not yet placed).
 - PBRgen (app.pbrgen.com, offline asset source, never runtime): make maps
   from our own canvas bakes via "Start from an image", Create at 1K with
   Inpaint seams off. NRM is OpenGL convention; only NRM+ROUGH are vendored

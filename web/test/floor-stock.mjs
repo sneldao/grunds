@@ -57,11 +57,21 @@ test('late-attached meshes stay hidden under a hidden slot', () => {
 test('world.js wires pastry slots as GLB parents on W', () => {
   const i = worldSrc.indexOf('pastrySlots');
   const seg = worldSrc.slice(i, worldSrc.indexOf('W._pastrySlots'));
-  assert.ok(seg.includes(`place(slot, 'croissant.glb'`));
-  assert.ok(seg.includes(`place(slot, 'cake.glb'`));
+  assert.ok(seg.includes('TorusGeometry'));
+  assert.ok(!seg.includes(`croissant.glb`));
+  assert.ok(!seg.includes(`cake.glb`));
   assert.ok(worldSrc.includes(`import { setStockVisibility, ingredientDisplay } from './floorStock.js';`));
   assert.ok(worldSrc.includes('W._pastrySlots = pastrySlots'));
   assert.ok(worldSrc.includes('W.setPastryStock'));
+});
+
+test('the room around the bar is walnut, and the seat ring is unchanged', () => {
+  for (const gone of ['stoolBar.glb', 'tableRound.glb', 'chairModernCushion.glb', 'lampRoundTable.glb', 'pottedPlant.glb', 'sideTable.glb', 'bookcaseClosedDoors.glb']) {
+    assert.ok(!worldSrc.includes(gone), gone);
+  }
+  assert.ok(worldSrc.includes('kitchenBar.glb'));
+  assert.ok(worldSrc.includes('Math.cos(a) * 1.05'));
+  assert.ok(worldSrc.includes('face: Math.atan2(t.x - sx, t.z - sz)'));
 });
 
 test('main.js feeds the live stock and capacity into the setter', () => {

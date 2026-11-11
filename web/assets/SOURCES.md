@@ -17,9 +17,12 @@ not world.js. The food kit GLBs
 the root so the texture resolves.
 
 - Kenney Furniture Kit (140 files) — https://kenney.nl/assets/furniture-kit
-  - kitchenBar.glb, kitchenBarEnd.glb, kitchenCoffeeMachine.glb
-  - tableRound.glb, chairModernCushion.glb, stoolBar.glb
-  - bookcaseClosedDoors.glb, sideTable.glb, lampRoundTable.glb, pottedPlant.glb
+  - placed: kitchenBar.glb, kitchenBarEnd.glb (the bar shell and the till)
+  - vendored, not placed in the room: kitchenCoffeeMachine.glb,
+    tableRound.glb, chairModernCushion.glb, stoolBar.glb,
+    bookcaseClosedDoors.glb, sideTable.glb, lampRoundTable.glb, pottedPlant.glb
+    (stools, tables, chairs, pendants, the shelf back, and the door pots
+    are procedural walnut and brass in world.js)
 - Kenney Food Kit (200 files) — https://kenney.nl/assets/food-kit
   - cup-coffee.glb, croissant.glb, cake.glb, mug.glb, carton.glb, bag.glb
   - Textures/colormap.png (required external texture for the food GLBs)
