@@ -73,7 +73,12 @@
    ship a rigged Walk clip; assignDonorWalk lends it to the other 5 (all
    share one 22-bone rig — clips bind by name). _driveChar eases timeScale
    in/out, pins hip root drift, offsets phase by idx (no rng), respects
-   reduced-motion; the busker keeps his authored pose. Tier-2 bodies
+   reduced-motion; the busker keeps his authored pose. Dwellers layer two
+   more clips on top: assignIdles lends three baked Rokoko idle loops
+   (vignette/frontage standers first, IDLE_CAP 8) and standClip — a
+   generated arms-at-sides pose (armsAtSides bakes the rest quats onto
+   each template's skeleton, buskers excluded) — takes the body while a
+   figure holds a dwell. Tier-2 bodies
    shipped too: patrons + bar staff + street crowd swapped box limbs for
    capsules, heads went oval-taller, and two new instanced bands landed —
    hips (trouser colour, torso reads as a shirt) and a hair cap (palette
