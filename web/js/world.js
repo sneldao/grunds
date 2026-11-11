@@ -435,16 +435,10 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   // ---- the bar ------------------------------------------------------------
   const bar = new THREE.Group(); scene.add(bar);
   const C = LAYOUT.counter;
-  // Procedural walnut bar shell (replaced by Kenney kitchenBar.glb below)
-  // — kept as a thin back/side trim so the GLB doesn't sit on raw pavement.
+  // One walnut counter. The machine, the grinder, and the case sit on this top.
   box(bar, C.w, 1.02, C.d, PAL.walnut, C.x, 0.51, C.z);
   box(bar, C.w + 0.3, 0.09, C.d + 0.3, 0x7a5a3a, C.x, 1.06, C.z, { rough: 0.5 });
-  // brass foot rail stays procedural (the GLB doesn't include one)
   cyl(bar, 0.03, 0.03, C.w - 0.6, PAL.brass, C.x, 0.22, C.z + C.d / 2 + 0.22, { rz: Math.PI / 2, metal: 0.8, rough: 0.35, cast: false, tex: 'metal' }); // foot rail
-  // Kenney kitchenBar.glb sits on the bar top, facing the customer side.
-  // The GLB is roughly 1 m in the kit. Scale matches the shortened bar
-  // (C.w); the procedural walnut shell above keeps it continuous.
-  place(bar, 'kitchenBar.glb', { position: [C.x, 1.05, C.z], scale: C.w, rotationY: 0 });
   // Polyfork espresso-machine-a2db84 replaces the Kenney machine (and the
   // procedural before it). Walnut cheeks via PF_TINT; the 'pend' night
   // zone lights the dose buttons under the pendants; portafilter/steam-
@@ -515,15 +509,23 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   });
   W._pastrySlots = pastrySlots;
   W.setPastryStock = (stock, capacity) => setStockVisibility(pastrySlots, stock, capacity);
-  const placeScaled = (slot, url, targetH) => place(slot, url, {}).then(g => fitStockProp(g, targetH));
   const ingredientSlots = { milk: [], beans: [], batch: [] };
   const mkSlot = (x, y, z) => { const s = new THREE.Group(); s.position.set(x, y, z); s.visible = false; bar.add(s); return s; };
-  for (const x of [-5.8, -5.5]) ingredientSlots.milk.push(mkSlot(x, 1.106, -5.94));
-  for (const x of [-7.65, -7.3]) ingredientSlots.beans.push(mkSlot(x, 1.106, -5.94));
-  for (const x of [-2.75, -2.45, -2.15]) ingredientSlots.batch.push(mkSlot(x, 1.13, -5.72));
-  for (const s of ingredientSlots.milk) placeScaled(s, 'carton.glb', 0.28);
-  for (const s of ingredientSlots.beans) placeScaled(s, 'bag.glb', 0.24);
-  for (const s of ingredientSlots.batch) placeScaled(s, 'cup-coffee.glb', 0.12);
+  const milkCarton = (parent) => {
+    box(parent, 0.11, 0.22, 0.11, PAL.plaster, 0, 0.11, 0, { rough: 0.72 });
+    box(parent, 0.07, 0.045, 0.07, PAL.cream, 0, 0.242, 0, { rough: 0.6, cast: false });
+  };
+  const beanSack = (parent) => {
+    cyl(parent, 0.07, 0.09, 0.18, PAL.walnut, 0, 0.09, 0, { rough: 0.82, seg: 8 });
+    cyl(parent, 0.028, 0.05, 0.05, PAL.walnutDark, 0, 0.2, 0, { rough: 0.75, seg: 8, cast: false });
+  };
+  const batchCup = (parent) => {
+    cyl(parent, 0.034, 0.026, 0.09, PAL.paper, 0, 0.045, 0, { rough: 0.5, seg: 8 });
+    cyl(parent, 0.026, 0.026, 0.01, PAL.walnut, 0, 0.095, 0, { rough: 0.4, seg: 8, cast: false });
+  };
+  for (const x of [-5.8, -5.5]) { const s = mkSlot(x, 1.106, -5.94); ingredientSlots.milk.push(s); milkCarton(s); }
+  for (const x of [-7.65, -7.3]) { const s = mkSlot(x, 1.106, -5.94); ingredientSlots.beans.push(s); beanSack(s); }
+  for (const x of [-2.75, -2.45, -2.15]) { const s = mkSlot(x, 1.13, -5.72); ingredientSlots.batch.push(s); batchCup(s); }
   const batchTray = box(bar, 0.95, 0.025, 0.38, PAL.matcha, -2.45, 1.12, -5.72);
   batchTray.material = batchTray.material.clone();
   batchTray.visible = false;
@@ -539,14 +541,12 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     if (c.reserved !== trayReserved) { trayReserved = c.reserved; batchTray.material.color.set(c.reserved ? PAL.brass : PAL.matcha); }
     return c;
   };
-  // till on its own little pay station at the end of the bar
-  // (Kenney kitchenBarEnd.glb replaces the procedural walnut stand; the
-  // brass screen and receipt roll stay procedural for screen readability)
+  // Till on the end of the same walnut top. The screen sits on a small riser.
   box(bar, 0.8, 1.02, 0.7, PAL.walnut, LAYOUT.register.x, 0.51, -5.4);
   box(bar, 0.9, 0.07, 0.8, 0x7a5a3a, LAYOUT.register.x, 1.06, -5.4, { rough: 0.5 });
-  place(bar, 'kitchenBarEnd.glb', { position: [LAYOUT.register.x, 0, -5.4], scale: 0.9, rotationY: Math.PI });
-  W.tillScreen = plane(bar, 0.4, 0.26, new THREE.MeshStandardMaterial({ color: 0x111418, emissive: 0x86a860, emissiveIntensity: 0.7 }), LAYOUT.register.x, 1.5, -5.32, { rx: -0.25 });
-  cyl(bar, 0.07, 0.07, 0.12, 0xf0ead8, LAYOUT.register.x + 0.45, 1.16, -5.45, { cast: false }); // receipt roll
+  box(bar, 0.46, 0.28, 0.06, PAL.walnutDark, LAYOUT.register.x, 1.2, -5.55, { rough: 0.6 });
+  W.tillScreen = plane(bar, 0.4, 0.26, new THREE.MeshStandardMaterial({ color: 0x111418, emissive: 0x86a860, emissiveIntensity: 0.7 }), LAYOUT.register.x, 1.22, -5.5, { rx: -0.2 });
+  cyl(bar, 0.07, 0.07, 0.12, 0xf0ead8, LAYOUT.register.x + 0.32, 1.16, -5.45, { cast: false }); // receipt roll
 
   // ---- counter still-life ---------------------------------------------------
   // Left stretch of the bar, on the wood customers actually see. A kettle,

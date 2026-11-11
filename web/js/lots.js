@@ -167,13 +167,20 @@ export function tasteLine(lotId, level, ideal = null, { scorched = false, stale 
   return `${name}. ${note || 'A cup of coffee.'}`;
 }
 
-// The clause a regular can say out loud. Same cup as tasteLine, without
-// the sack's name, wrapped as speech.
-export function tasteBubble(lotId, level, ideal = null) {
-  const line = tasteLine(lotId, level, ideal);
+// The sensory clause, without the sack's name and without quote marks.
+// Scorch and stale lines keep the name, because the name is inside the sentence.
+export function tasteNote(lotId, level, ideal = null, opts) {
+  const line = tasteLine(lotId, level, ideal, opts);
   const name = LOT_CATALOG[lotId]?.name;
-  const note = name && line.startsWith(`${name}. `) ? line.slice(name.length + 2) : line;
-  const said = note.replace(/\.$/, '');
+  let note = line;
+  if (name && line.startsWith(`${name}. `)) note = line.slice(name.length + 2);
+  else if (name && line.startsWith(`${name}, `)) note = line.slice(name.length + 2);
+  return note.replace(/\.$/, '');
+}
+
+// The clause a regular can say out loud. Same cup as tasteLine.
+export function tasteBubble(lotId, level, ideal = null) {
+  const said = tasteNote(lotId, level, ideal);
   return said ? `“${said}.”` : '';
 }
 export function isStale(ageDays) { return ageDays > STALE_AFTER; }

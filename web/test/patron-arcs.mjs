@@ -170,6 +170,8 @@ test('Phase 1 · memoryLine covers companion / evangelist / friend / quirk / reg
   assert.match(memoryLine({ name: 'M', stage: 'regular', visits: 5, drink: 'tea', quirk: 'counts change' }), /counts change/);
   assert.match(memoryLine({ name: 'M', stage: 'regular', visits: 4, drink: 'tea' }), /Still on the tea/);
   assert.match(memoryLine({ name: 'M', stage: 'first-timer', visits: 1, drink: 'tea' }), /tea again/);
+  assert.match(memoryLine({ name: 'Mara', stage: 'friend', visits: 6, drink: 'tea', cup: 'Red apple and caramel, the cup the room expects' }), /Mara — “Red apple and caramel, the cup the room expects\.”/);
+  assert.match(memoryLine({ name: 'Mara', stage: 'friend', visits: 6, drink: 'tea', cup: 'Red apple', broughtFriend: 'J' }), /brought J/);
 });
 
 // (12) Client/server rule parity — the mirror must use identical numbers

@@ -150,8 +150,9 @@ export function makeIdentity({ pid, name, cohort, drink, homeTable = null, visit
 
 // memoryLine — the arrival greeting for a returning face. Pure: every field
 // comes from the identity (+ optional quirk / companion name).
-export function memoryLine({ name, stage, visits, drink, quirk = null, broughtFriend = null }) {
+export function memoryLine({ name, stage, visits, drink, quirk = null, broughtFriend = null, cup = null }) {
   if (broughtFriend) return `${name} brought ${broughtFriend} — “look after them, yeah?”`;
+  if (cup) return `${name} — “${cup}.”`;
   if (stage === 'evangelist') return `${name}’s been telling people about this place`;
   if (stage === 'friend') return `${name}! The usual?`;
   if (quirk && visits % 2 === 1) return `${name} — ${quirk}`;

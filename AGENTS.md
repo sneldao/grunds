@@ -170,7 +170,8 @@
   (probe with `tools/meshy-probe.mjs`, which reports world bboxes of every
   `meshy/*` instance; `tools/meshy-shots.mjs` is the screenshot harness).
   Skinned chars go through `loadChars()` — the walk GLB carries mesh + clip.
-  Vendored so far: bar-top cake-stand/cup-stack, pavement crate-stack/
+  Vendored so far: cake-stand/cup-stack (not on the counter — the bar is
+  the Polyfork café kit on a walnut shell), pavement crate-stack/
   vintage-bike/plant-cluster/guitar-case/street-piano, cat.glb (replaces the
   procedural cat when it lands), skateboard.glb (streetLife deck swap),
   street-musician.walk.glb (second busker), a-board.glb,
@@ -532,6 +533,18 @@ Every path below is live for all users.
   `ROAST_CLIMATE_LEAN` (heat −1, crisp +1). `lotRoastTarget(id)` in main.js is
   the single place that assembles it — the stepper label, the Q preview and the
   serve loop all read it, so they cannot disagree.
+- The tasting sentence is `tasteLine` (full cup), `tasteNote` (the clause a
+  person can say; scorch and stale keep the sack name), and `tasteBubble`
+  (that clause in quotes). Same ideal everywhere: the brief stepper, the
+  first clean pour of the day, gossip when the pour is on the week's read,
+  Idris when `houseTaste` is set, the receipt lessons (`houseCupLine`, under
+  the cups-poured line on the day coffee is taught, and on every other
+  close), and the next morning's door. `prepareDay` for day > 1 stores
+  yesterday's note on `patrons.priorCup` before the cellar composts; the
+  first returning regular who is not bringing a friend says it once
+  (`memoryLine` `cup`). Day 1 and `reset()` clear it. It is not a save
+  field: resume runs `prepareDay` again and rebuilds it from the cellar.
+  No new sim draw.
 - **The schedule is cohort-flat.** `out/wave_schedule.json` has one cohort
   distribution and `wavesForDay` shifts only commuter *timing*, so any per-day
   mechanic derived from the crowd mix reads a constant (the first cut of this

@@ -69,7 +69,10 @@ test('the room around the bar is walnut, and the seat ring is unchanged', () => 
   for (const gone of ['stoolBar.glb', 'tableRound.glb', 'chairModernCushion.glb', 'lampRoundTable.glb', 'pottedPlant.glb', 'sideTable.glb', 'bookcaseClosedDoors.glb']) {
     assert.ok(!worldSrc.includes(gone), gone);
   }
-  assert.ok(worldSrc.includes('kitchenBar.glb'));
+  for (const gone of ['kitchenBar.glb', 'kitchenBarEnd.glb', 'carton.glb', 'bag.glb', 'cup-coffee.glb']) {
+    assert.ok(!worldSrc.includes(gone), gone);
+  }
+  assert.ok(worldSrc.includes('PAL.plaster'));
   assert.ok(worldSrc.includes('Math.cos(a) * 1.05'));
   assert.ok(worldSrc.includes('face: Math.atan2(t.x - sx, t.z - sz)'));
 });

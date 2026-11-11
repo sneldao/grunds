@@ -38,6 +38,8 @@ export class PatronSystem {
     this.passedBy = 0;          // strolled past the door — the street isn't sold yet
     this.strollShare = 0;       // set each dawn from demand.strollShare(awareness)
     this.recruited = false;     // transient: set around frontage-convert spawns
+    this.priorCup = '';         // yesterday's tasting clause, said once at the door
+    this.priorCupSaid = false;
     this.exchange = exchange;     // for contract unit consumption
     this.fx = fx;                 // for greeting bubbles on join
     this.patrons = [];
@@ -950,9 +952,12 @@ export class PatronSystem {
       if (snub) return snub;
       const returning = reg.visits > 5 || reg.events.length > 0;
       if (!returning) return `hi, ${p.regularName}`;
+      const cup = this.priorCup && !this.priorCupSaid && !p.broughtFriend ? this.priorCup : null;
+      if (cup) this.priorCupSaid = true;
       return memoryLine({
         name: p.regularName, stage: reg.stage, visits: reg.visits,
         drink: reg.drink, quirk: reg.quirk, broughtFriend: p.broughtFriend,
+        cup,
       });
     }
     if (p.pid && this.walkins) {

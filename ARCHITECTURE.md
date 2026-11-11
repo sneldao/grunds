@@ -681,15 +681,16 @@ review remains open.*
   immediately after assignment). Fixed parent Groups mean a late-loaded GLB
   cannot un-hide an empty slot.
 - **Ingredient props.** `ingredientDisplay` drives fixed 2/2/3 proxy groups
-  (Kenney `carton.glb`, `bag.glb`, existing `cup-coffee.glb`) from
-  `ctx.milkStock`/`milkDelivery`, house-lot stock, and batch units; a cloned-
-  material tray reads matcha when ready, brass when reserved. No inventory
-  mutation, revenue, or RNG. `fitStockProp` detaches a loaded prop, measures
-  its local-space bounding box, scales to target height, and re-attaches —
-  so slot world transforms can't skew placement. New ingredient meshes have
-  `castShadow` disabled. Source pack textures are used unmodified; palette
-  changes are limited to semantic inks, the tray, and icon masks — not an
-  atlas recolour.
+  from `ctx.milkStock`/`milkDelivery`, house-lot stock, and batch units; a
+  cloned-material tray reads matcha when ready, brass when reserved. No
+  inventory mutation, revenue, or RNG. As of Nov 11 the proxies are
+  procedural: a plaster carton, a walnut sack, and a paper cup, in the same
+  slots. Kenney `carton.glb`, `bag.glb`, and `cup-coffee.glb` stay vendored
+  and are not placed. The counter and the till are the walnut shell;
+  `kitchenBar.glb` and `kitchenBarEnd.glb` are not placed. `fitStockProp`
+  remains for a loaded prop: it detaches, measures the local-space bounding
+  box, scales to target height, and re-attaches so slot world transforms
+  can't skew placement.
 - **Recorded audio + street bed.** Three CC0 Freesound café sounds (espresso
   loop, grinder and cup one-shots) and a CC0 OpenGameArt traffic bed
   lazy-load once after the title gesture, with independent failure →

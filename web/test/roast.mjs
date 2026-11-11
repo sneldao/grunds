@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
   ROAST_IDEAL, ROAST_LEAN, ROAST_CLIMATE_LEAN, crowdRoastPull, roastIdeal, SCORCH_LINE,
-  roastQuality, cupQuality, tasteLine, tasteBubble, serveNudge, LotsState,
+  roastQuality, cupQuality, tasteLine, tasteNote, tasteBubble, serveNudge, LotsState,
 } from '../js/lots.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -78,6 +78,7 @@ test('Phase 3 · cupQuality multiplies age, roast, scorch', () => {
 test('the drum speaks in a tasting sentence, not a number', () => {
   assert.equal(tasteLine('huila', null, 3), 'Colombia Huila, unprogrammed. A flat cup, the apple barely there.');
   assert.equal(tasteLine('huila', 3, 3), 'Colombia Huila. Red apple and caramel, the cup the room expects.');
+  assert.equal(tasteNote('huila', 3, 3), 'Red apple and caramel, the cup the room expects');
   assert.equal(tasteBubble('huila', 3, 3), '“Red apple and caramel, the cup the room expects.”');
   assert.equal(tasteBubble('yirgacheffe', 2, 2), '“Jasmine and bergamot. The florals are the point.”');
   assert.equal(tasteLine('huila', 1, 3), 'Colombia Huila. Bright apple, and the caramel never arrives.');
@@ -146,6 +147,9 @@ test('Phase 3 · roast stepper stages; applyLots commits the roast', () => {
   assert.match(main, /id = 'brief-taste'/);
   assert.match(main, /tasteLine\(selectedLot, stagedRoast, ideal\)/);
   assert.match(main, /tasteLine\(e\.lotId, roastLevel, lotRoastTarget\(e\.lotId\)\)/);
+  assert.match(main, /patrons\.priorCup = tasteNote\(/);
+  assert.match(main, /function houseCupLine\(/);
+  assert.match(main, /if \(cup\) \{ lessons\.push\(cup\); houseCupSpoken = true; \}/);
   assert.match(main, /The drum's sweet spot this week is \$\{ideal\}/);
   assert.match(main, /function crowdCupMix/);
   assert.match(main, /roastIdeal\(id, crowdCupMix\(\), ROAST_CLIMATE_LEAN\[climate\?\.id\]/);

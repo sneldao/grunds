@@ -42,7 +42,7 @@ import { touchPrimary } from './gestures.js';
 import { saveWeek, loadWeek, clearWeek, resumeLabel } from './weekSave.js';
 import { planAsk, planIncidents } from './beats.js';
 import { portraitCanvas } from './portrait.js';
-import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_CLIMATE_LEAN, roastIdeal, roastQuality, cupQuality, tasteLine, tasteBubble, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
+import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_CLIMATE_LEAN, roastIdeal, roastQuality, cupQuality, tasteLine, tasteNote, tasteBubble, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, EMPTY_CASE_MOOD, starredDelivery } from './menu.js';
 import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity, strollShare } from './demand.js';
 import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu, shockOnDay, demandShockRead, dawnDemandMult } from './shocks.js';
@@ -1990,18 +1990,25 @@ function closeDay() {
     return `Served: ${DRINK_IDS.map(id => `${DRINKS[id].name} ${servedByDrinkToday[id] || 0}`).join(' · ')}${off.length ? ` · off the menu: ${off.map(id => DRINKS[id].name).join(', ')}` : ''}`;
   };
   const menuNeedsLine = DRINK_IDS.some(id => menuOffered[id] === false) && menuVisible;
+  let houseCupSpoken = false;
   for (const t of toolsIntroducedToday) {
     if (t === 'coffee') {
       const h = lotState.entry(lotState.house);
       const nm = LOT_CATALOG[lotState.house]?.name || lotState.house;
       const stale = staleByLotToday[lotState.house] || 0;
       lessons.push(`${nm}: ${pouredByLotToday[lotState.house] || 0} cups poured · ${h ? h.stock : 0} left${stale ? ` · ${stale} tasted stale` : ''}`);
+      const cup = houseCupLine();
+      if (cup) { lessons.push(cup); houseCupSpoken = true; }
     } else if (t === 'menu') lessons.push(menuServedLine());
     else if (t === 'street') {
       const stagedLabels = DEMAND_ACTIONS.filter(a => dtrace.staged && dtrace.staged[a])
         .map(a => a === 'sample' ? 'sampling' : a === 'sponsor' ? 'sponsoring' : a).join(' · ');
       if (stagedLabels) lessons.push(`Street work: ${stagedLabels} · ~${dtrace.returnees} expected back tomorrow`);
     } else if (t === 'tab' && settleToday > 0) lessons.push(`Tab settled: ${fmt(settleToday)}`);
+  }
+  if (!houseCupSpoken) {
+    const cup = houseCupLine();
+    if (cup) lessons.push(cup);
   }
   if (menuNeedsLine && !toolsIntroducedToday.includes('menu')) lessons.push(menuServedLine());
   // Board cause-and-effect: name the turnaway drink so gutting the menu reads
@@ -4927,6 +4934,15 @@ function resumeWeek() {
   try { rig.crane(); } catch {}
   return true;
 }
+// The house pour, in the same sentence as the stepper and the morning door.
+function houseCupLine() {
+  const id = lotState.house;
+  const entry = lotState.entry(id);
+  return tasteLine(id, entry ? entry.roast : null, lotRoastTarget(id), {
+    scorched: !!(entry && entry.scorched),
+    stale: isStale(lotState.age(id, day)),
+  });
+}
 function paintResume() {
   const b = $('resume'); if (!b) return;
   const save = headless ? null : loadWeek(localStorage);
@@ -4943,6 +4959,17 @@ function prepareDay(d) {
   capturePreDawn(d);
   phase = 'planning';
   day = d;
+  // Yesterday's house pour, in the words the stepper already uses. The
+  // first returning regular says it once. Day 1 has no yesterday.
+  if (d > 1) {
+    const id = lotState.house;
+    const entry = lotState.entry(id);
+    patrons.priorCup = tasteNote(id, entry ? entry.roast : null, lotRoastTarget(id), {
+      scorched: !!(entry && entry.scorched),
+      stale: isStale(lotState.age(id, d - 1)),
+    });
+  } else patrons.priorCup = '';
+  patrons.priorCupSaid = false;
   // The coffee capital of the day leans what walk-ins order (street.js
   // capitalDrinks → rollDrink bias). Regulars keep their usuals.
   patrons.drinkBias = capitalDrinks(seedNow(), d);
@@ -6263,6 +6290,7 @@ function reset(coreOnly = false) {
   loanLotCover = 0; loanSponsorCover = 0; loanCashCap = null; closeTillOverride = null;
   loanClaim = null; menuHeld = null; salesTillForOps = null;
   pouredOther = 0; lastPour = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set(); cupTasted = false;
+  patrons.priorCup = ''; patrons.priorCupSaid = false;
   pouredByLotToday = {}; servedByDrinkToday = {}; toolsIntroducedToday = [];
   // Phase 3 — menu, milk, skill rewind too.
   menuPrices = basePrices(); ctx.menuPrices = menuPrices;
