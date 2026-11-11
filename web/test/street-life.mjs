@@ -345,3 +345,16 @@ test('open roofs seat one or two non-economic people inside, and nobody else', (
     Math.random = orig;
   }
 });
+
+test('district slots respect the pavement lanes and rival doors', () => {
+  for (const [id, s] of Object.entries(SLOTS)) {
+    const [x, , z] = s.position;
+    if (z >= 10) continue;
+    assert.ok(Math.abs(z - LAYOUT.pavementZ) >= 1.0, `${id} sits in the walking lane (z ${z})`);
+    if (id === 'stall' || id === 'cart') {
+      for (const door of NEIGHBOR_DOORS) {
+        assert.ok(!(Math.abs(x - door.x) < 1.2 && z < 8.3), `${id} crowds the ${door.id} door/queue`);
+      }
+    }
+  }
+});

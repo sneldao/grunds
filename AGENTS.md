@@ -119,6 +119,11 @@
    snapshot — see "Real-world market snapshot" below); seed-only campaigns
    stay on the seeded path. Demand reweighting and umbrellas/caps remain
    future work.
+- Pavement lanes rule: frontage strip z ≤ 7.0 (props against shopfronts),
+  walking lane z 7.3–8.3 stays clear (walkers path at pavementZ 7.8), kerb
+  strip z 8.5–9.4 (bike, planters, cart). Anchors (piano/busker) sit between
+  rival doors, not at ours; one sign per door; district `stall`/`cart`
+  slots stay off NEIGHBOR_DOORS and their queues.
 
 ## Generated assets (Grove mirror)
 - Convex data-egress is the constraint: generated GLBs + previews are mirrored

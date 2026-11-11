@@ -121,11 +121,12 @@ AI-generated via the Meshy API (https://www.meshy.ai); generated offline,
 committed as GLBs. Meshy output licence: check meshy.ai terms for commercial
 use of generated assets. manifest.json records task ids, models, credits.
 
-Placed in world.js / streetLife.js: cake-stand, cup-stack (bar top),
-a-board, crate-stack, vintage-bike, plant-cluster, guitar-case, street-piano
-(pavement), cat (bench cat GLB swap), skateboard (skater deck swap),
-street-musician.walk (rigged busker, own 24-joint rig + Walk clip).
-Vendored but not yet placed: roof-tank, roof-dish, roof-antenna.
+Placed in world.js / streetLife.js: crate-stack, vintage-bike,
+plant-cluster, guitar-case, street-piano (pavement), cat (bench cat GLB
+swap), skateboard (skater deck swap), street-musician.walk (rigged busker,
+own 24-joint rig + Walk clip). Vendored but not on the counter: cake-stand,
+cup-stack (the bar is the Polyfork café kit). Not yet placed: a-board,
+roof-tank, roof-dish, roof-antenna.
 
 Style-matched via image-to-3D: cup-stack, cake-stand, a-board,
 plant-cluster, vintage-bike and crate-stack from renders of our own GLBs

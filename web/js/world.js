@@ -932,20 +932,19 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
 
   // Meshy-generated dressing (tools/vendor-meshy.mjs → web/assets/meshy/).
   // The counter stays the Polyfork café kit. These sit on the pavement.
-  place(scene, 'meshy/a-board.glb', { position: [-3.3, 0.45, 7.3], rotationY: 0.5, scale: 0.9 })
-    .then(() => addContactShadow(scene, -3.3, 7.3, 0.7, 0.4, 0.26));
   place(scene, 'meshy/crate-stack.glb', { position: [5.4, 0.375, 17.0], rotationY: 0.9, scale: 0.75 })
     .then(() => addContactShadow(scene, 5.4, 17.0, 1.0, 0.8, 0.3));
-  place(scene, 'meshy/vintage-bike.glb', { position: [-10.6, 0.63, 7.7], rotationY: 0.35, scale: 1.7 })
-    .then(() => addContactShadow(scene, -10.6, 7.7, 1.5, 0.35, 0.26));
-  place(scene, 'meshy/plant-cluster.glb', { position: [-7.4, 0.45, 7.4], rotationY: -0.4, scale: 0.9 })
-    .then(() => addContactShadow(scene, -7.4, 7.4, 0.9, 0.7, 0.28));
-  place(scene, 'meshy/guitar-case.glb', { position: [12.0, 0.17, 7.6], rotationY: 2.6, scale: 0.65 })
-    .then(() => addContactShadow(scene, 12.0, 7.6, 0.8, 0.5, 0.26));
+  place(scene, 'meshy/vintage-bike.glb', { position: [-10.5, 0.63, 9.0], rotationY: 0.08, scale: 1.7 })
+    .then(() => addContactShadow(scene, -10.5, 9.0, 1.5, 0.35, 0.26));
+  place(scene, 'meshy/plant-cluster.glb', { position: [-7.4, 0.45, 8.95], rotationY: -0.4, scale: 0.9 })
+    .then(() => addContactShadow(scene, -7.4, 8.95, 0.9, 0.7, 0.28));
+  place(scene, 'meshy/guitar-case.glb', { position: [12.0, 0.17, 8.9], rotationY: 2.6, scale: 0.65 })
+    .then(() => addContactShadow(scene, 12.0, 8.9, 0.8, 0.5, 0.26));
   // Street piano — keys face +z (toward the pavement), verified from the
-  // GLB's vertex spread: keyboard protrudes on +z, lid spans -z.
-  place(scene, 'meshy/street-piano.glb', { position: [-1.6, 0.675, 7.9], rotationY: 0, scale: 1.35 })
-    .then(() => addContactShadow(scene, -1.6, 7.9, 1.4, 0.9, 0.3));
+  // GLB's vertex spread: keyboard protrudes on +z, lid spans -z. Neutral
+  // ground between two rival doors, off the walking lane.
+  place(scene, 'meshy/street-piano.glb', { position: [5.8, 0.675, 4.7], rotationY: 0, scale: 1.35 })
+    .then(() => addContactShadow(scene, 5.8, 4.7, 1.4, 0.9, 0.3));
 
   // god rays — a tall translucent quad behind the café that fades with mist; used for frost/harvest mood
   W.godRayMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });

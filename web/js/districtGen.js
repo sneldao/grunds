@@ -18,14 +18,18 @@ import { baseUrl } from './convexSync.js';
 import { seeded } from './exchange.js';
 import { loadPF } from './polyfork.js';
 
-// Slot → street position (pavement band z≈5.6–7.6, clear of the café door
-// at z≈8 x -5..0 and the ticker post at x 13.6) + target height in metres.
+// Slot → street position + target height in metres. The pavement reads as
+// three lanes: frontage strip (z ≤ ~7.0, against the shopfronts), a clear
+// walking lane (z 7.3–8.3 — walkers path at pavementZ 7.8), and the kerb
+// strip (z ≈ 8.5–9.4). stall and cart keep off the rival doors/queues
+// (NEIGHBOR_DOORS z 5.7, queues to ~7.6) and the walking lane; the café
+// door is at z≈8 x -5..0, the ticker post at x 13.6.
 export const SLOTS = {
-  lantern: { position: [-15.2, 0, 5.7], rotationY: 0.15, height: 2.3 },
-  planter: { position: [-12.4, 0, 6.9], rotationY: 0.4, height: 0.95 },
-  stall: { position: [-10.2, 0, 7.0], rotationY: 0.25, height: 2.4 },
+  lantern: { position: [-16.2, 0, 5.7], rotationY: 0.15, height: 2.3 },
+  planter: { position: [-12.4, 0, 8.95], rotationY: 0, height: 0.8 },
+  stall: { position: [-13.9, 0, 6.6], rotationY: 0.1, height: 2.1 },
   sign: { position: [2.0, 0, 5.6], rotationY: -0.1, height: 1.5 },
-  cart: { position: [8.6, 0, 7.0], rotationY: -0.3, height: 1.35 },
+  cart: { position: [9.9, 0, 8.95], rotationY: 0, height: 1.35 },
   // The hero piece — across the road on the far row, between the franchise
   // storefront (-3, 15.6) and the day-5 scaffold zone (-10, 15.9). Faces the
   // café; the lease/newbuild camera beats frame it beside the stand.
@@ -69,7 +73,7 @@ export function districtPolyforkExplicit(search) {
 const PF_SLOTS = {
   lantern: ['street-lamp-136745', 'lantern-post-f47665', 'paper-lantern-3387e9', 'globe-lamp-346cb6'],
   planter: ['planter-trough-divider-1b0ead', 'flower-planter-550bfb', 'potted-olive-tree-7eee05'],
-  stall: ['ramen-yatai-stall-53974b', 'mercado-stall-6e6ba3', 'market-stall-94937d', 'newsstand-6dfd65'],
+  stall: ['newsstand-6dfd65', 'market-stall-94937d'],
   sign: ['sandwich-board-sign-cb5e7c', 'hanging-shop-sign-18d2b0', 'yard-sign-f1882f', 'street-sign-pole-1e9551', 'projecting-shop-sign-aa1867', 'chalkboard-menu-board-a24d9d'],
   cart: ['hot-dog-cart-115192', 'elote-cart-a8fb49', 'ice-cream-kiosk-on-40a568', 'sopaipilla-cart-712632'],
   fountain: ['campus-plaza-fountain-a0cab1', 'plaza-fountain-5a5f6e'],

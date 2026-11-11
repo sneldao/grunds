@@ -255,11 +255,11 @@ export const PARK_SPOTS = [
 // Beside the generated kit slots (districtGen SLOTS) plus the ticker and the
 // dropped cup. Offsets keep a body next to the prop, not inside it.
 export const STREET_PROPS = [
-  { id: 'lantern', x: -14.5, z: 6.55, far: false },
-  { id: 'planter', x: -12.4, z: 7.55, far: false },
-  { id: 'stall', x: -9.35, z: 7.65, far: false },
+  { id: 'lantern', x: -15.5, z: 6.55, far: false },
+  { id: 'planter', x: -12.4, z: 8.2, far: false },
+  { id: 'stall', x: -13.9, z: 7.75, far: false },
   { id: 'sign', x: 2.15, z: 6.4, far: false },
-  { id: 'cart', x: 8.6, z: 7.65, far: false },
+  { id: 'cart', x: 9.9, z: 8.15, far: false },
   { id: 'ticker', x: 12.25, z: 6.95, far: false },
   { id: 'cup', x: 6.15, z: 8.15, far: false },
   { id: 'fountain', x: -6.0, z: 14.45, far: true },
