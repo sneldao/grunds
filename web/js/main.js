@@ -42,7 +42,7 @@ import { touchPrimary } from './gestures.js';
 import { saveWeek, loadWeek, clearWeek, resumeLabel } from './weekSave.js';
 import { planAsk, planIncidents } from './beats.js';
 import { portraitCanvas } from './portrait.js';
-import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_CLIMATE_LEAN, roastIdeal, roastQuality, cupQuality, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
+import { LotsState, LOT_CATALOG, LOT_IDS, lotSpot, serveNudge, isStale, STALE_LINES, restockQty, ROAST_CLIMATE_LEAN, roastIdeal, roastQuality, cupQuality, tasteLine, SCORCH_LINE, COMPOST_AFTER } from './lots.js';
 import { DRINKS, DRINK_IDS, basePrices, clampPrice, menuPrice, deliveryQty, waveMilkEstimate, ticketLevel, pastryPar, PASTRY, EMPTY_CASE_MOOD, starredDelivery } from './menu.js';
 import { Demand, DEMAND_ACTIONS, marketingReach, priceElasticity, strollShare } from './demand.js';
 import { COUNTERABLE, resolveShock, applyInventory, repToOpinion, shockKnobs, counterForMenu, shockOnDay, demandShockRead, dawnDemandMult } from './shocks.js';
@@ -649,6 +649,7 @@ let pouredByLotToday = {}, servedByDrinkToday = {};
 let companionsYesterday = [];
 let emergencyToast = false, emergencyCups = 0;
 let staleNoted = new Set();
+let cupTasted = false;   // the first clean coffee cup of the day says what it tastes like
 // Phase 3 — menu + roast + milk + skill: committed prices/offered board,
 // staged copies for the Brief, staged roast for the selected lot, the day's
 // milk delivery/stock, compost count, and Ruth's cumulative skill.
@@ -1216,6 +1217,18 @@ function tick() {
           staleNoted.add(e.p.cohort);
           const named = e.p.regularName ? ` — ${e.p.regularName} switched to tea` : '';
           fx.toast(`${scorched ? SCORCH_LINE : (STALE_LINES[e.p.cohort] || 'the room tastes yesterday’s roast')}${named}`, 'warn');
+        }
+      }
+      // The morning's sentence, confirmed by the first clean cup. Stale and
+      // scorch already have their own line. One toast, not one per pour.
+      if (!cupTasted && !e.isMatcha && e.lotId) {
+        const tasted = lotState.entry(e.lotId);
+        const tastedAge = lotState.age(e.lotId, day);
+        const tastedScorch = !!tasted?.scorched;
+        if (!tastedScorch && !isStale(tastedAge)) {
+          cupTasted = true;
+          const roastLevel = tasted ? tasted.roast : null;
+          fx.toast(tasteLine(e.lotId, roastLevel, lotRoastTarget(e.lotId)), 'good');
         }
       }
       if (e.p && e.p.regularIdx >= 0) {
@@ -3366,6 +3379,11 @@ function renderLotSection() {
   rPlus.onclick = () => { stagedRoast = stagedRoast === null ? ideal : Math.min(5, stagedRoast + 1); renderLotSection(); };
   roastRow.appendChild(roastLab); roastRow.appendChild(rMinus); roastRow.appendChild(rVal); roastRow.appendChild(rPlus);
   det.appendChild(roastRow);
+  const taste = document.createElement('div');
+  taste.id = 'brief-taste';
+  taste.className = 'bn-note';
+  taste.textContent = tasteLine(selectedLot, stagedRoast, ideal);
+  det.appendChild(taste);
   const climateLean = ROAST_CLIMATE_LEAN[climate?.id] ?? 0;
   if (TT.newToday === 'coffee') {
     const hint = document.createElement('div');
@@ -4955,7 +4973,7 @@ function prepareDay(d) {
   // Phase 2 — the cellar persists across days (stocks roast and age); only
   // the daily counters reset. dawnIndex freezes the pre-roll board for top-ups.
   dawnIndex = exchange.beanIndex;
-  pouredOther = 0; beanSpend = 0; emergencySpend = 0; sackSpend = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set();
+  pouredOther = 0; beanSpend = 0; emergencySpend = 0; sackSpend = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set(); cupTasted = false;
   pouredByLotToday = {}; servedByDrinkToday = {}; toolsIntroducedToday = [];
   staleByLotToday = {};   // Phase 6 — fresh stale-cup count for the autopsy
   // Phase 6 — week opinion baseline: snapshot roster ops at dawn day 1 so the
@@ -6222,7 +6240,7 @@ function reset(coreOnly = false) {
   franchiseCarry = { awareness: 0, returnees: 0, rentBonus: 0 };
   loanLotCover = 0; loanSponsorCover = 0; loanCashCap = null; closeTillOverride = null;
   loanClaim = null; menuHeld = null; salesTillForOps = null;
-  pouredOther = 0; lastPour = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set();
+  pouredOther = 0; lastPour = 0; emergencyToast = false; emergencyCups = 0; staleNoted = new Set(); cupTasted = false;
   pouredByLotToday = {}; servedByDrinkToday = {}; toolsIntroducedToday = [];
   // Phase 3 — menu, milk, skill rewind too.
   menuPrices = basePrices(); ctx.menuPrices = menuPrices;

@@ -126,6 +126,46 @@ export function cupQuality(ageDays, roastMul = 1, scorched = false) {
   const base = ageDays <= 1 ? 1 : ageDays <= STALE_AFTER ? 0.85 : 0.6;
   return base * roastMul * (scorched ? 0.5 : 1);
 }
+
+// One sentence for the cup this drum setting will pour. Relative to the
+// week's ideal, not the lot's base, so a heat week and a crisp week disagree.
+// Unprogrammed stays honest. No numbers: the Q readout already exists.
+const TASTE_ON = {
+  cerrado: 'Cocoa and peanut, a clean bitter finish.',
+  huila: 'Red apple and caramel, the cup the room expects.',
+  yirgacheffe: 'Jasmine and bergamot. The florals are the point.',
+  gesha: 'Jasmine, tropical fruit, a long sweet finish.',
+};
+const TASTE_LIGHT = {
+  cerrado: 'The cocoa stays thin. More tea than coffee.',
+  huila: 'Bright apple, and the caramel never arrives.',
+  yirgacheffe: 'The florals go sharp, almost green.',
+  gesha: 'The fruit is here. The body is not.',
+};
+const TASTE_DARK = {
+  cerrado: 'The peanut burns off and the finish goes ashy.',
+  huila: 'Caramel slips into brown sugar, then bitter.',
+  yirgacheffe: 'The jasmine is gone. It tastes roasted, not grown.',
+  gesha: 'The florals cook out. It could be any good coffee.',
+};
+const TASTE_FLAT = {
+  cerrado: 'Brazil Cerrado, unprogrammed. A flat cup, the cocoa barely there.',
+  huila: 'Colombia Huila, unprogrammed. A flat cup, the apple barely there.',
+  yirgacheffe: 'Ethiopia Yirgacheffe, unprogrammed. A flat cup, the florals barely there.',
+  gesha: 'Panama Gesha, unprogrammed. A flat cup, the fruit barely there.',
+};
+export function tasteLine(lotId, level, ideal = null, { scorched = false, stale = false } = {}) {
+  const name = LOT_CATALOG[lotId]?.name;
+  if (!name) return '';
+  if (stale) return `${name} tastes of the sack, not the roast. These beans are tired.`;
+  if (scorched) return `${name} smells sharp and ashy. The drum ran away.`;
+  if (level === null || level === undefined) return TASTE_FLAT[lotId] || `${name}, unprogrammed. A flat cup.`;
+  const target = ideal ?? ROAST_IDEAL[lotId] ?? 3;
+  const lv = Math.min(5, Math.max(1, Math.round(level)));
+  const d = lv - target;
+  const note = d === 0 ? TASTE_ON[lotId] : d < 0 ? TASTE_LIGHT[lotId] : TASTE_DARK[lotId];
+  return `${name}. ${note || 'A cup of coffee.'}`;
+}
 export function isStale(ageDays) { return ageDays > STALE_AFTER; }
 
 // Opinion delta for serving one roster regular a cup of (lot, cohort, age).

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
   ROAST_IDEAL, ROAST_LEAN, ROAST_CLIMATE_LEAN, crowdRoastPull, roastIdeal, SCORCH_LINE,
-  roastQuality, cupQuality, serveNudge, LotsState,
+  roastQuality, cupQuality, tasteLine, serveNudge, LotsState,
 } from '../js/lots.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -75,6 +75,24 @@ test('Phase 3 · cupQuality multiplies age, roast, scorch', () => {
   assert.ok(Math.abs(cupQuality(3, 0.9, true) - 0.6 * 0.9 * 0.5) < 1e-9);
 });
 
+test('the drum speaks in a tasting sentence, not a number', () => {
+  assert.equal(tasteLine('huila', null, 3), 'Colombia Huila, unprogrammed. A flat cup, the apple barely there.');
+  assert.equal(tasteLine('huila', 3, 3), 'Colombia Huila. Red apple and caramel, the cup the room expects.');
+  assert.equal(tasteLine('huila', 1, 3), 'Colombia Huila. Bright apple, and the caramel never arrives.');
+  assert.equal(tasteLine('huila', 5, 3), 'Colombia Huila. Caramel slips into brown sugar, then bitter.');
+  // the week's read moves: level 2 is right in a heat week, wrong on the base
+  assert.equal(tasteLine('huila', 2, 2), 'Colombia Huila. Red apple and caramel, the cup the room expects.');
+  assert.match(tasteLine('yirgacheffe', 5, 2), /jasmine is gone/);
+  assert.match(tasteLine('gesha', 2, 2, { scorched: true }), /drum ran away/);
+  assert.match(tasteLine('cerrado', 4, 4, { stale: true }), /beans are tired/);
+  for (const id of ['cerrado', 'huila', 'yirgacheffe', 'gesha']) {
+    for (const level of [null, 1, 3, 5]) {
+      const line = tasteLine(id, level, 3);
+      assert.equal(line.includes('%') || line.includes('→') || line.includes('Q '), false, line);
+    }
+  }
+});
+
 // (4) serveNudge scales warmth by roast, scorch reads as stale
 test('Phase 3 · serveNudge takes roastMul + scorched with legacy defaults', () => {
   assert.ok(Math.abs(serveNudge('yirgacheffe', 'creatives', 0, 0.8) - 0.3 * 0.05 * 0.8) < 1e-9);
@@ -123,6 +141,9 @@ test('Phase 3 · roast stepper stages; applyLots commits the roast', () => {
   assert.match(main, /stagedRoast = lotState\.entry\(selectedLot\)\?\.roast/);
   // the weekly read reaches the UI, and the serve loop reads the same target
   assert.match(main, /this week reads \$\{ideal\}/);
+  assert.match(main, /id = 'brief-taste'/);
+  assert.match(main, /tasteLine\(selectedLot, stagedRoast, ideal\)/);
+  assert.match(main, /tasteLine\(e\.lotId, roastLevel, lotRoastTarget\(e\.lotId\)\)/);
   assert.match(main, /The drum's sweet spot this week is \$\{ideal\}/);
   assert.match(main, /function crowdCupMix/);
   assert.match(main, /roastIdeal\(id, crowdCupMix\(\), ROAST_CLIMATE_LEAN\[climate\?\.id\]/);
