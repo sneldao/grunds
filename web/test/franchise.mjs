@@ -360,7 +360,8 @@ check('http: /franchise/status GET route', http.includes('path: "/franchise/stat
 check('http: /franchise/describe POST route', http.includes('path: "/franchise/describe"') && http.includes('method: "POST"'));
 check('http: describe is POST-only', /franchiseDescribe[\s\S]{0,200}POST only/.test(http));
 check('http: describe passes the lot param', /p\.get\("lot"\)/.test(http));
-check('http: describe passes the purpose param', /p\.get\("purpose"\) \?\? undefined/.test(http) && /describe, \{ seed, lot, prompt, day, purpose, byline \}/.test(http));
+check('http: describe passes the purpose param', /p\.get\("purpose"\) \?\? undefined/.test(http) && /describe, \{ seed, lot, prompt, day, purpose, byline, builder \}/.test(http));
+check('http: describe passes the builder opt-out', /p\.get\("builder"\)/.test(http));
 
 // ============================================================
 // 6) main.js wiring

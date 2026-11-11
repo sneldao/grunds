@@ -47,4 +47,12 @@ crons.hourly(
   {},
 );
 
+// Rodin jobs (no webhooks — polling IS the completion path, same as Mint).
+crons.hourly(
+  "rodin-task-reaper",
+  { minuteUTC: 30 },
+  internal.rodin.reaper,
+  {},
+);
+
 export default crons;

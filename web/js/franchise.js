@@ -29,7 +29,9 @@ import { addContactShadow } from './contactShadow.js';
 export const FRANCHISE_POLL_MS = 10000;
 export const FRANCHISE_MAX_POLLS = 36;
 
-export function initFranchise({ scene, seed, classic, loader, onArrived, onStatus, onPlaced, polyfork }) {
+export function initFranchise({ scene, seed, classic, loader, onArrived, onStatus, onPlaced, polyfork, builder }) {
+  // Builder escape hatch (?builder=tripo): skip the Rodin attempt server-
+  // side. Absent means Rodin first with Tripo fallback — the default.
   const state = {
     seed,
     live: false,        // a status read has landed at least once
@@ -286,7 +288,8 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       const r = await fetch(
         `${base}/franchise/describe?seed=${seed}&lot=${encodeURIComponent(lotId)}&day=${dayNow || state.day || 0}&prompt=${encodeURIComponent(text)}` +
         (purpose ? `&purpose=${encodeURIComponent(purpose)}` : '') +
-        (byline ? `&byline=${encodeURIComponent(byline)}` : ''),
+        (byline ? `&byline=${encodeURIComponent(byline)}` : '') +
+        (builder === 'tripo' ? '&builder=tripo' : ''),
         { method: 'POST' },
       );
       const d = await r.json().catch(() => ({}));

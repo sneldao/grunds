@@ -281,8 +281,9 @@ export const franchiseDescribe = httpAction(async (ctx, req) => {
   const prompt = p.get("prompt") ?? "";
   const purpose = p.get("purpose") ?? undefined;
   const byline = p.get("byline") ?? undefined;
+  const builder = p.get("builder") ?? undefined;
   if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
-  return json(await ctx.runAction(api.franchise.describe, { seed, lot, prompt, day, purpose, byline }));
+  return json(await ctx.runAction(api.franchise.describe, { seed, lot, prompt, day, purpose, byline, builder }));
 });
 
 // The Streets gallery: every seed with stands on its Row — the deeds,

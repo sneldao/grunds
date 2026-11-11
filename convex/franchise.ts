@@ -2,6 +2,7 @@ import { action, internalMutation, internalQuery, query } from "./_generated/ser
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { assetKey, NUDGE_MS, type GenerateSpec } from "./tripo";
+import { RODIN_FACE_TARGET, RODIN_MODEL, rodinKey, type RodinSpec } from "./rodin";
 import { hashKey } from "./apiCache";
 import { tripoSlotSeed, TRIPO_MODEL, TRIPO_NEGATIVE } from "./district";
 
@@ -96,6 +97,27 @@ export function franchiseKey(seed: number, lot: string, prompt: string): string 
   return assetKey(franchiseSpec(seed, lot, prompt));
 }
 
+// Rodin twin of franchiseSpec: same house-framed words (the frame is what
+// keeps the street coherent, whatever the builder), Rodin-flavoured seeds
+// and face budget. Same (seed, lot, prompt) → same rodinKey, so a
+// re-described stand reuses its row instead of spending again. Rodin seeds
+// are 0–65535, so the slot seeds mod down.
+export function rodinSpec(seed: number, lot: string, prompt: string): RodinSpec {
+  return {
+    prompt: `${prompt}${FRANCHISE_FRAME}`,
+    model: RODIN_MODEL,
+    modelSeed: tripoSlotSeed(seed ^ Number.parseInt(hashKey(`${seed}:${lot}:${prompt}`), 16), "stall") % 65536,
+    qualityOverride: RODIN_FACE_TARGET,
+  };
+}
+
+// (seed, lot) → the key rodin.generate writes under. `rodin:`-namespaced,
+// so the first Rodin describe of old words grows a fresh row next to the
+// Tripo twin instead of clobbering it.
+export function rodinFranchiseKey(seed: number, lot: string, prompt: string): string {
+  return rodinKey(rodinSpec(seed, lot, prompt));
+}
+
 // What the stand is FOR, chosen deliberately on the lease card — not
 // inferred from the words and never part of the asset key, so the same
 // geometry can serve any purpose. Absent (legacy rows) means no bonus:
@@ -175,8 +197,13 @@ export const statusLive = action({
     const tasks = await ctx.runQuery(internal.franchise.processingTasks, { seed: args.seed });
     const now = Date.now();
     for (const t of tasks) {
-      if (now - t.createdAt >= NUDGE_MS)
-        await ctx.runAction(internal.tripo.pollTask, { taskId: t.taskId });
+      if (now - t.createdAt >= NUDGE_MS) {
+        // The nudge dispatches on the row's provider — a Rodin task asks
+        // Rodin, a Tripo task asks Tripo.
+        if (t.provider === "rodin")
+          await ctx.runAction(internal.rodin.pollTask, { taskId: t.taskId });
+        else await ctx.runAction(internal.tripo.pollTask, { taskId: t.taskId });
+      }
     }
     return ctx.runQuery(api.franchise.status, { seed: args.seed });
   },
@@ -186,19 +213,19 @@ export const statusLive = action({
 // nudge. Actions can't touch the db, so this is a query.
 export const processingTasks = internalQuery({
   args: { seed: v.number() },
-  handler: async (ctx, args): Promise<{ lot: string; taskId: string; createdAt: number }[]> => {
+  handler: async (ctx, args): Promise<{ lot: string; taskId: string; createdAt: number; provider: string }[]> => {
     const frs = await ctx.db
       .query("franchises")
       .withIndex("by_seed", (q) => q.eq("seed", args.seed))
       .collect();
-    const out: { lot: string; taskId: string; createdAt: number }[] = [];
+    const out: { lot: string; taskId: string; createdAt: number; provider: string }[] = [];
     for (const fr of frs) {
       const row = await ctx.db
         .query("tripoAssets")
         .withIndex("by_key", (q) => q.eq("key", fr.key))
         .unique();
       if (row?.status === "processing" && row.taskId)
-        out.push({ lot: fr.lot ?? "14", taskId: row.taskId, createdAt: row.createdAt });
+        out.push({ lot: fr.lot ?? "14", taskId: row.taskId, createdAt: row.createdAt, provider: row.provider });
     }
     return out;
   },
@@ -216,6 +243,9 @@ export const describe = action({
     day: v.number(),
     purpose: v.optional(v.string()),
     byline: v.optional(v.string()),
+    // Escape hatch: `tripo` skips the Rodin attempt (mirrors the
+    // ?district=tripo routing). Absent means Rodin first, Tripo fallback.
+    builder: v.optional(v.string()),
   },
   handler: async (
     ctx,
@@ -268,6 +298,40 @@ export const describe = action({
       : await ctx.runAction(api.standSpec.expand, { prompt }).catch(() => null);
     const specJson =
       specRes && !specRes.fallback && specRes.spec ? JSON.stringify(specRes.spec) : undefined;
+    const specObj = specRes && !specRes.fallback ? (specRes.spec as Record<string, unknown> | null) : null;
+    // Player words grow through Rodin first (in-engine proof stands on the
+    // pavement); photo prompts stay on Tripo — image-to-3D is its path and
+    // unproven on Rodin. A Rodin miss (no key, budget, upstream) falls
+    // through to the Tripo call below, so the chain is Rodin → Tripo →
+    // the client's instant archetype — a described lot is never left empty.
+    if (!isImageInput(prompt) && args.builder !== "tripo") {
+      const rspec = rodinSpec(args.seed, args.lot, prompt);
+      const r = await ctx.runAction(api.rodin.generate, {
+        prompt: rspec.prompt,
+        model: rspec.model,
+        modelSeed: rspec.modelSeed,
+        qualityOverride: rspec.qualityOverride,
+      });
+      if (!r.fallback) {
+        const key = rodinFranchiseKey(args.seed, args.lot, prompt);
+        await ctx.runMutation(internal.franchise.record, {
+          seed: args.seed,
+          lot: args.lot,
+          key,
+          prompt,
+          day: args.day,
+          purpose: purpose ?? undefined,
+          byline: byline ?? undefined,
+          spec: specJson,
+        });
+        return {
+          status: r.status, prompt, purpose, byline,
+          spec: specObj,
+          standName: typeof specObj?.name === "string" ? specObj.name.slice(0, 48) : null,
+          claimed: true, modelUrl: r.modelUrl ?? null, error: r.error,
+        };
+      }
+    }
     const spec = franchiseSpec(args.seed, args.lot, prompt);
     const g = await ctx.runAction(api.tripo.generate, {
       prompt: spec.prompt,
@@ -290,7 +354,6 @@ export const describe = action({
       byline: byline ?? undefined,
       spec: specJson,
     });
-    const specObj = specRes && !specRes.fallback ? (specRes.spec as Record<string, unknown> | null) : null;
     return {
       status: g.status, prompt, purpose, byline,
       spec: specObj,

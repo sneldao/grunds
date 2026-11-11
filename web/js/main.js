@@ -260,6 +260,9 @@ const franchise = initFranchise({
   // inside state.describe. A ?prompt= always takes the real path: the words
   // a judge typed must grow a real stand, not a keyword-matched stand-in.
   polyfork: districtPolyforkExplicit(location.search) && !hackathonMode && !autoPrompt,
+  // ?builder=tripo skips the Rodin describe attempt (Tripo only). Absent
+  // means player words grow through Rodin first with Tripo fallback.
+  builder: /(^|[?&])builder=tripo($|[&=])/.test(location.search) ? 'tripo' : undefined,
   onPlaced: inst => world.registerPF(inst),
   onArrived: (inst, def, ls) => fx.toast(ls && ls.mine
     ? `the builders finished — ${def.name} is open`

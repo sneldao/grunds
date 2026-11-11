@@ -460,7 +460,9 @@ export const applyResult = internalMutation({
           previewUrl: args.previewUrl,
           error: undefined,
         });
-        if (row.provider === "tripo" && args.modelUrl)
+        // Rodin output URLs ride the same short-lived pattern as Tripo's —
+        // copy both into file storage so the row is the permanent address.
+        if ((row.provider === "tripo" || row.provider === "rodin") && args.modelUrl)
           await ctx.scheduler.runAfter(0, internal.tripo.persist, {
             key: row.key,
             modelUrl: args.modelUrl,
