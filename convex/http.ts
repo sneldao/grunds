@@ -262,7 +262,8 @@ export const cityList = httpAction(async (ctx) => {
 // The Franchise — the player's words become a stand on The Row. The brief
 // reads /franchise/status to decide whether to show the describe line, and
 // the floor polls it for the reveal; /franchise/describe grows the stand
-// through tripo.generate (budget-guarded inside). Same no-auth posture as
+// through rodin.generate for words (Tripo fallback; Tripo for pasted image
+// prompts — budget-guarded inside). Same no-auth posture as
 // /district/* — idempotent and content-keyed.
 export const franchiseStatus = httpAction(async (ctx, req) => {
   const seed = Number(new URL(req.url).searchParams.get("seed") ?? 7);

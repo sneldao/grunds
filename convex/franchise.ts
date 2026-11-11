@@ -9,7 +9,8 @@ import { tripoSlotSeed, TRIPO_MODEL, TRIPO_NEGATIVE } from "./district";
 // The Franchise (TRIPOTHON.md Tier B): the player's own words become
 // geometry on The Row — and now the WHOLE row is buildable. Three vacant
 // storefronts unlock across the campaign (day 3, 4, 5); each one described
-// becomes a real Tripo generation that pays a rent line on the day receipt.
+// becomes a real generation — Rodin first, Tripo fallback — that pays a
+// rent line on the day receipt.
 // This is the entry's tool-track money shot: gameplay depends on the tool,
 // not the other way round.
 //

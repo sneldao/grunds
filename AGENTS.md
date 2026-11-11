@@ -382,7 +382,9 @@ Natural language is a first-class input to the simulation, not a demo add-on.
 Every path below is live for all users.
 
 - **Describe routing:** live sessions POST `/franchise/describe` by default —
-  LLM spec + real generation. The vendored keyword path (`pfDescribe`,
+  LLM spec + real generation (Rodin first via `convex/rodin.ts`, Tripo
+  fallback; photo prompts stay Tripo; `?builder=tripo` opts out end to
+  end). The vendored keyword path (`pfDescribe`,
   seeded spec fallback) runs only for explicit `?district=polyfork` /
   `?pfDistrict` opt-ins (`districtPolyforkExplicit`), sessions with no
   Convex bridge, and as the failure fallback so a described lot never

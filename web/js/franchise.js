@@ -1,7 +1,8 @@
 // franchise.js — the player's words become stands on The Row (Tripothon S1,
 // Tier B). Three vacant storefronts unlock across the campaign; each one the
 // player describes (words, or a pasted photo link → image-to-model) becomes a
-// real Tripo generation that cross-fades in and pays rent at each open.
+// real generation — Rodin first, Tripo fallback — that cross-fades in and
+// pays rent at each open.
 //
 // Same completeness posture as districtGen: headless/no-GL/no-Convex all
 // no-op, a failed or missing generation never blocks play, and one

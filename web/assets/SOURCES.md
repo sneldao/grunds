@@ -122,7 +122,9 @@ from Meshy text-to-image references. Task ids are in manifest.json.
 ## hyper3d/ — Hyper3D Rodin-generated assets (vendored by tools/vendor-hyper3d.mjs)
 
 AI-generated via the Rodin API (https://hyper3d.ai); generated offline,
-committed as GLBs. First A/B spike landed 2026-11-11 (all Gen-2.5-Low,
+committed as GLBs — and since 2026-11-11 also the live describe-path
+builder (`convex/rodin.ts`: player words → Rodin first, Tripo fallback).
+First A/B spike landed 2026-11-11 (all Gen-2.5-Low,
 Basic-access account — Medium rejected with API_NO_ACTIVE_SUBSCRIPTION):
 espresso-rodin-low (style-matched re-gen of our machine, 9.9k tris),
 stand-rodin-low (text-to-3D market coffee stall, 11.5k tris),

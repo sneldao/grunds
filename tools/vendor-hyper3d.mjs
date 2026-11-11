@@ -2,7 +2,9 @@
 // tools/vendor-hyper3d.mjs — generate a Hyper3D Rodin asset and vendor the
 // GLB into web/assets/hyper3d/ with a per-asset manifest entry.
 //
-// Hyper3D is a *source*, not a runtime dependency: play never calls the API.
+// Hyper3D is a source AND a server-side builder: the tool vendors GLBs offline,
+// and convex/rodin.ts grows describe-path stands through the same API at
+// runtime. The game *client* never calls the API.
 // Generate here, commit the GLB, mirror via tools/mirror-assets.mjs if it
 // lands somewhere the Grove rewrite needs, and list it in
 // web/assets/SOURCES.md. API key: RODIN_API_KEY in .env.local (gitignored).

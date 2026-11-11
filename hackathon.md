@@ -15,9 +15,22 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-11-10T19:30:00Z
+- **Last updated:** 2026-11-11T12:00:00Z
 
 ## Log
+
+### 2026-11-11 - Rodin becomes the describe-path builder
+
+- **Player words grow through Hyper3D Rodin first (`convex/rodin.ts`), Tripo
+  fallback, client instant archetype last.** Photo prompts stay Tripo;
+  `?builder=tripo` opts out end to end. Same `tripoAssets` spine
+  (`provider: "rodin"`, `rodin:` keys) so status/record/gallery/mirror need
+  no changes; hourly `rodin-task-reaper` added, nudge dispatches by provider.
+  Shapes validated against the official Rodin docs (Bearer + multipart,
+  `subscription_key` for status / `uuid` for download, backoff) + in-engine
+  proof shots (`web/assets/hyper3d/proof-stand-*.png`). No sim-side change —
+  no balance re-sweep needed.
+- Tests: new `web/test/rodin-describe.mjs` contract pins; typecheck green.
 
 ### 2026-11-10 - Provider-first describe + prompt-derived seeds (judge path)
 
