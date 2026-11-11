@@ -227,6 +227,19 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
   const scuff = new THREE.Mesh(scuffGeo, scuffMat); scuff.rotation.x = -Math.PI / 2; scuff.position.set(-6.2, 0.02, -1.8); g.add(scuff);
   const paveTex = pavement();
   const paveMat = new THREE.MeshStandardMaterial({ map: paveTex, roughness: 0.92, metalness: 0.01 });
+  // Opt-in PBRgen experiment: ?pbr adds generated normal+roughness maps; ?pbr=wet dials gloss.
+  const pbrOpt = new URLSearchParams(location.search).get('pbr');
+  if (pbrOpt !== null) {
+    paveMat.roughness = pbrOpt === 'wet' ? 0.55 : 1.38;
+    const texLoader = new THREE.TextureLoader();
+    const wire = (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.copy(paveTex.repeat); t.anisotropy = 8; };
+    texLoader.load('assets/pbrgen/pavement-nrm.webp', (nrm) => {
+      wire(nrm); paveMat.normalMap = nrm; paveMat.normalScale.set(0.8, 0.8); paveMat.needsUpdate = true;
+    });
+    texLoader.load('assets/pbrgen/pavement-rough.webp', (rough) => {
+      wire(rough); paveMat.roughnessMap = rough; paveMat.needsUpdate = true;
+    });
+  }
   plane(g, 44, 3.6, paveMat, 0, 0.02, LAYOUT.pavementZ, { rx: -Math.PI / 2 });
   // The hall that used to surround the tables is the neighbours' ground:
   // The Quill on the left, Hearth & Rye / Bell & Brass / Marrow Lane on

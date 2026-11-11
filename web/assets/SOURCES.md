@@ -153,6 +153,21 @@ https://hyper3d.ai/pricing. Tool defaults: Gen-2.5-Low (Basic-access safe),
 Raw + quality_override 10000 (house 8–12k face discipline, Fast-mode
 eligible), tier-default 2K textures crushed to WebP 1k post-download.
 
+## pbrgen/ — PBRgen-generated texture maps (app.pbrgen.com, Pro plan)
+
+AI-generated via PBRgen (https://app.pbrgen.com); generated offline,
+committed as WebP. Pro plan permits commercial use of generated maps.
+Derived from our own `pavement()` canvas bake (web/js/textures.js)
+uploaded as the start image — same slab grid, pixel-aligned, tiles
+seamlessly. Create at 1K with "Inpaint seams" off; only NRM + ROUGH
+kept (COL/DISP/SPEC discarded). Opt-in experiment: applied to the
+pavement material by world.js only when the `?pbr` URL flag is set.
+
+- `pbrgen/pavement-nrm.webp` — 1024² normal map, OpenGL convention
+  (three.js-ready, no Y flip), q92 WebP
+- `pbrgen/pavement-rough.webp` — 512² greyscale roughness (values
+  0.55–0.75, grout rougher than slabs), q85 WebP
+
 ## icons/ — Morning Brief + vitals ink glyphs (Game-icons.net, CC BY 3.0)
 
 Four by Delapouite and one by rihlsul, all CC BY 3.0
