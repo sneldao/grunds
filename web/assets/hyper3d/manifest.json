@@ -1,0 +1,72 @@
+{
+  "espresso-rodin-low": {
+    "id": "espresso-rodin-low",
+    "source": "hyper3d",
+    "task_uuid": "4e718a3d-763b-4029-a77b-5db9beacdff5",
+    "kind": "image-to-3D",
+    "prompt": null,
+    "images": [
+      "hyper3d-espresso-ref.png"
+    ],
+    "tier": "Gen-2.5-Low",
+    "mesh_mode": "Raw",
+    "faces": 10000,
+    "texture_mode": "tier-default",
+    "credits": 0.5,
+    "glb": "espresso-rodin-low.glb",
+    "glb_bytes": 464688,
+    "generated": "2026-11-11T09:13:32.749Z"
+  },
+  "_generated": "2026-11-11",
+  "_source": "https://hyper3d.ai — Rodin API; licence: paid plans include unlimited export/any use, free is limited — see hyper3d.ai/pricing",
+  "stand-rodin-low": {
+    "id": "stand-rodin-low",
+    "source": "hyper3d",
+    "task_uuid": "5ae80c68-961e-42f0-bfd9-3e4e5e727497",
+    "kind": "text-to-3D",
+    "prompt": "small cozy wooden market coffee stall with striped canvas awning, chalkboard menu board, crates of coffee bags, warm lantern, stylized low-poly game asset, clean silhouette, plain background",
+    "images": null,
+    "tier": "Gen-2.5-Low",
+    "mesh_mode": "Raw",
+    "faces": 12000,
+    "texture_mode": "tier-default",
+    "credits": 0.5,
+    "glb": "stand-rodin-low.glb",
+    "glb_bytes": 596632,
+    "generated": "2026-11-11T09:14:35.997Z"
+  },
+  "barista-rodin-low": {
+    "id": "barista-rodin-low",
+    "source": "hyper3d",
+    "task_uuid": "81ce8836-4090-4d58-a9ad-cd6fbf1f5638",
+    "kind": "text-to-3D",
+    "prompt": "stylized low-poly barista character standing, canvas apron, rolled sleeves, friendly simple face, clean game-asset silhouette, plain background",
+    "images": null,
+    "tier": "Gen-2.5-Low",
+    "mesh_mode": "Raw",
+    "faces": 10000,
+    "texture_mode": "tier-default",
+    "credits": 0.5,
+    "glb": "barista-rodin-low.glb",
+    "glb_bytes": 440360,
+    "generated": "2026-11-11T09:15:07.855Z"
+  },
+  "espresso-rodin-low-v2": {
+    "id": "espresso-rodin-low-v2",
+    "source": "hyper3d",
+    "task_uuid": "1629a8c3-a97f-4f2f-87a2-931fba614aa9",
+    "kind": "image-to-3D",
+    "prompt": "two-group commercial espresso machine, exactly two group heads with portafilters, cream body, dark brown side panels, cup rail on top",
+    "images": [
+      "hyper3d-espresso-ref.png"
+    ],
+    "tier": "Gen-2.5-Low",
+    "mesh_mode": "Raw",
+    "faces": 10000,
+    "texture_mode": "tier-default",
+    "credits": 0.5,
+    "glb": "espresso-rodin-low-v2.glb",
+    "glb_bytes": 489536,
+    "generated": "2026-11-11T09:29:59.439Z"
+  }
+}

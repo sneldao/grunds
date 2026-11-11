@@ -119,6 +119,29 @@ plant-cluster, vintage-bike and crate-stack from renders of our own GLBs
 delivery-moped, carton); cat, skateboard, guitar-case and street-piano
 from Meshy text-to-image references. Task ids are in manifest.json.
 
+## hyper3d/ — Hyper3D Rodin-generated assets (vendored by tools/vendor-hyper3d.mjs)
+
+AI-generated via the Rodin API (https://hyper3d.ai); generated offline,
+committed as GLBs. First A/B spike landed 2026-11-11 (all Gen-2.5-Low,
+Basic-access account — Medium rejected with API_NO_ACTIVE_SUBSCRIPTION):
+espresso-rodin-low (style-matched re-gen of our machine, 9.9k tris),
+stand-rodin-low (text-to-3D market coffee stall, 11.5k tris),
+barista-rodin-low (text-to-3D T-pose-aspirant barista, 9.3k tris),
+espresso-rodin-low-v2 (same ref + explicit two-group prompt — exactly two
+groups, faithful; use v2, not v1, for any placement),
+barista-rodin-low-rigged (--rig model-upload path: human template, core
+skinning, skinned JOINTS/WEIGHTS, no clips),
+barista-rodin-walk (same rig + human_sp/walking preset: 1 clip, 104
+channels, 2 s — the donor-walk-killer test, awaiting in-engine playback).
+Rigging note: asset_id submits on raw Rodin geometry fail in-job with
+"Invalid input" (no confirmed model/texture); the tool auto-retries as a
+model upload, which works and preserves PBR materials — the A/B spike (espresso machine
+re-gen, 1 franchise stand, 1 rigged humanoid) lands here first. Paid plans
+include unlimited export / any use; free-tier output is limited — see
+https://hyper3d.ai/pricing. Tool defaults: Gen-2.5-Low (Basic-access safe),
+Raw + quality_override 10000 (house 8–12k face discipline, Fast-mode
+eligible), tier-default 2K textures crushed to WebP 1k post-download.
+
 ## icons/ — Morning Brief + vitals ink glyphs (Game-icons.net, CC BY 3.0)
 
 Four by Delapouite and one by rihlsul, all CC BY 3.0
