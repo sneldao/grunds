@@ -85,6 +85,35 @@ export function assignDonorWalk(templates, donorWalk) {
   return templates;
 }
 
+// Same rig, so the retargeted idles bind by bone name too. The busker keeps
+// his authored pose (and the Meshy busker is a different skeleton). Clips
+// are shared, not copied per figure.
+export function assignIdles(templates, clips) {
+  if (!clips || !clips.length) return templates;
+  for (const [cohort, list] of Object.entries(templates)) {
+    if (cohort === 'busker') continue;
+    for (const t of list || []) if (t) t.idles = clips;
+  }
+  return templates;
+}
+
+// Who may spend a skinning update on an idle this frame. Vignette and
+// frontage standers first — they are the ones the camera actually reads —
+// then everyone else, by idx. Cap keeps a dwelling crowd from re-skinning
+// the way the frozen-walk path was written to avoid.
+export const IDLE_CAP = 8;
+export function pickIdleAgents(agents, cap = IDLE_CAP) {
+  const ranked = [];
+  for (const a of agents) {
+    if (!a || !a.active || a.walking || a.state !== 'dwell' || a.sitting || a.hidden) continue;
+    if (!a.char || !a.char.userData || !a.char.userData.charIdle) continue;
+    const featured = a.kind === 'vignette' || a.kind === 'frontage';
+    ranked.push({ a, pri: featured ? 0 : 1 });
+  }
+  ranked.sort((x, y) => x.pri - y.pri || x.a.idx - y.a.idx);
+  return ranked.slice(0, cap).map(x => x.a);
+}
+
 // Shop fronts face the play camera at z ≈ 3.6. These stands are on the
 // pavement side of the door, clear of the café threshold. `seat` is a
 // chair inside the open shell (shopGroup front at z 3.6, local +z toward
@@ -770,6 +799,14 @@ export class StreetLife {
       if (walk) (out.busker ??= []).push({ scene: m.scene, walk });
     } catch {}
     assignDonorWalk(out, donorWalk);
+    try {
+      const res = await fetch(new URL('../assets/polyfork/idles.json', import.meta.url));
+      if (res.ok) {
+        const data = await res.json();
+        const clips = (data.clips || []).map(c => THREE.AnimationClip.parse(c)).filter(c => c.tracks.length);
+        assignIdles(out, clips);
+      }
+    } catch { /* no idles: dwellers keep the frozen stride */ }
     this._charTemplates = out;
   }
 
@@ -779,7 +816,7 @@ export class StreetLife {
   // A template without a clip keeps the old sine bob. Once the stride has
   // settled to a stand, the mixer is skipped — re-skinning a frozen pose
   // every frame is pure waste on a dwelling crowd.
-  _driveChar(a, walking, stepScale, reduced) {
+  _driveChar(a, walking, stepScale, reduced, playIdle = false) {
     const g = a.char;
     const mixer = g.userData.charMixer;
     if (!mixer) {
@@ -787,10 +824,25 @@ export class StreetLife {
       return;
     }
     const action = g.userData.charAction;
-    const target = (walking && !reduced)
-      ? Math.max(0.6, Math.min(1.5, (a.gait?.freq || 5) / 5)) : 0;
-    action.timeScale += (target - action.timeScale) * Math.min(1, stepScale * 5);
-    const settled = action.timeScale < 0.005;
+    const idle = g.userData.charIdle;
+    const wantIdle = !!(idle && playIdle && !reduced && !walking);
+    if (idle) {
+      const idleTarget = wantIdle ? 1 : 0;
+      const k = Math.min(1, stepScale * 4);
+      idle.weight += (idleTarget - idle.weight) * k;
+      if (idle.weight < 0.001) idle.weight = 0;
+      if (idle.weight > 0.999) idle.weight = 1;
+      if (action) action.weight = 1 - idle.weight;
+    }
+    let settled = true;
+    if (action) {
+      const target = (walking && !reduced)
+        ? Math.max(0.6, Math.min(1.5, (a.gait?.freq || 5) / 5)) : 0;
+      action.timeScale += (target - action.timeScale) * Math.min(1, stepScale * 5);
+      settled = action.timeScale < 0.005 && (!idle || idle.weight < 0.01);
+    } else {
+      settled = !idle || idle.weight < 0.01;
+    }
     if (settled && g.userData.charSettled) return; // frozen pose already applied
     mixer.update(stepScale);
     const pin = g.userData.hipsPin;
@@ -805,21 +857,42 @@ export class StreetLife {
     const tpl = ok && ok[agent.idx % Math.max(1, ok.length)];
     if (!tpl) return null;
     const g = tpl.scene.clone(true);
+    // SkinnedMesh.copy keeps the template's skeleton. Without a rebind the
+    // mixer poses the clone's bones and the mesh keeps drawing the shared
+    // rest pose, so a walk or an idle never reaches the screen.
+    g.traverse(mesh => {
+      if (!mesh.isSkinnedMesh || !mesh.skeleton) return;
+      const bones = mesh.skeleton.bones.map(b => g.getObjectByName(b.name));
+      if (bones.some(b => !b)) return;
+      mesh.bind(new THREE.Skeleton(bones, mesh.skeleton.boneInverses), mesh.bindMatrix);
+    });
     g.scale.setScalar(CHAR_SCALE);
     g.position.set(agent.pos.x, 0, agent.pos.z);
     g.rotation.y = agent.face;
-    if (tpl.walk) {
+    if (tpl.walk || (tpl.idles && tpl.idles.length)) {
       // The stride lives on the clone: the update loop eases its timeScale
       // in and out. A deterministic per-agent offset (idx, no rng) keeps
-      // the street from marching in lockstep.
+      // the street from marching in lockstep. An idle, when the template
+      // has one, starts silent and takes over only while the figure dwells.
       const mixer = new THREE.AnimationMixer(g);
-      const action = mixer.clipAction(tpl.walk);
-      action.setLoop(THREE.LoopRepeat, Infinity);
-      action.time = (agent.idx * 0.37) % tpl.walk.duration;
-      action.timeScale = 0;
-      action.play();
+      if (tpl.walk) {
+        const action = mixer.clipAction(tpl.walk);
+        action.setLoop(THREE.LoopRepeat, Infinity);
+        action.time = (agent.idx * 0.37) % tpl.walk.duration;
+        action.timeScale = 0;
+        action.play();
+        g.userData.charAction = action;
+      }
+      if (tpl.idles && tpl.idles.length) {
+        const clip = tpl.idles[agent.idx % tpl.idles.length];
+        const idle = mixer.clipAction(clip);
+        idle.setLoop(THREE.LoopRepeat, Infinity);
+        idle.time = (agent.idx * 0.53) % clip.duration;
+        idle.weight = 0;
+        idle.play();
+        g.userData.charIdle = idle;
+      }
       g.userData.charMixer = mixer;
-      g.userData.charAction = action;
       // Root-drift insurance: the clip may translate the hips; keep its
       // vertical bob, pin its x/z to the authored rest spot.
       const hips = g.getObjectByName('Hips');
@@ -1265,6 +1338,7 @@ export class StreetLife {
     const stepScale = Math.max(0, Number(dt) || 0);
     const mul = Number(walkMul) > 0 ? walkMul : 1;
     const dwellScale = Math.max(1, Math.min(mul, 4));
+    const idling = new Set(reduced ? [] : pickIdleAgents(this.agents));
     for (const a of this.agents.slice()) {
       if (!a.active) continue;
       let walking = false;
@@ -1341,7 +1415,7 @@ export class StreetLife {
         a.char.visible = !a.hidden;
         a.char.position.set(a.pos.x, a.hidden ? -50 : 0, a.pos.z);
         a.char.rotation.y = a.face;
-        this._driveChar(a, walking, stepScale, !!reduced);
+        this._driveChar(a, walking, stepScale, !!reduced, idling.has(a) && !walking);
       }
     }
     for (const part of Object.values(this.parts)) part.instanceMatrix.needsUpdate = true;
@@ -1820,6 +1894,7 @@ export class StreetLife {
       try {
         const m = agent.char.userData.charMixer;
         if (m) { m.stopAllAction(); m.uncacheRoot(agent.char); }
+        agent.char.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.dispose(); });
         this.scene.remove(agent.char);
       } catch {}
       agent.char = null;

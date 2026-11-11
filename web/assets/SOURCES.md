@@ -41,6 +41,17 @@ the root so the texture resolves.
   MeshStandardMaterial. Sky-only variant keeps the horizon clean for the
   shader sky dome. API: https://api.polyhaven.com
 
+## polyfork/idles.json — Rokoko everyday idles, retargeted
+
+Three 5-second loops (IdleChat, IdleWatch, IdleLook) baked by
+`tools/retarget-rokoko-idles.mjs` from Rokoko's free everyday-idle pack
+(FBX, Mixamo skeleton, 30 fps, commercial use — the source zip is not
+committed): https://www.rokoko.com/resources/rokoko-mocap-10-free-everyday-idle-animations
+
+Retargeted onto the shared Polyfork body bones (fingers and face dropped).
+Street dwellers play one, chosen by `idx`, up to eight at a time. The
+busker is left on his authored pose.
+
 ## polyfork/ — Polyfork free catalogue (vendored by tools/vendor-polyfork.mjs)
 
 Per-asset pages and licence: https://polyfork.dev (free low-poly tier:

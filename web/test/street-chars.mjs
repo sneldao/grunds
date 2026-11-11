@@ -8,7 +8,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
-import { StreetLife, assignDonorWalk } from '../js/streetLife.js';
+import { readFileSync } from 'node:fs';
+import { StreetLife, assignDonorWalk, assignIdles, pickIdleAgents, IDLE_CAP } from '../js/streetLife.js';
 
 // A minimal stand-in rig: just the bones the clip targets.
 function fakeRig(name = 'figure') {
@@ -144,6 +145,98 @@ test('despawn stops and uncaches the mixer', () => {
   assert.equal(a.char, null);
   assert.ok(!s.scene.children.includes(char), 'the clone left the scene');
   assert.equal(mixer._nActiveActions, 0, 'no action left running after despawn');
+});
+
+function fakeIdle(duration = 1) {
+  // Held off the rest pose the whole way, so the assertion does not
+  // depend on which phase idx lands on.
+  const track = new THREE.QuaternionKeyframeTrack('LeftArm.quaternion',
+    [0, duration],
+    [0, 0, 0.38, 0.925, 0, 0, 0.38, 0.925]);
+  return new THREE.AnimationClip('IdleChat', duration, [track]);
+}
+function rigWithArm() {
+  const root = fakeRig();
+  const arm = new THREE.Object3D();
+  arm.name = 'LeftArm';
+  root.getObjectByName('Spine').add(arm);
+  return root;
+}
+
+test('assignIdles shares the clips and leaves the busker posed', () => {
+  const clips = [fakeIdle(), fakeIdle()];
+  const tpl = {
+    commuters: [{ scene: fakeRig(), walk: fakeWalk() }],
+    busker: [{ scene: fakeRig(), walk: null }],
+  };
+  assignIdles(tpl, clips);
+  assert.equal(tpl.commuters[0].idles, clips);
+  assert.equal(tpl.busker[0].idles, undefined);
+  assignIdles(tpl, []);
+  assert.equal(tpl.commuters[0].idles, clips, 'an empty pack changes nothing');
+});
+
+test('a dwelling figure eases into its idle; walking and reduced motion do not', () => {
+  const idle = fakeIdle(1);
+  const s = life({ commuters: [{ scene: rigWithArm(), walk: fakeWalk(1), idles: [idle, idle, idle] }] });
+  const a = agent(1);
+  a.char = s._charFor(a);
+  const arm = a.char.getObjectByName('LeftArm');
+  assert.equal(a.char.userData.charIdle.getClip().name, 'IdleChat');
+  assert.equal(a.char.userData.charIdle.weight, 0);
+  // idx 1 of 3 clips is the second idle — deterministic, not a draw
+  assert.equal(a.char.userData.charIdle.getClip(), idle);
+  for (let i = 0; i < 90; i++) s._driveChar(a, false, 1 / 60, false, true);
+  assert.ok(a.char.userData.charIdle.weight > 0.95, 'the idle takes the pose');
+  assert.ok(a.char.userData.charAction.weight < 0.05, 'the frozen stride steps aside');
+  assert.ok(arm.quaternion.z > 0.05, 'the idle actually moves the arm');
+  assert.equal(a.char.userData.charSettled, false, 'an idle keeps the mixer awake');
+  for (let i = 0; i < 30; i++) s._driveChar(a, true, 1 / 60, false, false);
+  assert.ok(a.char.userData.charIdle.weight < 0.5, 'walking fades the idle back out');
+  // reduced motion never raises it
+  const b = agent(2);
+  b.char = s._charFor(b);
+  for (let i = 0; i < 60; i++) s._driveChar(b, false, 1 / 60, true, true);
+  assert.ok(b.char.userData.charIdle.weight < 0.05, 'reduced motion stays on the rest pose');
+});
+
+test('pickIdleAgents prefers a vignette and stops at the cap', () => {
+  function dweller(idx, kind, extra = {}) {
+    return Object.assign({
+      active: true, walking: false, state: 'dwell', sitting: false, hidden: false,
+      idx, kind, char: { userData: { charIdle: {} } },
+    }, extra);
+  }
+  const crowd = [];
+  for (let i = 0; i < IDLE_CAP + 2; i++) crowd.push(dweller(i, 'queue'));
+  crowd.push(dweller(40, 'vignette'));
+  const picked = pickIdleAgents(crowd);
+  assert.equal(picked.length, IDLE_CAP);
+  assert.equal(picked[0].idx, 40, 'a vignette stander is ahead of the queue');
+  assert.ok(!picked.some(a => a.idx === IDLE_CAP), 'the cap leaves someone out');
+  assert.equal(pickIdleAgents([dweller(1, 'queue', { walking: true })]).length, 0);
+  assert.equal(pickIdleAgents([dweller(1, 'queue', { sitting: true })]).length, 0);
+});
+
+test('the baked idles are closed loops on the Polyfork bone names', () => {
+  const data = JSON.parse(readFileSync(new URL('../assets/polyfork/idles.json', import.meta.url), 'utf8'));
+  const clips = data.clips.map(c => THREE.AnimationClip.parse(c));
+  assert.deepEqual(clips.map(c => c.name), ['IdleChat', 'IdleWatch', 'IdleLook']);
+  for (const clip of clips) {
+    assert.equal(clip.duration, 5);
+    const arm = clip.tracks.find(t => t.name === 'LeftArm.quaternion');
+    assert.ok(arm, clip.name + ' targets LeftArm');
+    assert.equal(clip.tracks.some(t => t.name.startsWith('mixamorig')), false);
+    const n = arm.values.length;
+    for (let i = 0; i < 4; i++) assert.equal(arm.values[i], arm.values[n - 4 + i], clip.name + ' loop closes');
+    const root = rigWithArm();
+    const mixer = new THREE.AnimationMixer(root);
+    const armClip = new THREE.AnimationClip(clip.name, clip.duration, [arm]);
+    mixer.clipAction(armClip).play();
+    mixer.setTime(2.5);
+    const q = root.getObjectByName('LeftArm').quaternion;
+    assert.ok(Math.hypot(q.x, q.y, q.z) > 0.02, clip.name + ' moves the arm off the rest pose');
+  }
 });
 
 test('driving a char never draws the street rng', () => {
