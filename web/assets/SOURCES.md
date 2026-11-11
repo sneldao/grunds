@@ -133,6 +133,15 @@ barista-rodin-low-rigged (--rig model-upload path: human template, core
 skinning, skinned JOINTS/WEIGHTS, no clips),
 barista-rodin-walk (same rig + human_sp/walking preset: 1 clip, 104
 channels, 2 s — the donor-walk-killer test, awaiting in-engine playback).
+In-engine proof (ego-browser live session, day-2 paused street, insert-view
+close-ups via rig.focus view+hold): proof-stand-present.png (stall renders
+on the pavement by the piano — wood, striped awning, bean bags, legible
+chalkboard) + proof-stand-absent-control.png (same framing with H3_*
+hidden — stall gone, so the pixels are ours, not dressing) +
+proof-barista-fullbody.png (walk GLB full figure, blue cap/apron, skinned
+mesh + clip bound, mixer.setTime drives the pose). Verdict: Rodin earns
+the describe-path stand slot; espresso v2 + walk-clip viable, final call
+needs a side-by-side against incumbents.
 Rigging note: asset_id submits on raw Rodin geometry fail in-job with
 "Invalid input" (no confirmed model/texture); the tool auto-retries as a
 model upload, which works and preserves PBR materials — the A/B spike (espresso machine
