@@ -79,16 +79,18 @@ export function orderWeight(id, weight, prices) {
   return w * Math.min(1.8, Math.max(0.2, 1 - tilt));
 }
 
-// rollDrink(cohort, offered, rng, prices) — weighted pick among offered
-// drinks. offered is {id: bool}; an 86 drops the drink before the weights
-// run. prices, when passed, shift those weights inside the ±£1 band.
+// rollDrink(cohort, offered, rng, prices, bias) — weighted pick among
+// offered drinks. offered is {id: bool}; an 86 drops the drink before the
+// weights run. prices, when passed, shift those weights inside the ±£1
+// band. bias ({drinkId: mult}) leans the mix for the day's coffee capital
+// (street.js capitalDrinks) — it multiplies after price, never removes.
 // Matcha is always offered (the Brief forbids 86ing it).
-export function rollDrink(cohort, offered = null, rng = Math.random, prices = null) {
+export function rollDrink(cohort, offered = null, rng = Math.random, prices = null, bias = null) {
   const weights = COHORT_ORDERS[cohort] || COHORT_ORDERS.commuters;
   const open = DRINK_IDS.filter(id => id === 'matcha' || (offered ? offered[id] !== false : true));
   const pool = open.filter(id => (weights[id] ?? 0) > 0);
   const from = pool.length ? pool : open;
-  const wOf = (id) => orderWeight(id, weights[id] ?? 1, prices);
+  const wOf = (id) => orderWeight(id, weights[id] ?? 1, prices) * (bias?.[id] ?? 1);
   const total = from.reduce((s, id) => s + wOf(id), 0);
   let r = rng() * total;
   for (const id of from) {

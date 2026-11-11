@@ -28,6 +28,7 @@ export class PatronSystem {
     this.regulars = regulars;     // for named-patron flagging
     this.walkins = walkins;       // Phase 1 — day-pool of generated walk-in heads
     this.menuOffered = null;      // Phase 3 — {drink: bool} 86 board (null = everything offered)
+    this.drinkBias = null;        // capital of the day — {drinkId: mult} for rollDrink (street.js capitalDrinks); null = neutral mix
     // Phase 3 — live board prices (set at dawn); null = base
     this.menuPrices = null;       // live menu; matcha is overwritten by the board
     this.priceMult = 1;           // shock price multiplier, separate from the menu
@@ -289,12 +290,12 @@ export class PatronSystem {
     let drink, firstChoice = null, turnedAway = false;
     if (has86) {
       const probe = ((n) => { let s = (n >>> 0) || 1; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; })((this._boardProbe = (this._boardProbe || 0) + 1) * 2654435761);
-      firstChoice = rollDrink(cohort, null, probe);
+      firstChoice = rollDrink(cohort, null, probe, null, this.drinkBias);
       if (offered[firstChoice] === false && firstChoice !== 'matcha' && probe() < eightySixedShare(ECON)) {
         turnedAway = true;
       }
     }
-    drink = rollDrink(cohort, this.menuOffered, this.random, this._orderPrices());
+    drink = rollDrink(cohort, this.menuOffered, this.random, this._orderPrices(), this.drinkBias);
     const p = {
       idx, active: true, cohort, zone,
       drink, wantsMatcha: drink === 'matcha',

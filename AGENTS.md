@@ -278,8 +278,13 @@
   — the day-1 capital's cart weighted ×2 against the neutral pair — so
   the kerb cart is the capital you landed in; no literal food carts.
   streetLife weights the piano vignette roll by `capital.piano`
-  (Oslo/Milan/Tokyo hear it most). Per-day cart rotation, capital-keyed
-  music, and ?city= capital mapping remain future work.
+  (Oslo/Milan/Tokyo hear it most). Each capital also carries `drinks`
+  ({drinkId: mult}, 0.7–1.4) — the causal layer: prepareDay sets
+  `patrons.drinkBias = capitalDrinks(seed, day)`, and rollDrink's new
+  `bias` param multiplies walk-in order weights after price. Roster
+  regulars keep their usuals; the bias moves walk-ins only. Per-day cart
+  rotation, capital-keyed music, and ?city= capital mapping remain
+  future work.
 
 ## Cosy street (footfall feedback, Nov 2)
 - Direction in VISION.md "The cosy street". Diagnosis: 100% of wave spawns

@@ -3,7 +3,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STREET, shopById, eventOrigin, originExposure, insightFor, streetForDay, CAPITALS, NEUTRAL_CARTS, capitalForDay, capitalCartPool } from '../js/street.js';
+import { STREET, shopById, eventOrigin, originExposure, insightFor, streetForDay, CAPITALS, NEUTRAL_CARTS, capitalForDay, capitalCartPool, capitalDrinks } from '../js/street.js';
+import { DRINK_IDS } from '../js/menu.js';
 import { NEIGHBOR_DOORS } from '../js/streetLife.js';
 import { EVENTS } from '../js/config.js';
 
@@ -135,4 +136,17 @@ test('street: the capital cart pool carries the landing capital, never food cart
   for (const id of pool) {
     assert.ok(!/hot-dog|elote|ice-cream|sopaipilla|ramen|mercado/.test(id), `${id} is a literal food cart`);
   }
+});
+
+test('street: the capital drink bias is bounded, valid, and deterministic', () => {
+  for (const cap of CAPITALS) {
+    assert.ok(cap.drinks && Object.keys(cap.drinks).length > 0, `${cap.id} must bias the drink mix`);
+    for (const [id, mult] of Object.entries(cap.drinks)) {
+      assert.ok(DRINK_IDS.includes(id), `${cap.id} biases unknown drink ${id}`);
+      assert.ok(mult >= 0.5 && mult <= 1.5, `${cap.id}/${id} bias ${mult} outside the lean band`);
+    }
+  }
+  const bias = capitalDrinks(7, 3);
+  assert.equal(bias, capitalForDay(7, 3).drinks, 'capitalDrinks is the day capital\'s own map');
+  assert.equal(capitalDrinks(7, 3), capitalDrinks(7, 3), 'deterministic per seed+day');
 });

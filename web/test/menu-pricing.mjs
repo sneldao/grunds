@@ -65,6 +65,33 @@ test('Phase 3 · rollDrink respects 86s and seeds', () => {
   assert.equal(a, b);
 });
 
+// (3b) The capital bias leans the mix without removing a drink
+test('Phase 3 · rollDrink applies the capital drink bias', () => {
+  // commuters: espresso 5, flatwhite 3, filter 1, matcha 1 → total 10.
+  // A flatwhite ×4 bias makes it dominant; espresso ×0 starves it out of
+  // first pick but never out of the pool.
+  const flatHeavy = { flatwhite: 4 };
+  const espressoLight = { espresso: 0.2 };
+  let fw = 0, esp = 0, N = 4000;
+  for (let i = 0; i < N; i++) {
+    const d = rollDrink('commuters', null, () => (i * 0.6180339887) % 1, null, flatHeavy);
+    if (d === 'flatwhite') fw++; else if (d === 'espresso') esp++;
+  }
+  assert.ok(fw / N > 0.6, `flatwhite should dominate under ×4 bias (got ${fw / N})`);
+  esp = 0;
+  for (let i = 0; i < N; i++) {
+    const d = rollDrink('commuters', null, () => (i * 0.6180339887) % 1, null, espressoLight);
+    if (d === 'espresso') esp++;
+  }
+  assert.ok(esp / N < 0.25, `espresso should thin under ×0.2 bias (got ${esp / N})`);
+  // bias never empties the pool: every drink still rolls sometimes
+  const seen = new Set();
+  for (let i = 0; i < 2000; i++) seen.add(rollDrink('commuters', null, () => (i * 0.7548776662) % 1, null, { espresso: 0.1, flatwhite: 0.1, filter: 0.1, matcha: 0.1 }));
+  assert.equal(seen.size, 4, 'a heavy bias must not remove drinks');
+  // null bias is the old weights, bit-identical
+  assert.equal(rollDrink('commuters', null, () => 0.1), rollDrink('commuters', null, () => 0.1, null, null));
+});
+
 // (4) Price bands: ±£1.00, cent-rounded
 test('Phase 3 · clampPrice holds the band', () => {
   assert.equal(PRICE_STEP, 0.20);
@@ -80,7 +107,7 @@ test('Phase 3 · clampPrice holds the band', () => {
 // (5) Spawn orders by cohort, wantsMatcha stays consistent
 test('Phase 3 · spawn rolls cohort drinks; wantsMatcha follows the drink', () => {
   assert.match(patrons, /rollDrink\(cohort, this\.menuOffered, this\.random/);
-  assert.match(patrons, /rollDrink\(cohort, this\.menuOffered, this\.random, this\._orderPrices\(\)\)/);
+  assert.match(patrons, /rollDrink\(cohort, this\.menuOffered, this\.random, this\._orderPrices\(\), this\.drinkBias\)/);
   assert.match(patrons, /drink, wantsMatcha: drink === 'matcha'/);
   assert.match(patrons, /menuOffered = null/);
 });

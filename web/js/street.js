@@ -309,18 +309,25 @@ export function neighborQueues(boards, seed, day) {
 // played — quiet, classical capitals hear it more.
 export const CAPITALS = [
   { id: 'santiago',   name: 'Santiago',    cart: 'mote-con-huesillo-stand-d628d1', piano: 0.10,
+    drinks: { filter: 1.3, espresso: 0.85 },
     line: 'Santiago today — mote con huesillo on the kerb, toasted wheat with the coffee.' },
   { id: 'melbourne',  name: 'Melbourne',   cart: 'flower-seller-s-hand-d617f9',     piano: 0.04,
+    drinks: { flatwhite: 1.4, espresso: 0.9 },
     line: 'Melbourne today — laneway flowers on the pavement, flat whites inside.' },
   { id: 'oslo',       name: 'Oslo',        cart: null, piano: 0.12,
+    drinks: { filter: 1.3, matcha: 0.8 },
     line: 'Oslo today — light roasts and longer light; the street keeps it pale.' },
   { id: 'tokyo',      name: 'Tokyo',       cart: null, piano: 0.12,
+    drinks: { espresso: 1.3, filter: 0.85 },
     line: 'Tokyo today — quiet bars and precise pours; the street minds the detail.' },
   { id: 'istanbul',   name: 'Istanbul',    cart: null, piano: 0.05,
+    drinks: { espresso: 1.35, flatwhite: 0.7 },
     line: 'Istanbul today — thick coffee in small cups, and the talk is stronger.' },
   { id: 'milan',      name: 'Milan',       cart: null, piano: 0.14,
+    drinks: { espresso: 1.4, filter: 0.75 },
     line: 'Milan today — espresso at the counter, no fuss, everyone knows the regular.' },
   { id: 'addis',      name: 'Addis Ababa', cart: null, piano: 0.03,
+    drinks: { filter: 1.3, matcha: 0.7 },
     line: 'Addis Ababa today — the coffee ceremony: three rounds, no rush.' },
 ];
 // Capitals without a signature cart draw from the shared kerb pool: the
@@ -335,6 +342,14 @@ export function capitalForDay(seed, day) {
 export function capitalCartPool(seed) {
   const cap = capitalForDay(seed, 1);
   return cap.cart ? [cap.cart, cap.cart, ...NEUTRAL_CARTS] : NEUTRAL_CARTS.slice();
+}
+// What the street orders today: the capital's drink bias, as per-drink
+// weight multipliers for rollDrink (menu.js). Missing keys are 1.0 — the
+// capital leans the mix, it never removes a drink. Roster regulars keep
+// their usuals; the bias moves walk-ins only, which is the causal read:
+// in Milan they queue for espresso, your regulars still want their usual.
+export function capitalDrinks(seed, day) {
+  return capitalForDay(seed, day).drinks || null;
 }
 
 // Street theatre is attention made visible (VISION.md pillar 2 → pillar 3).

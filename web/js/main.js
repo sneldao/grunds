@@ -33,7 +33,7 @@ import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS, seedCityNames, seedCastNames, castName } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
-import { streetForDay, boardLine, neighborQueues, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells, planTheatre, theatreAt, capitalForDay } from './street.js';
+import { streetForDay, boardLine, neighborQueues, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells, planTheatre, theatreAt, capitalForDay, capitalDrinks } from './street.js';
 import { anchorFrom, resolveSnapshot, loadCachedSnapshot, cacheSnapshot, fetchMarketSnapshot, FRED_KEY_KEY } from './marketSnapshot.js';
 import { fetchCityWeather, loadCachedWeather, cacheWeather, cacheFresh, resolveClimate } from './weatherSnapshot.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
@@ -4943,6 +4943,9 @@ function prepareDay(d) {
   capturePreDawn(d);
   phase = 'planning';
   day = d;
+  // The coffee capital of the day leans what walk-ins order (street.js
+  // capitalDrinks → rollDrink bias). Regulars keep their usuals.
+  patrons.drinkBias = capitalDrinks(seedNow(), d);
   climate = climateNow();
   street.climate = climate;
   try { world.setRain?.(climateRain(climate, null)); } catch {}
