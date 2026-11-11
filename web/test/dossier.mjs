@@ -134,7 +134,7 @@ test('Phase 1 · Say hello is daily-gated and reset per day', () => {
   assert.match(main, /const greetedToday = new Set\(\)/);
   const pidx = main.indexOf('function prepareDay');
   assert.ok(pidx > 0);
-  assert.match(main.slice(pidx, pidx + 1500), /greetedToday\.clear\(\)/);
+  assert.match(main.slice(pidx, pidx + 2600), /greetedToday\.clear\(\)/);
   const ridx = main.indexOf('function reset(');
   assert.ok(ridx > 0);
   assert.match(main.slice(ridx, ridx + 3400), /greetedToday\.clear\(\)/);

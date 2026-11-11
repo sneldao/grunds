@@ -300,6 +300,43 @@ export function neighborQueues(boards, seed, day) {
   return out;
 }
 
+// The coffee capital the street is living in today (VISION.md: "a different
+// coffee capital each day of the week"). Pure function of (seed, day) — the
+// same tellHash idiom as the theatre timetable — so the day names a place,
+// the district cart answers to it, and replays agree. `cart` is the
+// capital's signature kerb cart (a vendored Polyfork id); capitals without
+// one share NEUTRAL_CARTS. `piano` weights how often the street piano gets
+// played — quiet, classical capitals hear it more.
+export const CAPITALS = [
+  { id: 'santiago',   name: 'Santiago',    cart: 'mote-con-huesillo-stand-d628d1', piano: 0.10,
+    line: 'Santiago today — mote con huesillo on the kerb, toasted wheat with the coffee.' },
+  { id: 'melbourne',  name: 'Melbourne',   cart: 'flower-seller-s-hand-d617f9',     piano: 0.04,
+    line: 'Melbourne today — laneway flowers on the pavement, flat whites inside.' },
+  { id: 'oslo',       name: 'Oslo',        cart: null, piano: 0.12,
+    line: 'Oslo today — light roasts and longer light; the street keeps it pale.' },
+  { id: 'tokyo',      name: 'Tokyo',       cart: null, piano: 0.12,
+    line: 'Tokyo today — quiet bars and precise pours; the street minds the detail.' },
+  { id: 'istanbul',   name: 'Istanbul',    cart: null, piano: 0.05,
+    line: 'Istanbul today — thick coffee in small cups, and the talk is stronger.' },
+  { id: 'milan',      name: 'Milan',       cart: null, piano: 0.14,
+    line: 'Milan today — espresso at the counter, no fuss, everyone knows the regular.' },
+  { id: 'addis',      name: 'Addis Ababa', cart: null, piano: 0.03,
+    line: 'Addis Ababa today — the coffee ceremony: three rounds, no rush.' },
+];
+// Capitals without a signature cart draw from the shared kerb pool: the
+// barrel organ is the street's own music, the wooden cart is honest market.
+export const NEUTRAL_CARTS = ['barrel-organ-cart-30799d', 'wooden-cart-bf83d8'];
+export function capitalForDay(seed, day) {
+  const h = tellHash(seed, (day | 0) + 1, 'capital');
+  return CAPITALS[Math.floor(h * CAPITALS.length)];
+}
+// The cart pool a district seed deals from: the capital the street landed
+// in (day 1) gets its signature cart weighted in, plus the neutral pair.
+export function capitalCartPool(seed) {
+  const cap = capitalForDay(seed, 1);
+  return cap.cart ? [cap.cart, cap.cart, ...NEUTRAL_CARTS] : NEUTRAL_CARTS.slice();
+}
+
 // Street theatre is attention made visible (VISION.md pillar 2 → pillar 3).
 // When the street gathers around something, that attention is a tide the
 // frontage can catch: passers-by linger, heads turn, and a hesitator at the

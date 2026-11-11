@@ -33,7 +33,7 @@ import { Regulars } from './regulars.js';
 import { WalkinPool, womReturnees, dossierLines, stageFor, stageLabel, feeling, CANON_DRINKS, seedCityNames, seedCastNames, castName } from './identity.js';
 import { profileView, CAST_PROFILES } from './cast.js';
 import { planAttendance, incidentCost, ABSENCE_WORD, rivalCrossNotice } from './consequences.js';
-import { streetForDay, boardLine, neighborQueues, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells, planTheatre, theatreAt } from './street.js';
+import { streetForDay, boardLine, neighborQueues, ORIGINS, originDef, validOrigin, originKey, originPull, houseRead, rivalTells, planTheatre, theatreAt, capitalForDay } from './street.js';
 import { anchorFrom, resolveSnapshot, loadCachedSnapshot, cacheSnapshot, fetchMarketSnapshot, FRED_KEY_KEY } from './marketSnapshot.js';
 import { fetchCityWeather, loadCachedWeather, cacheWeather, cacheFresh, resolveClimate } from './weatherSnapshot.js';
 import { isQuiet, QUIET_MUL } from './pace.js';
@@ -3849,6 +3849,9 @@ function renderStreetBrief() {
       if (!campaignDone) {
         for (const t of rivalTells(exchange.peek(currentIntelBias()), seedNow(), day)) lines.push(t.line);
       }
+      // The coffee capital of the day (street.js capitalForDay) — the
+      // street's flavour read, above the shop rows.
+      lines.push(capitalForDay(seedNow(), day).line);
       for (const r of rows) {
         if (r.id === 'player') continue;
         if (r.insight) lines.push(`${r.name}: ${r.insight.line}`);

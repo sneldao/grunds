@@ -14,7 +14,7 @@ import * as THREE from '../vendor/three.module.js';
 import { LAYOUT } from '../js/config.js';
 import { StreetLife, VIGNETTE_SPOTS, NEIGHBOR_DOORS } from '../js/streetLife.js';
 
-export const THEATRE_ROLES = ['busker', 'chat', 'argue', 'catwatch', 'crowd', 'skater', 'dogwalk', 'delivery'];
+export const THEATRE_ROLES = ['busker', 'chat', 'argue', 'catwatch', 'crowd', 'skater', 'dogwalk', 'delivery', 'pianist'];
 
 function drive(seed, ticks, { lite = false } = {}) {
   const s = new StreetLife(new THREE.Group(), { lite });
@@ -73,6 +73,29 @@ test('cat-watch forms around the bench cat and holds its own gate', () => {
   assert.ok(dwellPt, 'watcher has a dwell point');
   assert.ok(dwellPt.z > 7.9 && dwellPt.z < 8.8, `watcher stands pavement-side of the cat (z ${dwellPt.z})`);
   assert.ok(Math.abs(dwellPt.x - 5.95) < 1.4, `watcher gathers near the cat (x ${dwellPt.x})`);
+});
+
+test('the street piano gets a pianist and a small crowd, once at a time', () => {
+  const s = new StreetLife(new THREE.Group(), {});
+  s.live = true;
+  s.beginDay(1, 41);
+  assert.ok(s._spawnPiano(), 'a piano session should form on an empty street');
+  const pianist = s.agents.find(a => a.vg === 'pianist');
+  assert.ok(pianist, 'a pianist dwells at the keys');
+  const dwellPt = pianist.path.find(p => p.dwell > 0);
+  assert.ok(dwellPt, 'the pianist has a dwell point');
+  assert.ok(Math.abs(dwellPt.x - LAYOUT.piano.x) < 0.01, `pianist centres on the piano (x ${dwellPt.x})`);
+  assert.ok(Math.abs(dwellPt.z - (LAYOUT.piano.z + 0.6)) < 0.01, `pianist stands street-side of the keys (z ${dwellPt.z})`);
+  const crowd = s.agents.filter(a => a.vg === 'crowd');
+  assert.ok(crowd.length >= 2 && crowd.length <= 4, `crowd size ${crowd.length}`);
+  for (const c of crowd) {
+    const cp = c.path.find(p => p.dwell > 0);
+    assert.ok(cp.z > 6.3 && cp.z < 7.2, `crowd gathers on the frontage, off the walking lane (z ${cp.z})`);
+  }
+  assert.ok(s.holds.has('vg:piano'), 'the session holds its gate');
+  assert.equal(s._spawnPiano(), null, 'one piano session at a time');
+  s._despawn(pianist);
+  assert.equal(s.holds.has('vg:piano'), false, 'the gate frees when the pianist leaves');
 });
 
 test('the skater crosses fast, one at a time, board under foot', () => {

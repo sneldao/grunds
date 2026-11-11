@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STREET, shopById, eventOrigin, originExposure, insightFor, streetForDay } from '../js/street.js';
+import { STREET, shopById, eventOrigin, originExposure, insightFor, streetForDay, CAPITALS, NEUTRAL_CARTS, capitalForDay, capitalCartPool } from '../js/street.js';
 import { NEIGHBOR_DOORS } from '../js/streetLife.js';
 import { EVENTS } from '../js/config.js';
 
@@ -108,4 +108,31 @@ test('street: determinism — same inputs, same street', () => {
   const a = JSON.stringify(streetForDay(frost, 0.033));
   const b = JSON.stringify(streetForDay(frost, 0.033));
   assert.equal(a, b);
+});
+
+test('street: the capital of the day is deterministic and rotates', () => {
+  for (const seed of [7, 42, 1999]) {
+    for (const day of [1, 3, 5]) {
+      const c = capitalForDay(seed, day);
+      assert.ok(CAPITALS.includes(c), `${seed}/${day} picked a capital off the roster`);
+      assert.equal(capitalForDay(seed, day), c, 'same seed+day must name the same capital');
+    }
+  }
+  const week = new Set([1, 2, 3, 4, 5, 6, 7].map(d => capitalForDay(7, d).id));
+  assert.ok(week.size > 1, 'a week should not sit in one capital');
+});
+
+test('street: the capital cart pool carries the landing capital, never food carts', () => {
+  const cap = capitalForDay(7, 1);
+  const pool = capitalCartPool(7);
+  assert.ok(pool.length >= NEUTRAL_CARTS.length);
+  if (cap.cart) {
+    assert.equal(pool.filter(id => id === cap.cart).length, 2, 'signature cart deals weighted');
+    for (const id of NEUTRAL_CARTS) assert.ok(pool.includes(id), 'neutral carts stay in the pool');
+  } else {
+    assert.deepEqual(pool, NEUTRAL_CARTS.slice(), 'no signature → the shared kerb pool');
+  }
+  for (const id of pool) {
+    assert.ok(!/hot-dog|elote|ice-cream|sopaipilla|ramen|mercado/.test(id), `${id} is a literal food cart`);
+  }
 });

@@ -1048,7 +1048,7 @@ export const PF_MANIFEST = {
     "glb": "plaza-fountain-5a5f6e.glb",
     "glb_bytes": 160060
   },
-  "_generated": "2026-10-31",
+  "_generated": "2026-11-11",
   "_source": "https://polyfork.dev — free low-poly catalogue; licence: commercial use, no attribution, no redistribution as assets",
   "hanging-shop-sign-18d2b0": {
     "title": "Hanging Shop Sign",
@@ -3636,5 +3636,290 @@ export const PF_MANIFEST = {
     "page": "https://polyfork.dev/asset/parrilla-cook-255918",
     "glb": "parrilla-cook-255918.glb",
     "glb_bytes": 907764
+  },
+  "barrel-organ-cart-30799d": {
+    "title": "Barrel Organ Cart",
+    "kit": "chile-fiestas-patrias-87e847",
+    "triangles": 938,
+    "size_m": {
+      "x": 1.65,
+      "y": 1.4,
+      "z": 0.94
+    },
+    "origin_y": 0,
+    "zones": {
+      "case": "#4d548d",
+      "trim": "#d1cdcd",
+      "accent": "#b12d3d",
+      "panel": "#d0bda6",
+      "gilt": "#afa253",
+      "timber": "#ad8665",
+      "pipes": "#b19c89",
+      "interior": "#33221c",
+      "feathers": "#7d8555",
+      "beak": "#bfaa97",
+      "eyes": "#1b110d",
+      "slips": "#bcb8bf"
+    },
+    "knobs": {
+      "parakeet": {
+        "type": "toggle",
+        "default": true
+      },
+      "wheelSize": {
+        "type": "range",
+        "default": 0.66,
+        "min": 0.56,
+        "max": 0.78
+      },
+      "spokes": {
+        "type": "range",
+        "default": 12,
+        "min": 8,
+        "max": 16
+      },
+      "wear": {
+        "type": "range",
+        "default": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "colorway": {
+        "type": "choice",
+        "default": "organillo",
+        "options": [
+          "organillo",
+          "granate",
+          "verde",
+          "crema"
+        ]
+      }
+    },
+    "night": {},
+    "pivots": [
+      "wheel-r",
+      "wheel-l",
+      "crank"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/barrel-organ-cart-30799d",
+    "glb": "barrel-organ-cart-30799d.glb",
+    "glb_bytes": 110272
+  },
+  "mote-con-huesillo-stand-d628d1": {
+    "title": "Mote con Huesillo Stand",
+    "kit": "chile-fiestas-patrias-87e847",
+    "triangles": 878,
+    "size_m": {
+      "x": 1.77,
+      "y": 2.08,
+      "z": 1.21
+    },
+    "origin_y": 0,
+    "zones": {
+      "timber": "#b8855a",
+      "canvas": "#e8e6e6",
+      "stripe": "#c5192e",
+      "sign": "#d6bea0",
+      "lettering": "#801310",
+      "glass": "#e0dee1",
+      "nectar": "#bb623b",
+      "huesillo": "#9b4b30",
+      "mote": "#c5aa91",
+      "steel": "#908788"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "dieciocho",
+        "options": [
+          "dieciocho",
+          "azul",
+          "lona",
+          "campo"
+        ]
+      },
+      "glasses": {
+        "type": "range",
+        "default": 5,
+        "min": 0,
+        "max": 8
+      },
+      "fill": {
+        "type": "range",
+        "default": 0.8,
+        "min": 0.1,
+        "max": 1
+      },
+      "pitch": {
+        "type": "range",
+        "default": 14,
+        "min": 4,
+        "max": 18
+      },
+      "label": {
+        "type": "choice",
+        "default": "mote-con-huesillo",
+        "options": [
+          "none",
+          "mote-con-huesillo",
+          "mote"
+        ]
+      },
+      "wear": {
+        "type": "range",
+        "default": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "tone": {
+        "type": "range",
+        "default": 0.35,
+        "min": 0,
+        "max": 1
+      }
+    },
+    "night": {},
+    "pivots": [],
+    "clips": [
+      {
+        "name": "tick",
+        "seconds": 3.4
+      }
+    ],
+    "page": "https://polyfork.dev/asset/mote-con-huesillo-stand-d628d1",
+    "glb": "mote-con-huesillo-stand-d628d1.glb",
+    "glb_bytes": 109780
+  },
+  "flower-seller-s-hand-d617f9": {
+    "title": "Flower Seller's Hand Cart",
+    "kit": "dia-de-muertos-f2f8f8",
+    "triangles": 2480,
+    "size_m": {
+      "x": 1,
+      "y": 1.35,
+      "z": 2
+    },
+    "origin_y": 0,
+    "zones": {
+      "paint": "#2f5fa8",
+      "letters": "#c98b3a",
+      "timber": "#7a5335",
+      "wear": "#a86a26",
+      "iron": "#2a2a30",
+      "bloom": "#f59a1e",
+      "gold": "#ffc23d",
+      "ember": "#c4530a",
+      "cockscomb": "#b03a6e",
+      "foliage": "#1e5334",
+      "paper": "#eee9e0",
+      "twine": "#cf9f6a",
+      "petal": "#e3760f",
+      "petalDry": "#8c4529",
+      "glass": "#cdc2a6",
+      "wax": "#f8f5ed",
+      "flame": "#ffd9a0",
+      "wick": "#0f1428"
+    },
+    "knobs": {
+      "colorway": {
+        "type": "choice",
+        "default": "cobalto",
+        "options": [
+          "cobalto",
+          "azul-anil",
+          "rosa-mexicano",
+          "ocre",
+          "verde-hacienda"
+        ]
+      },
+      "vigil": {
+        "type": "choice",
+        "default": "ofrenda",
+        "options": [
+          "before",
+          "ofrenda",
+          "dawn"
+        ]
+      },
+      "load": {
+        "type": "choice",
+        "default": "heap",
+        "options": [
+          "empty",
+          "bundles",
+          "heap"
+        ]
+      },
+      "lit": {
+        "type": "toggle",
+        "default": true
+      },
+      "boards": {
+        "type": "range",
+        "default": 3,
+        "min": 2,
+        "max": 4
+      },
+      "wheelSize": {
+        "type": "range",
+        "default": 0.72,
+        "min": 0.62,
+        "max": 0.82
+      },
+      "tone": {
+        "type": "range",
+        "default": 0.45,
+        "min": 0,
+        "max": 1
+      }
+    },
+    "night": {
+      "flame": {
+        "albedo": "#ffd9a0",
+        "color": "#ffd9a0",
+        "intensity": 1
+      },
+      "glass": {
+        "albedo": "#cdc2a6",
+        "color": "#f59a1e",
+        "intensity": 0.6
+      }
+    },
+    "pivots": [
+      "wheel-l",
+      "wheel-r"
+    ],
+    "clips": [
+      {
+        "name": "tick",
+        "seconds": 4
+      }
+    ],
+    "page": "https://polyfork.dev/asset/flower-seller-s-hand-d617f9",
+    "glb": "flower-seller-s-hand-d617f9.glb",
+    "glb_bytes": 286292
+  },
+  "wooden-cart-bf83d8": {
+    "title": "Wooden Cart",
+    "kit": "medieval-village-kit-ca0b43",
+    "triangles": 1746,
+    "size_m": {
+      "x": 1.57,
+      "y": 1.39,
+      "z": 2.52
+    },
+    "origin_y": 0,
+    "zones": {},
+    "knobs": {},
+    "night": {},
+    "pivots": [
+      "wheel-left",
+      "wheel-right"
+    ],
+    "clips": [],
+    "page": "https://polyfork.dev/asset/wooden-cart-bf83d8",
+    "glb": "wooden-cart-bf83d8.glb",
+    "glb_bytes": 197208
   }
 }

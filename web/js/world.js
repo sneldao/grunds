@@ -938,13 +938,14 @@ export function buildWorld(scene, renderer, lite, opts = {}) {
     .then(() => addContactShadow(scene, -10.5, 9.0, 1.5, 0.35, 0.26));
   place(scene, 'meshy/plant-cluster.glb', { position: [-7.4, 0.45, 8.95], rotationY: -0.4, scale: 0.9 })
     .then(() => addContactShadow(scene, -7.4, 8.95, 0.9, 0.7, 0.28));
-  place(scene, 'meshy/guitar-case.glb', { position: [12.0, 0.17, 8.9], rotationY: 2.6, scale: 0.65 })
-    .then(() => addContactShadow(scene, 12.0, 8.9, 0.8, 0.5, 0.26));
+  place(scene, 'meshy/guitar-case.glb', { position: [6.55, 0.17, 5.35], rotationY: 2.6, scale: 0.65 })
+    .then(() => addContactShadow(scene, 6.55, 5.35, 0.8, 0.5, 0.26));
   // Street piano — keys face +z (toward the pavement), verified from the
   // GLB's vertex spread: keyboard protrudes on +z, lid spans -z. Neutral
-  // ground between two rival doors, off the walking lane.
-  place(scene, 'meshy/street-piano.glb', { position: [5.8, 0.675, 4.7], rotationY: 0, scale: 1.35 })
-    .then(() => addContactShadow(scene, 5.8, 4.7, 1.4, 0.9, 0.3));
+  // ground between two rival doors, off the walking lane; the guitar case
+  // beside it is the street musician's, and streetLife's pianist dwells here.
+  place(scene, 'meshy/street-piano.glb', { position: [LAYOUT.piano.x, 0.675, LAYOUT.piano.z], rotationY: 0, scale: 1.35 })
+    .then(() => addContactShadow(scene, LAYOUT.piano.x, LAYOUT.piano.z, 1.4, 0.9, 0.3));
 
   // god rays — a tall translucent quad behind the café that fades with mist; used for frost/harvest mood
   W.godRayMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });

@@ -17,6 +17,7 @@ import { GLBLoader } from './loader.js';
 import { baseUrl } from './convexSync.js';
 import { seeded } from './exchange.js';
 import { loadPF } from './polyfork.js';
+import { capitalCartPool } from './street.js';
 
 // Slot → street position + target height in metres. The pavement reads as
 // three lanes: frontage strip (z ≤ ~7.0, against the shopfronts), a clear
@@ -29,7 +30,7 @@ export const SLOTS = {
   planter: { position: [-12.4, 0, 8.95], rotationY: 0, height: 0.8 },
   stall: { position: [-13.9, 0, 6.6], rotationY: 0.1, height: 2.1 },
   sign: { position: [2.0, 0, 5.6], rotationY: -0.1, height: 1.5 },
-  cart: { position: [9.9, 0, 8.95], rotationY: 0, height: 1.35 },
+  cart: { position: [9.9, 0, 8.95], rotationY: 0, height: 1.9 },
   // The hero piece — across the road on the far row, between the franchise
   // storefront (-3, 15.6) and the day-5 scaffold zone (-10, 15.9). Faces the
   // café; the lease/newbuild camera beats frame it beside the stand.
@@ -75,7 +76,9 @@ const PF_SLOTS = {
   planter: ['planter-trough-divider-1b0ead', 'flower-planter-550bfb', 'potted-olive-tree-7eee05'],
   stall: ['newsstand-6dfd65', 'market-stall-94937d'],
   sign: ['sandwich-board-sign-cb5e7c', 'hanging-shop-sign-18d2b0', 'yard-sign-f1882f', 'street-sign-pole-1e9551', 'projecting-shop-sign-aa1867', 'chalkboard-menu-board-a24d9d'],
-  cart: ['hot-dog-cart-115192', 'elote-cart-a8fb49', 'ice-cream-kiosk-on-40a568', 'sopaipilla-cart-712632'],
+  // cart is filled per campaign in growPfDistrict — the pool depends on
+  // the landing capital, which needs the live seed.
+  cart: [],
   fountain: ['campus-plaza-fountain-a0cab1', 'plaza-fountain-5a5f6e'],
 };
 
@@ -185,7 +188,12 @@ export function initDistrictGen({ scene, seed, classic, loader, city, polyfork, 
       if (++settled >= slots.length) { state.pending = false; maybeMarkGrown(); }
     };
     for (const [slot, s] of slots) {
-      const cands = PF_SLOTS[slot] || [];
+      // The kerb cart is the capital's cart: the street landed in one
+      // coffee capital (street.js capitalForDay, day 1) and its signature
+      // piece — mote con huesillo in Santiago, the flower cart in
+      // Melbourne — deals in weighted against the neutral pair. No
+      // literal food carts: every stand on this street is a coffee stand.
+      const cands = slot === 'cart' ? capitalCartPool(seed) : (PF_SLOTS[slot] || []);
       if (!cands.length) { settle(); continue; }
       const id = cands[Math.floor(rng() * cands.length)];
       const tint = PF_TINT_VARIANTS[Math.floor(rng() * PF_TINT_VARIANTS.length)];

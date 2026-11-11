@@ -15,6 +15,7 @@ import * as THREE from '../vendor/three.module.js';
 import { GLTFLoader } from '../vendor/loaders/GLTFLoader.js';
 import { COHORTS, COHORT_KEYS, LAYOUT, FRANCHISE } from './config.js';
 import { CLIMATES } from './climates.js';
+import { capitalForDay } from './street.js';
 
 export const STREET_CAP = { full: 30, lite: 12 };
 export const STREET_POOL_CAP = Math.ceil(STREET_CAP.full * Math.max(1, ...Object.values(CLIMATES).map(c => c.streetMul)));
@@ -1032,6 +1033,8 @@ export class StreetLife {
     this.demandGlass = glass;
     this.rowLots = lots;
     this.day = day || 1;
+    this.seed = seed;
+    this._capital = capitalForDay(seed, this.day);
     this.rng = mulberry32(mixSeed(seed, this.day));
     this.live = true;
     this._since = 0;
@@ -1108,6 +1111,10 @@ export class StreetLife {
     // The day's delivery: a hand-truck run to one of the street's doors,
     // rarest of the crossings — one at a time.
     if (!this.lite && !this._delivery && this.rng() < 0.05) this._spawnDelivery();
+    // The street piano plays on a capital-weighted roll — quiet classical
+    // capitals (Oslo, Milan, Tokyo) hear it more than market ones.
+    const pianoChance = 0.05 * (((this._capital && this._capital.piano) ?? 0.06) / 0.08);
+    if (!this.lite && !this.holds.has('vg:piano') && this.rng() < pianoChance) this._spawnPiano();
   }
 
   // Attention street (pillar 4, slice 2): the boards are real shops — their
@@ -1238,6 +1245,42 @@ export class StreetLife {
     if (!a1) return null;
     this._vgAnchor = a1;
     if (this.rng() < 0.7) mkWatcher(cat.x + 0.35, cat.z + 1.0, base * 0.7, null);
+    return true;
+  }
+
+  // The street piano's own theatre: a pianist dwells at the keys while a
+  // small crowd gathers on the frontage strip. The fixture is LAYOUT.piano
+  // (world.js places the GLB there), so it holds its own 'vg:piano' gate
+  // like catwatch rather than a VIGNETTE_SPOT. Capital-weighted in tick().
+  _spawnPiano() {
+    if (this.holds.has('vg:piano') || this.count >= this.cap) return null;
+    const p = LAYOUT.piano;
+    const edge = () => (this.rng() < 0.5 ? LAYOUT.spawnL.x : LAYOUT.spawnR.x);
+    const base = 18 + this.rng() * 12;
+    // Keys face +z, so the player stands street-side of the case (z + 0.6)
+    // facing back at them (-z → face π), and the crowd faces the same way.
+    const pianist = this._activate({
+      kind: 'vignette', lotId: null, hold: 'vg:piano', doorId: null, economic: false,
+      points: [
+        pt(edge(), LAYOUT.pavementZ),
+        pt(p.x, p.z + 0.6, { dwell: base + 18, face: Math.PI }),
+        pt(edge(), LAYOUT.pavementZ),
+      ],
+    }, false);
+    if (!pianist) return null;
+    pianist.vg = 'pianist';
+    this._vgAnchor = pianist;
+    const n = 2 + ((this.rng() * 2) | 0);
+    for (let i = 0; i < n; i++) {
+      const gx = p.x - 0.75 + i * 0.75 + (this.rng() - 0.5) * 0.2;
+      const gz = 6.55 + this.rng() * 0.35;
+      const face = Math.atan2(p.x - gx, (p.z + 0.4) - gz);
+      const w = this._activate({
+        kind: 'vignette', lotId: null, hold: null, doorId: null, economic: false,
+        points: [pt(edge(), LAYOUT.pavementZ), pt(gx, gz, { dwell: base - i * 4, face }), pt(edge(), LAYOUT.pavementZ)],
+      }, false);
+      if (w) w.vg = 'crowd';
+    }
     return true;
   }
 

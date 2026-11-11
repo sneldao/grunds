@@ -17,14 +17,14 @@ not world.js. The food kit GLBs
 the root so the texture resolves.
 
 - Kenney Furniture Kit (140 files) — https://kenney.nl/assets/furniture-kit
-  - placed: kitchenBar.glb, kitchenBarEnd.glb (the bar shell and the till)
-  - vendored, not placed in the room: kitchenCoffeeMachine.glb,
+  - vendored, not placed: kitchenBar.glb, kitchenBarEnd.glb, kitchenCoffeeMachine.glb,
     tableRound.glb, chairModernCushion.glb, stoolBar.glb,
     bookcaseClosedDoors.glb, sideTable.glb, lampRoundTable.glb, pottedPlant.glb
     (stools, tables, chairs, pendants, the shelf back, and the door pots
     are procedural walnut and brass in world.js)
 - Kenney Food Kit (200 files) — https://kenney.nl/assets/food-kit
-  - cup-coffee.glb, croissant.glb, cake.glb, mug.glb, carton.glb, bag.glb
+  - vendored, not placed: cup-coffee.glb, croissant.glb, cake.glb, mug.glb, carton.glb, bag.glb
+    (milk, beans, and batch cups on the bar are procedural plaster, walnut, and paper)
   - Textures/colormap.png (required external texture for the food GLBs)
 
 ## polyhaven/ — Poly Haven models (CC0 1.0, https://polyhaven.com/license)
@@ -84,6 +84,10 @@ web/js/polyforkManifest.js are generated; re-run the vendor script to update.
 - refreshment-kiosk-406f65 — Stadium kit
 - container-snack-kiosk-7036e5 — Skatepark kit
 - delivery-moped-1aa2ce — Little Tokyo kit
+- barrel-organ-cart-30799d, mote-con-huesillo-stand-d628d1 — Chile:
+  Fiestas Patrias kit
+- flower-seller-s-hand-d617f9 — Día de Muertos kit
+- wooden-cart-bf83d8 — Medieval Village kit
 
 Full zips (not committed): kept outside the repo during setup; re-download from
 the URLs above. Considered but deferred: Quaternius Sushi Restaurant Kit,

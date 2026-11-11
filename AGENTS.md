@@ -94,6 +94,10 @@
    the move, eases upright at the unload dwell, driven by timers only). Both
    get the walker's animated humanoid char. See `street-theatre.mjs`. Next:
    delivery/hand-truck vignette; rooftop dressing (tank/antennas/laundry).
+   Wave 3: the street piano at LAYOUT.piano — `_spawnPiano` dwells a
+   pianist street-side of the keys with a frontage crowd ('vg:piano' gate,
+   capital-weighted roll); the guitar case sits beside it as the
+   musician's.
 2. Camera grammar — espressoIns/caseIns use authored view positions and
    alone bypass the r>=18 scripted clamp; lowStreet reaches phi=1.5.
    Insert exits blend back over 0.8 s. matchcut holds through
@@ -264,7 +268,18 @@
   and `scout` read `__grunds.houseReadNow/tellsNow`. Findings are in
   VISION.md — more footfall made the risky houses worse; don't tune pull.
 - Not shipped: tells on the floor (chalkboard/queue), rivals changing sim
-  behaviour, supplier stand, capital parameter layer.
+  behaviour, supplier stand.
+- Coffee capital of the day (VISION.md "a different coffee capital each
+  day"): `capitalForDay(seed, day)` in street.js — pure tellHash pick over
+  CAPITALS (Santiago, Melbourne, Oslo, Tokyo, Istanbul, Milan, Addis
+  Ababa). Each capital carries a `line` (rendered in the Brief's street
+  block), a signature kerb `cart` (Polyfork id, null → NEUTRAL_CARTS), and
+  a `piano` weight. districtGen's cart slot deals `capitalCartPool(seed)`
+  — the day-1 capital's cart weighted ×2 against the neutral pair — so
+  the kerb cart is the capital you landed in; no literal food carts.
+  streetLife weights the piano vignette roll by `capital.piano`
+  (Oslo/Milan/Tokyo hear it most). Per-day cart rotation, capital-keyed
+  music, and ?city= capital mapping remain future work.
 
 ## Cosy street (footfall feedback, Nov 2)
 - Direction in VISION.md "The cosy street". Diagnosis: 100% of wave spawns
