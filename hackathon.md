@@ -511,6 +511,8 @@ video's call-to-action lands on a live feature, not a demo of one.
   `*.convex.cloud/api/storage/<uuid>` client-side, un-mirrored URLs fall back to the
   procedural path with no network request. Kills Convex data-egress cost. Refresh with
   `node tools/mirror-assets.mjs` after new generations land, then redeploy.
+  *(Superseded Nov 21 — persist writes Grove URLs onto the row directly;
+  mirror only catches Grove-outage fallbacks. See the Nov 21(2) entry.)*
 - *Details per commit; no fresh full-suite count claimed here — see the Current state box
   in the README and `npm test` on the tree.*
 

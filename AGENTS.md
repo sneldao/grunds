@@ -39,9 +39,10 @@
   Serving the ~40MB asset payload through Convex static hosting was the data-
   egress sink — never go back to a catch-all proxy. One-time per machine:
   `cd deploy/vercel-proxy && npx vercel link` (project `grunds-proxy`).
-- `upload:site` (Convex static hosting on `.convex.site`) is now only a
-  fallback mirror — each upload adds ~40MB to file storage and every page
-  load there is metered egress. Skip it unless the Vercel domain is down.
+- `upload:site` pushes the 3-file redirect bundle (`deploy/redirect/`) onto
+  `.convex.site` — KBs, not a site copy. It exists to keep the fallback
+  domain a bounce rather than a bytes-serving mirror; re-running it is
+  cheap and harmless. Uploading `-d dist` instead reopens the meter.
 
 ## Convex meters (egress + file storage)
 - THE RULE (Nov 21, ~880MB/mo egress → near cap): never serve bytes through

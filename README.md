@@ -12,7 +12,7 @@ sim builds it, then runs it as a persistent multiplayer world on Convex.
 
 **https://grunds.trustfall.xyz** — no install, plays in the browser (desktop + phone).
 The site is served from Vercel; only the `/sync`·`/district`·`/franchise`·`/city`·`/ai`·`/agentmail`·`/revenuecat`
-API prefixes proxy to Convex ([fallback mirror](https://striped-anaconda-746.convex.site));
+API prefixes proxy to Convex ([fallback domain](https://striped-anaconda-746.convex.site) — redirects here);
 connected mode runs the multiplayer backend with live commodity news in the wire.
 
 Demo video: `out/demo/demo.mp4` (70 s submission cut; harness `tools/demo-video.mjs`).
