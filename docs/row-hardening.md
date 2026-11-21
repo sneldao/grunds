@@ -105,10 +105,27 @@ lot table, not unbounded.
 - **Phase 3** (only if measured): offline texture bake; deferred
   stand-load queue; byte-budget policy
 
+## Live verification (2026-11-21, Vercel + convex dev)
+
+- Deploy live at grunds.trustfall.xyz; `ROW_MOD_TOKEN` armed on dev.
+- Fresh seed `777001` Pitch describe (`a small secondhand bookstall`,
+  byline `devin-verify`, spec `Page & Perk`): provider URL flipped to a
+  Grove `api.grove.storage` URL ~30 s after success — Grove-first persist
+  verified in production path.
+- Idempotent re-describe: `claimed:false`, original prompt/byline/model
+  untouched. Blocked word prompts and `http://` image input → `invalid`.
+- Remodel (`a tiny vinyl listening bar`, `remodel=1`): `remodeled:true`,
+  `remodels:1`, byline preserved despite a conflicting signature attempt;
+  new GLB landed on Grove; raw/graded/polyfork side-by-side confirms the
+  street grade mutes provider output toward the house palette.
+- Old tripoAssets row is unreferenced after remodel — future
+  `storage-audit`/`deleteMirrored` territory, no action needed now.
+
 ## Open decisions
 
 - Grade aggressiveness: warm multiply only vs shader desaturation
   (start with both at low strength, eyeball via stand-shots)
 - ~~Remodel allowed at all?~~ DECIDED: paid renovation, deed preserved
 - `ROW_MOD_TOKEN` shared-secret mutation acceptable as admin surface?
-  (shipped — set the env var when the mutation should go live)
+  (shipped — set the env var when the mutation should go live;
+  set it on prod too if traffic ever migrates to descriptive-ram-190)
