@@ -213,6 +213,15 @@
   vacant and a re-describe clears the flag (hides the stand, not the lot).
   `tripoAssets.sizeBytes` records GLB bytes at persist. Full risk review +
   phase plan: `docs/row-hardening.md`.
+- Renovation: `describe` with `remodel=1` re-grows a STANDING build — new
+  words → new key → same lot, deed (`byline`) + lease `purpose` preserved,
+  `remodelCount` capped at `FRANCHISE_REMODEL_MAX` (2; `settled` after).
+  A failed renovation never repoints the lot and identical words are a
+  free no-op. Client charges `FRANCHISE.remodelCost` (£60) from the till
+  and swaps stand+sign+shadow when the new modelUrl lands (place() keeps
+  refs for exactly this). Prompt/byline hygiene: FRANCHISE_BLOCKLIST on
+  word prompts + signatures; image inputs must be real https URLs (no
+  userinfo, dotted host).
 - Meshy (offline asset source, never runtime): `tools/vendor-meshy.mjs`
   generates via the Meshy API into `web/assets/meshy/` + manifest.json.
   Key: `MESHY_API_KEY` in `.env.local`. Defaults follow Meshy's game-asset

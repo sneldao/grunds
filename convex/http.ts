@@ -283,8 +283,9 @@ export const franchiseDescribe = httpAction(async (ctx, req) => {
   const purpose = p.get("purpose") ?? undefined;
   const byline = p.get("byline") ?? undefined;
   const builder = p.get("builder") ?? undefined;
+  const remodel = p.get("remodel") === "1" || p.get("remodel") === "true" ? true : undefined;
   if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
-  return json(await ctx.runAction(api.franchise.describe, { seed, lot, prompt, day, purpose, byline, builder }));
+  return json(await ctx.runAction(api.franchise.describe, { seed, lot, prompt, day, purpose, byline, builder, remodel }));
 });
 
 // The Streets gallery: every seed with stands on its Row — the deeds,

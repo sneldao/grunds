@@ -45,7 +45,8 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
   };
   const lotState = (id) => state.lots[id] || (state.lots[id] = {
     status: 'missing', prompt: null, describedDay: null, placed: false, placedDay: 0, mine: false, purpose: null, byline: null,
-    spec: null, standName: null,
+    spec: null, standName: null, remodelCount: 0,
+    inst: null, sign: null, shadow: null, modelUrl: null, placing: false,
   });
   const lotDef = (id) => FRANCHISE.lots.find((l) => l.id === id);
 
@@ -94,36 +95,55 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
   const base = (baseUrl() || '').replace(/\/$/, '');
   const glb = loader || GLBLoader();
 
+  // The objects a placement owns, removed when a renovation lands (or a
+  // polyfork stand is re-described). The contact shadow counts too — a
+  // second blob under the same lot would read as a hole.
+  const unplace = (id) => {
+    const ls = lotState(id);
+    for (const o of [ls.inst, ls.sign, ls.shadow]) if (o) scene.remove(o);
+    ls.inst = ls.sign = ls.shadow = null;
+    ls.modelUrl = null;
+  };
+
   async function place(id, modelUrl, dayNow, announce = true) {
     const ls = lotState(id), def = lotDef(id);
-    if (!def || ls.placed) return;
-    ls.placed = true; // cleared on a failed load so the next read retries
+    if (!def || ls.placing) return;
+    if (ls.placed && ls.modelUrl === modelUrl) return; // the stand already up — nothing to do
+    const replacing = ls.placed; // a remodel lands as a swap, not a pop
+    ls.placing = true;
+    ls.placed = true; // cleared/restored on a failed load so the next read retries
     try {
       const inst = await glb.loadGLB(modelUrl, {
         position: def.position.slice(),
         rotationY: def.rotationY,
         grade: 'street',
       });
-      if (inst?.userData?.placeholder) { ls.placed = false; return; }
+      if (inst?.userData?.placeholder) { ls.placed = replacing; ls.placing = false; return; }
       fitToSlot(inst, FRANCHISE.height);
+      if (replacing) unplace(id); // new GLB in hand — now the old stand comes down
+      ls.modelUrl = modelUrl;
+      ls.inst = inst;
       scene.add(inst);
-      addContactShadow(scene, def.position[0], def.position[2], 2.6, 1.9, 0.32);
+      ls.shadow = addContactShadow(scene, def.position[0], def.position[2], 2.6, 1.9, 0.32);
       // The spec's name goes on a little sign beside the stand — the words
       // the player typed, readable in the street. Best-effort: a canvas or
       // GL hiccup must never cost the stand itself.
       try {
         const sign = standSign(specForLot(ls)?.name || ls.standName, def);
-        if (sign) scene.add(sign);
+        if (sign) { scene.add(sign); ls.sign = sign; }
       } catch {}
       unscaffold(id);
-      ls.placedDay = dayNow || state.day || 0; // pre-existing stands pay from day 1
+      // pre-existing stands pay from day 1; a renovation keeps the original
+      // placed day — the lease never left the street.
+      if (!replacing) ls.placedDay = dayNow || state.day || 0;
       state.onPlaced?.(inst, def, ls);
       // announce=false on the hydration read — a stand that was always
       // there didn't "arrive"; only transitions witnessed live get a toast.
       if (announce && state.onArrived) state.onArrived(inst, def, ls);
     } catch {
-      ls.placed = false; // network blip — next poll tries again
+      ls.placed = replacing; // network blip — next poll tries again
     }
+    ls.placing = false;
   }
 
   let pollGen = 0;
@@ -157,10 +177,13 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
         ls.byline = l.byline ?? null;   // the builder's signature, same rule
         ls.spec = l.spec ?? null;       // the character card — absent on legacy rows
         ls.standName = l.standName ?? null;
-        if (ls.status === 'success' && l.modelUrl && !ls.placed) await place(l.lot, l.modelUrl, state.day, !firstRead);
+        ls.remodelCount = l.remodelCount ?? 0;
+        // A new modelUrl on an already-placed lot is a renovation landing —
+        // place() swaps the old stand out once the new GLB is in hand.
+        if (ls.status === 'success' && l.modelUrl && (!ls.placed || l.modelUrl !== ls.modelUrl)) await place(l.lot, l.modelUrl, state.day, !firstRead);
         if (gen !== pollGen) return;
         if (ls.status === 'processing') { waiting = true; scaffold(l.lot); }
-        else if (ls.status === 'success' && !ls.placed) waiting = true; // GLB not in the street yet — try again
+        else if (ls.status === 'success' && (!ls.placed || (l.modelUrl && l.modelUrl !== ls.modelUrl))) waiting = true; // GLB not in the street yet — try again
         // The worksite survives a failed GLB load — place() removes it only
         // after a real stand lands; anything that isn't buildable loses it.
         else if (ls.status !== 'success' || ls.placed) unscaffold(l.lot);
@@ -221,9 +244,10 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     const rng = seeded((seed >>> 0) + h + 31);
     return ['market-stall-94937d', 'mercado-stall-6e6ba3', 'newsstand-6dfd65'][Math.floor(rng() * 3)];
   }
-  async function pfDescribe(lotId, text, dayNow, purpose, byline) {
+  async function pfDescribe(lotId, text, dayNow, purpose, byline, remodel) {
     const ls = lotState(lotId), def = lotDef(lotId);
-    if (!def || ls.placed) return { status: 'locked' };
+    if (!def || (ls.placed && !remodel)) return { status: 'locked' };
+    if (ls.placed && remodel) { unplace(lotId); ls.placed = false; ls.remodelCount = (ls.remodelCount || 0) + 1; }
     const id = pfStandId(text, lotId);
     const inst = await loadPF(glb, id, {
       position: def.position.slice(), rotationY: def.rotationY,
@@ -234,10 +258,11 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     ls.describedDay = dayNow || state.day;
     ls.purpose = purpose ?? null; ls.byline = byline ?? null; ls.mine = true;
     ls.placed = true;
+    ls.inst = inst; ls.modelUrl = `pf:${id}`;
     scene.add(inst); unscaffold(lotId);
-    addContactShadow(scene, def.position[0], def.position[2], 2.6, 1.9, 0.32);
-    try { const sign = standSign(specForLot(ls)?.name, def); if (sign) scene.add(sign); } catch {}
-    ls.placedDay = dayNow || state.day || 0;
+    ls.shadow = addContactShadow(scene, def.position[0], def.position[2], 2.6, 1.9, 0.32);
+    try { const sign = standSign(specForLot(ls)?.name, def); if (sign) { scene.add(sign); ls.sign = sign; } } catch {}
+    if (!remodel) ls.placedDay = dayNow || state.day || 0;
     pfRemember(lotId, id, ls);
     state.onPlaced?.(inst, def, ls);
     if (state.onArrived) state.onArrived(inst, def, ls);
@@ -266,9 +291,10 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       });
       if (inst?.userData?.placeholder) continue;
       Object.assign(ls, { status: 'success', prompt: s.prompt, describedDay: s.day, purpose: s.purpose ?? null, byline: s.byline ?? null, mine: true, placed: true, placedDay: s.day || 0 });
+      ls.inst = inst; ls.modelUrl = `pf:${s.pfId}`;
       scene.add(inst); unscaffold(lotId);
-      addContactShadow(scene, def.position[0], def.position[2], 2.6, 1.9, 0.32);
-      try { const sign = standSign(specForLot(ls)?.name, def); if (sign) scene.add(sign); } catch {}
+      ls.shadow = addContactShadow(scene, def.position[0], def.position[2], 2.6, 1.9, 0.32);
+      try { const sign = standSign(specForLot(ls)?.name, def); if (sign) { scene.add(sign); ls.sign = sign; } } catch {}
       state.onPlaced?.(inst, def, ls);
     }
     state.live = true;
@@ -277,7 +303,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     queueMicrotask(() => { try { state.onStatus && state.onStatus(); } catch {} });
   }
 
-  state.describe = async (lotId, text, dayNow, purpose, byline) => {
+  state.describe = async (lotId, text, dayNow, purpose, byline, remodel) => {
     if (dead) return { status: 'error', error: 'the builders could not be reached' };
     // Vendored-only sessions (explicit ?district=polyfork) and sessions with
     // no Convex bridge take the instant archetype path; everyone else asks
@@ -285,18 +311,22 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
     // the same instant path when the builders can't answer, so a described
     // lot is never left empty. Fallback stands are session-only: pfHydrate
     // stays gated on polyfork, so they do not re-place on reload.
-    if (polyfork || !base) return pfDescribe(lotId, text, dayNow, purpose, byline);
+    if (polyfork || !base) return pfDescribe(lotId, text, dayNow, purpose, byline, remodel);
     try {
       const r = await fetch(
         `${base}/franchise/describe?seed=${seed}&lot=${encodeURIComponent(lotId)}&day=${dayNow || state.day || 0}&prompt=${encodeURIComponent(text)}` +
         (purpose ? `&purpose=${encodeURIComponent(purpose)}` : '') +
         (byline ? `&byline=${encodeURIComponent(byline)}` : '') +
+        (remodel ? '&remodel=1' : '') +
         (builder === 'tripo' ? '&builder=tripo' : ''),
         { method: 'POST' },
       );
       const d = await r.json().catch(() => ({}));
       const ls = lotState(lotId);
       if (d.status === 'invalid' || d.status === 'locked') { ls.status = 'invalid'; unscaffold(lotId); return d; }
+      // 'settled' = renovation refused at the cap — the built stand stays
+      // exactly as it is; don't mark the lot invalid or fall through.
+      if (d.status === 'settled') return d;
       if (d.status === 'processing' || d.status === 'success') {
         ls.status = d.status;
         ls.prompt = d.prompt ?? text;
@@ -314,7 +344,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
         return d;
       }
     } catch {}
-    return pfDescribe(lotId, text, dayNow, purpose, byline);
+    return pfDescribe(lotId, text, dayNow, purpose, byline, remodel);
   };
 
   // Rent: every standing stand pays at each open. placedDay guards the

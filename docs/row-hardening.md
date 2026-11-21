@@ -52,8 +52,8 @@ surface exists anywhere in convex/ yet.
       (client derives vacancy from absent rows → hidden lots auto-vacant).
       Bonus: a re-described lot clears the flag (`hidden: undefined`) —
       curation hides the stand, not the lot.
-- [ ] Prompt/byline blocklist in `sanitizeFranchisePrompt`/`sanitizeByline`;
-      image URLs: `https:` only, no userinfo
+- [x] Prompt/byline blocklist in `sanitizeFranchisePrompt`/`sanitizeByline`;
+      image URLs: `https:` only, no userinfo, dotted hostname
 - Deferred: `franchiseReports` table (no auto-hide — griefing surface)
 
 ### 3. Immutability — no renovation path
@@ -62,15 +62,23 @@ Failed generations already re-describe; *successful* stands are locked
 ("first-come authorship" — deliberate). No auth → builder identity can't
 be verified; gates are economic, not identity.
 
-**Plan — `franchise.remodel`:**
-- [ ] `describe` accepts `remodel: true` — allowed on `success` lots only;
-      same pipeline, new key, patches the franchises row, **original
-      byline preserved** ("built by X, renovated day N")
-- [ ] Old tripoAssets row becomes unreferenced → `storage-audit --delete`
+**Plan — `franchise.remodel`:** ✔ shipped
+- [x] `describe` accepts `remodel=1` — honoured on `success` lots only;
+      same pipeline, new key, `record` patches the franchises row with
+      `existing.byline ?? args.byline` + `existing.purpose` preserved
+      ("built by X, renovated day N"; an unsigned deed may be signed by
+      the renovator)
+- [x] Hardening beyond the plan: a failed remodel generation never
+      repoints the lot (the standing build stays up), and identical
+      words don't burn a renovation (same key → no count bump)
+- [x] `FRANCHISE_REMODEL_MAX = 2` server-side; `status` returns
+      `remodelCount`; `settled` status at the cap
+- [x] Client: `place()` swaps stand+sign+shadow when a new modelUrl
+      lands; renovate links on built stands → remodel-mode describe
+      card; `FRANCHISE.remodelCost` (£60) from the till, client-enforced
+- [x] Old tripoAssets row becomes unreferenced → `storage-audit --delete`
       reclaims (plumbing already exists)
-- [ ] In-game cost (till money, client-enforced) + `remodelCount` cap
-- **DECISION:** does first-come permanence stay absolute, or does paid
-  renovation dilute it?
+- **DECIDED:** paid renovation allowed — deed preserves first signature
 
 ### 4. Load weight — bounded, needs hygiene not surgery
 
@@ -90,7 +98,10 @@ lot table, not unbounded.
 - **Phase 1** ✔ shipped (2026-11-21): grade pass + wiring + shot harness;
   hidden + `setHidden` + filters; sizeBytes. Typecheck clean, 566/566
   fast tests, convex dev pushed.
-- **Phase 2** (next): prompt/URL hygiene; remodel verb + cost semantics
+- **Phase 2** ✔ shipped (2026-11-21): prompt/URL hygiene (blocklist,
+  https-only image input); remodel verb (`remodel=1`, £60 from the
+  till, cap 2, deed preserved). Typecheck clean, 566/566 fast tests,
+  convex dev pushed.
 - **Phase 3** (only if measured): offline texture bake; deferred
   stand-load queue; byte-budget policy
 
@@ -98,5 +109,6 @@ lot table, not unbounded.
 
 - Grade aggressiveness: warm multiply only vs shader desaturation
   (start with both at low strength, eyeball via stand-shots)
-- Remodel allowed at all? (permanence vs iteration)
+- ~~Remodel allowed at all?~~ DECIDED: paid renovation, deed preserved
 - `ROW_MOD_TOKEN` shared-secret mutation acceptable as admin surface?
+  (shipped — set the env var when the mutation should go live)

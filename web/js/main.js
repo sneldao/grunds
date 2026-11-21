@@ -2761,6 +2761,9 @@ let rowPurpose = null, rowSending = false, rowError = null, rowDraft = '', rowFo
 // The signature is the player, not the lot — it pre-fills from the
 // licence and isn't cleared when the day/lot draft resets.
 let rowByline = null;
+// A lot id while the card is in renovation mode — the same describe card
+// retargeted at a standing build, priced from the till.
+let rowRemodel = null;
 
 function rowPurposeLabel(purpose) {
   const p = ROW_PURPOSES.find(x => x.id === purpose);
@@ -2790,17 +2793,23 @@ function renderFranchiseRow() {
   const ls = (id) => franchise.lots[id] || {};
   const building = FRANCHISE.lots.filter(l => ls(l.id).status === 'processing');
   const built = FRANCHISE.lots.filter(l => ls(l.id).status === 'success');
-  const vacantStatus = vacant ? (ls(vacant.id).status || 'missing') : '';
+  // Renovation mode targets a standing build; if it stopped being built
+  // (hidden, failed mid-read) the card falls back to the lease offer.
+  if (rowRemodel && (ls(rowRemodel).status || '') !== 'success') rowRemodel = null;
+  const remodLot = rowRemodel ? FRANCHISE.lots.find(l => l.id === rowRemodel) : null;
+  const target = remodLot || vacant;
+  const targetStatus = target ? (ls(target.id).status || 'missing') : '';
   // A new day or a different lot on offer retires the old draft — the card
-  // never carries yesterday's words into someone else's lease.
-  const forNow = `${day}:${vacant ? vacant.id : 'full'}`;
+  // never carries yesterday's words into someone else's lease. Entering or
+  // leaving renovation mode is a new target, so the draft resets too.
+  const forNow = `${day}:${vacant ? vacant.id : 'full'}:${rowRemodel || ''}`;
   if (forNow !== rowFor) { rowFor = forNow; rowPurpose = null; rowSending = false; rowError = null; rowDraft = ''; }
   // Rebuild only when the state the card shows actually changes — every
   // lot's status + purpose feeds the key so a status read that resolves a
   // build (or fills the row) redraws, while one that changes nothing
   // leaves the draft untouched.
   const bonusLines = morningFranchiseLines(franchise, day, franchiseCarry);
-  const key = [forNow, FRANCHISE.lots.map(l => `${ls(l.id).status || ''}:${ls(l.id).purpose || ''}`).join('+'),
+  const key = [forNow, FRANCHISE.lots.map(l => `${ls(l.id).status || ''}:${ls(l.id).purpose || ''}:${ls(l.id).remodelCount || 0}`).join('+'),
     rowSending, rowError || '', bonusLines.join('~')].join('|');
   if (host.dataset.rowKey === key) return;
   host.dataset.rowKey = key;
@@ -2852,6 +2861,8 @@ function renderFranchiseRow() {
         `${inh ? ' — built by a previous owner, still paying you rent' : ''} · ${rest}`;
     }
     done.textContent = text;
+    const renos = renoLinks();
+    if (renos) done.appendChild(renos);
     if (withFresh) {
       const fresh = document.createElement('button');
       fresh.id = 'brief-row-fresh';
@@ -2860,6 +2871,27 @@ function renderFranchiseRow() {
       done.appendChild(fresh);
     }
     host.appendChild(done);
+  };
+
+  // The renovation affordance: a built stand can be re-described by anyone
+  // willing to pay the builders — bounded by the remodel cap, priced from
+  // the till, and the deed keeps the first builder's signature.
+  const renoLinks = () => {
+    const open = built.filter(l => (ls(l.id).remodelCount ?? 0) < FRANCHISE.remodelMax);
+    if (!open.length) return null;
+    const box = document.createElement('div');
+    box.className = 'row-renos';
+    box.textContent = `renovate a stand — ${fmt(FRANCHISE.remodelCost, 0)} from the till: `;
+    for (const l of open) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'row-reno';
+      b.id = `brief-row-reno-${l.id}`;
+      b.textContent = l.name;
+      b.onclick = () => { rowRemodel = l.id; renderFranchiseRow(); };
+      box.appendChild(b);
+    }
+    return box;
   };
 
   if (day < FRANCHISE.lots[0].unlockDay) {
@@ -2875,7 +2907,8 @@ function renderFranchiseRow() {
     return;
   }
 
-  if (!vacant) { doneBlock(true); return; }
+  if (!vacant && !remodLot) { doneBlock(true); return; }
+  if (!target) { doneBlock(true); return; }
 
   const card = document.createElement('div');
   card.id = 'brief-franchise';
@@ -2883,18 +2916,22 @@ function renderFranchiseRow() {
 
   const kick = document.createElement('div');
   kick.className = 'row-kicker';
-  kick.textContent = 'the row · a lease on the counter';
+  kick.textContent = remodLot ? 'the row · a renovation' : 'the row · a lease on the counter';
   const title = document.createElement('div');
   title.className = 'row-title';
-  title.textContent = `${vacant.name} is vacant`;
+  title.textContent = remodLot ? `renovate ${target.name}?` : `${target.name} is vacant`;
   // The pitch is the sandbox lease: rent-free, and the stand's spec IS its
   // effect — no purpose picker, the builders read the words and decide.
-  const isSandbox = !!(vacant && vacant.sandbox);
+  // A renovation skips the picker too: the lease's purpose (and deed) stay.
+  const isSandbox = !!target.sandbox;
+  const renoByline = remodLot ? (ls(remodLot.id).byline || '') : '';
   const why = document.createElement('p');
   why.className = 'row-why';
-  why.textContent = isSandbox
-    ? `describe the stand you want there and the builders grow it — the pitch is rent-free; its character decides who crosses the road. tell them what it is:`
-    : `describe the stand you want there and the builders grow it — ${fmt(15, 0)} ground rent each dawn, plus whatever its purpose brings the street. first, tell them what the stand is for:`;
+  why.textContent = remodLot
+    ? `the builders strip the old stand and grow your words in its place${isSandbox ? '' : ` — ${fmt(FRANCHISE.remodelCost, 0)} from the till`} — ${renoByline ? `the deeds keep ${renoByline}'s signature.` : 'the deed is unsigned; your name could go on it.'} tell them what it becomes:`
+    : isSandbox
+      ? `describe the stand you want there and the builders grow it — the pitch is rent-free; its character decides who crosses the road. tell them what it is:`
+      : `describe the stand you want there and the builders grow it — ${fmt(15, 0)} ground rent each dawn, plus whatever its purpose brings the street. first, tell them what the stand is for:`;
   card.append(kick, title, why);
 
   const statusEl = document.createElement('div');
@@ -2902,7 +2939,7 @@ function renderFranchiseRow() {
   statusEl.id = 'brief-row-status';
   statusEl.setAttribute('aria-live', 'polite');
   if (rowError) statusEl.textContent = rowError;
-  else if (vacantStatus === 'invalid') statusEl.textContent = 'the builders need three words or more';
+  else if (targetStatus === 'invalid') statusEl.textContent = 'the builders need three words or more';
 
   const purposes = document.createElement('div');
   purposes.className = 'row-purposes';
@@ -2924,7 +2961,7 @@ function renderFranchiseRow() {
     purposeBtns[p.id] = b;
     purposes.appendChild(b);
   }
-  if (!isSandbox) card.appendChild(purposes);
+  if (!isSandbox && !remodLot) card.appendChild(purposes);
 
   const examples = document.createElement('div');
   examples.className = 'row-examples';
@@ -2932,7 +2969,7 @@ function renderFranchiseRow() {
   input.id = 'brief-row-input';
   input.type = 'text'; input.maxLength = FRANCHISE.promptMax;
   input.placeholder = 'a tiny ramen counter… or a photo link https://';
-  input.setAttribute('aria-label', `describe the stand for ${vacant.name}`);
+  input.setAttribute('aria-label', `describe the stand for ${target.name}`);
   input.value = rowDraft;
   input.addEventListener('input', () => { rowDraft = input.value; });
   for (const ex of ROW_EXAMPLES) {
@@ -2954,38 +2991,61 @@ function renderFranchiseRow() {
 
   // The deeds line: optional signature, pre-filled from the licence.
   // Whoever claims the lot first keeps it — later players inherit the name.
-  const signRow = document.createElement('div');
-  signRow.className = 'row-send row-sign';
-  const sign = document.createElement('input');
-  sign.id = 'brief-row-byline';
-  sign.type = 'text'; sign.maxLength = 24;
-  if (rowByline === null) rowByline = playerName !== 'Sam' ? playerName : '';
-  sign.value = rowByline;
-  sign.placeholder = 'sign it — a name for the deeds (optional)';
-  sign.setAttribute('aria-label', 'a name for the deeds (optional)');
-  sign.addEventListener('input', () => { rowByline = sign.value; });
-  signRow.appendChild(sign);
-  card.appendChild(signRow);
+  // A signed deed survives renovation: the renovator can only sign when
+  // the builder left it blank.
+  let sign = null;
+  if (!(remodLot && renoByline)) {
+    const signRow = document.createElement('div');
+    signRow.className = 'row-send row-sign';
+    sign = document.createElement('input');
+    sign.id = 'brief-row-byline';
+    sign.type = 'text'; sign.maxLength = 24;
+    if (rowByline === null) rowByline = playerName !== 'Sam' ? playerName : '';
+    sign.value = rowByline;
+    sign.placeholder = remodLot ? 'sign the renovated deed (optional)' : 'sign it — a name for the deeds (optional)';
+    sign.setAttribute('aria-label', 'a name for the deeds (optional)');
+    sign.addEventListener('input', () => { rowByline = sign.value; });
+    signRow.appendChild(sign);
+    card.appendChild(signRow);
+  }
   card.appendChild(statusEl);
+
+  // A way back out of renovation mode without spending — the stand stays
+  // exactly as the builder left it.
+  if (remodLot) {
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'row-reno-back';
+    back.textContent = 'keep it as it is — back to the leases ›';
+    back.onclick = () => { rowRemodel = null; renderFranchiseRow(); };
+    card.appendChild(back);
+  }
 
   btn.onclick = () => {
     if (phase !== 'planning' || rowSending) return;
     const text = (input.value || '').trim();
-    if (!isSandbox && !rowPurpose) { statusEl.textContent = 'pick what the stand is for — a draw, a hub, or a tenant'; return; }
+    if (!isSandbox && !remodLot && !rowPurpose) { statusEl.textContent = 'pick what the stand is for — a draw, a hub, or a tenant'; return; }
     if (!text) { statusEl.textContent = 'describe the stand — words, or a photo link'; return; }
+    if (remodLot && !isSandbox && till < FRANCHISE.remodelCost) {
+      statusEl.textContent = `a renovation costs ${fmt(FRANCHISE.remodelCost, 0)} — not in the till`;
+      return;
+    }
     rowSending = true; rowError = null; rowDraft = text;
     btn.disabled = true; btn.textContent = 'sent — the builders are working';
-    statusEl.textContent = isSandbox
-      ? `sent to the builders — ${vacant.name}`
-      : `sent to the builders — ${vacant.name} · ${rowPurposeLabel(rowPurpose).slice(3)}`;
-    franchise.describe(vacant.id, text, day, isSandbox ? null : rowPurpose, (sign.value || '').trim() || undefined).then(d => {
+    statusEl.textContent = remodLot
+      ? `sent to the builders — a renovation for ${target.name}`
+      : isSandbox
+        ? `sent to the builders — ${target.name}`
+        : `sent to the builders — ${target.name} · ${rowPurposeLabel(rowPurpose).slice(3)}`;
+    franchise.describe(target.id, text, day, remodLot || isSandbox ? null : rowPurpose, (sign?.value || '').trim() || undefined, remodLot ? true : undefined).then(d => {
       rowSending = false;
-      if (d && (d.status === 'invalid' || d.status === 'locked')) {
+      if (d && (d.status === 'invalid' || d.status === 'locked' || d.status === 'settled')) {
         rowError = d.error || 'the builders need three words or more';
       } else if (d && d.status === 'error') {
         rowError = d.error || 'the builders could not be reached — try again';
       } else if (d && (d.status === 'processing' || d.status === 'success')) {
-        rowError = null; rowPurpose = null; rowDraft = '';
+        if (remodLot && !isSandbox && d.claimed) till -= FRANCHISE.remodelCost;
+        rowError = null; rowPurpose = null; rowDraft = ''; rowRemodel = null;
       }
       renderFranchiseRow();
     });

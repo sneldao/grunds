@@ -327,7 +327,7 @@ check('schema: by_seed index', schema.includes('.index("by_seed", ["seed"])'));
 check('schema: lot column present', schema.includes('lot: v.optional(v.string())'));
 check('schema: purpose column present (optional, legacy rows null)', schema.includes('purpose: v.optional(v.string())'));
 
-check('sanitize rejects <3 real words', /words\.length >= 3 \? clean : null/.test(convexFr));
+check('sanitize rejects <3 real words', /words\.length >= 3 && !FRANCHISE_BLOCKLIST\.test\(clean\) \? clean : null/.test(convexFr));
 check('sanitize caps at FRANCHISE_PROMPT_MAX', convexFr.includes('.slice(0, FRANCHISE_PROMPT_MAX)'));
 check('spec: prompt wraps player words + house frame', convexFr.includes('`${prompt}${FRANCHISE_FRAME}`'));
 check('spec: lot salts the deterministic seeds', /hashKey\(`\$\{seed\}:\$\{lot\}:\$\{prompt\}`\)/.test(convexFr));
@@ -345,10 +345,13 @@ check('purpose is not part of the asset key', !/purpose[\s\S]{0,40}assetKey|fran
 check('idempotent return carries the existing purpose', convexFr.includes('purpose: mine.purpose ?? null'));
 check('idempotent return is not a claim', convexFr.includes('claimed: false'));
 check('a fresh describe claims the lot', convexFr.includes('claimed: true'));
-check('record persists the purpose', (convexFr.match(/purpose: args\.purpose/g) || []).length >= 2);
+check('record persists the purpose', (convexFr.match(/purpose: args\.purpose/g) || []).length >= 1 && convexFr.includes('existing.purpose ?? args.purpose'));
 
 // photo → model: the same input serves image URLs
-check('isImageInput detects pasted links', /isImageInput[\s\S]{0,80}https\?:/.test(convexFr));
+check('isImageInput requires a real https URL', /isImageInput[\s\S]{0,200}protocol === "https:"/.test(convexFr));
+check('isImageInput rejects userinfo and bare hosts', /isImageInput[\s\S]{0,200}!u\.username[\s\S]{0,80}!u\.password[\s\S]{0,80}hostname\.includes\("\."\)/.test(convexFr));
+check('a prompt blocklist keeps slurs off the Row', convexFr.includes('FRANCHISE_BLOCKLIST') && convexFr.includes('!FRANCHISE_BLOCKLIST.test(clean)'));
+check('a blocked byline just falls back to anonymous', /FRANCHISE_BLOCKLIST\.test\(clean\) \? clean : undefined/.test(convexFr));
 check('sanitize accepts photo links (URLs skip the word count)', convexFr.includes('if (isImageInput(clean)) return clean;'));
 check('image specs carry imageUrl', /if \(isImageInput\(prompt\)\) spec\.imageUrl = prompt/.test(convexFr));
 check('generate args accept imageUrl', /imageUrl: v\.optional\(v\.string\(\)\)/.test(convexTripo));
@@ -360,8 +363,25 @@ check('http: /franchise/status GET route', http.includes('path: "/franchise/stat
 check('http: /franchise/describe POST route', http.includes('path: "/franchise/describe"') && http.includes('method: "POST"'));
 check('http: describe is POST-only', /franchiseDescribe[\s\S]{0,200}POST only/.test(http));
 check('http: describe passes the lot param', /p\.get\("lot"\)/.test(http));
-check('http: describe passes the purpose param', /p\.get\("purpose"\) \?\? undefined/.test(http) && /describe, \{ seed, lot, prompt, day, purpose, byline, builder \}/.test(http));
+check('http: describe passes the purpose param', /p\.get\("purpose"\) \?\? undefined/.test(http) && /describe, \{ seed, lot, prompt, day, purpose, byline, builder, remodel \}/.test(http));
 check('http: describe passes the builder opt-out', /p\.get\("builder"\)/.test(http));
+check('http: describe passes the remodel flag', /p\.get\("remodel"\)/.test(http) && http.includes('remodel }'));
+
+// renovation: a built stand can be re-described, bounded and deed-safe
+check('describe accepts an optional remodel flag', /remodel: v\.optional\(v\.boolean\(\)\)/.test(convexFr));
+check('remodel only applies to a standing build', convexFr.includes('args.remodel === true && mine?.status === "success"'));
+check('the Row settles at the remodel cap', convexFr.includes('FRANCHISE_REMODEL_MAX') && convexFr.includes('mine.remodelCount >= FRANCHISE_REMODEL_MAX') && convexFr.includes('status: "settled"'));
+check('a failed renovation never repoints the lot', convexFr.includes('!renovating || claimable') && convexFr.includes('claimable = g.status === "success" || g.status === "processing"'));
+check('record preserves the deed + purpose on remodel', convexFr.includes('args.remodel ? (existing.byline ?? args.byline)') && convexFr.includes('args.remodel ? (existing.purpose ?? args.purpose)'));
+check('identical words do not burn a renovation', convexFr.includes('args.remodel && args.key !== existing.key'));
+check('status returns the renovation count', convexFr.includes('remodelCount: fr.remodelCount ?? 0') && schema.includes('remodelCount'));
+check('client sends the remodel flag and handles settled', frJs.includes('&remodel=1') && frJs.includes("d.status === 'settled'"));
+check('client swaps the stand when a renovation lands', frJs.includes('l.modelUrl !== ls.modelUrl') && frJs.includes('unplace'));
+check('renovation keeps the original placed day (rent never paused)', frJs.includes('if (!replacing) ls.placedDay'));
+check('the brief offers renovations on built stands', main.includes('row-renos') && main.includes('rowRemodel') && main.includes('FRANCHISE.remodelMax'));
+check('renovation costs the till and is checked before send', main.includes('FRANCHISE.remodelCost') && main.includes('till < FRANCHISE.remodelCost') && main.includes('till -= FRANCHISE.remodelCost'));
+check('a signed deed hides the renovator signature box', main.includes('remodLot && renoByline'));
+check('renovation mode has a no-spend way back', main.includes('rowRemodel = null') && main.includes('back to the leases'));
 
 // ============================================================
 // 6) main.js wiring
@@ -387,8 +407,8 @@ check('render key digests every lot status + purpose', main.includes("ls(l.id).s
 check('typed draft survives same-lot redraws', main.includes('input.value = rowDraft') && main.includes('rowDraft = input.value'));
 check('draft resets only on a new day or lot', /if \(forNow !== rowFor\) \{ rowFor = forNow;/.test(main));
 check('brief offers the next vacant lot', main.includes('franchise.nextVacant(day)'));
-check('lease card POSTs describe with lot + purpose + byline', /franchise\.describe\(vacant\.id, text, day, isSandbox \? null : rowPurpose,/.test(main));
-check('the pitch card skips the purpose picker', main.includes('isSandbox ? null : rowPurpose') && main.includes('if (!isSandbox) card.appendChild(purposes)') && main.includes('if (!isSandbox && !rowPurpose)'));
+check('lease card POSTs describe with lot + purpose + byline', /franchise\.describe\(target\.id, text, day, remodLot \|\| isSandbox \? null : rowPurpose,/.test(main));
+check('the pitch card skips the purpose picker', main.includes('remodLot || isSandbox ? null : rowPurpose') && main.includes('if (!isSandbox && !remodLot) card.appendChild(purposes)') && main.includes('if (!isSandbox && !remodLot && !rowPurpose)'));
 check('lease card labels the three purposes', main.includes('awareness at close') && main.includes('returnees tomorrow') && main.includes('rent per dawn'));
 check('purpose labels derive from config so they cannot drift', /FRANCHISE\.purposes\.\w+\.\w+/.test(main) && main.includes('FRANCHISE.purposes.rent.rentBonus'));
 check('purpose buttons are mutually exclusive pressed-states', (main.match(/aria-pressed/g) || []).length >= 2 && main.includes('row-purpose'));
@@ -419,7 +439,7 @@ check('status route nudges mature tasks', http.includes('api.franchise.statusLiv
 check('deeds carry an optional signature', convexFr.includes('sanitizeByline') && convexFr.includes('byline: v.optional(v.string())') && schema.includes('byline'));
 check('status returns the builder signature', convexFr.includes('byline: fr.byline ?? null'));
 check('client passes byline on describe and stores it on read', frJs.includes('&byline=') && frJs.includes('ls.byline = d.byline ?? null') && frJs.includes('ls.byline = l.byline ?? null'));
-check('lease card has a deeds signature line', main.includes('brief-row-byline') && main.includes('rowByline') && /describe\(vacant\.id, text, day, isSandbox \? null : rowPurpose, \(sign/.test(main));
+check('lease card has a deeds signature line', main.includes('brief-row-byline') && main.includes('rowByline') && /describe\(target\.id, text, day, remodLot \|\| isSandbox \? null : rowPurpose, \(sign\?\.value/.test(main));
 check('signature pre-fills from the licence name', main.includes("playerName !== 'Sam' ? playerName"));
 check('streets registry + route exist', convexFr.includes('export const streets') && http.includes('/franchise/streets'));
 check('gallery page reads the registry and plays seed links', readFileSync(join(ROOT, 'web/streets.html'), 'utf8').includes('/franchise/streets') && readFileSync(join(ROOT, 'web/streets.html'), 'utf8').includes('?seed='));
@@ -440,7 +460,7 @@ check('a failed status read schedules another look',
   /if \(!r\.ok\) \{ continuePoll\(attempt, gen\); return; \}/.test(frJs) &&
   /catch \{ waiting = true;/.test(frJs) &&
   /if \(waiting\) continuePoll\(attempt, gen\)/.test(frJs));
-check('a success that has not landed keeps polling', frJs.includes("ls.status === 'success' && !ls.placed) waiting = true"));
+check('a success that has not landed keeps polling', frJs.includes("ls.status === 'success' && (!ls.placed"));
 check('describe starts the look immediately', frJs.includes('scaffold(lotId); armPoll()'));
 check('nudge asks Tripo after 15s', /export const NUDGE_MS = 15 \* 1000/.test(convexTripo));
 check('morning brief renders the row bonus', main.includes('morningFranchiseLines') && main.includes("id = 'brief-row-bonus'"));

@@ -269,6 +269,8 @@ export const CAMPAIGN = {
 export const FRANCHISE = {
   promptMax: 160,               // brief input cap (server sanitizes harder)
   height: 3.2,                  // storefront scale, taller than pavement props
+  remodelMax: 2,                // mirrors convex/franchise.ts FRANCHISE_REMODEL_MAX — the Row settles after this many renovations
+  remodelCost: 60,              // a renovation is 4 dawns' ground rent from the till (client-enforced; the deed keeps the first signature)
   // What a stand is FOR — the lease card's choice. Sized against the real
   // cost sheet (~£2.9k daily nut): a tenant's commercial rent (~+£40) is
   // the same order as a hub's eight returnees (~£38 gross) and a draw's

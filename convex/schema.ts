@@ -258,6 +258,7 @@ export default defineSchema({
     spec: v.optional(v.string()),    // JSON stand-spec card — absent rows fall back to the seeded classifier
     hidden: v.optional(v.boolean()),      // curated off the Row (franchise.setHidden) — queries skip it, the lot reads vacant again
     hiddenReason: v.optional(v.string()),
+    remodelCount: v.optional(v.number()), // renovations of this standing build — the Row settles at FRANCHISE_REMODEL_MAX
     createdAt: v.number(),
   }).index("by_seed", ["seed"]),
 

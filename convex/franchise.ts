@@ -45,6 +45,19 @@ const lotOf = (id: string) => FRANCHISE_LOTS.find((l) => l.lot === id);
 const FRANCHISE_FRAME =
   ", a small street-facing provisions stand on a terraced shopping row, warm honey-oak and brass fittings, folded canvas awning, clean stylized game-ready storefront prop, soft daylight, centered composition, no text, no letters, no numbers, no logos, no watermark, no humans";
 
+// Cheap content hygiene for a permanent shared street: the obvious slurs
+// and profanity stay off deeds and out of provider prompts. Whole-word
+// matching so "a class act" and "assam tea counter" survive.
+const FRANCHISE_BLOCKLIST = new RegExp(
+  `\\b(${[
+    "fuck", "fucking", "shit", "cunt", "cock", "dick", "pussy", "whore",
+    "slut", "bitch", "nigger", "nigga", "faggot", "kike", "spic", "chink",
+    "retard", "rape", "rapist", "nazi", "hitler", "porn", "penis",
+    "vagina", "tits", "jizz", "cum",
+  ].join("|")})\\b`,
+  "i",
+);
+
 // Player words → a safe, generation-ready description. Lowercases, collapses
 // whitespace, caps length; requires at least a few real words so "asdf!!!"
 // doesn't spend a task. A pasted photo link is a description too — URLs skip
@@ -54,23 +67,31 @@ export function sanitizeFranchisePrompt(raw: string): string | null {
   const clean = raw.replace(/\s+/g, " ").trim().slice(0, FRANCHISE_PROMPT_MAX);
   if (isImageInput(clean)) return clean;
   const words = clean.split(" ").filter((w) => /[a-zA-Z]{2,}/.test(w));
-  return words.length >= 3 ? clean : null;
+  return words.length >= 3 && !FRANCHISE_BLOCKLIST.test(clean) ? clean : null;
 }
 
 // A pasted link is a different kind of description: photo → model instead
 // of text → model. The same input field serves both (see describe()).
+// https only, no userinfo, a dotted hostname — the PROVIDER fetches the
+// image, but a tidy check keeps obviously-bad input off the wire.
 export function isImageInput(clean: string): boolean {
-  return /^https?:\/\/\S+$/i.test(clean);
+  try {
+    const u = new URL(clean);
+    return u.protocol === "https:" && !u.username && !u.password && u.hostname.includes(".");
+  } catch {
+    return false;
+  }
 }
 
 // The builder's signature — a short name on the deeds, shown in the
 // Streets gallery and to every later player who inherits the stand.
-// Optional; anonymous builds stay anonymous (absent, not "").
+// Optional; anonymous builds stay anonymous (absent, not ""). A blocked
+// signature just falls back to anonymous rather than failing the describe.
 export function sanitizeByline(raw: string | undefined): string | undefined {
   if (typeof raw !== "string") return undefined;
   const clean = raw.replace(/\s+/g, " ").trim().slice(0, 24);
   // A signature needs letters — punctuation-only isn't a name.
-  return /[a-zA-Z0-9]/.test(clean) ? clean : undefined;
+  return /[a-zA-Z0-9]/.test(clean) && !FRANCHISE_BLOCKLIST.test(clean) ? clean : undefined;
 }
 
 // Deterministic spec: same (seed, lot, prompt) → same seeds → same stand.
@@ -125,6 +146,11 @@ export function rodinFranchiseKey(seed: number, lot: string, prompt: string): st
 // the stand still pays its plain £15 rent.
 export const FRANCHISE_PURPOSES = ["draw", "community", "rent"] as const;
 
+// How many times a standing build can be renovated before the Row settles
+// on it. Bounded churn keeps the shared street stable under drive-bys —
+// original build + two renovations.
+export const FRANCHISE_REMODEL_MAX = 2;
+
 type LotStatus = {
   lot: string;
   status: string;
@@ -136,6 +162,7 @@ type LotStatus = {
   standName: string | null;
   modelUrl: string | null;
   previewUrl: string | null;
+  remodelCount: number;
 };
 
 // The spec column is a JSON card written by standSpec.expand (or absent on
@@ -183,6 +210,7 @@ export const status = query({
         standName: sp.standName,
         modelUrl: row?.modelUrl ?? null,
         previewUrl: row?.previewUrl ?? null,
+        remodelCount: fr.remodelCount ?? 0,
       });
     }
     return { lots };
@@ -249,6 +277,11 @@ export const describe = action({
     // Escape hatch: `tripo` skips the Rodin attempt (mirrors the
     // ?district=tripo routing). Absent means Rodin first, Tripo fallback.
     builder: v.optional(v.string()),
+    // Renovation: only honoured on a lot whose build already succeeded —
+    // the same pipeline runs new words under a new key and the record
+    // patch preserves the original deed (byline) + purpose. A describe
+    // without the flag on a built lot still returns the stand as-is.
+    remodel: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
@@ -261,6 +294,7 @@ export const describe = action({
     spec?: unknown;
     standName?: string | null;
     claimed?: boolean;
+    remodeled?: boolean;
     modelUrl?: string | null;
     error?: string;
   }> => {
@@ -276,10 +310,19 @@ export const describe = action({
     if (!prompt) return { status: "invalid", error: "describe it in three words or more" };
     // A live franchise on this lot returns as-is; failed/missing falls
     // through so a new description can grow (actions can't touch ctx.db —
-    // the status query is the read).
+    // the status query is the read). The one exception: `remodel` lets a
+    // built stand be renovated — new words, new asset, same lot and the
+    // same deeds (the original byline stays on the record).
     const existing = await ctx.runQuery(api.franchise.status, { seed: args.seed });
     const mine = existing.lots.find((l) => l.lot === args.lot);
-    if (mine && (mine.status === "success" || mine.status === "processing")) {
+    const renovating = args.remodel === true && mine?.status === "success";
+    if (renovating && mine.remodelCount >= FRANCHISE_REMODEL_MAX)
+      return {
+        status: "settled",
+        prompt: mine.prompt ?? undefined, purpose: mine.purpose ?? null, byline: mine.byline ?? null,
+        error: "the Row has settled on that stand — it stays as the builder left it",
+      };
+    if (mine && (mine.status === "success" || mine.status === "processing") && !renovating) {
       return {
         status: mine.status,
         prompt: mine.prompt ?? prompt,
@@ -326,12 +369,15 @@ export const describe = action({
           purpose: purpose ?? undefined,
           byline: byline ?? undefined,
           spec: specJson,
+          remodel: renovating || undefined,
         });
         return {
-          status: r.status, prompt, purpose, byline,
+          status: r.status, prompt,
+          purpose: renovating ? (mine?.purpose ?? purpose) : purpose,
+          byline: renovating ? (mine?.byline ?? byline) : byline,
           spec: specObj,
           standName: typeof specObj?.name === "string" ? specObj.name.slice(0, 48) : null,
-          claimed: true, modelUrl: r.modelUrl ?? null, error: r.error,
+          claimed: true, remodeled: renovating || undefined, modelUrl: r.modelUrl ?? null, error: r.error,
         };
       }
     }
@@ -347,27 +393,41 @@ export const describe = action({
       imageUrl: spec.imageUrl,
     });
     const key = franchiseKey(args.seed, args.lot, prompt);
-    await ctx.runMutation(internal.franchise.record, {
-      seed: args.seed,
-      lot: args.lot,
-      key,
-      prompt,
-      day: args.day,
-      purpose: purpose ?? undefined,
-      byline: byline ?? undefined,
-      spec: specJson,
-    });
+    // A failed generation must never demolish a standing build: on a
+    // renovation the row is only repointed when a real task (or cached
+    // result) exists — otherwise the old stand stays up and the builders
+    // can simply be asked again.
+    const claimable = g.status === "success" || g.status === "processing";
+    if (!renovating || claimable) {
+      await ctx.runMutation(internal.franchise.record, {
+        seed: args.seed,
+        lot: args.lot,
+        key,
+        prompt,
+        day: args.day,
+        purpose: purpose ?? undefined,
+        byline: byline ?? undefined,
+        spec: specJson,
+        remodel: renovating || undefined,
+      });
+    }
     return {
-      status: g.status, prompt, purpose, byline,
+      status: g.status, prompt,
+      purpose: renovating ? (mine?.purpose ?? purpose) : purpose,
+      byline: renovating ? (mine?.byline ?? byline) : byline,
       spec: specObj,
       standName: typeof specObj?.name === "string" ? specObj.name.slice(0, 48) : null,
-      claimed: true, modelUrl: g.modelUrl ?? null, error: g.error,
+      claimed: claimable, remodeled: renovating || undefined, modelUrl: g.modelUrl ?? null, error: g.error,
     };
   },
 });
 
 // Upsert the (seed, lot) → franchise-key mapping. New words overwrite the
 // pointer; the old asset row stays cached under its own key either way.
+// `remodel` marks a renovation of a standing build: the lease's declared
+// purpose and the builder's signature survive (the deeds read "built by X,
+// renovated day N" — an unsigned deed may be signed by the renovator) and
+// the renovation counter climbs toward FRANCHISE_REMODEL_MAX.
 export const record = internalMutation({
   args: {
     seed: v.number(),
@@ -378,6 +438,7 @@ export const record = internalMutation({
     purpose: v.optional(v.string()),
     byline: v.optional(v.string()),
     spec: v.optional(v.string()),
+    remodel: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<void> => {
     const rows = await ctx.db
@@ -391,9 +452,13 @@ export const record = internalMutation({
         key: args.key,
         prompt: args.prompt,
         day: args.day,
-        purpose: args.purpose,
-        byline: args.byline,
+        purpose: args.remodel ? (existing.purpose ?? args.purpose) : args.purpose,
+        byline: args.remodel ? (existing.byline ?? args.byline) : args.byline,
         spec: args.spec,
+        // The counter only climbs when the words actually changed — a
+        // "renovation" identical to the standing build is a free no-op
+        // (content-addressed: same words → same key → same stand).
+        ...(args.remodel && args.key !== existing.key ? { remodelCount: (existing.remodelCount ?? 0) + 1 } : {}),
         hidden: undefined,       // a re-described lot is fresh authorship — clears any curation flag
         hiddenReason: undefined,
         createdAt: Date.now(),
@@ -440,6 +505,7 @@ export const streets = query({
         standName: sp.standName,
         modelUrl: null,            // gallery shows previews, not GLBs
         previewUrl: row?.previewUrl ?? null,
+        remodelCount: fr.remodelCount ?? 0,
       };
       const arr = bySeed.get(fr.seed) ?? [];
       arr.push(ls);
