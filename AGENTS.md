@@ -202,6 +202,17 @@
 - `tools/storage-audit.mjs --prune-mirrored` HEAD-verifies each Grove
   mirror then deletes the redundant Convex copy — the reclaim lever for
   the legacy archive when the file-storage meter pressures it.
+- Street grade: `glb.loadGLB(url, { grade: 'street' })` runs `gradeStreet`
+  (metalness→0, roughness floor, warm-desaturate via onBeforeCompile) —
+  generated franchise/district stands opt in; vendored Polyfork doesn't
+  need it. Eyeball with `node tools/stand-shots.mjs <groveUrl> <out.png>`
+  (raw | graded | Polyfork side-by-side). NOTE: `loadGLB` cross-fades over
+  RAF — pump frames before capturing or the shot is blank.
+- Curation: `franchise.setHidden {token, seed, lot, hidden, reason}` gated
+  by env `ROW_MOD_TOKEN` hides a stand; filtered queries make the lot read
+  vacant and a re-describe clears the flag (hides the stand, not the lot).
+  `tripoAssets.sizeBytes` records GLB bytes at persist. Full risk review +
+  phase plan: `docs/row-hardening.md`.
 - Meshy (offline asset source, never runtime): `tools/vendor-meshy.mjs`
   generates via the Meshy API into `web/assets/meshy/` + manifest.json.
   Key: `MESHY_API_KEY` in `.env.local`. Defaults follow Meshy's game-asset

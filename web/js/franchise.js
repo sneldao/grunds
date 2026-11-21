@@ -102,6 +102,7 @@ export function initFranchise({ scene, seed, classic, loader, onArrived, onStatu
       const inst = await glb.loadGLB(modelUrl, {
         position: def.position.slice(),
         rotationY: def.rotationY,
+        grade: 'street',
       });
       if (inst?.userData?.placeholder) { ls.placed = false; return; }
       fitToSlot(inst, FRANCHISE.height);

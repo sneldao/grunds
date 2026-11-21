@@ -235,6 +235,7 @@ export default defineSchema({
     negativePrompt: v.optional(v.string()),
     modelUrl: v.optional(v.string()),
     previewUrl: v.optional(v.string()),
+    sizeBytes: v.optional(v.number()),  // GLB bytes at persist — feeds a per-street byte policy later
     error: v.optional(v.string()),
     createdAt: v.number(),
   })
@@ -255,6 +256,8 @@ export default defineSchema({
     purpose: v.optional(v.string()), // "draw" | "community" | "rent" — absent rows predate purposes → no bonus
     byline: v.optional(v.string()),  // the builder's signature — absent rows are anonymous
     spec: v.optional(v.string()),    // JSON stand-spec card — absent rows fall back to the seeded classifier
+    hidden: v.optional(v.boolean()),      // curated off the Row (franchise.setHidden) — queries skip it, the lot reads vacant again
+    hiddenReason: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_seed", ["seed"]),
 

@@ -1,4 +1,4 @@
-import { action, internalMutation, internalQuery, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { assetKey, NUDGE_MS, type GenerateSpec } from "./tripo";
@@ -166,6 +166,7 @@ export const status = query({
       .collect();
     const lots: LotStatus[] = [];
     for (const fr of frs) {
+      if (fr.hidden) continue; // curated off the Row — the lot reads vacant
       const row = await ctx.db
         .query("tripoAssets")
         .withIndex("by_key", (q) => q.eq("key", fr.key))
@@ -221,6 +222,7 @@ export const processingTasks = internalQuery({
       .collect();
     const out: { lot: string; taskId: string; createdAt: number; provider: string }[] = [];
     for (const fr of frs) {
+      if (fr.hidden) continue;
       const row = await ctx.db
         .query("tripoAssets")
         .withIndex("by_key", (q) => q.eq("key", fr.key))
@@ -392,6 +394,8 @@ export const record = internalMutation({
         purpose: args.purpose,
         byline: args.byline,
         spec: args.spec,
+        hidden: undefined,       // a re-described lot is fresh authorship — clears any curation flag
+        hiddenReason: undefined,
         createdAt: Date.now(),
       });
     } else {
@@ -419,6 +423,7 @@ export const streets = query({
     const frs = await ctx.db.query("franchises").collect();
     const bySeed = new Map<number, LotStatus[]>();
     for (const fr of frs) {
+      if (fr.hidden) continue; // hidden stands leave the gallery too
       const row = await ctx.db
         .query("tripoAssets")
         .withIndex("by_key", (q) => q.eq("key", fr.key))
@@ -448,5 +453,35 @@ export const streets = query({
         }))
         .sort((a, b) => a.seed - b.seed),
     };
+  },
+});
+
+// Admin curation: pull a stand off the Row (or put it back). The app has
+// no auth surface, so this rides a shared secret in the deployment env —
+// set ROW_MOD_TOKEN before use. A hidden lot reads vacant everywhere
+// (status/streets skip it) and can be re-described; re-describing clears
+// the flag in `record`.
+export const setHidden = mutation({
+  args: {
+    token: v.string(),
+    seed: v.number(),
+    lot: v.string(),
+    hidden: v.boolean(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ ok: boolean; error?: string }> => {
+    if (!process.env.ROW_MOD_TOKEN || args.token !== process.env.ROW_MOD_TOKEN)
+      return { ok: false, error: "bad token" };
+    const rows = await ctx.db
+      .query("franchises")
+      .withIndex("by_seed", (q) => q.eq("seed", args.seed))
+      .collect();
+    const fr = rows.find((r) => (r.lot ?? "14") === args.lot);
+    if (!fr) return { ok: false, error: "no stand on that lot" };
+    await ctx.db.patch(fr._id, {
+      hidden: args.hidden ? true : undefined,
+      hiddenReason: args.hidden ? args.reason : undefined,
+    });
+    return { ok: true };
   },
 });

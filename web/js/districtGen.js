@@ -163,6 +163,7 @@ export function initDistrictGen({ scene, seed, classic, loader, city, polyfork, 
       const inst = await glb.loadGLB(modelUrl, {
         position: s.position,
         rotationY: s.rotationY,
+        grade: 'street',
       });
       if (inst?.userData?.placeholder) return; // failed GLB — stay classic
       fitToSlot(inst, s.height);

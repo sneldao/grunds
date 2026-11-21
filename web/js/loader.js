@@ -46,6 +46,37 @@ const PLACEHOLDER = () => {
   return group;
 };
 
+// Generated assets (franchise stands, district pieces) arrive as PBR-
+// textured GLBs from a different pipeline than the flat-shaded street —
+// glossy, over-saturated, off-palette. { grade: 'street' } pulls them
+// toward the diorama: no metal, rough surfaces, albedo desaturated and
+// warmed by a fragment patch. Applied to the cached template so every
+// clone inherits it; the grade joins the cache key so a URL can't be
+// loaded both ways.
+const GRADE_WARM = new THREE.Color(1.0, 0.94, 0.86);
+const GRADE_SAT = 0.55; // fraction of original albedo saturation kept
+
+function gradeStreet(root) {
+  root.traverse((n) => {
+    const mats = Array.isArray(n.material) ? n.material : (n.material ? [n.material] : []);
+    for (const m of mats) {
+      if (!m || !(m.isMeshStandardMaterial || m.isMeshPhysicalMaterial)) continue;
+      m.metalness = 0;
+      m.roughness = Math.max(m.roughness ?? 1, 0.7);
+      m.color?.multiply(GRADE_WARM);
+      m.onBeforeCompile = (sh) => {
+        sh.fragmentShader = sh.fragmentShader.replace(
+          '#include <map_fragment>',
+          `#include <map_fragment>
+           { float l = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+             diffuseColor.rgb = mix(vec3(l), diffuseColor.rgb, ${GRADE_SAT}); }`
+        );
+      };
+      m.needsUpdate = true;
+    }
+  });
+}
+
 export function GLBLoader(opts = {}) {
   const path = opts.path || 'assets/';
   const cacheLimit = opts.cacheLimit ?? 32;
@@ -71,7 +102,7 @@ export function GLBLoader(opts = {}) {
     return g;
   }
 
-  async function loadOne(url) {
+  async function loadOne(url, grade) {
     if (globalThis.__noGLB) return placeholder(url, 'noGLB');
     // Convex storage URLs resolve to their Grove mirror; a storage URL with
     // no mirror entry (a model generated after the last mirror run) resolves
@@ -86,6 +117,7 @@ export function GLBLoader(opts = {}) {
       if (!root) return placeholder(url, 'no-scene');
       root.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
       applyEnvIntensity(root);   // shared materials → every clone inherits the IBL scale
+      if (grade === 'street') gradeStreet(root);
       root.userData.source = url;
       // FIFO eviction
       if (cache.size >= cacheLimit) {
@@ -103,8 +135,9 @@ export function GLBLoader(opts = {}) {
   }
 
   function loadGLB(url, apply) {
-    if (!cache.has(url)) cache.set(url, loadOne(url));
-    return cache.get(url).then((tpl) => {
+    const key = apply?.grade ? `${url}#${apply.grade}` : url;
+    if (!cache.has(key)) cache.set(key, loadOne(url, apply?.grade));
+    return cache.get(key).then((tpl) => {
       const inst = cloneTemplate(tpl);
       if (apply) {
         if (apply.position) inst.position.set(apply.position[0], apply.position[1], apply.position[2]);

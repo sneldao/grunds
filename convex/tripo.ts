@@ -531,23 +531,25 @@ export const persist = internalAction({
     retried: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<{ stored: boolean }> => {
-    const copy = async (url: string): Promise<string> => {
+    const copy = async (url: string): Promise<{ url: string; bytes: number }> => {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`fetch ${res.status}`);
       const blob = await res.blob();
       const buf = await blob.arrayBuffer();
       const grove = await groveStore(buf, sniffType(buf));
-      if (grove) return grove;
+      if (grove) return { url: grove, bytes: buf.byteLength };
       const id = await ctx.storage.store(blob);
       const stored = await ctx.storage.getUrl(id);
       if (!stored) throw new Error("storage getUrl");
-      return stored;
+      return { url: stored, bytes: buf.byteLength };
     };
     try {
-      const modelUrl = await copy(args.modelUrl);
+      const model = await copy(args.modelUrl);
       let previewUrl: string | undefined;
-      if (args.previewUrl) previewUrl = (await copy(args.previewUrl).catch(() => null)) ?? undefined;
-      await ctx.runMutation(internal.tripo.setStoredUrls, { key: args.key, modelUrl, previewUrl });
+      if (args.previewUrl) previewUrl = (await copy(args.previewUrl).then((c) => c.url).catch(() => null)) ?? undefined;
+      await ctx.runMutation(internal.tripo.setStoredUrls, {
+        key: args.key, modelUrl: model.url, previewUrl, sizeBytes: model.bytes,
+      });
       return { stored: true };
     } catch {
       if (!args.retried)
@@ -558,7 +560,12 @@ export const persist = internalAction({
 });
 
 export const setStoredUrls = internalMutation({
-  args: { key: v.string(), modelUrl: v.string(), previewUrl: v.optional(v.string()) },
+  args: {
+    key: v.string(),
+    modelUrl: v.string(),
+    previewUrl: v.optional(v.string()),
+    sizeBytes: v.optional(v.number()),
+  },
   handler: async (ctx, args): Promise<void> => {
     const row = await ctx.db
       .query("tripoAssets")
@@ -568,6 +575,7 @@ export const setStoredUrls = internalMutation({
     await ctx.db.patch(row._id, {
       modelUrl: args.modelUrl,
       ...(args.previewUrl ? { previewUrl: args.previewUrl } : {}),
+      ...(args.sizeBytes ? { sizeBytes: args.sizeBytes } : {}),
     });
   },
 });
