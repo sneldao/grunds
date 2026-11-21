@@ -2,31 +2,31 @@
   "rewrites": [
     {
       "source": "/agentmail/:path*",
-      "destination": "https://striped-anaconda-746.convex.site/agentmail/:path*"
+      "destination": "https://descriptive-ram-190.convex.site/agentmail/:path*"
     },
     {
       "source": "/ai/:path*",
-      "destination": "https://striped-anaconda-746.convex.site/ai/:path*"
+      "destination": "https://descriptive-ram-190.convex.site/ai/:path*"
     },
     {
       "source": "/city/:path*",
-      "destination": "https://striped-anaconda-746.convex.site/city/:path*"
+      "destination": "https://descriptive-ram-190.convex.site/city/:path*"
     },
     {
       "source": "/district/:path*",
-      "destination": "https://striped-anaconda-746.convex.site/district/:path*"
+      "destination": "https://descriptive-ram-190.convex.site/district/:path*"
     },
     {
       "source": "/franchise/:path*",
-      "destination": "https://striped-anaconda-746.convex.site/franchise/:path*"
+      "destination": "https://descriptive-ram-190.convex.site/franchise/:path*"
     },
     {
       "source": "/revenuecat/:path*",
-      "destination": "https://striped-anaconda-746.convex.site/revenuecat/:path*"
+      "destination": "https://descriptive-ram-190.convex.site/revenuecat/:path*"
     },
     {
       "source": "/sync/:path*",
-      "destination": "https://striped-anaconda-746.convex.site/sync/:path*"
+      "destination": "https://descriptive-ram-190.convex.site/sync/:path*"
     }
   ]
 }

@@ -8,7 +8,7 @@ import { fmt } from './city.js';
 export const BASE_URL = (typeof location !== 'undefined' && /^https?:\/\//.test(location.origin || '')
   && !/convex\.site$/.test(location.origin))
   ? location.origin
-  : 'https://striped-anaconda-746.convex.site';
+  : 'https://descriptive-ram-190.convex.site';
 
 export function calculateCampaignBadge({
   netWorth = 0,
