@@ -145,25 +145,41 @@ docs.convex.dev validates the current shape and adds a few items:
   `streets` max-age 30, `city/list` 60, `status` explicit `no-store`.
   Poll routes (`/district/kit`, `/sync/*`) deliberately left uncached.
 
-## Dev→prod migration (when ready)
+## Dev→prod migration — DONE (2026-11-21)
 
-`descriptive-ram-190` is the project's production deployment; the live
-site still points at dev `striped-anaconda-746`.
+`descriptive-ram-190` now serves `grunds.trustfall.xyz`. Public URL
+unchanged — only the rewrite destinations moved. Steps taken:
 
-1. Deploy functions: `npx convex deploy --cmd 'true'` with
-   `CONVEX_DEPLOY_KEY` for the prod deployment (dashboard → prod
-   deployment → settings → deploy key), or point `.env.local`'s
-   `CONVEX_DEPLOYMENT` at prod and `npx convex deploy`.
-2. Set env on prod: `ROW_MOD_TOKEN`, plus any secrets the functions
-   read (Tripo/Rodin/Grove keys — copy the dev env list over).
-3. Flip `deploy/vercel-proxy/vercel.json` rewrite destinations from
-   `striped-anaconda-746` to `descriptive-ram-190`, redeploy Vercel.
-4. Set a data-egress warning threshold on prod (dashboard → usage
-   limits) so a regression pages instead of silently disabling.
-5. Note: prod has no existing data — `tripoAssets`, `franchises`,
-   `cities` are all dev-deployment state. Existing Grove URLs are
-   immutable and still resolve, but the metadata tables would need
-   migrating (Convex dashboard export/import) or the Row starts empty.
+1. `npx convex export --deployment striped-anaconda-746` — docs only,
+   no file storage (dev storage URLs keep resolving while dev lives;
+   Grove covers everything else).
+2. Prod deploy key minted via `npx convex deployment token create --prod`
+   (needed for non-interactive deploy; deleted after use).
+3. `CONVEX_DEPLOY_KEY=... npx convex deploy` → functions + indexes on prod.
+4. All 16 env vars copied via `env get --deployment <dev>` →
+   `env set --deployment <prod>` (incl. `ROW_MOD_TOKEN`).
+5. `npx convex import --deployment descriptive-ram-190 --replace-all`
+   → 8,642 documents.
+6. `vercel.json` rewrites + `web/js/share.js` fallback repointed; Vercel
+   redeployed. Verified: status/streets/city/district all 200 through
+   grunds.trustfall.xyz against prod.
+
+Follow-ups (manual, dashboards we can't reach from CLI):
+
+- **AgentMail webhook URL** — likely still points at
+  `striped-anaconda-746.convex.site/agentmail/...` in the AgentMail
+  dashboard. Repoint at `grunds.trustfall.xyz/agentmail/...` — the
+  public domain survives future deployment moves. Secret already copied.
+- **Usage-limit thresholds** — set a monthly data-egress warn/disable
+  limit on prod (dashboard → usage limits). Warning thresholds exist
+  only on prod/preview.
+- **Tripo webhook** — `TRIPO_WEBHOOK_SECRET` unset on dev, so completion
+  rides the reaper + statusLive (verified live). If a webhook is ever
+  registered, point it at `grunds.trustfall.xyz/tripo/webhook`.
+- **Dev deployment** — keep alive: legacy
+  `striped-anaconda-746.convex.cloud/api/storage/...` URLs in migrated
+  rows still resolve from it. `.env.local` correctly targets dev again,
+  so `npx convex dev` is once more a safe loop.
 
 ## Open decisions
 
