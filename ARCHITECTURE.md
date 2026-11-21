@@ -471,10 +471,14 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   `by_campaign_dir_created` index); `latestInbox` behind read-only
   `GET /agentmail/inbox` mirrors the mailbox so the client can stage the
   reply's arrival — server `handleInbound` remains the only applier.
-- Hosting: `@convex-dev/static-hosting` serves the floor from
-  `https://striped-anaconda-746.convex.site` (43 files Sept 13, SPA fallback — adds `desk.js` + rebuilt `dist`);
-  public domain: `grunds.trustfall.xyz` — GoDaddy CNAME → Vercel `grunds-proxy`
-  (`deploy/vercel-proxy/vercel.json`, one catch-all rewrite, GET+POST), TLS
+- Hosting: Vercel `grunds-proxy` serves the floor itself — `dist/` is
+  uploaded as the project's static output (`tools/deploy-vercel.sh`) and
+  `deploy/vercel-proxy/vercel.json` rewrites ONLY the API prefixes
+  (`/sync`·`/district`·`/franchise`·`/city`·`/ai`·`/agentmail`·`/revenuecat`)
+  to `https://striped-anaconda-746.convex.site` (Nov 21 — the earlier
+  catch-all proxy served the ~40MB asset payload through Convex egress,
+  ~800MB/mo; `upload:site` keeps convex.site as a fallback mirror);
+  public domain: `grunds.trustfall.xyz` — GoDaddy CNAME → Vercel, TLS
   auto-minted, `_vercel` TXT + `grunds` CNAME both required at GoDaddy;
   generated assets mirrored to **Grove** (Oct 14 — team hit ~82% of Convex
   free-plan data egress, driven by `api/storage` GLB/preview downloads):

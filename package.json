@@ -16,7 +16,7 @@
     "test:browser": "node tools/test-browser.mjs",
     "stage:site": "node tools/stage-site.mjs",
     "upload:site": "npx @convex-dev/static-hosting upload -d dist",
-    "deploy:site": "npm run build:dist && npx convex dev --once && npx @convex-dev/static-hosting upload -d dist"
+    "deploy:site": "npm run build:dist && npx convex dev --once && sh tools/deploy-vercel.sh"
   },
   "dependencies": {
     "@convex-dev/static-hosting": "^0.2.1",

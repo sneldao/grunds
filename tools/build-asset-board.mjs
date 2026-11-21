@@ -18,6 +18,7 @@
 //        (defaults: the grown streets 5 7 11 13 17 19 21 23 27 31 42 99)
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { deedLabel, isPhotoDeed } from '../web/js/deeds.js';
+import { GROVE_ASSETS } from '../web/js/groveAssets.js';
 import { dirname, join, relative, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -90,7 +91,7 @@ const kitSpecForSeed = await loadKitSpec();
 // Pre-routing deployments don't report provider; the CDN host does.
 const inferProvider = (s) => s.provider || (s.modelUrl ? (/mint\.gg/.test(s.modelUrl) ? 'mint' : 'tripo') : null);
 
-const data = { generatedAt: new Date().toISOString(), base: BASE, seeds: [] };
+const data = { generatedAt: new Date().toISOString(), base: BASE, grove: GROVE_ASSETS, seeds: [] };
 for (const seed of seeds) {
   const live = await liveKit(seed);
   const franchise = await liveFranchise(seed);
@@ -129,6 +130,12 @@ function renderBoard(d) {
   const all = d.seeds.flatMap((s) => s.slots);
   const n = (f) => all.filter(f).length;
   const summary = `<p class="sum"><b>${n((s) => s.status === 'success')}</b> grown of ${all.length} slots · <span class="p tripo">tripo</span> ${n((s) => s.provider === 'tripo' && s.status === 'success')} · <span class="p mint">mint</span> ${n((s) => s.provider === 'mint' && s.status === 'success')} · processing ${n((s) => s.status === 'processing')}</p>`;
+  // Convex storage bytes go through the Grove mirror — serving them direct
+  // burns the deployment's data egress. Un-mirrored ids keep the origin URL.
+  const grove = (u) => {
+    const m = /\/api\/storage\/([0-9a-f-]+)/i.exec(u || '');
+    return (m && d.grove && d.grove[m[1]]) || u;
+  };
   const img = (src, alt, href) => src ? `<a href="${esc(href || src)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(src)}" alt="${esc(alt)}"></a>` : '';
   const seeds = d.seeds.map((s) => {
     let rows = s.slots.map((r) => `<tr>
@@ -136,7 +143,7 @@ function renderBoard(d) {
       <td>${r.provider ? `<span class="p ${esc(r.provider)}">${esc(r.provider)}</span>` : '—'}</td>
       <td><span class="st ${esc(r.status)}">${esc(r.status)}</span></td>
       <td class="prompt">${r.prompt ? esc(r.prompt) : '<i>prompt reported by /district/kit after deploy</i>'}</td>
-      <td class="img">${img(r.previewUrl, `${r.slot} preview`, r.modelUrl) || '<span class="ph">no preview yet</span>'}${r.modelUrl ? `<br><a class="glb" href="${esc(r.modelUrl)}" target="_blank" rel="noopener">GLB ↗</a>` : ''}</td>
+      <td class="img">${img(grove(r.previewUrl), `${r.slot} preview`, grove(r.modelUrl)) || '<span class="ph">no preview yet</span>'}${r.modelUrl ? `<br><a class="glb" href="${esc(grove(r.modelUrl))}" target="_blank" rel="noopener">GLB ↗</a>` : ''}</td>
       <td class="img">${img(r.shot || s.street, `${r.slot} in game`) || '<span class="ph">in-game capture pending</span>'}</td>
     </tr>`).join('');
     for (const f of s.franchise || []) rows += `<tr class="fr">
@@ -144,7 +151,7 @@ function renderBoard(d) {
       <td><span class="p tripo">tripo</span></td>
       <td><span class="st ${esc(f.status)}">${esc(f.status)}</span></td>
       <td class="prompt">${f.prompt ? esc(`${isPhotoDeed(f.prompt) ? deedLabel(f.prompt) : `“${f.prompt}”`} — described by a player, day ${f.day}${f.purpose ? ` · ${f.purpose}` : ''}${f.byline ? ` · by ${f.byline}` : ''}`) : ''}</td>
-      <td class="img">${img(f.previewUrl, 'franchise preview', f.modelUrl) || '<span class="ph">no preview yet</span>'}${f.modelUrl ? `<br><a class="glb" href="${esc(f.modelUrl)}" target="_blank" rel="noopener">GLB ↗</a>` : ''}</td>
+      <td class="img">${img(grove(f.previewUrl), 'franchise preview', grove(f.modelUrl)) || '<span class="ph">no preview yet</span>'}${f.modelUrl ? `<br><a class="glb" href="${esc(grove(f.modelUrl))}" target="_blank" rel="noopener">GLB ↗</a>` : ''}</td>
       <td class="img">${img(s.franchiseShot || s.street, 'franchise in game') || '<span class="ph">in-game capture pending</span>'}</td>
     </tr>`;
     return `<section><h2>District seed ${esc(s.seed)} <a href="${esc(d.base)}/?seed=${esc(s.seed)}" target="_blank" rel="noopener">play ↗</a> <small>${esc(s.from)}</small></h2>
@@ -183,7 +190,7 @@ const html = `<!doctype html>
 <script>
 ${renderBoard.toString()}
 (async () => {
-  if (!/\\.convex\\.site$/.test(location.hostname)) return; // static snapshot elsewhere
+  if (!/\\.convex\\.site$/.test(location.hostname) && location.hostname !== 'grunds.trustfall.xyz') return; // static snapshot elsewhere
   const d = JSON.parse(document.getElementById('board-data').textContent);
   d.base = location.origin;
   let changed = false;

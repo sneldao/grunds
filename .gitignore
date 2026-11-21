@@ -15,6 +15,10 @@ dist/
 .out/*.csv
 !data/
 
+# Vercel deploy staging — deploy/vercel-proxy keeps only vercel.json in git
+deploy/vercel-proxy/*
+!deploy/vercel-proxy/vercel.json
+
 # Agent tool state (per-user, never part of the build)
 .commandcode/
 .claude/

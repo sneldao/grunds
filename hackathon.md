@@ -6,18 +6,43 @@
   SUBMISSION.md, final-day plan in PLAN.md.
 - **What it does:** A live 3D coffee-district economy game where players run café stands and patron cohorts with persistent memory buy on price, events, and gossip.
 - **Live app:** https://grunds.trustfall.xyz (public domain; Vercel `grunds-proxy`
-  rewrites all paths to https://striped-anaconda-746.convex.site, still live itself)
+  serves the site itself — only the `/sync`·`/district`·`/franchise`·`/city`·`/ai`·`/agentmail`·`/revenuecat`
+  prefixes proxy to https://striped-anaconda-746.convex.site, still live itself)
 - **Repo:** https://github.com/sneldao/grunds
-- **Frontend:** Convex static hosting
+- **Frontend:** Vercel static hosting (Convex static hosting as fallback mirror)
 - **Convex deployment:** https://striped-anaconda-746.convex.cloud
 - **Components:** @convex-dev/static-hosting
 - **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions (live: /ai/letter, /ai/research, /ai/gossip, /ai/worldspec, /sync/*, /agentmail/webhook, /agentmail/inbox, /district/kit, /district/ensure, /city/pack, /tripo/webhook), crons, static hosting
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-11-11T12:00:00Z
+- **Last updated:** 2026-11-21T12:00:00Z
 
 ## Log
+
+### 2026-11-21 - Site moves off Convex hosting: Vercel serves dist/, API prefixes proxy
+
+- **Egress root cause:** the catch-all `vercel.json` proxied every request —
+  including all ~390 static files (~43MB/load) — to
+  `striped-anaconda-746.convex.site`, where `staticHosting/resolveAssetForHttp`
+  served each one as a function call + full bytes of Convex data egress.
+  ~18 uncached loads ≈ the entire ~880MB monthly meter.
+- **Fix:** `deploy/vercel-proxy/vercel.json` now rewrites only the API
+  prefixes (`/agentmail`, `/ai`, `/city`, `/district`, `/franchise`,
+  `/revenuecat`, `/sync`); `tools/deploy-vercel.sh` rsyncs `dist/` into
+  `deploy/vercel-proxy/` (gitignored; `vercel.json` + `.vercel` protected)
+  and runs `vercel deploy --prod`. `deploy:site` = build:dist →
+  `convex dev --once` → deploy-vercel.sh; `upload:site` is fallback-only.
+- **Asset board** routes `previewUrl`/`modelUrl` through `GROVE_ASSETS`
+  (baked into the page JSON so the live-refresh path rewrites too) and now
+  live-refreshes on grunds.trustfall.xyz.
+- **Verified live:** `/`, `/js/main.js`, GLBs, `streets.html`,
+  `asset-board.html`, `/api/schedule.json` all 200 `server: Vercel`;
+  `GET /district/kit?seed=7` and `POST /sync/snapshot` proxy to Convex JSON.
+  Expected egress drop ~95% — only JSON API calls still transit Convex.
+- Caveat: `deploy/vercel-proxy` needed a one-time `npx vercel link`
+  (project `grunds-proxy`); `node_modules` had to be reinstalled (`npm ci`)
+  for `convex dev` to bundle.
 
 ### 2026-11-11 - Rodin becomes the describe-path builder
 

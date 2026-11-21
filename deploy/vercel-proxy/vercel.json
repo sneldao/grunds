@@ -1,8 +1,32 @@
 {
   "rewrites": [
     {
-      "source": "/:path*",
-      "destination": "https://striped-anaconda-746.convex.site/:path*"
+      "source": "/agentmail/:path*",
+      "destination": "https://striped-anaconda-746.convex.site/agentmail/:path*"
+    },
+    {
+      "source": "/ai/:path*",
+      "destination": "https://striped-anaconda-746.convex.site/ai/:path*"
+    },
+    {
+      "source": "/city/:path*",
+      "destination": "https://striped-anaconda-746.convex.site/city/:path*"
+    },
+    {
+      "source": "/district/:path*",
+      "destination": "https://striped-anaconda-746.convex.site/district/:path*"
+    },
+    {
+      "source": "/franchise/:path*",
+      "destination": "https://striped-anaconda-746.convex.site/franchise/:path*"
+    },
+    {
+      "source": "/revenuecat/:path*",
+      "destination": "https://striped-anaconda-746.convex.site/revenuecat/:path*"
+    },
+    {
+      "source": "/sync/:path*",
+      "destination": "https://striped-anaconda-746.convex.site/sync/:path*"
     }
   ]
 }
