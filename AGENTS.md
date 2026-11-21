@@ -32,10 +32,15 @@
   `.env.local` first.
 - `deploy:site` = `build:dist` → `convex dev --once` (functions to dev) →
   `tools/deploy-vercel.sh`, which rsyncs `dist/` into `deploy/vercel-proxy/`
-  and runs `npx vercel deploy --prod`. The Vercel project `grunds-proxy`
+  and runs `npx vercel deploy --prod`. NOTE: since the Nov 21 prod cutover,
+  `convex dev --once` only updates dev — live functions ship with
+  `npx convex deploy` (prod). Function changes now need BOTH to reach
+  players. The Vercel project `grunds-proxy`
   serves the whole site from its CDN; `vercel.json` rewrites ONLY the API
   prefixes (`/sync/*`, `/district/*`, `/franchise/*`, `/city/*`, `/ai/*`,
-  `/agentmail/*`, `/revenuecat/*`) to `striped-anaconda-746.convex.site`.
+  `/agentmail/*`, `/revenuecat/*`) to `descriptive-ram-190.convex.site`
+  (prod; functions+data migrated off dev `striped-anaconda-746` Nov 21 —
+  see docs/row-hardening.md for the runbook).
   Serving the ~40MB asset payload through Convex static hosting was the data-
   egress sink — never go back to a catch-all proxy. One-time per machine:
   `cd deploy/vercel-proxy && npx vercel link` (project `grunds-proxy`).

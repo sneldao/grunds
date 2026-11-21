@@ -475,7 +475,8 @@ Shipped (`convex/`, verified end-to-end against cloud, re-verified Sept 13):
   uploaded as the project's static output (`tools/deploy-vercel.sh`) and
   `deploy/vercel-proxy/vercel.json` rewrites ONLY the API prefixes
   (`/sync`·`/district`·`/franchise`·`/city`·`/ai`·`/agentmail`·`/revenuecat`)
-  to `https://striped-anaconda-746.convex.site` (Nov 21 — the earlier
+  to `https://descriptive-ram-190.convex.site` (Nov 21 — prod deployment,
+  migrated from dev striped-anaconda-746 same day; the earlier
   catch-all proxy served the ~40MB asset payload through Convex egress,
   ~800MB/mo; `upload:site` keeps convex.site as a fallback mirror);
   public domain: `grunds.trustfall.xyz` — GoDaddy CNAME → Vercel, TLS
