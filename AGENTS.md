@@ -43,6 +43,34 @@
   fallback mirror — each upload adds ~40MB to file storage and every page
   load there is metered egress. Skip it unless the Vercel domain is down.
 
+## Convex meters (egress + file storage)
+- THE RULE (Nov 21, ~880MB/mo egress → near cap): never serve bytes through
+  Convex. No catch-all proxy to `.convex.site`, no runtime
+  `*.convex.cloud/api/storage/*` links in shipped pages. The site lives on
+  Vercel's CDN; storage objects go through the Grove mirror.
+- Residual egress paths, smallest first: `/sync/*` + `/district/*` JSON
+  (KBs, fine); new generations between mirror runs (`resolveAssetUrl` →
+  null → procedural, zero egress by design); asset-board rows for
+  un-mirrored ids (deliberately keep the origin URL so the preview shows);
+  **`*.convex.site` itself** — it still serves the last uploaded bundle, so
+  any visit there is another ~43MB. It stays as the fallback; if a
+  dashboard blip ever traces to it, replace the bundle with a redirect-only
+  index rather than re-uploading the site.
+- File storage (~385MB / 1GB — a separate meter, also near cap): each
+  `upload:site` run added ~40MB and old files weren't pruned; every
+  `tripo.persist` adds a GLB+preview permanently (that's the durable store,
+  by design). No cleanup tooling exists yet — future task: prune orphan
+  `_storage` objects not referenced by `tripoAssets` or the current static
+  manifest.
+- Grove covers everything: tripo / rodin / mint all land in `tripoAssets`,
+  which is what `tools/mirror-assets.mjs` reads. After any new generation
+  lands → `node tools/mirror-assets.mjs` → redeploy (the manifest ships
+  inside the bundle).
+- If the egress meter climbs again, check in order: someone playing on
+  `*.convex.site` directly, a new provider path that stores AND serves
+  storage URLs at runtime (route it through `resolveAssetUrl` like
+  `loader.js` does), a re-introduced catch-all rewrite in `vercel.json`.
+
 ## Polyfork assets
 - `tools/vendor-polyfork.mjs` vendors free Polyfork GLBs into
   `web/assets/polyfork/` + regenerates `web/js/polyforkManifest.js`
