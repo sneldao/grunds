@@ -16,9 +16,30 @@
 - **Auth:** none
 - **AI models:** meta-llama/Llama-3.3-70B-Instruct via Nebius Token Factory (live), gpt-4o-mini via OpenAI (`wireWhy` — the Wire's "why this matters" line; provider chain `OPENAI_*` → `OPENAI_FALLBACK_*` so any OpenAI-compatible endpoint covers outages; falls back empty when key-gated), minimax/minimax-m3.1-flash via SandBase (`convex/city.ts` — ?city locality packs, live), Mint (mint.gg) 3D model generation (`convex/mint.ts` → `tripoAssets`, powering the generative district; the Tripo v3 adapter `convex/tripo.ts` is wired + key-ready but idle pending credits)
 - **Started:** 2026-09-05T20:48:27Z
-- **Last updated:** 2026-11-21T12:00:00Z
+- **Last updated:** 2026-11-21T18:00:00Z
 
 ## Log
+
+### 2026-11-21 (2) - Storage audit + Grove-first persist: the meters close out
+
+- **Audit:** all 222 app `_storage` objects (357.5MB) are live `tripoAssets`
+  refs — zero orphans; the site blobs live in a separate component
+  namespace the uploader self-cleans. The file-storage meter IS the
+  generated-asset archive, not waste.
+- **convex.site → redirect bundle** (`deploy/redirect/`, 3 files): every
+  page bounces to grunds.trustfall.xyz; the old 44MB manifest was
+  auto-cleaned on upload. Last big-egress path closed.
+- **Grove-first persist** (`tripo.persist`): generations upload to Grove at
+  completion and the row carries the gateway URL — all three providers
+  (tripo/rodin/mint) ride it. New assets render with no mirror lag and
+  never touch the file-storage meter; Grove outage → Convex-store fallback
+  (later mirror run catches it). One scheduled retry guards short-lived
+  provider URLs; uploads carry magic-byte content types.
+- **`tools/storage-audit.mjs`**: dry-run audit, `--delete` for orphans,
+  `--prune-mirrored` HEAD-verifies each Grove mirror then deletes the
+  redundant Convex copy — the reclaim lever for the 357MB archive, kept
+  unrun for now (second copy is free insurance).
+- `mirror-assets.mjs` demoted to catching Grove-outage fallbacks only.
 
 ### 2026-11-21 - Site moves off Convex hosting: Vercel serves dist/, API prefixes proxy
 

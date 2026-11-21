@@ -29,6 +29,35 @@ export const storageIdMap = internalAction({
   },
 });
 
+// storage-audit --prune-mirrored calls this after HEAD-verifying each
+// object's Grove mirror. Guard direction is inverse of deleteOrphans: only
+// objects that ARE canonical tripoAssets copies may be pruned — the mirror
+// carries serving, so the Convex copy is a redundant archive.
+export const deleteMirrored = internalMutation({
+  args: { ids: v.array(v.id("_storage")) },
+  handler: async (ctx, args): Promise<{ deleted: number; skipped: number }> => {
+    const assets = await ctx.db.query("tripoAssets").collect();
+    const refs = new Set<string>();
+    for (const a of assets)
+      for (const u of [a.modelUrl, a.previewUrl]) {
+        const m = /\/api\/storage\/([0-9a-f-]+)/i.exec(u ?? "");
+        if (m) refs.add(m[1]);
+      }
+    let deleted = 0, skipped = 0;
+    for (const id of args.ids) {
+      const url = await ctx.storage.getUrl(id).catch(() => null);
+      const uuid = url ? /\/api\/storage\/([0-9a-f-]+)/i.exec(url)?.[1] : null;
+      if (!uuid || !refs.has(uuid)) {
+        skipped++;
+        continue;
+      }
+      await ctx.storage.delete(id);
+      deleted++;
+    }
+    return { deleted, skipped };
+  },
+});
+
 export const deleteOrphans = internalMutation({
   args: { ids: v.array(v.id("_storage")) },
   handler: async (ctx, args): Promise<{ deleted: number; kept: number }> => {

@@ -11,8 +11,12 @@
 //
 //   node tools/storage-audit.mjs              # report only
 //   node tools/storage-audit.mjs --delete     # delete orphans
+//   node tools/storage-audit.mjs --prune-mirrored
+//                                             # delete Convex copies whose
+//                                             # Grove mirror is verified live
 //   node tools/storage-audit.mjs --deployment striped-anaconda-746
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -55,6 +59,33 @@ console.log(`app _storage: ${storage.length} objects, ${mb(storage.reduce((s, r)
 console.log(`  referenced by tripoAssets (${refs.size} urls): ${live.length} objects, ${mb(live.reduce((s, r) => s + r.size, 0))}`);
 console.log(`  orphans:   ${orphans.length} objects, ${mb(orphans.reduce((s, r) => s + r.size, 0))}`);
 console.log(`  tombstones (no url): ${tombstones.length} objects, ${mb(tombstones.reduce((s, r) => s + r.size, 0))}`);
+
+// --prune-mirrored: reclaim the redundant archive. For every live object
+// whose uuid has a Grove mapping in web/js/groveAssets.js, verify the mirror
+// is actually serving before deleting the Convex copy. Runs before the
+// orphan check — it's the common case, and the safe one.
+if (argv.includes('--prune-mirrored')) {
+  const src = fs.readFileSync(path.join(ROOT, 'web/js/groveAssets.js'), 'utf8');
+  const m = src.match(/GROVE_ASSETS =\s*(\{[\s\S]*?\});/);
+  const manifest = m ? JSON.parse(m[1].replace(/'/g, '"').replace(/,\s*}/, '}')) : {};
+  let verified = 0, missing = 0;
+  const doomed = [];
+  for (const r of live) {
+    const uuid = uuidOf(urlOf.get(r._id));
+    const grove = uuid && manifest[uuid];
+    if (!grove) { missing++; continue; }
+    const res = await fetch(grove, { method: 'HEAD' }).catch(() => null);
+    if (res?.ok) { verified++; doomed.push(r._id); }
+    else { missing++; console.error(`  mirror dead for ${uuid}: ${grove} — keeping Convex copy`); }
+  }
+  const bytes = live.filter((r) => doomed.includes(r._id)).reduce((s, r) => s + r.size, 0);
+  console.log(`prune-mirrored: ${verified} verified mirrors (${mb(bytes)}), ${missing} kept (no/dead mirror)`);
+  if (doomed.length) {
+    const out = convex(['run', 'storageCleanup:deleteMirrored', JSON.stringify({ ids: doomed })]);
+    console.log('deleteMirrored →', out.trim());
+  }
+  process.exit(0);
+}
 
 if (!doDelete) {
   console.log('\ndry run — re-run with --delete to remove orphans + tombstones');

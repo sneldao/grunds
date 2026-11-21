@@ -460,9 +460,11 @@ export const applyResult = internalMutation({
           previewUrl: args.previewUrl,
           error: undefined,
         });
-        // Rodin output URLs ride the same short-lived pattern as Tripo's —
-        // copy both into file storage so the row is the permanent address.
-        if ((row.provider === "tripo" || row.provider === "rodin") && args.modelUrl)
+        // Provider URLs are either signed/short-lived (Tripo, Rodin) or a
+        // third-party CDN we don't control (Mint) — persist makes the row
+        // the permanent address on Grove (Convex storage only if Grove
+        // refuses the upload).
+        if (args.modelUrl)
           await ctx.scheduler.runAfter(0, internal.tripo.persist, {
             key: row.key,
             modelUrl: args.modelUrl,
@@ -480,26 +482,76 @@ export const applyResult = internalMutation({
   },
 });
 
-// Tripo's output URLs are signed and short-lived; the floor loads GLBs for
-// every future visitor, so copy them into Convex file storage once and
-// repoint the row. Best-effort: on any failure the original URL stays.
+// Generated assets persist to Grove — content-addressed, immutable, and
+// served without Convex egress. The row carries the gateway URL directly,
+// so new assets never wait on a mirror run to render and never touch the
+// file-storage meter. If Grove refuses an upload we fall back to Convex
+// file storage (tools/mirror-assets.mjs picks those up next run). Provider
+// URLs are signed and short-lived, so a persist that can't fetch retries
+// once after a minute; on total failure the original URL stays (same
+// best-effort posture as before).
+const GROVE_UPLOAD = "https://api.grove.storage/?chain_id=232";
+
+function sniffType(buf: ArrayBuffer): string {
+  const b = new Uint8Array(buf.slice(0, 12));
+  const ascii = String.fromCharCode(...b.subarray(0, 4));
+  if (ascii === "glTF") return "model/gltf-binary";
+  if (b[0] === 0x89 && b[1] === 0x50) return "image/png";
+  if (b[0] === 0xff && b[1] === 0xd8) return "image/jpeg";
+  if (ascii === "RIFF") return "image/webp";
+  return "application/octet-stream";
+}
+
+async function groveStore(buf: ArrayBuffer, type: string): Promise<string | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const up = await fetch(GROVE_UPLOAD, {
+        method: "POST",
+        headers: { "Content-Type": type },
+        body: buf,
+        signal: AbortSignal.timeout ? AbortSignal.timeout(20_000) : undefined,
+      });
+      if (!up.ok) continue;
+      const [item] = (await up.json()) as { gateway_url?: string }[];
+      if (item?.gateway_url?.startsWith("https://api.grove.storage/"))
+        return item.gateway_url;
+      return null;
+    } catch {
+      // retry once, then the Convex fallback
+    }
+  }
+  return null;
+}
+
 export const persist = internalAction({
-  args: { key: v.string(), modelUrl: v.string(), previewUrl: v.optional(v.string()) },
+  args: {
+    key: v.string(),
+    modelUrl: v.string(),
+    previewUrl: v.optional(v.string()),
+    retried: v.optional(v.boolean()),
+  },
   handler: async (ctx, args): Promise<{ stored: boolean }> => {
-    const copy = async (url: string): Promise<string | null> => {
+    const copy = async (url: string): Promise<string> => {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`fetch ${res.status}`);
-      const id = await ctx.storage.store(await res.blob());
-      return await ctx.storage.getUrl(id);
+      const blob = await res.blob();
+      const buf = await blob.arrayBuffer();
+      const grove = await groveStore(buf, sniffType(buf));
+      if (grove) return grove;
+      const id = await ctx.storage.store(blob);
+      const stored = await ctx.storage.getUrl(id);
+      if (!stored) throw new Error("storage getUrl");
+      return stored;
     };
     try {
       const modelUrl = await copy(args.modelUrl);
-      if (!modelUrl) return { stored: false };
       let previewUrl: string | undefined;
       if (args.previewUrl) previewUrl = (await copy(args.previewUrl).catch(() => null)) ?? undefined;
       await ctx.runMutation(internal.tripo.setStoredUrls, { key: args.key, modelUrl, previewUrl });
       return { stored: true };
     } catch {
+      if (!args.retried)
+        await ctx.scheduler.runAfter(60_000, internal.tripo.persist, { ...args, retried: true });
       return { stored: false };
     }
   },

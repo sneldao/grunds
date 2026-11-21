@@ -52,7 +52,7 @@ check('text prompts try Rodin before Tripo', convexFr.includes('if (!isImageInpu
 check('a Rodin miss falls through to Tripo (never throws, never empty)', convexFr.includes('if (!r.fallback)'));
 check('a Rodin success records under the rodin key', convexFr.includes('rodinFranchiseKey(args.seed, args.lot, prompt)'));
 check('image inputs skip Rodin entirely', convexFr.includes('isImageInput(prompt)'));
-check('persist copies Rodin outputs into storage too', convexTripo.includes('row.provider === "tripo" || row.provider === "rodin"'));
+check('persist stores Rodin outputs on Grove too', /if \(args\.modelUrl\)[\s\S]*?internal\.tripo\.persist/.test(convexTripo));
 check('nudge dispatches on the row provider', convexFr.includes('t.provider === "rodin"') && convexFr.includes('internal.rodin.pollTask') && convexFr.includes('internal.tripo.pollTask'));
 
 // ============================================================

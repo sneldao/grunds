@@ -49,7 +49,7 @@
   `*.convex.cloud/api/storage/*` links in shipped pages. The site lives on
   Vercel's CDN; storage objects go through the Grove mirror.
 - Residual egress paths, smallest first: `/sync/*` + `/district/*` JSON
-  (KBs, fine); new generations between mirror runs (`resolveAssetUrl` →
+  (KBs, fine); Grove-failure persist fallbacks (`resolveAssetUrl` →
   null → procedural, zero egress by design); asset-board rows for
   un-mirrored ids (deliberately keep the origin URL so the preview shows);
   **`*.convex.site` itself** — now a 3-file redirect bundle
@@ -57,7 +57,9 @@
   to grunds.trustfall.xyz; extension-less paths 200 → redirect, file paths
   404. The old 44MB manifest was auto-cleaned on upload. Never run the
   uploader with `-d dist` again — that re-uploads the site and reopens the
-  meter.
+  meter. New persists write Grove URLs onto the row directly (Grove-first
+  since Nov 21), so the meter should now stay flat — `cdn.mint.gg` rows
+  from before then still serve Mint's CDN.
 - File storage (~385MB / 1GB — a separate meter, also near cap): two
   namespaces. **Component storage** (`--component staticHosting`) is the
   site blobs — the uploader self-cleans old manifests, don't touch it.
@@ -68,12 +70,13 @@
   `storageCleanup:storageIdMap`, diffs against tripoAssets refs, and
   `--delete` prunes through `storageCleanup:deleteOrphans` (guards live
   refs server-side). Nov 21 audit: 222 objects / 357.5MB, zero orphans —
-  the meter IS the generated-asset library; it only shrinks if assets are
-  deleted.
-- Grove covers everything: tripo / rodin / mint all land in `tripoAssets`,
-  which is what `tools/mirror-assets.mjs` reads. After any new generation
-  lands → `node tools/mirror-assets.mjs` → redeploy (the manifest ships
-  inside the bundle).
+  the meter IS the legacy generated-asset archive. Since then persists
+  write Grove URLs directly, so it only shrinks from here:
+  `--prune-mirrored` reclaims the archive when you want it gone.
+- Grove covers everything: tripo / rodin / mint all land in `tripoAssets`.
+  New generations carry Grove URLs on the row itself; `mirror-assets.mjs`
+  only matters for rows that fell back to Convex storage during a Grove
+  outage — run it if a generation renders procedurally when it shouldn't.
 - If the egress meter climbs again, check in order: someone playing on
   `*.convex.site` directly, a new provider path that stores AND serves
   storage URLs at runtime (route it through `resolveAssetUrl` like
@@ -182,14 +185,22 @@
   rival doors, not at ours; one sign per door; district `stall`/`cart`
   slots stay off NEIGHBOR_DOORS and their queues.
 
-## Generated assets (Grove mirror)
-- Convex data-egress is the constraint: generated GLBs + previews are mirrored
-  to Grove (immutable, `chain_id` 232) and the client rewrites
-  `*.convex.cloud/api/storage/<uuid>` via `web/js/groveAssets.js` (generated —
-  do not hand-edit the map). Un-mirrored storage URLs resolve to `null` and
-  fall back to the classic procedural path **without a network request**.
-- After new generations land (Tripo `persist`, franchise stands, new district
-  kits), refresh the mirror: `node tools/mirror-assets.mjs` then redeploy.
+## Generated assets (Grove-first persist)
+- Convex data-egress AND file-storage are the constraints: `tripo.persist`
+  uploads every new generation straight to Grove (immutable, `chain_id` 232)
+  and stores the gateway URL on the `tripoAssets` row — tripo / rodin /
+  mint all ride it. New assets render immediately (no mirror lag), never
+  touch the file-storage meter, and a Grove outage falls back to Convex
+  storage exactly as before.
+- `web/js/groveAssets.js` (generated — do not hand-edit the map) resolves
+  the 222 LEGACY `*.convex.cloud/api/storage/<uuid>` rows; non-storage URLs
+  pass through untouched. Un-mirrored storage URLs resolve to `null` →
+  procedural fallback **without a network request**.
+- `node tools/mirror-assets.mjs` now only catches the rare Grove-failure
+  fallback rows — no longer required after routine generations.
+- `tools/storage-audit.mjs --prune-mirrored` HEAD-verifies each Grove
+  mirror then deletes the redundant Convex copy — the reclaim lever for
+  the legacy archive when the file-storage meter pressures it.
 - Meshy (offline asset source, never runtime): `tools/vendor-meshy.mjs`
   generates via the Meshy API into `web/assets/meshy/` + manifest.json.
   Key: `MESHY_API_KEY` in `.env.local`. Defaults follow Meshy's game-asset
