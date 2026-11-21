@@ -52,16 +52,24 @@
   (KBs, fine); new generations between mirror runs (`resolveAssetUrl` →
   null → procedural, zero egress by design); asset-board rows for
   un-mirrored ids (deliberately keep the origin URL so the preview shows);
-  **`*.convex.site` itself** — it still serves the last uploaded bundle, so
-  any visit there is another ~43MB. It stays as the fallback; if a
-  dashboard blip ever traces to it, replace the bundle with a redirect-only
-  index rather than re-uploading the site.
-- File storage (~385MB / 1GB — a separate meter, also near cap): each
-  `upload:site` run added ~40MB and old files weren't pruned; every
-  `tripo.persist` adds a GLB+preview permanently (that's the durable store,
-  by design). No cleanup tooling exists yet — future task: prune orphan
-  `_storage` objects not referenced by `tripoAssets` or the current static
-  manifest.
+  **`*.convex.site` itself** — now a 3-file redirect bundle
+  (`deploy/redirect/`, uploaded via `upload:site`) that bounces every page
+  to grunds.trustfall.xyz; extension-less paths 200 → redirect, file paths
+  404. The old 44MB manifest was auto-cleaned on upload. Never run the
+  uploader with `-d dist` again — that re-uploads the site and reopens the
+  meter.
+- File storage (~385MB / 1GB — a separate meter, also near cap): two
+  namespaces. **Component storage** (`--component staticHosting`) is the
+  site blobs — the uploader self-cleans old manifests, don't touch it.
+  **App `_storage`** is written only by `tripo.persist` (GLB+preview,
+  permanent by design) — the serving URL's UUID is just `getUrl(id)`, so
+  `convex data _storage` `kg2` ids and tripoAssets UUIDs are the same
+  objects. `node tools/storage-audit.mjs` maps ids→urls via
+  `storageCleanup:storageIdMap`, diffs against tripoAssets refs, and
+  `--delete` prunes through `storageCleanup:deleteOrphans` (guards live
+  refs server-side). Nov 21 audit: 222 objects / 357.5MB, zero orphans —
+  the meter IS the generated-asset library; it only shrinks if assets are
+  deleted.
 - Grove covers everything: tripo / rodin / mint all land in `tripoAssets`,
   which is what `tools/mirror-assets.mjs` reads. After any new generation
   lands → `node tools/mirror-assets.mjs` → redeploy (the manifest ships

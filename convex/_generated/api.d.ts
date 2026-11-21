@@ -32,6 +32,7 @@ import type * as rivals from "../rivals.js";
 import type * as rodin from "../rodin.js";
 import type * as standSpec from "../standSpec.js";
 import type * as stands from "../stands.js";
+import type * as storageCleanup from "../storageCleanup.js";
 import type * as tripo from "../tripo.js";
 import type * as worldSpec from "../worldSpec.js";
 
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   rodin: typeof rodin;
   standSpec: typeof standSpec;
   stands: typeof stands;
+  storageCleanup: typeof storageCleanup;
   tripo: typeof tripo;
   worldSpec: typeof worldSpec;
 }>;
