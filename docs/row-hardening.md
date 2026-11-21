@@ -121,6 +121,50 @@ lot table, not unbounded.
 - Old tripoAssets row is unreferenced after remodel — future
   `storage-audit`/`deleteMirrored` territory, no action needed now.
 
+## Convex-docs review (2026-11-21)
+
+docs.convex.dev validates the current shape and adds a few items:
+
+- **Vercel-in-front is the documented pattern** for HTTP actions
+  (`production/abuse-protection` → "Putting Vercel in front"). Our
+  scoped rewrites are tighter than their catch-all example. Vercel
+  Firewall/rate-limit rules are available on that edge if abuse hits.
+- **Egress includes serving files AND `ctx.storage` reads inside
+  functions** — Grove-first avoids both. Their own alternative is the
+  Cloudflare R2 component; Grove fills the same role.
+- **Dev deployments are dev loops**: `npx convex dev` continuously
+  pushes the working tree to the dev deployment — which is the one
+  serving live traffic. Usage-limit warning thresholds and
+  notification emails only exist on prod/preview deployments.
+- **Usage limits** (dashboard): daily/monthly warn/disable thresholds
+  per metric; free plan is a hard cap that disables the deployment.
+- **"Documents no bigger than your UI"**: no field projections; every
+  doc read counts. `streets` was the only unbounded read left.
+- Shipped on the back of the review: `streets` bounded to the 240
+  newest stands (~6 KB/stand response); `Cache-Control` on GET routes —
+  `streets` max-age 30, `city/list` 60, `status` explicit `no-store`.
+  Poll routes (`/district/kit`, `/sync/*`) deliberately left uncached.
+
+## Dev→prod migration (when ready)
+
+`descriptive-ram-190` is the project's production deployment; the live
+site still points at dev `striped-anaconda-746`.
+
+1. Deploy functions: `npx convex deploy --cmd 'true'` with
+   `CONVEX_DEPLOY_KEY` for the prod deployment (dashboard → prod
+   deployment → settings → deploy key), or point `.env.local`'s
+   `CONVEX_DEPLOYMENT` at prod and `npx convex deploy`.
+2. Set env on prod: `ROW_MOD_TOKEN`, plus any secrets the functions
+   read (Tripo/Rodin/Grove keys — copy the dev env list over).
+3. Flip `deploy/vercel-proxy/vercel.json` rewrite destinations from
+   `striped-anaconda-746` to `descriptive-ram-190`, redeploy Vercel.
+4. Set a data-egress warning threshold on prod (dashboard → usage
+   limits) so a regression pages instead of silently disabling.
+5. Note: prod has no existing data — `tripoAssets`, `franchises`,
+   `cities` are all dev-deployment state. Existing Grove URLs are
+   immutable and still resolve, but the metadata tables would need
+   migrating (Convex dashboard export/import) or the Row starts empty.
+
 ## Open decisions
 
 - Grade aggressiveness: warm multiply only vs shader desaturation

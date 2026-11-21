@@ -480,12 +480,14 @@ export const record = internalMutation({
 });
 
 // The Streets gallery index: every seed that has a stand on its Row, with
-// the deeds (prompt, purpose, signature, preview). Small table — a plain
-// collect + group is cheaper than a schema change for this.
+// the deeds (prompt, purpose, signature, preview). Bounded: the response
+// runs ~6 KB per stand (spec cards are heavy), so cap the read rather than
+// grow the payload forever — 240 stands ≈ 60 full streets, newest first.
+const STREETS_MAX_STANDS = 240;
 export const streets = query({
   args: {},
   handler: async (ctx): Promise<{ seeds: { seed: number; stands: LotStatus[] }[] }> => {
-    const frs = await ctx.db.query("franchises").collect();
+    const frs = await ctx.db.query("franchises").order("desc").take(STREETS_MAX_STANDS);
     const bySeed = new Map<number, LotStatus[]>();
     for (const fr of frs) {
       if (fr.hidden) continue; // hidden stands leave the gallery too

@@ -9,10 +9,13 @@ import { readEntitlements } from "./revenuecat.js";
 // to Convex over plain fetch: POST snapshots at each dawn, GET state to poll.
 // All endpoints degrade loudly (4xx with JSON) rather than silently.
 
-const json = (obj: unknown, status = 200): Response =>
+const json = (obj: unknown, status = 200, cache?: string): Response =>
   new Response(JSON.stringify(obj), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(cache ? { "Cache-Control": cache } : {}),
+    },
   });
 
 // Svix signature check — AgentMail signs every webhook HMAC-SHA256 over
@@ -256,7 +259,7 @@ export const cityPack = httpAction(async (ctx, req) => {
 
 // The lit map — cities that have minted a pack, oldest claim first.
 export const cityList = httpAction(async (ctx) => {
-  return json(await ctx.runQuery(api.city.list, {}));
+  return json(await ctx.runQuery(api.city.list, {}), 200, "public, max-age=60");
 });
 
 // The Franchise — the player's words become a stand on The Row. The brief
@@ -270,7 +273,7 @@ export const franchiseStatus = httpAction(async (ctx, req) => {
   if (!Number.isFinite(seed) || seed < 0) return json({ error: "bad seed" }, 400);
   // statusLive nudges mature processing tasks itself — a described stand
   // can land mid-session instead of waiting on the hourly reaper.
-  return json(await ctx.runAction(api.franchise.statusLive, { seed }));
+  return json(await ctx.runAction(api.franchise.statusLive, { seed }), 200, "no-store");
 });
 
 export const franchiseDescribe = httpAction(async (ctx, req) => {
@@ -291,7 +294,7 @@ export const franchiseDescribe = httpAction(async (ctx, req) => {
 // The Streets gallery: every seed with stands on its Row — the deeds,
 // not the geometry. Client merges this with the curated district seeds.
 export const franchiseStreets = httpAction(async (ctx) => {
-  return json(await ctx.runQuery(api.franchise.streets, {}));
+  return json(await ctx.runQuery(api.franchise.streets, {}), 200, "public, max-age=30");
 });
 
 // Post the letter to a real inbox — the client sends the composed letter
