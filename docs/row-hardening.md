@@ -163,6 +163,10 @@ unchanged — only the rewrite destinations moved. Steps taken:
 6. `vercel.json` rewrites + `web/js/share.js` fallback repointed; Vercel
    redeployed. Verified: status/streets/city/district all 200 through
    grunds.trustfall.xyz against prod.
+7. Live generation verified on prod: seed 888777 Pitch describe
+   ("Petal Brews", byline `devin-prod-verify`) → provider URL → Grove
+   URL within ~60 s. Provider keys, write path, and Grove persist all
+   work on prod.
 
 Follow-ups (manual, dashboards we can't reach from CLI):
 
